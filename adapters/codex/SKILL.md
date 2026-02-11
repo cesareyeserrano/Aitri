@@ -33,6 +33,14 @@ Requires an approved spec. Generates:
 - `backlog/<feature>/backlog.md`
 - `tests/<feature>/tests.md`
 
+### `aitri plan`
+Generates a planning package from an approved spec:
+- Creates: `docs/plan/<feature>.md`
+- Overwrites: `backlog/<feature>/backlog.md`
+- Overwrites: `tests/<feature>/tests.md`
+
+Use this to turn placeholders into a structured plan. The agent must then refine backlog/tests content in alignment with personas, and request human approval before implementation.
+
 This is where the agent starts producing SDLC artifacts from the approved spec.
 
 ## Workflow (Default)
@@ -42,6 +50,8 @@ This is where the agent starts producing SDLC artifacts from the approved spec.
 4) Ask the user to review the draft spec and make changes if needed.
 5) Run `aitri approve`. If failed, fix spec and repeat.
 6) Run `aitri discover` to generate discovery/backlog/tests.
+6b) Run `aitri plan` to generate a plan doc and refresh backlog/tests structure.
+6c) Refine `docs/plan/<feature>.md`, `backlog/<feature>/backlog.md`, and `tests/<feature>/tests.md` using personas, then ask user approval.
 7) Ask the user to approve generated artifacts before any implementation work.
 8) Only after approvals: begin implementation (outside Aitri scope unless user asks).
 
