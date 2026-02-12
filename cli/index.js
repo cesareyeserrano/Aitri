@@ -24,8 +24,11 @@ Aitri ⚒️
 
 Commands:
   init       Initialize project structure
-  draft      Create a draft spec from an idea
-  approve    Approve a draft spec (move to specs/approved)
+  draft      Create a draft spec from an idea (use --guided for guided input)
+  approve    Approve a draft spec (runs gates and moves to specs/approved)
+  discover   Generate discovery + artifact scaffolding from an approved spec
+  plan       Generate plan doc + traceable backlog/tests from an approved spec
+  validate   Validate traceability placeholders are resolved (FR/AC/US/TC)
 `);
   process.exit(0);
 }
