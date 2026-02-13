@@ -1,3 +1,8 @@
+---
+name: aitri
+description: Spec-driven SDLC workflow guardrail for Claude sessions using Aitri commands, personas, and approval gates.
+---
+
 # Aitri Skill (Claude) — Spec-Driven SDLC
 
 ## Purpose

@@ -1,3 +1,8 @@
+---
+name: aitri
+description: Spec-driven SDLC workflow guardrail for Codex CLI sessions using Aitri commands, personas, and approval gates.
+---
+
 # Aitri Skill (Codex) — Spec-Driven SDLC
 
 ## Purpose

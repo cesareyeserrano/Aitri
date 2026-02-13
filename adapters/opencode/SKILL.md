@@ -1,3 +1,8 @@
+---
+name: aitri
+description: Spec-driven SDLC workflow guardrail for OpenCode sessions using Aitri commands, personas, and approval gates.
+---
+
 # Aitri Skill (OpenCode) — Spec-Driven SDLC
 
 ## Purpose

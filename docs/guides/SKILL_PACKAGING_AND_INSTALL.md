@@ -25,6 +25,16 @@ If your agent platform supports local skills, point it to:
 - Claude: `adapters/claude/`
 - OpenCode: `adapters/opencode/`
 
+For Codex CLI local install:
+```bash
+mkdir -p ~/.codex/skills/aitri
+cp adapters/codex/SKILL.md ~/.codex/skills/aitri/SKILL.md
+```
+
+Codex discovery requirement:
+- `SKILL.md` must include YAML frontmatter with `name` and `description`.
+- Restart Codex after installing or updating a local skill.
+
 ## Runtime Expectations
 - Start with `aitri status --json`
 - Use non-interactive flags in automation

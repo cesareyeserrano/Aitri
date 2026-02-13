@@ -111,6 +111,17 @@ UI metadata files for skill lists:
 - `adapters/claude/agents/openai.yaml`
 - `adapters/opencode/agents/openai.yaml`
 
+### Install as Codex Skill (Local)
+```bash
+mkdir -p ~/.codex/skills/aitri
+cp adapters/codex/SKILL.md ~/.codex/skills/aitri/SKILL.md
+```
+
+Then restart Codex and invoke it explicitly in-session:
+```text
+Use the aitri skill and run aitri status --json
+```
+
 ## Project Structure
 ```text
 specs/
@@ -153,6 +164,10 @@ node ../../cli/index.js validate --feature validate-coverage --non-interactive -
 - If command waits for input in CI: add `--non-interactive --yes`.
 - If `validate` fails with missing feature: add `--feature <name>`.
 - If merge is blocked by branch policy: complete required checks/review or use admin merge when appropriate.
+- If Codex does not discover the local skill:
+  - Verify `~/.codex/skills/aitri/SKILL.md` exists.
+  - Verify `SKILL.md` starts with YAML frontmatter (`name`, `description`).
+  - Restart Codex after installation/update.
 
 ## Documentation Index
 - `docs/README.md`
