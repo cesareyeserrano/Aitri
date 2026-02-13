@@ -53,6 +53,9 @@ Before implementation approval:
 - Security: controls, threat and abuse prevention
 - UX/UI (if user-facing): user flow clarity, accessibility baseline, and state handling
 
+Persona invocation is iterative (not one-time):
+- Re-run relevant personas whenever scope, architecture, contracts, or validation state changes.
+
 ## Validation Contract (Current Baseline)
 `validate` should assert at minimum:
 1. approved spec exists

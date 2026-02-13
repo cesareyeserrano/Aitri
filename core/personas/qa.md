@@ -84,3 +84,8 @@ For every feature specify:
   - block progression
   - return a precise ambiguity report and required clarifications.
 - Keep output deterministic and concise.
+
+## Invocation Policy
+- Invoke this persona as many times as needed before implementation, before release, and after regressions.
+- Re-run after scope changes, contract changes, or any failed validation.
+- Treat each run as current-state guidance; do not assume previous outputs remain valid after context changes.

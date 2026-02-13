@@ -58,3 +58,8 @@ For each ADR include:
   - what is sacrificed for speed
   - operational risk introduced
   - mitigation or payback plan
+
+## Invocation Policy
+- Invoke this persona as many times as needed during discovery, planning, implementation, and review.
+- Re-run after material scope changes, integration changes, or failed validation.
+- Treat each run as current-state guidance; do not assume previous outputs remain valid after context changes.

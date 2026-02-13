@@ -65,6 +65,10 @@ When refining artifacts, apply:
 - Security
 - UX/UI (if user-facing)
 
+Persona usage is iterative:
+- Re-run relevant personas whenever scope, contracts, architecture, or validation state changes.
+- Do not treat persona output as one-time/final if context has changed.
+
 Reference files:
 - `core/personas/product.md`
 - `core/personas/architect.md`

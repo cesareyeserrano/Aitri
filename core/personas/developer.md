@@ -82,3 +82,8 @@ For every task define:
 - Do not hallucinate dependencies or external APIs.
 - If a dependency is missing or uncertain, flag immediately and stop that branch of implementation.
 - Keep output deterministic and concise.
+
+## Invocation Policy
+- Invoke this persona as many times as needed during planning, implementation, and hardening.
+- Re-run after architecture updates, contract changes, or failed tests/validation.
+- Treat each run as current-state guidance; do not assume previous outputs remain valid after context changes.

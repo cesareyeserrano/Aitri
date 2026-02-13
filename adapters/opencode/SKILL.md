@@ -21,6 +21,7 @@ Use Aitri as the CLI guardrail for spec-driven SDLC execution with mandatory hum
 - No gate bypass.
 - One command step at a time.
 - Use non-interactive mode only when explicitly needed.
+- Persona usage is iterative; re-run relevant personas when context changes.
 
 ## Commands
 - `aitri init`

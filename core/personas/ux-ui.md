@@ -77,3 +77,8 @@ For each feature evaluate:
 - Prioritize information architecture over visual decoration.
 - For utility/enterprise contexts, optimize for speed and density over decorative motion.
 - Keep output deterministic and concise.
+
+## Invocation Policy
+- Invoke this persona as many times as needed during discovery, design refinement, and implementation review.
+- Re-run after scope/flow changes, usability test findings, or accessibility regressions.
+- Treat each run as current-state guidance; do not assume previous outputs remain valid after context changes.
