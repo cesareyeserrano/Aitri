@@ -16,12 +16,6 @@ Priority order:
 - Reproducible CLI behavior before integrations
 - Human supervision at every irreversible step
 
-## Reference Alignment
-Aitri is inspired by skill-based SDLC systems such as `sdlc-studio`, adapted to a stricter spec-driven CLI contract.
-
-Reference:
-- https://github.com/DarrenBenson/sdlc-studio
-
 ## Phase Status
 
 ### Phase A: Harden the Core

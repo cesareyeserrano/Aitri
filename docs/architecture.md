@@ -102,13 +102,3 @@ Any change in philosophy, scope, or workflow must update:
 5. `docs/PROGRESS_CHECKLIST.md`
 
 If code and docs conflict, resolve the conflict explicitly before continuing roadmap work.
-
-## External Inspiration
-Aitri is inspired by skill-based SDLC workflows:
-- https://github.com/DarrenBenson/sdlc-studio
-
-Aitri differentiators:
-- CLI-first operation
-- strict spec-driven discipline
-- human-supervised execution
-- deterministic governance over blind automation
