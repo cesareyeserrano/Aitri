@@ -218,3 +218,22 @@ test("validate supports --format json", () => {
   assert.equal(payload.ok, false);
   assert.match(payload.issues[0], /Feature name is required/);
 });
+
+test("guided draft non-interactive includes technology preference", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-guided-tech-"));
+  const feature = "guided-tech";
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  runNodeOk([
+    "draft",
+    "--guided",
+    "--feature", feature,
+    "--idea", "Build a web dashboard in React for customer support metrics",
+    "--non-interactive",
+    "--yes"
+  ], { cwd: tempDir });
+
+  const draftFile = path.join(tempDir, "specs", "drafts", `${feature}.md`);
+  const content = fs.readFileSync(draftFile, "utf8");
+  assert.match(content, /Technology preference:/);
+  assert.match(content, /Technology source:/);
+});

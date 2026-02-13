@@ -89,6 +89,11 @@ Optional guided draft (interactive):
 aitri draft --guided
 ```
 
+Guided draft behavior:
+- Captures summary, actor, outcome, scope, and technology preference.
+- If technology is present in the requirement, Aitri asks to confirm or replace it.
+- If technology is missing, Aitri suggests a baseline stack.
+
 ## 5) Install Aitri as a Codex Skill
 
 Codex personal skill path:

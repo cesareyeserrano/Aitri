@@ -76,7 +76,9 @@ Creates base project structure (`specs`, `backlog`, `tests`, `docs`).
 
 ### `aitri draft [--guided]`
 Creates `specs/drafts/<feature>.md` from idea input.
-In guided mode, Aitri asks structured questions (summary, actor, outcome, scope).
+In guided mode, Aitri asks structured questions (summary, actor, outcome, scope, technology).
+If the requirement already names a technology, Aitri asks to confirm/replace it.
+If not, Aitri suggests a baseline stack based on the requirement context.
 
 ### `aitri approve`
 Runs spec gates and moves draft to `specs/approved/<feature>.md`.

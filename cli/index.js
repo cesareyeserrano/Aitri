@@ -110,7 +110,45 @@ async function confirmProceed(opts) {
 function printGuidedDraftWizard() {
   console.log("\nGuided Draft Wizard (English prompts)");
   console.log("Answer briefly. Aitri will transform your answers into the draft context.");
+  console.log("Aitri will ask for technology preferences and can suggest a baseline stack.");
   console.log("Example feature name: user-login\n");
+}
+
+function detectTechInText(text) {
+  const value = (text || "").toLowerCase();
+  const known = [
+    "react", "next.js", "nextjs", "vue", "angular", "svelte",
+    "node", "node.js", "express", "nestjs", "fastify",
+    "python", "fastapi", "django", "flask",
+    "java", "spring", "spring boot",
+    "go", "golang", "rust", "php", "laravel",
+    "postgres", "postgresql", "mysql", "mongodb", "sqlite",
+    "redis", "graphql"
+  ];
+
+  const found = known.filter((k) => value.includes(k));
+  if (found.length === 0) return null;
+  return [...new Set(found)].join(", ");
+}
+
+function suggestStackFromSummary(text) {
+  const value = (text || "").toLowerCase();
+  if (/\b(cli|terminal|command line)\b/.test(value)) {
+    return "Node.js CLI";
+  }
+  if (/\b(mobile|ios|android|app)\b/.test(value)) {
+    return "React Native + Node.js API + PostgreSQL";
+  }
+  if (/\b(ai|llm|rag|assistant|chatbot)\b/.test(value)) {
+    return "Python (FastAPI) + PostgreSQL + Redis";
+  }
+  if (/\b(api|backend|service)\b/.test(value)) {
+    return "Node.js (Express) + PostgreSQL";
+  }
+  if (/\b(web|dashboard|portal|frontend|ui)\b/.test(value)) {
+    return "React + Node.js API + PostgreSQL";
+  }
+  return "Node.js (Express) + PostgreSQL";
 }
 
 const cmd = process.argv[2];
@@ -209,20 +247,32 @@ if (cmd === "draft") {
       const outcome = await ask("3) Expected outcome (what should happen): ");
       const inScope = await ask("4) In scope (main things to include): ");
       const outOfScope = await ask("5) Out of scope (optional): ");
+      const detectedTech = detectTechInText(summary);
+      const suggestedStack = suggestStackFromSummary(summary);
+      const techPrompt = detectedTech
+        ? `6) Requirement mentions: ${detectedTech}. Press Enter to confirm, or type replacement: `
+        : `6) Preferred language/stack (optional). Suggested: ${suggestedStack}. Press Enter to accept or type replacement: `;
+      const technology = await ask(techPrompt);
       idea = [
         `Summary: ${summary || "TBD"}`,
         `Primary actor: ${actor || "TBD"}`,
         `Expected outcome: ${outcome || "TBD"}`,
         `In scope: ${inScope || "TBD"}`,
-        `Out of scope: ${outOfScope || "Not specified"}`
+        `Out of scope: ${outOfScope || "Not specified"}`,
+        `Technology preference: ${technology || detectedTech || suggestedStack}`,
+        `Technology source: ${detectedTech ? "Requirement-defined (confirmed)" : "Aitri suggestion (accepted/replaced)"}`
       ].join("\n");
     } else {
+      const detectedTech = detectTechInText(idea);
+      const suggestedStack = suggestStackFromSummary(idea);
       idea = [
         `Summary: ${idea}`,
         "Primary actor: TBD",
         "Expected outcome: TBD",
         "In scope: TBD",
-        "Out of scope: Not specified"
+        "Out of scope: Not specified",
+        `Technology preference: ${detectedTech || suggestedStack}`,
+        `Technology source: ${detectedTech ? "Requirement-defined (auto-detected)" : "Aitri suggestion (auto-applied)"}`
       ].join("\n");
     }
   } else if (!idea && !options.nonInteractive) {
