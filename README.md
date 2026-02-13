@@ -1,4 +1,6 @@
-![Aitri Header](assets/aitri-avatar.png)
+<p align="center">
+  <img src="assets/aitri-avatar.png" alt="Aitri Header" width="381" />
+</p>
 
 # Aitri
 
