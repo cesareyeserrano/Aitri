@@ -29,7 +29,7 @@ Any request that changes scope, quality bar, or architecture direction must pass
 3. Update scope/governance docs first:
    - `docs/SCOPE_V1.md`
    - `docs/STRATEGY_EXECUTION.md`
-   - `docs/CHECKLIST_AVANCE.md`
+   - `docs/PROGRESS_CHECKLIST.md`
 4. Reconfirm execution with explicit human approval.
 
 If any step is missing, stop and do not implement.
@@ -53,7 +53,7 @@ Required format:
 
 Required docs update:
 - Add a note in `docs/STRATEGY_EXECUTION.md` under risks/decisions.
-- Update `docs/CHECKLIST_AVANCE.md` with a follow-up item.
+- Update `docs/PROGRESS_CHECKLIST.md` with a follow-up item.
 
 ## Session Start Contract (for agents)
 At the start of every session:

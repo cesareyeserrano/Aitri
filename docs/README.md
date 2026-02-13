@@ -8,7 +8,7 @@ Use this folder as the official reference for product intent, governance, and ex
 3. `docs/SCOPE_V1.md` - scope boundaries and Definition of Done
 4. `docs/STRATEGY_EXECUTION.md` - strategy and evolution phases
 5. `docs/AGENT_EXECUTION_CHECKLIST.md` - runtime contract for agents
-6. `docs/CHECKLIST_AVANCE.md` - closure checklist for ongoing tracking
+6. `docs/PROGRESS_CHECKLIST.md` - closure checklist for ongoing tracking
 
 ## Purpose
 Preserve continuity across time, contributors, and agent platforms.

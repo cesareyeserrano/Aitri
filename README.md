@@ -44,4 +44,4 @@ Project governance and execution model live in `docs/`:
 - `docs/SCOPE_V1.md`
 - `docs/STRATEGY_EXECUTION.md`
 - `docs/AGENT_EXECUTION_CHECKLIST.md`
-- `docs/CHECKLIST_AVANCE.md`
+- `docs/PROGRESS_CHECKLIST.md`

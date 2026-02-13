@@ -98,7 +98,7 @@ Any change in philosophy, scope, or workflow must update:
 2. `docs/SCOPE_V1.md`
 3. `docs/STRATEGY_EXECUTION.md`
 4. `docs/AGENT_EXECUTION_CHECKLIST.md`
-5. `docs/CHECKLIST_AVANCE.md`
+5. `docs/PROGRESS_CHECKLIST.md`
 
 If code and docs conflict, resolve the conflict explicitly before continuing roadmap work.
 

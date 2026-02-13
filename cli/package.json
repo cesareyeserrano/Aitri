@@ -1,6 +1,6 @@
 {
   "name": "aitri",
-  "version": "0.2.0",
+  "version": "0.2.5",
   "description": "Aitri - AI-assisted problem forger with approval gates",
   "type": "module",
   "bin": {
