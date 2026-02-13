@@ -29,6 +29,14 @@ Aitri is a CLI-first, spec-driven SDLC workflow engine for humans and AI agents.
 - `aitri status [--json]`
 - `--yes` auto-approves supported PLAN prompts
 
+## Automation notes
+- Use `--non-interactive` for CI/agent runs.
+- For commands that write files (`init`, `draft`, `approve`, `discover`, `plan`), combine `--non-interactive` with `--yes`.
+- Exit codes:
+  - `0`: success
+  - `1`: error (usage, validation, runtime)
+  - `2`: user-aborted action
+
 ## Quick start
 ```bash
 aitri init

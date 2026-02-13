@@ -80,6 +80,17 @@ function normalizeFeatureName(value) {
   return (value || "").replace(/\s+/g, "-").trim();
 }
 
+const EXIT_OK = 0;
+const EXIT_ERROR = 1;
+const EXIT_ABORTED = 2;
+
+async function confirmProceed(opts) {
+  if (opts.yes) return true;
+  if (opts.nonInteractive) return null;
+  const answer = await ask("Proceed? (y/n): ");
+  return answer.toLowerCase() === "y";
+}
+
 const cmd = process.argv[2];
 const options = parseArgs(process.argv.slice(3));
 
@@ -87,7 +98,7 @@ if (cmd === "--version" || cmd === "-v") {
   const pkgPath = new URL("../package.json", import.meta.url);
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
   console.log(`aitri v${pkg.version}`);
-  process.exit(0);
+  process.exit(EXIT_OK);
 }
 
 if (!cmd || cmd === "help") {
@@ -110,8 +121,13 @@ Options:
   --idea <text>          Idea text for non-interactive draft
   --non-interactive      Do not prompt; fail if required args are missing
   --json                 Output machine-readable JSON (status, validate)
+
+Exit codes:
+  0 success
+  1 error (validation/usage/runtime)
+  2 aborted by user
 `);
-  process.exit(0);
+  process.exit(EXIT_OK);
 }
 
 if (cmd === "init") {
@@ -127,15 +143,14 @@ if (cmd === "init") {
   console.log("PLAN:");
   plan.forEach((p) => console.log("- " + p));
 
-  let answer = "n";
-  if (options.yes) {
-    answer = "y";
-  } else if (!options.nonInteractive) {
-    answer = await ask("Proceed? (y/n): ");
+  const proceed = await confirmProceed(options);
+  if (proceed === null) {
+    console.log("Non-interactive mode requires --yes for commands that modify files.");
+    process.exit(EXIT_ERROR);
   }
-  if (answer.toLowerCase() !== "y") {
+  if (!proceed) {
     console.log("Aborted.");
-    process.exit(0);
+    process.exit(EXIT_ABORTED);
   }
 
   ["specs/drafts", "specs/approved", "backlog", "tests", "docs"].forEach((p) =>
@@ -143,7 +158,7 @@ if (cmd === "init") {
   );
 
   console.log("Project initialized by Aitri ⚒️");
-  process.exit(0);
+  process.exit(EXIT_OK);
 }
  
 if (cmd === "draft") {
@@ -154,7 +169,7 @@ if (cmd === "draft") {
   }
   if (!feature) {
     console.log("Feature name is required.");
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   let idea = options.idea || "";
@@ -168,7 +183,7 @@ if (cmd === "draft") {
   }
   if (!idea) {
     console.log("Idea is required.");
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   // Locate Aitri core template relative to where this CLI package lives
@@ -178,7 +193,7 @@ if (cmd === "draft") {
   if (!fs.existsSync(templatePath)) {
     console.log(`Template not found at: ${templatePath}`);
     console.log("Make sure Aitri repo has core/templates/af_spec.md");
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const template = fs.readFileSync(templatePath, "utf8");
@@ -194,15 +209,14 @@ if (cmd === "draft") {
   console.log("PLAN:");
   plan.forEach((p) => console.log("- " + p));
 
-  let answer = "n";
-  if (options.yes) {
-    answer = "y";
-  } else if (!options.nonInteractive) {
-    answer = await ask("Proceed? (y/n): ");
+  const proceed = await confirmProceed(options);
+  if (proceed === null) {
+    console.log("Non-interactive mode requires --yes for commands that modify files.");
+    process.exit(EXIT_ERROR);
   }
-  if (answer.toLowerCase() !== "y") {
+  if (!proceed) {
     console.log("Aborted.");
-    process.exit(0);
+    process.exit(EXIT_ABORTED);
   }
 
   fs.mkdirSync(outDir, { recursive: true });
@@ -216,7 +230,7 @@ if (cmd === "draft") {
   fs.writeFileSync(outFile, enriched, "utf8");
 
   console.log(`Draft spec created: ${path.relative(process.cwd(), outFile)}`);
-  process.exit(0);
+  process.exit(EXIT_OK);
 }
 
 if (cmd === "approve") {
@@ -226,7 +240,7 @@ if (cmd === "approve") {
   }
   if (!feature) {
     console.log("Feature name is required. Use --feature <name> in non-interactive mode.");
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const draftsFile = path.join(process.cwd(), "specs", "drafts", `${feature}.md`);
@@ -235,7 +249,7 @@ if (cmd === "approve") {
 
   if (!fs.existsSync(draftsFile)) {
     console.log(`Draft spec not found: ${path.relative(process.cwd(), draftsFile)}`);
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const content = fs.readFileSync(draftsFile, "utf8");
@@ -308,7 +322,7 @@ if (cmd === "approve") {
   if (issues.length > 0) {
     console.log("GATE FAILED:");
     issues.forEach(i => console.log("- " + i));
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const plan = [
@@ -318,15 +332,14 @@ if (cmd === "approve") {
   console.log("PLAN:");
   plan.forEach(p => console.log("- " + p));
 
-  let answer = "n";
-  if (options.yes) {
-    answer = "y";
-  } else if (!options.nonInteractive) {
-    answer = await ask("Proceed? (y/n): ");
+  const proceed = await confirmProceed(options);
+  if (proceed === null) {
+    console.log("Non-interactive mode requires --yes for commands that modify files.");
+    process.exit(EXIT_ERROR);
   }
-  if (answer.toLowerCase() !== "y") {
+  if (!proceed) {
     console.log("Aborted.");
-    process.exit(0);
+    process.exit(EXIT_ABORTED);
   }
 
   fs.mkdirSync(approvedDir, { recursive: true });
@@ -336,7 +349,7 @@ if (cmd === "approve") {
   fs.unlinkSync(draftsFile);
 
   console.log("Spec approved successfully.");
-  process.exit(0);
+  process.exit(EXIT_OK);
 }
 
 if (cmd === "discover") {
@@ -347,14 +360,14 @@ if (cmd === "discover") {
 
   if (!feature) {
     console.log("Feature name is required. Use --feature <name> in non-interactive mode.");
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const approvedFile = path.join(process.cwd(), "specs", "approved", `${feature}.md`);
   if (!fs.existsSync(approvedFile)) {
     console.log(`Approved spec not found: ${path.relative(process.cwd(), approvedFile)}`);
     console.log("Approve the spec first: aitri approve");
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const cliDir = path.dirname(fileURLToPath(import.meta.url));
@@ -362,7 +375,7 @@ if (cmd === "discover") {
 
   if (!fs.existsSync(templatePath)) {
     console.log(`Discovery template not found at: ${templatePath}`);
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const outDir = path.join(process.cwd(), "docs", "discovery");
@@ -382,15 +395,14 @@ if (cmd === "discover") {
   console.log("- Create: " + path.relative(process.cwd(), testsDir));
   console.log("- Create: " + path.relative(process.cwd(), testsFile));
 
-  let answer = "n";
-  if (options.yes) {
-    answer = "y";
-  } else if (!options.nonInteractive) {
-    answer = await ask("Proceed? (y/n): ");
+  const proceed = await confirmProceed(options);
+  if (proceed === null) {
+    console.log("Non-interactive mode requires --yes for commands that modify files.");
+    process.exit(EXIT_ERROR);
   }
-  if (answer.toLowerCase() !== "y") {
+  if (!proceed) {
     console.log("Aborted.");
-    process.exit(0);
+    process.exit(EXIT_ABORTED);
   }
 
   fs.mkdirSync(outDir, { recursive: true });
@@ -435,7 +447,7 @@ if (cmd === "discover") {
   fs.writeFileSync(testsFile, tests, "utf8");
 
   console.log("Discovery created: " + path.relative(process.cwd(), outFile));
-  process.exit(0);
+  process.exit(EXIT_OK);
 }
 
 if (cmd === "plan") {
@@ -446,14 +458,14 @@ if (cmd === "plan") {
 
   if (!feature) {
     console.log("Feature name is required. Use --feature <name> in non-interactive mode.");
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const approvedFile = path.join(process.cwd(), "specs", "approved", `${feature}.md`);
   if (!fs.existsSync(approvedFile)) {
     console.log(`Approved spec not found: ${path.relative(process.cwd(), approvedFile)}`);
     console.log("Approve the spec first: aitri approve");
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const cliDir = path.dirname(fileURLToPath(import.meta.url));
@@ -461,7 +473,7 @@ if (cmd === "plan") {
 
   if (!fs.existsSync(templatePath)) {
     console.log(`Plan template not found at: ${templatePath}`);
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const architectPersona = path.resolve(cliDir, "..", "core", "personas", "architect.md");
@@ -491,15 +503,14 @@ if (cmd === "plan") {
   console.log("- Write: " + path.relative(process.cwd(), backlogFile));
   console.log("- Write: " + path.relative(process.cwd(), testsFile));
 
-  let answer = "n";
-  if (options.yes) {
-    answer = "y";
-  } else if (!options.nonInteractive) {
-    answer = await ask("Proceed? (y/n): ");
+  const proceed = await confirmProceed(options);
+  if (proceed === null) {
+    console.log("Non-interactive mode requires --yes for commands that modify files.");
+    process.exit(EXIT_ERROR);
   }
-  if (answer.toLowerCase() !== "y") {
+  if (!proceed) {
     console.log("Aborted.");
-    process.exit(0);
+    process.exit(EXIT_ABORTED);
   }
 
   fs.mkdirSync(outPlanDir, { recursive: true });
@@ -599,7 +610,7 @@ if (cmd === "plan") {
   fs.writeFileSync(testsFile, tests, "utf8");
 
   console.log("Plan created: " + path.relative(process.cwd(), outPlanFile));
-  process.exit(0);
+  process.exit(EXIT_OK);
 }
 
 if (cmd === "validate") {
@@ -615,7 +626,7 @@ if (cmd === "validate") {
     } else {
       console.log(msg);
     }
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const approvedFile = path.join(process.cwd(), "specs", "approved", `${feature}.md`);
@@ -658,7 +669,7 @@ if (cmd === "validate") {
       console.log("VALIDATION FAILED:");
       issues.forEach(i => console.log("- " + i));
     }
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   const spec = fs.readFileSync(approvedFile, "utf8");
@@ -692,7 +703,7 @@ if (cmd === "validate") {
   if (issues.length > 0) {
     console.log("VALIDATION FAILED:");
     issues.forEach(i => console.log("- " + i));
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   // --- Coverage checks (minimal) ---
@@ -735,7 +746,7 @@ if (cmd === "validate") {
       console.log("VALIDATION FAILED:");
       issues.forEach((i) => console.log("- " + i));
     }
-    process.exit(1);
+    process.exit(EXIT_ERROR);
   }
 
   result.ok = true;
@@ -747,13 +758,13 @@ if (cmd === "validate") {
     console.log("- Backlog: " + path.relative(process.cwd(), backlogFile));
     console.log("- Tests: " + path.relative(process.cwd(), testsFile));
   }
-  process.exit(0);
+  process.exit(EXIT_OK);
 }
 
 if (cmd === "status") {
   runStatus({ json: options.json });
-  process.exit(0);
+  process.exit(EXIT_OK);
 }
 
 console.log("Unknown command.");
-process.exit(1);
+process.exit(EXIT_ERROR);

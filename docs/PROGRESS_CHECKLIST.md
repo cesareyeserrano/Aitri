@@ -34,7 +34,7 @@ Check items as they are completed to prevent context drift.
 
 ## 5) Operational Reliability
 - [x] Smoke tests for core commands
-- [ ] Consistent exit codes across all commands
+- [x] Consistent exit codes across all commands
 - [x] Non-interactive mode defined for CI/agents
 - [x] `status` reliability improved to reduce false positives
 

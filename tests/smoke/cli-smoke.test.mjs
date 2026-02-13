@@ -133,3 +133,19 @@ test("validate fails in non-interactive mode without --feature", () => {
   assert.equal(payload.ok, false);
   assert.match(payload.issues[0], /Feature name is required/);
 });
+
+test("write commands fail in non-interactive mode when --yes is missing", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-no-yes-"));
+  const result = runNode(["init", "--non-interactive"], { cwd: tempDir });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /requires --yes/);
+});
+
+test("interactive abort returns exit code 2", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-abort-"));
+  const result = runNode(["init"], { cwd: tempDir, input: "n\n" });
+
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /Aborted/);
+});
