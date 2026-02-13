@@ -1,0 +1,14 @@
+version: 1
+
+mode: strict  # strict | warn | off
+
+paths:
+  specs: specs
+  approved_specs: specs/approved
+  backlog: backlog
+  tests: tests
+  discovery: docs/discovery
+  plan: docs/plan
+
+output:
+  format: human  # human | json
