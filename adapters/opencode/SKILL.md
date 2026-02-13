@@ -38,7 +38,9 @@ Use Aitri as the CLI guardrail for spec-driven SDLC execution with mandatory hum
 - `json`, `-j`, or `--format json` for `status` and `validate`
 
 ## Checkpoint Behavior
-At the end of substantial progress, recommend:
+Write commands create auto-checkpoints by default in git repositories (retained max: 10).
+
+At the end of substantial progress, manual fallback remains:
 - `git add -A && git commit -m "checkpoint: <feature> <phase>"`
 - fallback: `git stash push -m "checkpoint: <feature> <phase>"`
 

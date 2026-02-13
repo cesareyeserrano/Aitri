@@ -104,6 +104,7 @@ Use these flags for CI/agent execution:
 - `--json` or `-j`: machine-readable output (`status`, `validate`)
 - `--format json`: explicit output format
 - `json` shorthand: `aitri status json`
+- `--no-checkpoint`: disable auto-checkpoint for a single command
 
 Example non-interactive sequence:
 ```bash
@@ -176,7 +177,10 @@ node ../../cli/index.js validate --feature validate-coverage --non-interactive -
 ```
 
 ## Checkpoint and Resume
-Recommended checkpoint after each major phase (`draft`, `approve`, `discover`, `plan`, `validate`):
+Auto-checkpoint is enabled by default for write commands (`init`, `draft`, `approve`, `discover`, `plan`).
+Aitri keeps the latest 10 managed checkpoint tags (`aitri-checkpoint/*`).
+
+Manual checkpoint (optional):
 ```bash
 git add -A
 git commit -m "checkpoint: <feature> <phase>"

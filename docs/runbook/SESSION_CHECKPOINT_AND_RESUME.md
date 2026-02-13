@@ -4,7 +4,17 @@
 Prevent loss of progress during abrupt interruptions and make cross-session continuation deterministic.
 
 ## Checkpoint Policy
-Create a checkpoint at least after each major phase:
+Aitri automatically creates checkpoints after write commands when inside a git repository:
+- `init`
+- `draft`
+- `approve`
+- `discover`
+- `plan`
+
+Retention:
+- latest 10 managed checkpoint tags (`aitri-checkpoint/*`)
+
+Manual checkpoints are still allowed at each major phase:
 1. `draft`
 2. `approve`
 3. `discover`

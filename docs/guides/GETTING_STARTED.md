@@ -179,7 +179,12 @@ For reproducible team adoption:
 
 ## 10) Pause and Resume Safely
 
-Before stopping work:
+Aitri auto-checkpoint behavior:
+- Write commands (`init`, `draft`, `approve`, `discover`, `plan`) create automatic checkpoints when run inside a git repository.
+- Aitri keeps the latest 10 managed checkpoint tags.
+- Disable for one command with `--no-checkpoint`.
+
+Manual checkpoint (optional):
 ```bash
 git add -A
 git commit -m "checkpoint: <feature> <phase>"

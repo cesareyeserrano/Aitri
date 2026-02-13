@@ -117,9 +117,17 @@ function detectCheckpointState(root) {
     : null;
 
   const detected = !!latestCommit || !!latestStash;
+  const managedTagsRaw = readGit("git tag --list 'aitri-checkpoint/*' --sort=-creatordate", root);
+  const managedTags = managedTagsRaw
+    ? managedTagsRaw.split("\n").map((line) => line.trim()).filter(Boolean)
+    : [];
   return {
     git: true,
     detected,
+    mode: "git_commit+tag",
+    maxRetained: 10,
+    managedCount: managedTags.length,
+    latestManaged: managedTags.slice(0, 3),
     latestCommit,
     latestStash,
     resumeDecision: detected ? "ask_user_resume_from_checkpoint" : "no_checkpoint_detected",

@@ -36,6 +36,7 @@ test("help and version are available", () => {
   assert.match(help.stdout, /--non-interactive/);
   assert.match(help.stdout, /--json, -j/);
   assert.match(help.stdout, /--format <type>/);
+  assert.match(help.stdout, /--no-checkpoint/);
 });
 
 test("status json works in empty project", () => {
@@ -73,6 +74,42 @@ test("status detects git checkpoint commit", () => {
   assert.equal(payload.checkpoint.state.detected, true);
   assert.equal(payload.checkpoint.state.resumeDecision, "ask_user_resume_from_checkpoint");
   assert.match(payload.checkpoint.state.latestCommit.message, /^checkpoint:/);
+  assert.equal(payload.checkpoint.state.mode, "git_commit+tag");
+  assert.equal(payload.checkpoint.state.maxRetained, 10);
+});
+
+test("write command creates auto-checkpoint in git repo", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-auto-checkpoint-"));
+  spawnSync("git", ["init"], { cwd: tempDir, encoding: "utf8" });
+  spawnSync("git", ["config", "user.name", "Aitri Test"], { cwd: tempDir, encoding: "utf8" });
+  spawnSync("git", ["config", "user.email", "aitri@example.com"], { cwd: tempDir, encoding: "utf8" });
+  fs.writeFileSync(path.join(tempDir, ".gitkeep"), "seed\n", "utf8");
+  spawnSync("git", ["add", ".gitkeep"], { cwd: tempDir, encoding: "utf8" });
+  spawnSync("git", ["commit", "-m", "seed"], { cwd: tempDir, encoding: "utf8" });
+
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  const draftRun = runNodeOk([
+    "draft",
+    "--feature", "auto-checkpoint",
+    "--idea", "Draft for checkpoint test",
+    "--non-interactive",
+    "--yes"
+  ], { cwd: tempDir });
+  assert.match(draftRun.stdout, /Auto-checkpoint saved:/);
+
+  const log = spawnSync("git", ["log", "--grep=^checkpoint:", "--oneline", "-n", "1"], {
+    cwd: tempDir,
+    encoding: "utf8"
+  });
+  assert.equal(log.status, 0);
+  assert.match(log.stdout, /checkpoint:/);
+
+  const tags = spawnSync("git", ["tag", "--list", "aitri-checkpoint/*"], {
+    cwd: tempDir,
+    encoding: "utf8"
+  });
+  assert.equal(tags.status, 0);
+  assert.match(tags.stdout, /aitri-checkpoint\//);
 });
 
 test("end-to-end core workflow passes validate in non-interactive mode", () => {

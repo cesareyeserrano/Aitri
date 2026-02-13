@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
+import { execSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { runStatus } from "./commands/status.js";
 
@@ -41,6 +42,7 @@ function parseArgs(argv) {
   const parsed = {
     json: false,
     format: null,
+    autoCheckpoint: true,
     nonInteractive: false,
     guided: false,
     yes: false,
@@ -53,6 +55,8 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === "--json" || arg === "-j") {
       parsed.json = true;
+    } else if (arg === "--no-checkpoint") {
+      parsed.autoCheckpoint = false;
     } else if (arg === "--format") {
       parsed.format = (argv[i + 1] || "").trim().toLowerCase();
       i += 1;
@@ -95,6 +99,93 @@ function normalizeFeatureName(value) {
 const EXIT_OK = 0;
 const EXIT_ERROR = 1;
 const EXIT_ABORTED = 2;
+const AUTO_CHECKPOINT_MAX = 10;
+
+function shellEscapeSingle(value) {
+  return String(value).replace(/'/g, "'\\''");
+}
+
+function runGit(cmd, cwd) {
+  try {
+    const out = execSync(cmd, {
+      cwd,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"]
+    }).trim();
+    return { ok: true, out };
+  } catch (error) {
+    const stderr = error && error.stderr ? String(error.stderr).trim() : "";
+    return { ok: false, out: "", err: stderr || "git command failed" };
+  }
+}
+
+function sanitizeTagPart(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function runAutoCheckpoint({ enabled, phase, feature }) {
+  if (!enabled) return { performed: false, reason: "disabled" };
+  const cwd = process.cwd();
+
+  const inside = runGit("git rev-parse --is-inside-work-tree", cwd);
+  if (!inside.ok || inside.out !== "true") {
+    return { performed: false, reason: "not_git_repo" };
+  }
+
+  const add = runGit("git add -A", cwd);
+  if (!add.ok) return { performed: false, reason: "git_add_failed", detail: add.err };
+
+  const hasChanges = runGit("git diff --cached --name-only", cwd);
+  if (!hasChanges.ok) return { performed: false, reason: "git_diff_failed", detail: hasChanges.err };
+  if (!hasChanges.out) return { performed: false, reason: "no_changes" };
+
+  const label = feature || "project";
+  const message = `checkpoint: ${label} ${phase}`;
+  const commit = runGit(`git commit -m '${shellEscapeSingle(message)}'`, cwd);
+  if (!commit.ok) return { performed: false, reason: "git_commit_failed", detail: commit.err };
+
+  const head = runGit("git rev-parse --short HEAD", cwd);
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  const tagName = `aitri-checkpoint/${sanitizeTagPart(label)}-${sanitizeTagPart(phase)}-${ts}`;
+  const tag = runGit(`git tag '${shellEscapeSingle(tagName)}' HEAD`, cwd);
+
+  const tags = runGit("git tag --list 'aitri-checkpoint/*' --sort=-creatordate", cwd);
+  if (tags.ok) {
+    const list = tags.out.split("\n").map((t) => t.trim()).filter(Boolean);
+    list.slice(AUTO_CHECKPOINT_MAX).forEach((oldTag) => {
+      runGit(`git tag -d '${shellEscapeSingle(oldTag)}'`, cwd);
+    });
+  }
+
+  return {
+    performed: true,
+    commit: head.ok ? head.out : null,
+    tag: tag.ok ? tagName : null,
+    max: AUTO_CHECKPOINT_MAX
+  };
+}
+
+function printCheckpointSummary(result) {
+  if (result.performed) {
+    console.log(`Auto-checkpoint saved${result.commit ? `: ${result.commit}` : ""}`);
+    console.log(`Checkpoint retention: last ${result.max}`);
+    return;
+  }
+  if (result.reason === "disabled") {
+    console.log("Auto-checkpoint disabled for this run.");
+    return;
+  }
+  if (result.reason === "not_git_repo") {
+    console.log("Auto-checkpoint skipped: not a git repository.");
+    return;
+  }
+  if (result.reason !== "no_changes") {
+    console.log(`Auto-checkpoint skipped: ${result.reason}${result.detail ? ` (${result.detail})` : ""}`);
+  }
+}
 
 async function confirmProceed(opts) {
   if (opts.yes) return true;
@@ -182,6 +273,7 @@ Options:
   --non-interactive      Do not prompt; fail if required args are missing
   --json, -j             Output machine-readable JSON (status, validate)
   --format <type>        Output format (json supported)
+  --no-checkpoint        Disable auto-checkpoint for this command
 
 Exit codes:
   0 success
@@ -219,6 +311,11 @@ if (cmd === "init") {
   );
 
   console.log("Project initialized by Aitri ⚒️");
+  printCheckpointSummary(runAutoCheckpoint({
+    enabled: options.autoCheckpoint,
+    phase: "init",
+    feature: "project"
+  }));
   process.exit(EXIT_OK);
 }
  
@@ -327,6 +424,11 @@ if (cmd === "draft") {
   fs.writeFileSync(outFile, enriched, "utf8");
 
   console.log(`Draft spec created: ${path.relative(process.cwd(), outFile)}`);
+  printCheckpointSummary(runAutoCheckpoint({
+    enabled: options.autoCheckpoint,
+    phase: "draft",
+    feature
+  }));
   process.exit(EXIT_OK);
 }
 
@@ -446,6 +548,11 @@ if (cmd === "approve") {
   fs.unlinkSync(draftsFile);
 
   console.log("Spec approved successfully.");
+  printCheckpointSummary(runAutoCheckpoint({
+    enabled: options.autoCheckpoint,
+    phase: "approve",
+    feature
+  }));
   process.exit(EXIT_OK);
 }
 
@@ -544,6 +651,11 @@ if (cmd === "discover") {
   fs.writeFileSync(testsFile, tests, "utf8");
 
   console.log("Discovery created: " + path.relative(process.cwd(), outFile));
+  printCheckpointSummary(runAutoCheckpoint({
+    enabled: options.autoCheckpoint,
+    phase: "discover",
+    feature
+  }));
   process.exit(EXIT_OK);
 }
 
@@ -707,6 +819,11 @@ if (cmd === "plan") {
   fs.writeFileSync(testsFile, tests, "utf8");
 
   console.log("Plan created: " + path.relative(process.cwd(), outPlanFile));
+  printCheckpointSummary(runAutoCheckpoint({
+    enabled: options.autoCheckpoint,
+    phase: "plan",
+    feature
+  }));
   process.exit(EXIT_OK);
 }
 
