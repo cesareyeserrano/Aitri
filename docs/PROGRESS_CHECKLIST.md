@@ -39,11 +39,11 @@ Check items as they are completed to prevent context drift.
 - [x] `status` reliability improved to reduce false positives
 
 ## 6) Supervised Build/Deploy Assistance
-- [ ] Build-assist workflow defined
-- [ ] Local deployment plan template
-- [ ] Production-assist deployment plan template
-- [ ] Rollback/fallback checklist
-- [ ] Post-deploy evidence documented
+- [x] Build-assist workflow defined
+- [x] Local deployment plan template
+- [x] Production-assist deployment plan template
+- [x] Rollback/fallback checklist
+- [x] Post-deploy evidence documented
 
 ## 7) Ready for V1 Close
 - [ ] Core stable on new and existing repositories

@@ -71,9 +71,9 @@ After each command, the agent reports:
 
 ## Deployment Assistance Contract
 For local and production-assist deploy workflows:
-- require written deployment plan
-- require rollback/fallback notes
-- require explicit human approval before execution
+- follow `docs/runbook/BUILD_DEPLOY_ASSIST_WORKFLOW.md`
+- use templates in `docs/templates/deploy/`
+- require explicit human approval before any execution step
 - require post-deploy verification evidence
 
 ## Anti-Drift Rule

@@ -9,6 +9,8 @@ Use this folder as the official reference for product intent, governance, and ex
 4. `docs/STRATEGY_EXECUTION.md` - strategy and evolution phases
 5. `docs/AGENT_EXECUTION_CHECKLIST.md` - runtime contract for agents
 6. `docs/PROGRESS_CHECKLIST.md` - closure checklist for ongoing tracking
+7. `docs/runbook/BUILD_DEPLOY_ASSIST_WORKFLOW.md` - supervised build/deploy-assist flow
+8. `docs/templates/deploy/` - deployment plan/checklist templates
 
 ## Purpose
 Preserve continuity across time, contributors, and agent platforms.
