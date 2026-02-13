@@ -42,6 +42,8 @@ function parseArgs(argv) {
     json: false,
     nonInteractive: false,
     guided: false,
+    yes: false,
+    idea: null,
     feature: null,
     positional: []
   };
@@ -54,6 +56,13 @@ function parseArgs(argv) {
       parsed.nonInteractive = true;
     } else if (arg === "--guided") {
       parsed.guided = true;
+    } else if (arg === "--yes" || arg === "-y") {
+      parsed.yes = true;
+    } else if (arg === "--idea") {
+      parsed.idea = (argv[i + 1] || "").trim();
+      i += 1;
+    } else if (arg.startsWith("--idea=")) {
+      parsed.idea = arg.slice("--idea=".length).trim();
     } else if (arg === "--feature" || arg === "-f") {
       parsed.feature = (argv[i + 1] || "").trim();
       i += 1;
@@ -96,7 +105,9 @@ Commands:
   status     Show project state and next recommended step
 
 Options:
+  --yes, -y              Auto-approve plan prompts where supported
   --feature, -f <name>   Feature name for non-interactive runs
+  --idea <text>          Idea text for non-interactive draft
   --non-interactive      Do not prompt; fail if required args are missing
   --json                 Output machine-readable JSON (status, validate)
 `);
@@ -116,7 +127,12 @@ if (cmd === "init") {
   console.log("PLAN:");
   plan.forEach((p) => console.log("- " + p));
 
-  const answer = await ask("Proceed? (y/n): ");
+  let answer = "n";
+  if (options.yes) {
+    answer = "y";
+  } else if (!options.nonInteractive) {
+    answer = await ask("Proceed? (y/n): ");
+  }
   if (answer.toLowerCase() !== "y") {
     console.log("Aborted.");
     process.exit(0);
@@ -132,16 +148,22 @@ if (cmd === "init") {
  
 if (cmd === "draft") {
   // We expect to run this from a project repo, not from the Aitri repo
-  const feature = normalizeFeatureName(await ask("Feature name (kebab-case, e.g. user-login): "));
+  let feature = normalizeFeatureName(options.feature || options.positional[0]);
+  if (!feature && !options.nonInteractive) {
+    feature = normalizeFeatureName(await ask("Feature name (kebab-case, e.g. user-login): "));
+  }
   if (!feature) {
     console.log("Feature name is required.");
     process.exit(1);
   }
 
-  let idea = await ask("Describe the idea (1-3 lines): ");
+  let idea = options.idea || "";
+  if (!idea && !options.nonInteractive) {
+    idea = await ask("Describe the idea (1-3 lines): ");
+  }
   if (options.guided) {
-    const actor = await ask("Primary actor (e.g. admin, customer): ");
-    const outcome = await ask("Expected outcome (what should happen): ");
+    const actor = options.nonInteractive ? "TBD" : await ask("Primary actor (e.g. admin, customer): ");
+    const outcome = options.nonInteractive ? "TBD" : await ask("Expected outcome (what should happen): ");
     idea = `${idea}\n\nPrimary actor: ${actor || "TBD"}\nExpected outcome: ${outcome || "TBD"}`;
   }
   if (!idea) {
@@ -172,7 +194,12 @@ if (cmd === "draft") {
   console.log("PLAN:");
   plan.forEach((p) => console.log("- " + p));
 
-  const answer = await ask("Proceed? (y/n): ");
+  let answer = "n";
+  if (options.yes) {
+    answer = "y";
+  } else if (!options.nonInteractive) {
+    answer = await ask("Proceed? (y/n): ");
+  }
   if (answer.toLowerCase() !== "y") {
     console.log("Aborted.");
     process.exit(0);
@@ -193,9 +220,14 @@ if (cmd === "draft") {
 }
 
 if (cmd === "approve") {
-  const feature = (await ask("Feature name to approve (kebab-case): "))
-    .replace(/\s+/g, "-")
-    .trim();
+  let feature = normalizeFeatureName(options.feature || options.positional[0]);
+  if (!feature && !options.nonInteractive) {
+    feature = normalizeFeatureName(await ask("Feature name to approve (kebab-case): "));
+  }
+  if (!feature) {
+    console.log("Feature name is required. Use --feature <name> in non-interactive mode.");
+    process.exit(1);
+  }
 
   const draftsFile = path.join(process.cwd(), "specs", "drafts", `${feature}.md`);
   const approvedDir = path.join(process.cwd(), "specs", "approved");
@@ -286,7 +318,12 @@ if (cmd === "approve") {
   console.log("PLAN:");
   plan.forEach(p => console.log("- " + p));
 
-  const answer = await ask("Proceed? (y/n): ");
+  let answer = "n";
+  if (options.yes) {
+    answer = "y";
+  } else if (!options.nonInteractive) {
+    answer = await ask("Proceed? (y/n): ");
+  }
   if (answer.toLowerCase() !== "y") {
     console.log("Aborted.");
     process.exit(0);
@@ -303,12 +340,13 @@ if (cmd === "approve") {
 }
 
 if (cmd === "discover") {
-  const feature = (await ask("Feature name (kebab-case, e.g. user-login): "))
-    .replace(/\s+/g, "-")
-    .trim();
+  let feature = normalizeFeatureName(options.feature || options.positional[0]);
+  if (!feature && !options.nonInteractive) {
+    feature = normalizeFeatureName(await ask("Feature name (kebab-case, e.g. user-login): "));
+  }
 
   if (!feature) {
-    console.log("Feature name is required.");
+    console.log("Feature name is required. Use --feature <name> in non-interactive mode.");
     process.exit(1);
   }
 
@@ -344,7 +382,12 @@ if (cmd === "discover") {
   console.log("- Create: " + path.relative(process.cwd(), testsDir));
   console.log("- Create: " + path.relative(process.cwd(), testsFile));
 
-  const answer = await ask("Proceed? (y/n): ");
+  let answer = "n";
+  if (options.yes) {
+    answer = "y";
+  } else if (!options.nonInteractive) {
+    answer = await ask("Proceed? (y/n): ");
+  }
   if (answer.toLowerCase() !== "y") {
     console.log("Aborted.");
     process.exit(0);
@@ -396,12 +439,13 @@ if (cmd === "discover") {
 }
 
 if (cmd === "plan") {
-  const feature = (await ask("Feature name (kebab-case, e.g. user-login): "))
-    .replace(/\s+/g, "-")
-    .trim();
+  let feature = normalizeFeatureName(options.feature || options.positional[0]);
+  if (!feature && !options.nonInteractive) {
+    feature = normalizeFeatureName(await ask("Feature name (kebab-case, e.g. user-login): "));
+  }
 
   if (!feature) {
-    console.log("Feature name is required.");
+    console.log("Feature name is required. Use --feature <name> in non-interactive mode.");
     process.exit(1);
   }
 
@@ -447,7 +491,12 @@ if (cmd === "plan") {
   console.log("- Write: " + path.relative(process.cwd(), backlogFile));
   console.log("- Write: " + path.relative(process.cwd(), testsFile));
 
-  const answer = await ask("Proceed? (y/n): ");
+  let answer = "n";
+  if (options.yes) {
+    answer = "y";
+  } else if (!options.nonInteractive) {
+    answer = await ask("Proceed? (y/n): ");
+  }
   if (answer.toLowerCase() !== "y") {
     console.log("Aborted.");
     process.exit(0);

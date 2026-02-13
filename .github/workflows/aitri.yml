@@ -17,6 +17,12 @@ jobs:
         with:
           node-version: "20"
 
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run smoke tests
+        run: npm run test:smoke
+
       - name: Install Aitri (local package)
         run: npm i -g .
 

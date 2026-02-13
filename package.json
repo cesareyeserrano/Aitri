@@ -16,5 +16,8 @@
   ],
   "engines": {
     "node": ">=18"
+  },
+  "scripts": {
+    "test:smoke": "node --test tests/smoke/cli-smoke.test.mjs"
   }
 }

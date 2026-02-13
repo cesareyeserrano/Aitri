@@ -33,7 +33,7 @@ Check items as they are completed to prevent context drift.
 - [x] Stable machine-readable mode for CI
 
 ## 5) Operational Reliability
-- [ ] Smoke tests for core commands
+- [x] Smoke tests for core commands
 - [ ] Consistent exit codes across all commands
 - [x] Non-interactive mode defined for CI/agents
 - [x] `status` reliability improved to reduce false positives
