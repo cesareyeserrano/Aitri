@@ -115,6 +115,12 @@ export function runStatus(options = {}) {
       command: "aitri status --json",
       rule: "Follow nextStep from status output."
     },
+    handoff: {
+      required: false,
+      state: "in_progress",
+      message: "Continue with nextStep.",
+      nextActions: []
+    },
     nextStep: null
   };
 
@@ -162,6 +168,26 @@ export function runStatus(options = {}) {
     });
   }
 
+  if (report.nextStep === "ready_for_human_approval") {
+    report.handoff = {
+      required: true,
+      state: "awaiting_human_approval",
+      message: "SDLC artifact flow is complete. Human approval is required before implementation.",
+      nextActions: [
+        "Review approved spec, discovery, plan, backlog, and tests.",
+        "Decide go/no-go for implementation.",
+        "Create a checkpoint commit before starting implementation."
+      ]
+    };
+  } else {
+    report.handoff = {
+      required: false,
+      state: "in_progress",
+      message: "Continue with nextStep.",
+      nextActions: [report.nextStep]
+    };
+  }
+
   if (json) {
     console.log(JSON.stringify(report, null, 2));
     return;
@@ -195,6 +221,7 @@ export function runStatus(options = {}) {
   console.log("\nNext recommended step:");
   if (report.nextStep === "ready_for_human_approval") {
     console.log("✅ Ready for human approval → implementation phase");
+    console.log("Human action required: review artifacts and approve go/no-go for implementation.");
   } else {
     console.log(report.nextStep);
   }
