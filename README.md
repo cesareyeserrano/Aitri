@@ -1,4 +1,4 @@
-![Aitri Header](assets/aitri-header.svg)
+![Aitri Header](assets/aitri-avatar.png)
 
 # Aitri
 
