@@ -83,6 +83,7 @@ Agent contract:
 Personas are structured SDLC lenses, not autonomous personalities.
 
 Minimum perspectives:
+- Discovery: problem framing, constraints, dependencies, measurable outcomes
 - Product: value, scope, acceptance clarity
 - Architect: boundaries, decisions, NFRs, risks
 - Developer: implementation strategy, maintainability

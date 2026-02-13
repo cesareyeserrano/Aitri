@@ -8,14 +8,27 @@ STATUS: DRAFT
 - Success looks like:
 -
 
-## 2. Scope
+## 2. Discovery Review (Discovery Persona)
+### Problem framing
+-
+
+### Constraints and dependencies
+-
+
+### Success metrics
+-
+
+### Key assumptions
+-
+
+## 3. Scope
 ### In scope
 -
 
 ### Out of scope
 -
 
-## 3. Product Review (Product Persona)
+## 4. Product Review (Product Persona)
 ### Business value
 -
 
@@ -25,7 +38,7 @@ STATUS: DRAFT
 ### Assumptions to validate
 -
 
-## 4. Architecture (Architect Persona)
+## 5. Architecture (Architect Persona)
 ### Components
 -
 
@@ -41,7 +54,7 @@ STATUS: DRAFT
 ### Observability (logs/metrics/tracing)
 -
 
-## 5. Security (Security Persona)
+## 6. Security (Security Persona)
 ### Threats
 -
 
@@ -54,7 +67,7 @@ STATUS: DRAFT
 ### Abuse prevention / rate limiting (if applicable)
 -
 
-## 6. UX/UI Review (UX/UI Persona, if user-facing)
+## 7. UX/UI Review (UX/UI Persona, if user-facing)
 ### Primary user flow
 -
 
@@ -64,7 +77,7 @@ STATUS: DRAFT
 ### Accessibility baseline
 -
 
-## 7. Backlog
+## 8. Backlog
 > Create as many epics/stories as needed. Do not impose artificial limits.
 
 ### Epics
@@ -86,7 +99,7 @@ For each story include clear Acceptance Criteria (Given/When/Then).
 
 (repeat as needed)
 
-## 8. Test Cases (QA Persona)
+## 9. Test Cases (QA Persona)
 > Create as many test cases as needed. Include negative and edge cases.
 
 ### Functional
@@ -105,7 +118,7 @@ For each story include clear Acceptance Criteria (Given/When/Then).
 1.
 2.
 
-## 9. Implementation Notes (Developer Persona)
+## 10. Implementation Notes (Developer Persona)
 - Suggested sequence:
 -
 - Dependencies:

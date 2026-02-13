@@ -242,6 +242,57 @@ function suggestStackFromSummary(text) {
   return "Node.js (Express) + PostgreSQL";
 }
 
+async function collectDiscoveryInterview(options) {
+  const defaults = {
+    primaryUsers: "TBD",
+    jtbd: "TBD",
+    currentPain: "TBD",
+    constraints: "TBD",
+    dependencies: "TBD",
+    successMetrics: "TBD",
+    assumptions: "TBD",
+    inScope: "TBD",
+    outOfScope: "Not specified",
+    journey: "TBD"
+  };
+
+  if (options.nonInteractive) return defaults;
+
+  let guided = options.guided;
+  if (!guided) {
+    const answer = (await ask("Run guided discovery interview now? (Y/n): ")).toLowerCase();
+    guided = (answer === "" || answer === "y" || answer === "yes");
+  }
+  if (!guided) return defaults;
+
+  console.log("\nGuided Discovery Interview");
+  console.log("Provide concise answers. Aitri will structure them in the discovery artifact.\n");
+
+  const primaryUsers = await ask("1) Primary users/segments: ");
+  const jtbd = await ask("2) Jobs-to-be-done (what must users accomplish?): ");
+  const currentPain = await ask("3) Current pain/impact (frequency/severity): ");
+  const constraints = await ask("4) Constraints (business/technical/compliance): ");
+  const dependencies = await ask("5) Dependencies (teams/systems/vendors): ");
+  const successMetrics = await ask("6) Success metrics (baseline -> target): ");
+  const assumptions = await ask("7) Key assumptions to validate: ");
+  const inScope = await ask("8) In-scope (atomic list): ");
+  const outOfScope = await ask("9) Out-of-scope (deferred): ");
+  const journey = await ask("10) Primary user journey in one line: ");
+
+  return {
+    primaryUsers: primaryUsers || defaults.primaryUsers,
+    jtbd: jtbd || defaults.jtbd,
+    currentPain: currentPain || defaults.currentPain,
+    constraints: constraints || defaults.constraints,
+    dependencies: dependencies || defaults.dependencies,
+    successMetrics: successMetrics || defaults.successMetrics,
+    assumptions: assumptions || defaults.assumptions,
+    inScope: inScope || defaults.inScope,
+    outOfScope: outOfScope || defaults.outOfScope,
+    journey: journey || defaults.journey
+  };
+}
+
 const cmd = process.argv[2];
 const options = parseArgs(process.argv.slice(3));
 
@@ -261,7 +312,7 @@ Commands:
   init       Initialize project structure
   draft      Create a draft spec from an idea (use --guided for guided input)
   approve    Approve a draft spec (runs gates and moves to specs/approved)
-  discover   Generate discovery + artifact scaffolding from an approved spec
+  discover   Generate discovery + artifact scaffolding from an approved spec (use --guided for discovery interview)
   plan       Generate plan doc + traceable backlog/tests from an approved spec
   validate   Validate traceability placeholders are resolved (FR/AC/US/TC)
   status     Show project state and next recommended step
@@ -614,12 +665,26 @@ if (cmd === "discover") {
   fs.mkdirSync(testsDir, { recursive: true });
 
   const approvedSpec = fs.readFileSync(approvedFile, "utf8");
+  const discoveryInterview = await collectDiscoveryInterview(options);
   let discovery = fs.readFileSync(templatePath, "utf8");
 
   // Basic injection
   discovery = discovery.replace("# Discovery: <feature>", `# Discovery: ${feature}`);
-  discovery = discovery.replace("## 1. Problem Statement\n- What problem are we solving?\n- Why now?",
-    `## 1. Problem Statement\nDerived from approved spec:\n\n---\n\n${approvedSpec}\n\n---\n\nNow refine: what problem are we solving and why now?`
+  discovery = discovery.replace(
+    "## 1. Problem Statement\n- What problem are we solving?\n- Why now?",
+    `## 1. Problem Statement\nDerived from approved spec:\n\n---\n\n${approvedSpec}\n\n---\n\nRefined problem framing:\n- What problem are we solving? ${discoveryInterview.currentPain}\n- Why now? ${discoveryInterview.successMetrics}`
+  );
+  discovery = discovery.replace(
+    "## 2. Discovery Interview Summary (Discovery Persona)\n- Primary users:\n-\n- Jobs to be done:\n-\n- Current pain:\n-\n- Constraints (business/technical/compliance):\n-\n- Dependencies:\n-\n- Success metrics:\n-\n- Assumptions:\n-",
+    `## 2. Discovery Interview Summary (Discovery Persona)\n- Primary users:\n- ${discoveryInterview.primaryUsers}\n\n- Jobs to be done:\n- ${discoveryInterview.jtbd}\n\n- Current pain:\n- ${discoveryInterview.currentPain}\n\n- Constraints (business/technical/compliance):\n- ${discoveryInterview.constraints}\n\n- Dependencies:\n- ${discoveryInterview.dependencies}\n\n- Success metrics:\n- ${discoveryInterview.successMetrics}\n\n- Assumptions:\n- ${discoveryInterview.assumptions}`
+  );
+  discovery = discovery.replace(
+    "## 3. Scope\n### In scope\n-\n\n### Out of scope\n-",
+    `## 3. Scope\n### In scope\n- ${discoveryInterview.inScope}\n\n### Out of scope\n- ${discoveryInterview.outOfScope}`
+  );
+  discovery = discovery.replace(
+    "## 4. Actors & User Journeys\nActors:\n-\n\nPrimary journey:\n-",
+    `## 4. Actors & User Journeys\nActors:\n- ${discoveryInterview.primaryUsers}\n\nPrimary journey:\n- ${discoveryInterview.journey}`
   );
 
   fs.writeFileSync(outFile, discovery, "utf8");

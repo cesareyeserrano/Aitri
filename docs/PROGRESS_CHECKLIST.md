@@ -16,6 +16,7 @@ Check items as they are completed to prevent context drift.
 - [x] Expected outputs of `status` and `validate` are documented and verified
 
 ## 3) SDLC Personas
+- [x] Discovery persona complete
 - [x] Product persona complete
 - [x] Architect persona available
 - [x] Security persona available

@@ -32,7 +32,7 @@ Aitri execution model:
 - `aitri init`
 - `aitri draft [--guided]`
 - `aitri approve`
-- `aitri discover`
+- `aitri discover [--guided]`
 - `aitri plan`
 - `aitri validate`
 - `aitri status`
@@ -58,6 +58,7 @@ For non-interactive execution:
 
 ## Persona Usage
 When refining artifacts, apply:
+- Discovery
 - Product
 - Architect
 - Developer
@@ -70,6 +71,7 @@ Persona usage is iterative:
 - Do not treat persona output as one-time/final if context has changed.
 
 Reference files:
+- `core/personas/discovery.md`
 - `core/personas/product.md`
 - `core/personas/architect.md`
 - `core/personas/developer.md`

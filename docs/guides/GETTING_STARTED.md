@@ -89,6 +89,11 @@ Optional guided draft (interactive):
 aitri draft --guided
 ```
 
+Optional guided discovery interview (interactive):
+```bash
+aitri discover --feature user-auth --guided
+```
+
 Guided draft behavior:
 - Captures summary, actor, outcome, scope, and technology preference.
 - If technology is present in the requirement, Aitri asks to confirm or replace it.

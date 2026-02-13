@@ -160,6 +160,12 @@ Users need to authenticate securely with email and password.
 
   runNodeOk(["approve", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
   runNodeOk(["discover", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
+
+  const discoveryFile = path.join(tempDir, "docs", "discovery", `${feature}.md`);
+  const discoveryContent = fs.readFileSync(discoveryFile, "utf8");
+  assert.match(discoveryContent, /## 2\. Discovery Interview Summary \(Discovery Persona\)/);
+  assert.match(discoveryContent, /## 3\. Scope/);
+
   runNodeOk(["plan", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
 
   const backlogFile = path.join(tempDir, "backlog", feature, "backlog.md");

@@ -27,7 +27,7 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 - `aitri init`
 - `aitri draft [--guided]`
 - `aitri approve`
-- `aitri discover`
+- `aitri discover [--guided]`
 - `aitri plan`
 - `aitri validate`
 - `aitri status`
@@ -52,6 +52,7 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 
 ## Persona Alignment
 Use these lenses while refining artifacts:
+- Discovery
 - Product
 - Architect
 - Developer
@@ -64,6 +65,7 @@ Persona usage is iterative:
 - Do not treat persona output as one-time/final if context has changed.
 
 References:
+- `core/personas/discovery.md`
 - `core/personas/product.md`
 - `core/personas/architect.md`
 - `core/personas/developer.md`

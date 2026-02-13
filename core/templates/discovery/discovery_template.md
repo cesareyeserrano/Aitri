@@ -6,21 +6,37 @@ STATUS: DRAFT
 - What problem are we solving?
 - Why now?
 
-## 2. Scope
+## 2. Discovery Interview Summary (Discovery Persona)
+- Primary users:
+-
+- Jobs to be done:
+-
+- Current pain:
+-
+- Constraints (business/technical/compliance):
+-
+- Dependencies:
+-
+- Success metrics:
+-
+- Assumptions:
+-
+
+## 3. Scope
 ### In scope
 -
 
 ### Out of scope
 -
 
-## 3. Actors & User Journeys
+## 4. Actors & User Journeys
 Actors:
 -
 
 Primary journey:
 -
 
-## 4. Architecture (Architect Persona)
+## 5. Architecture (Architect Persona)
 - Components:
 -
 - Data flow:
@@ -30,7 +46,7 @@ Primary journey:
 - Risks:
 -
 
-## 5. Security (Security Persona)
+## 6. Security (Security Persona)
 - Threats:
 -
 - Controls required:
@@ -38,7 +54,7 @@ Primary journey:
 - Validation rules:
 -
 
-## 6. Backlog Outline
+## 7. Backlog Outline
 Epic:
 -
 
@@ -47,7 +63,7 @@ User stories:
 2.
 3.
 
-## 7. Test Strategy
+## 8. Test Strategy
 - Smoke tests:
 -
 - Functional tests:

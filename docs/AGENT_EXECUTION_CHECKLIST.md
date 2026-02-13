@@ -46,6 +46,7 @@ Agent must stop and ask for direction if:
 
 ## Persona Coverage Gate
 Before implementation approval:
+- Discovery: problem framing, constraints, dependencies, measurable outcomes
 - Product: problem/value/scope/AC clarity
 - Architect: technical design, risks, NFRs
 - Developer: practical implementation sequence

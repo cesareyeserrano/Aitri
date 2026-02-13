@@ -55,7 +55,7 @@ For complete onboarding (from no agent CLI installed to first validated workflow
 5. `aitri approve`
 6. `aitri discover`
 7. `aitri plan`
-8. Refine artifacts with personas
+8. Refine artifacts with personas (Discovery/Product/Architect/Developer/QA/Security/UX)
 9. `aitri validate`
 10. Human approval before implementation/deployment assistance
 
@@ -85,6 +85,7 @@ Runs spec gates and moves draft to `specs/approved/<feature>.md`.
 
 ### `aitri discover`
 Generates discovery, backlog skeleton, and tests skeleton from approved spec.
+Use `--guided` to run a deeper discovery interview (users, JTBD, constraints, dependencies, metrics, assumptions, scope).
 
 ### `aitri plan`
 Generates plan + structured backlog/tests templates.

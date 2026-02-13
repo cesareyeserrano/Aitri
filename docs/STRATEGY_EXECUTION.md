@@ -29,6 +29,7 @@ Status: COMPLETE
 - docs/implementation/CI alignment complete
 - persona model complete
 - command contract stabilized
+- discovery persona added and discover interview depth increased
 
 ### Phase B: Validation Maturity
 Status: COMPLETE (baseline)

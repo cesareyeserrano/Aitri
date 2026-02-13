@@ -22,12 +22,13 @@ Use Aitri as the CLI guardrail for spec-driven SDLC execution with mandatory hum
 - One command step at a time.
 - Use non-interactive mode only when explicitly needed.
 - Persona usage is iterative; re-run relevant personas when context changes.
+- Discovery persona should be applied before planning when requirements are ambiguous.
 
 ## Commands
 - `aitri init`
 - `aitri draft [--guided]`
 - `aitri approve`
-- `aitri discover`
+- `aitri discover [--guided]`
 - `aitri plan`
 - `aitri validate`
 - `aitri status`
