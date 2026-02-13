@@ -169,3 +169,11 @@ JSON response includes:
 - `docs/guides/SKILL_PACKAGING_AND_INSTALL.md`
 - `docs/runbook/SESSION_CHECKPOINT_AND_RESUME.md`
 - `docs/runbook/PERSONA_INTERACTION_FLOW.md`
+
+## License and Authorship
+- License: Apache-2.0 (`LICENSE`)
+- Attribution notice: `NOTICE`
+- Repository author: César Augusto Reyes
+
+Note:
+- Cloning preserves full Git commit history and commit authorship metadata by default.
