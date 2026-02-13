@@ -9,6 +9,7 @@ It enforces a deterministic workflow from specification to validated artifacts, 
 ## Table of Contents
 - [Why Aitri](#why-aitri)
 - [Install](#install)
+- [Zero-to-First-Run Guide](#zero-to-first-run-guide)
 - [Core Workflow](#core-workflow)
 - [Command Manual](#command-manual)
 - [Automation Helpers](#automation-helpers)
@@ -40,6 +41,10 @@ node cli/index.js help
 npm i -g .
 aitri --version
 ```
+
+## Zero-to-First-Run Guide
+For complete onboarding (from no agent CLI installed to first validated workflow), use:
+- `docs/guides/GETTING_STARTED.md`
 
 ## Core Workflow
 1. `aitri status --json`
@@ -168,6 +173,10 @@ node ../../cli/index.js validate --feature validate-coverage --non-interactive -
   - Verify `~/.codex/skills/aitri/SKILL.md` exists.
   - Verify `SKILL.md` starts with YAML frontmatter (`name`, `description`).
   - Restart Codex after installation/update.
+- If a skill session in a new repository reports missing `docs/*`:
+  - Run `aitri status --json`.
+  - If `nextStep` is `aitri init`, run `aitri init --non-interactive --yes`.
+  - Re-run `aitri status --json` and continue workflow.
 
 ## Documentation Index
 - `docs/README.md`

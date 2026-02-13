@@ -3,6 +3,9 @@
 ## Goal
 Make Aitri consumable as a skill contract across Codex, Claude, and OpenCode environments.
 
+For full first-time setup (including global Aitri install and first workflow), see:
+- `docs/guides/GETTING_STARTED.md`
+
 ## Included Skill Assets
 - `adapters/codex/SKILL.md`
 - `adapters/claude/SKILL.md`
@@ -34,6 +37,14 @@ cp adapters/codex/SKILL.md ~/.codex/skills/aitri/SKILL.md
 Codex discovery requirement:
 - `SKILL.md` must include YAML frontmatter with `name` and `description`.
 - Restart Codex after installing or updating a local skill.
+
+Claude skill locations:
+- Personal: `~/.claude/skills/<skill-name>/SKILL.md`
+- Project: `.claude/skills/<skill-name>/SKILL.md`
+
+OpenCode skill locations:
+- Personal: `~/.config/opencode/skills/<skill-name>/SKILL.md`
+- Project: `.opencode/skills/<skill-name>/SKILL.md`
 
 ## Runtime Expectations
 - Start with `aitri status --json`

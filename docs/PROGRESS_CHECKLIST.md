@@ -57,3 +57,8 @@ Check items as they are completed to prevent context drift.
 - [x] Validation reliable in real cases
 - [x] Documentation sufficient for continuity without original author
 - [x] Agent skills execute flow without bypassing gates
+
+## 9) Adoption Onboarding
+- [x] Zero-to-first-run guide published (global + project + skill)
+- [x] Skill bootstrap clarified for empty repositories (`status -> init -> status`)
+- [x] Troubleshooting includes real user-reported setup issues

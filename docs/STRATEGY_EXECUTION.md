@@ -52,6 +52,7 @@ Status: COMPLETE (baseline)
 - adapter skills for Codex/Claude/OpenCode
 - `agents/openai.yaml` metadata files
 - packaging and install guide added
+- zero-to-first-run onboarding guide added (global/project/skill)
 
 ## Next Targets (v1.0.x)
 1. Add optional machine-readable `status` gap categorization parity with validate.
