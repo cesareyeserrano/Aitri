@@ -12,6 +12,8 @@ Use this folder as the official reference for product intent, governance, and ex
 7. `docs/runbook/BUILD_DEPLOY_ASSIST_WORKFLOW.md` - supervised build/deploy-assist flow
 8. `docs/templates/deploy/` - deployment plan/checklist templates
 9. `docs/release/V1_CLOSEOUT_RC1.md` - release closeout evidence and readiness summary
+10. `docs/release/RELEASE_NOTES_v1.0.0-rc1.md` - RC release notes draft
+11. `docs/release/GITHUB_RELEASE_CHECKLIST_v1.0.0-rc1.md` - RC tagging and publish checklist
 
 ## Purpose
 Preserve continuity across time, contributors, and agent platforms.
