@@ -193,6 +193,9 @@ aitri status json
 ```
 Then execute the returned `nextStep`.
 
+If `status` reports `checkpoint.state.resumeDecision = "ask_user_resume_from_checkpoint"`,
+the agent should ask the user to confirm resume before any write action.
+
 ## Troubleshooting
 - If command waits for input in CI: add `--non-interactive --yes`.
 - If `validate` fails with missing feature: add `--feature <name>`.

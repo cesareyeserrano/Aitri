@@ -196,3 +196,6 @@ aitri status json
 ```
 
 Continue with `nextStep` returned by status.
+
+If `checkpoint.state.resumeDecision` says `ask_user_resume_from_checkpoint`,
+confirm resume with the user before any write command.

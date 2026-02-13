@@ -19,7 +19,8 @@ Before any substantial action:
 1. Read `docs/README.md`
 2. Read `docs/EXECUTION_GUARDRAILS.md`
 3. Run `aitri status json`
-4. Report state + next recommended step
+4. If `checkpoint.state.resumeDecision` requests it, ask user: "Checkpoint found. Continue from checkpoint? (yes/no)"
+5. Report state + next recommended step
 
 ## Standard Runtime Sequence
 1. `aitri status`

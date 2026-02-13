@@ -45,6 +45,8 @@ test("status json works in empty project", () => {
 
   assert.equal(payload.structure.ok, false);
   assert.equal(payload.nextStep, "aitri init");
+  assert.equal(payload.checkpoint.state.git, false);
+  assert.equal(payload.checkpoint.state.detected, false);
 });
 
 test("status accepts json shorthand without --json", () => {
@@ -53,6 +55,24 @@ test("status accepts json shorthand without --json", () => {
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.structure.ok, false);
   assert.equal(payload.nextStep, "aitri init");
+});
+
+test("status detects git checkpoint commit", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-checkpoint-"));
+  spawnSync("git", ["init"], { cwd: tempDir, encoding: "utf8" });
+  spawnSync("git", ["config", "user.name", "Aitri Test"], { cwd: tempDir, encoding: "utf8" });
+  spawnSync("git", ["config", "user.email", "aitri@example.com"], { cwd: tempDir, encoding: "utf8" });
+  fs.writeFileSync(path.join(tempDir, "README.md"), "checkpoint seed\n", "utf8");
+  spawnSync("git", ["add", "README.md"], { cwd: tempDir, encoding: "utf8" });
+  const commit = spawnSync("git", ["commit", "-m", "checkpoint: seed phase"], { cwd: tempDir, encoding: "utf8" });
+  assert.equal(commit.status, 0, `git commit failed: ${commit.stderr}`);
+
+  const result = runNodeOk(["status", "json"], { cwd: tempDir });
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.checkpoint.state.git, true);
+  assert.equal(payload.checkpoint.state.detected, true);
+  assert.equal(payload.checkpoint.state.resumeDecision, "ask_user_resume_from_checkpoint");
+  assert.match(payload.checkpoint.state.latestCommit.message, /^checkpoint:/);
 });
 
 test("end-to-end core workflow passes validate in non-interactive mode", () => {

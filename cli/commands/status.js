@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { execSync } from "node:child_process";
 
 function exists(p) {
   return fs.existsSync(p);
@@ -74,6 +75,60 @@ function computeNextStep({ missingDirs, approvedSpecFound, discoveryExists, plan
   return "ready_for_human_approval";
 }
 
+function readGit(cmd, cwd) {
+  try {
+    return execSync(cmd, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return "";
+  }
+}
+
+function detectCheckpointState(root) {
+  const insideWorkTree = readGit("git rev-parse --is-inside-work-tree", root) === "true";
+  if (!insideWorkTree) {
+    return {
+      git: false,
+      detected: false,
+      latestCommit: null,
+      latestStash: null,
+      resumeDecision: "no_checkpoint_detected",
+      prompt: "No checkpoint was detected."
+    };
+  }
+
+  const latestCommitRaw = readGit("git log --grep='^checkpoint:' --pretty=format:'%h|%cI|%s' -n 1", root);
+  const latestCommit = latestCommitRaw
+    ? (() => {
+      const [hash, timestamp, message] = latestCommitRaw.split("|");
+      return { hash, timestamp, message };
+    })()
+    : null;
+
+  const stashLines = readGit("git stash list --format='%gd|%gs'", root)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => /\|checkpoint:/i.test(line));
+  const latestStash = stashLines[0]
+    ? (() => {
+      const [ref, message] = stashLines[0].split("|");
+      return { ref, message };
+    })()
+    : null;
+
+  const detected = !!latestCommit || !!latestStash;
+  return {
+    git: true,
+    detected,
+    latestCommit,
+    latestStash,
+    resumeDecision: detected ? "ask_user_resume_from_checkpoint" : "no_checkpoint_detected",
+    prompt: detected
+      ? "Checkpoint detected. Ask user whether to continue from this checkpoint before any write action."
+      : "No checkpoint was detected."
+  };
+}
+
 export function runStatus(options = {}) {
   const { json = false } = options;
   const root = process.cwd();
@@ -109,10 +164,11 @@ export function runStatus(options = {}) {
     checkpoint: {
       recommended: true,
       command: "git add -A && git commit -m \"checkpoint: <feature-or-stage>\"",
-      fallback: "git stash push -m \"checkpoint: <feature-or-stage>\""
+      fallback: "git stash push -m \"checkpoint: <feature-or-stage>\"",
+      state: detectCheckpointState(root)
     },
     resume: {
-      command: "aitri status --json",
+      command: "aitri status json",
       rule: "Follow nextStep from status output."
     },
     handoff: {
@@ -229,4 +285,22 @@ export function runStatus(options = {}) {
   console.log("\nCheckpoint recommendation:");
   console.log(`- Commit: ${report.checkpoint.command}`);
   console.log(`- Fallback: ${report.checkpoint.fallback}`);
+  if (report.checkpoint.state.git) {
+    if (report.checkpoint.state.detected) {
+      console.log("- Checkpoint detected:");
+      if (report.checkpoint.state.latestCommit) {
+        console.log(
+          `  commit ${report.checkpoint.state.latestCommit.hash} ${report.checkpoint.state.latestCommit.message}`
+        );
+      }
+      if (report.checkpoint.state.latestStash) {
+        console.log(
+          `  stash ${report.checkpoint.state.latestStash.ref} ${report.checkpoint.state.latestStash.message}`
+        );
+      }
+      console.log("- Resume decision required: ask user to continue from checkpoint (yes/no).");
+    } else {
+      console.log("- No existing checkpoint detected in git history/stash.");
+    }
+  }
 }

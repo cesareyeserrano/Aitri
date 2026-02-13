@@ -30,6 +30,14 @@ aitri status json
 
 Then execute the returned `nextStep`.
 
+If status reports:
+- `checkpoint.state.resumeDecision = "ask_user_resume_from_checkpoint"`
+
+the agent must ask the user explicitly:
+- "Checkpoint found. Continue from checkpoint? (yes/no)"
+
+before any write action.
+
 Typical mapping:
 - `aitri init` -> structure missing
 - `aitri draft` -> no approved spec
