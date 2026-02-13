@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: "Aitri SDLC Guardrail"
+  short_description: "Spec-driven execution workflow for OpenCode sessions."
+  default_prompt: "Use Aitri commands to drive SDLC steps with explicit approvals and traceability checks."

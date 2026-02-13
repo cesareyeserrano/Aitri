@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: "Aitri SDLC Guardrail"
+  short_description: "Use Aitri workflow gates for spec-driven delivery."
+  default_prompt: "Operate through Aitri commands, respect gates, and report each step with clear next action."

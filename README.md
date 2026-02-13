@@ -1,56 +1,163 @@
-# Aitri ⚒️ — The AI Craftsman
+![Aitri Header](assets/aitri-header.svg)
 
-Aitri is a CLI-first, spec-driven SDLC workflow engine for humans and AI agents.
+# Aitri
 
-## What Aitri does
-- Enforces a spec-first process
-- Generates core SDLC artifacts from approved specs
-- Validates traceability before implementation
-- Keeps humans in control via explicit approval gates
+Aitri is a CLI-first, spec-driven SDLC guardrail for human + AI collaboration.
 
-## Core flow
-1. `aitri init`
-2. `aitri draft`
-3. `aitri approve`
-4. `aitri discover`
-5. `aitri plan`
-6. `aitri validate`
-7. human approval before implementation/deployment actions
+It enforces a deterministic workflow from specification to validated artifacts, with explicit human approvals before implementation and deployment assistance steps.
 
-## Commands
-- `aitri help`
-- `aitri --version`
-- `aitri init`
-- `aitri draft [--guided]`
-- `aitri approve`
-- `aitri discover`
-- `aitri plan`
-- `aitri validate [--feature <name>] [--non-interactive] [--json]`
-- `aitri status [--json]`
-- `--yes` auto-approves supported PLAN prompts
+## Table of Contents
+- [Why Aitri](#why-aitri)
+- [Install](#install)
+- [Core Workflow](#core-workflow)
+- [Command Manual](#command-manual)
+- [Automation Helpers](#automation-helpers)
+- [Skill Adapters](#skill-adapters)
+- [Project Structure](#project-structure)
+- [Validation Model](#validation-model)
+- [Exit Codes](#exit-codes)
+- [Real Test Procedure](#real-test-procedure)
+- [Troubleshooting](#troubleshooting)
+- [Documentation Index](#documentation-index)
 
-## Automation notes
-- Use `--non-interactive` for CI/agent runs.
-- For commands that write files (`init`, `draft`, `approve`, `discover`, `plan`), combine `--non-interactive` with `--yes`.
-- Exit codes:
-  - `0`: success
-  - `1`: error (usage, validation, runtime)
-  - `2`: user-aborted action
+## Why Aitri
+- Spec first: no implementation without approved scope.
+- Traceability: FR -> US -> TC.
+- Deterministic CLI behavior for humans, CI, and agents.
+- Explicit gate approvals for file-changing actions.
+- Human authority over all irreversible steps.
 
-## Quick start
+## Install
+
+### Local repo usage
 ```bash
-aitri init
-aitri draft --guided
-aitri approve
-aitri discover
-aitri plan
-aitri validate --feature your-feature --non-interactive
+cd /path/to/aitri
+node cli/index.js help
 ```
 
-## Docs
-Project governance and execution model live in `docs/`:
-- `docs/architecture.md`
-- `docs/SCOPE_V1.md`
-- `docs/STRATEGY_EXECUTION.md`
+### Global install from source
+```bash
+npm i -g .
+aitri --version
+```
+
+## Core Workflow
+1. `aitri status --json`
+2. `aitri init`
+3. `aitri draft`
+4. Human review of draft
+5. `aitri approve`
+6. `aitri discover`
+7. `aitri plan`
+8. Refine artifacts with personas
+9. `aitri validate`
+10. Human approval before implementation/deployment assistance
+
+## Command Manual
+
+### `aitri help`
+Shows command reference and options.
+
+### `aitri --version`
+Prints installed version.
+
+### `aitri init`
+Creates base project structure (`specs`, `backlog`, `tests`, `docs`).
+
+### `aitri draft [--guided]`
+Creates `specs/drafts/<feature>.md` from idea input.
+
+### `aitri approve`
+Runs spec gates and moves draft to `specs/approved/<feature>.md`.
+
+### `aitri discover`
+Generates discovery, backlog skeleton, and tests skeleton from approved spec.
+
+### `aitri plan`
+Generates plan + structured backlog/tests templates.
+
+### `aitri validate`
+Validates structure, placeholders, and coverage links.
+
+### `aitri status`
+Shows project state and next recommended step.
+
+## Automation Helpers
+Use these flags for CI/agent execution:
+- `--non-interactive`: disable prompts
+- `--yes`: auto-approve write-command plans
+- `--feature <name>`: explicit feature targeting
+- `--idea <text>`: non-interactive draft content
+- `--json`: machine-readable output (`status`, `validate`)
+
+Example non-interactive sequence:
+```bash
+aitri init --non-interactive --yes
+aitri draft --feature user-login --idea "Email/password login" --non-interactive --yes
+aitri approve --feature user-login --non-interactive --yes
+aitri discover --feature user-login --non-interactive --yes
+aitri plan --feature user-login --non-interactive --yes
+aitri validate --feature user-login --non-interactive --json
+```
+
+## Skill Adapters
+Aitri includes adapter skill contracts for:
+- Codex: `adapters/codex/SKILL.md`
+- Claude: `adapters/claude/SKILL.md`
+- OpenCode: `adapters/opencode/SKILL.md`
+
+UI metadata files for skill lists:
+- `adapters/codex/agents/openai.yaml`
+- `adapters/claude/agents/openai.yaml`
+- `adapters/opencode/agents/openai.yaml`
+
+## Project Structure
+```text
+specs/
+  drafts/
+  approved/
+backlog/<feature>/backlog.md
+tests/<feature>/tests.md
+docs/discovery/<feature>.md
+docs/plan/<feature>.md
+```
+
+## Validation Model
+`validate` checks:
+- Missing required artifacts
+- Placeholder leakage (`FR-?`, `AC-?`, `US-?`)
+- Structure requirements (`### US-*`, `### TC-*`)
+- Coverage links:
+  - FR -> US
+  - FR -> TC
+  - US -> TC
+
+JSON output includes:
+- `issues` (compatible flat list)
+- `gaps` (typed issue lists)
+- `gapSummary` (typed counts)
+
+## Exit Codes
+- `0` success
+- `1` error (usage/validation/runtime)
+- `2` user-aborted action
+
+## Real Test Procedure
+```bash
+npm run test:smoke
+cd examples/validate-coverage
+node ../../cli/index.js validate --feature validate-coverage --non-interactive --json
+```
+
+## Troubleshooting
+- If command waits for input in CI: add `--non-interactive --yes`.
+- If `validate` fails with missing feature: add `--feature <name>`.
+- If merge is blocked by branch policy: complete required checks/review or use admin merge when appropriate.
+
+## Documentation Index
+- `docs/README.md`
+- `docs/EXECUTION_GUARDRAILS.md`
 - `docs/AGENT_EXECUTION_CHECKLIST.md`
 - `docs/PROGRESS_CHECKLIST.md`
+- `docs/STRATEGY_EXECUTION.md`
+- `docs/release/`

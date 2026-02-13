@@ -1,0 +1,5 @@
+version: 1
+interface:
+  display_name: "Aitri SDLC Guardrail"
+  short_description: "Run Aitri's spec-driven SDLC workflow safely from terminal."
+  default_prompt: "Use Aitri as the execution guardrail. Start with status, enforce approvals, and keep traceability from spec to tests."

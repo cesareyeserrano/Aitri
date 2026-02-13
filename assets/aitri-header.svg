@@ -1,0 +1,19 @@
+<svg width="1200" height="360" viewBox="0 0 1200 360" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0f172a"/>
+      <stop offset="1" stop-color="#1e293b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="120" y1="80" x2="900" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f97316"/>
+      <stop offset="1" stop-color="#fb7185"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" fill="url(#bg)"/>
+  <circle cx="1020" cy="-40" r="240" fill="#334155" fill-opacity="0.28"/>
+  <circle cx="1110" cy="80" r="160" fill="#475569" fill-opacity="0.22"/>
+  <path d="M140 270L250 120L370 220L470 90L610 260" stroke="url(#accent)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="120" y="120" fill="#e2e8f0" font-family="Menlo, Monaco, Consolas, monospace" font-size="58" font-weight="700">AITRI</text>
+  <text x="120" y="170" fill="#f8fafc" font-family="Menlo, Monaco, Consolas, monospace" font-size="24">CLI-first Spec-Driven SDLC for Human + AI Teams</text>
+  <text x="120" y="210" fill="#cbd5e1" font-family="Menlo, Monaco, Consolas, monospace" font-size="18">Guardrails. Traceability. Deterministic delivery.</text>
+</svg>

@@ -45,7 +45,14 @@ Check items as they are completed to prevent context drift.
 - [x] Rollback/fallback checklist
 - [x] Post-deploy evidence documented
 
-## 7) Ready for V1 Close
+## 7) Skill Packaging and Distribution
+- [x] Codex skill contract updated
+- [x] Claude skill contract updated
+- [x] OpenCode skill adapter added
+- [x] Agent UI metadata files (`agents/openai.yaml`) included
+- [x] Skill packaging/install guide documented
+
+## 8) Ready for V1 Close
 - [x] Core stable on new and existing repositories
 - [x] Validation reliable in real cases
 - [x] Documentation sufficient for continuity without original author
