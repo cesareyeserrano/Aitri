@@ -54,8 +54,7 @@ Status: COMPLETE (baseline)
 ## Next Targets (v1.0.x)
 1. Enforce persona outputs in engine gates (reduce soft compliance).
 2. Deepen discovery-to-plan signal quality and reduce scaffold noise.
-3. Publish a reproducible <=5 minute end-to-end demo path.
-4. Split docs into default quick path vs advanced operations path.
+3. Split docs into default quick path vs advanced operations path.
 
 Backlog source of truth:
 - `backlog/aitri-core/backlog.md`

@@ -28,6 +28,7 @@
     "url": "https://github.com/cesareyeserrano/aitri/issues"
   },
   "scripts": {
-    "test:smoke": "node --test tests/smoke/cli-smoke.test.mjs"
+    "test:smoke": "node --test tests/smoke/cli-smoke.test.mjs",
+    "demo:5min": "bash scripts/demo-5min.sh"
   }
 }

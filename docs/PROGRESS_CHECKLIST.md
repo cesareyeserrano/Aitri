@@ -74,4 +74,4 @@ Check items as they are completed to prevent context drift.
 - [ ] Persona output enforcement moved from soft guidance to CLI gates
 - [x] Explicit handoff/go commands implemented (`aitri handoff`, `aitri go`)
 - [x] Explicit resume shortcut command implemented (`aitri resume`)
-- [ ] 5-minute reproducible demo path published
+- [x] 5-minute reproducible demo path published

@@ -40,7 +40,7 @@
 - Objective:
   - Improve perceived professionalism and practical trust quickly.
 
-### US-7
+### US-7 [DONE]
 - As a new adopter, I want a 5-minute reproducible demo that shows value end-to-end, so that I can evaluate Aitri fast.
 - Trace: FR-4, AC-7
 
@@ -55,5 +55,5 @@
 - AC-4: Generated plan/backlog/tests contain fewer unresolved placeholders and stronger traceable defaults.
 - AC-5: Explicit handoff command(s) exist (`aitri handoff` and/or `aitri go`) with clear no-go/go behavior.
 - AC-6: Resume shortcut exists and maps to checkpoint decision + next step deterministically.
-- AC-7: Demo script runs end-to-end in a clean repo in <= 5 minutes.
+- AC-7: Demo script runs end-to-end in a clean repo in <= 5 minutes. [DONE]
 - AC-8: README and docs separate "default quick path" from "advanced operations path".

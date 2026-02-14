@@ -44,6 +44,11 @@ aitri plan --feature user-login --non-interactive --yes
 aitri validate --feature user-login --format json
 ```
 
+### 4) Run the 5-minute reproducible demo
+```bash
+npm run demo:5min
+```
+
 ## Command Reference
 | Command | Purpose |
 |---|---|
@@ -176,6 +181,7 @@ JSON response includes:
 - `docs/STRATEGY_EXECUTION.md`
 - `docs/guides/SKILL_PACKAGING_AND_INSTALL.md`
 - `docs/runbook/SESSION_CHECKPOINT_AND_RESUME.md`
+- `docs/runbook/DEMO_5_MINUTES.md`
 - `docs/runbook/PERSONA_INTERACTION_FLOW.md`
 - `backlog/aitri-core/backlog.md`
 

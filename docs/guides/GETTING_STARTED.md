@@ -94,6 +94,11 @@ Optional guided discovery interview (interactive):
 aitri discover --feature user-auth --guided
 ```
 
+Fast full demo path:
+```bash
+npm run demo:5min
+```
+
 Guided draft behavior:
 - Captures summary, actor, outcome, scope, and technology preference.
 - If technology is present in the requirement, Aitri asks to confirm or replace it.
