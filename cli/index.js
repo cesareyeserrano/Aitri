@@ -50,6 +50,7 @@ function parseArgs(argv) {
     idea: null,
     feature: null,
     verifyCmd: null,
+    discoveryDepth: null,
     positional: []
   };
 
@@ -85,6 +86,11 @@ function parseArgs(argv) {
       i += 1;
     } else if (arg.startsWith("--verify-cmd=")) {
       parsed.verifyCmd = arg.slice("--verify-cmd=".length).trim();
+    } else if (arg === "--discovery-depth") {
+      parsed.discoveryDepth = (argv[i + 1] || "").trim().toLowerCase();
+      i += 1;
+    } else if (arg.startsWith("--discovery-depth=")) {
+      parsed.discoveryDepth = arg.slice("--discovery-depth=".length).trim().toLowerCase();
     } else {
       parsed.positional.push(arg);
     }
@@ -101,6 +107,15 @@ function wantsJson(options, positional = []) {
 
 function normalizeFeatureName(value) {
   return (value || "").replace(/\s+/g, "-").trim();
+}
+
+function normalizeDiscoveryDepth(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === "q" || raw === "quick") return "quick";
+  if (raw === "s" || raw === "standard") return "standard";
+  if (raw === "d" || raw === "deep") return "deep";
+  return null;
 }
 
 function toRecommendedCommand(nextStep) {
@@ -313,10 +328,21 @@ async function collectDiscoveryInterview(options) {
     assumptions: "Assumptions pending explicit validation",
     inScope: "Approved spec functional scope",
     outOfScope: "Anything not explicitly stated in approved spec",
-    journey: "Primary journey derived from approved spec context"
+    journey: "Primary journey derived from approved spec context",
+    interviewMode: "quick"
   };
 
-  if (options.nonInteractive) return defaults;
+  const flaggedDepth = normalizeDiscoveryDepth(options.discoveryDepth);
+  if (options.discoveryDepth && !flaggedDepth) {
+    throw new Error("Invalid --discovery-depth value. Use quick, standard, or deep.");
+  }
+
+  if (options.nonInteractive) {
+    return {
+      ...defaults,
+      interviewMode: flaggedDepth || "quick"
+    };
+  }
 
   let guided = options.guided;
   if (!guided) {
@@ -326,18 +352,70 @@ async function collectDiscoveryInterview(options) {
   if (!guided) return defaults;
 
   console.log("\nGuided Discovery Interview");
-  console.log("Provide concise answers. Aitri will structure them in the discovery artifact.\n");
+  console.log("Progressive mode: quick by default, with optional expansion when needed.\n");
 
+  let depth = flaggedDepth;
+  if (!depth) {
+    while (true) {
+      const choice = (await ask("Select interview depth [q=quick, s=standard, d=deep] (default q): ")).toLowerCase();
+      if (!choice || choice === "q" || choice === "quick") {
+        depth = "quick";
+        break;
+      }
+      if (choice === "s" || choice === "standard") {
+        depth = "standard";
+        break;
+      }
+      if (choice === "d" || choice === "deep") {
+        depth = "deep";
+        break;
+      }
+      console.log("Invalid depth. Choose q, s, or d.");
+    }
+  }
+
+  console.log(`\nInterview mode: ${depth}`);
   const primaryUsers = await ask("1) Primary users/segments: ");
   const jtbd = await ask("2) Jobs-to-be-done (what must users accomplish?): ");
   const currentPain = await ask("3) Current pain/impact (frequency/severity): ");
   const constraints = await ask("4) Constraints (business/technical/compliance): ");
   const dependencies = await ask("5) Dependencies (teams/systems/vendors): ");
   const successMetrics = await ask("6) Success metrics (baseline -> target): ");
-  const assumptions = await ask("7) Key assumptions to validate: ");
-  const inScope = await ask("8) In-scope (atomic list): ");
-  const outOfScope = await ask("9) Out-of-scope (deferred): ");
-  const journey = await ask("10) Primary user journey in one line: ");
+
+  let collectAdvanced = depth !== "quick";
+  if (!collectAdvanced) {
+    const expand = (await ask("Need expanded discovery details now? (y/N): ")).toLowerCase();
+    collectAdvanced = (expand === "y" || expand === "yes");
+    if (collectAdvanced) depth = "standard";
+  }
+
+  let assumptions = defaults.assumptions;
+  let inScope = defaults.inScope;
+  let outOfScope = defaults.outOfScope;
+  let journey = defaults.journey;
+  let deepMetricBaseline = "";
+  if (collectAdvanced) {
+    assumptions = await ask("7) Key assumptions to validate: ");
+    inScope = await ask("8) In-scope (atomic list): ");
+    outOfScope = await ask("9) Out-of-scope (deferred): ");
+    journey = await ask("10) Primary user journey in one line: ");
+  }
+
+  if (depth === "deep") {
+    const urgencyNow = await ask("11) Why now (urgency trigger/event): ");
+    const baselineToday = await ask("12) Baseline today (current metric value): ");
+    const noGoZone = await ask("13) Explicit no-go zone (what must never be built now): ");
+    if (urgencyNow) {
+      assumptions = `${assumptions || defaults.assumptions}; Why now: ${urgencyNow}`;
+    }
+    if (baselineToday && successMetrics) {
+      // Keep format compact while preserving baseline context.
+      deepMetricBaseline = baselineToday;
+    }
+    if (noGoZone) {
+      outOfScope = `${outOfScope || defaults.outOfScope}; No-go zone: ${noGoZone}`;
+    }
+  }
 
   return {
     primaryUsers: primaryUsers || defaults.primaryUsers,
@@ -345,11 +423,14 @@ async function collectDiscoveryInterview(options) {
     currentPain: currentPain || defaults.currentPain,
     constraints: constraints || defaults.constraints,
     dependencies: dependencies || defaults.dependencies,
-    successMetrics: successMetrics || defaults.successMetrics,
+    successMetrics: deepMetricBaseline
+      ? `${successMetrics || defaults.successMetrics}; Baseline: ${deepMetricBaseline}`
+      : (successMetrics || defaults.successMetrics),
     assumptions: assumptions || defaults.assumptions,
     inScope: inScope || defaults.inScope,
     outOfScope: outOfScope || defaults.outOfScope,
-    journey: journey || defaults.journey
+    journey: journey || defaults.journey,
+    interviewMode: depth
   };
 }
 
@@ -840,6 +921,7 @@ Options:
   --feature, -f <name>   Feature name for non-interactive runs
   --idea <text>          Idea text for non-interactive draft
   --verify-cmd <cmd>     Explicit runtime verification command (used by \`aitri verify\`)
+  --discovery-depth <d>  Guided discovery depth: quick | standard | deep
   --non-interactive      Do not prompt; fail if required args are missing
   --json, -j             Output machine-readable JSON (status, validate)
   --format <type>        Output format (json supported)
@@ -1188,7 +1270,13 @@ if (cmd === "discover") {
   fs.mkdirSync(testsDir, { recursive: true });
 
   const approvedSpec = fs.readFileSync(approvedFile, "utf8");
-  const discoveryInterview = await collectDiscoveryInterview(options);
+  let discoveryInterview;
+  try {
+    discoveryInterview = await collectDiscoveryInterview(options);
+  } catch (error) {
+    console.log(error instanceof Error ? error.message : "Discovery interview failed.");
+    process.exit(EXIT_ERROR);
+  }
   const confidence = (() => {
     if (
       [discoveryInterview.primaryUsers, discoveryInterview.currentPain, discoveryInterview.successMetrics]
@@ -1216,6 +1304,9 @@ if (cmd === "discover") {
       handoff: "Ready for Product/Architecture"
     };
   })();
+  if (discoveryInterview.interviewMode === "quick" && confidence.level !== "Low") {
+    confidence.reason = `${confidence.reason} Interview used quick mode; expand to standard/deep if uncertainty remains.`;
+  }
   let discovery = fs.readFileSync(templatePath, "utf8");
 
   // Basic injection
@@ -1226,7 +1317,7 @@ if (cmd === "discover") {
   );
   discovery = discovery.replace(
     "## 2. Discovery Interview Summary (Discovery Persona)\n- Primary users:\n-\n- Jobs to be done:\n-\n- Current pain:\n-\n- Constraints (business/technical/compliance):\n-\n- Dependencies:\n-\n- Success metrics:\n-\n- Assumptions:\n-",
-    `## 2. Discovery Interview Summary (Discovery Persona)\n- Primary users:\n- ${discoveryInterview.primaryUsers}\n\n- Jobs to be done:\n- ${discoveryInterview.jtbd}\n\n- Current pain:\n- ${discoveryInterview.currentPain}\n\n- Constraints (business/technical/compliance):\n- ${discoveryInterview.constraints}\n\n- Dependencies:\n- ${discoveryInterview.dependencies}\n\n- Success metrics:\n- ${discoveryInterview.successMetrics}\n\n- Assumptions:\n- ${discoveryInterview.assumptions}`
+    `## 2. Discovery Interview Summary (Discovery Persona)\n- Primary users:\n- ${discoveryInterview.primaryUsers}\n\n- Jobs to be done:\n- ${discoveryInterview.jtbd}\n\n- Current pain:\n- ${discoveryInterview.currentPain}\n\n- Constraints (business/technical/compliance):\n- ${discoveryInterview.constraints}\n\n- Dependencies:\n- ${discoveryInterview.dependencies}\n\n- Success metrics:\n- ${discoveryInterview.successMetrics}\n\n- Assumptions:\n- ${discoveryInterview.assumptions}\n\n- Interview mode:\n- ${discoveryInterview.interviewMode}`
   );
   discovery = discovery.replace(
     "## 3. Scope\n### In scope\n-\n\n### Out of scope\n-",

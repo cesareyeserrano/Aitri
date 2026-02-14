@@ -77,6 +77,7 @@ npm run demo:5min
 - `--feature <name>`: explicit feature target
 - `--idea "<text>"`: non-interactive draft input
 - `--verify-cmd "<command>"`: explicit runtime verification command
+- `--discovery-depth <quick|standard|deep>`: guided discovery depth selector
 - `--no-checkpoint`: disable auto-checkpoint for one command
 
 `status` and `handoff` JSON responses include:
@@ -89,7 +90,10 @@ npm run demo:5min
   - Structured requirement intake (summary, actor, outcome, scope, technology).
   - Confirms requirement-defined technology or suggests a baseline.
 - `aitri discover --guided`
-  - Deeper discovery interview (users, JTBD, constraints, dependencies, metrics, assumptions, scope).
+  - Progressive discovery interview to reduce friction and avoid shallow specs.
+  - `quick` (default): core decision inputs only.
+  - `standard`: quick + scope/journey/assumptions.
+  - `deep`: standard + urgency/baseline/no-go prompts.
 - `aitri plan`
   - Blocks if discovery confidence is `Low` or required discovery sections are missing.
 

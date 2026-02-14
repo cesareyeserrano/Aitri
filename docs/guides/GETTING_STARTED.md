@@ -108,6 +108,13 @@ Optional guided discovery interview (interactive):
 aitri discover --feature user-auth --guided
 ```
 
+Optional guided discovery depth:
+```bash
+aitri discover --feature user-auth --guided --discovery-depth quick
+aitri discover --feature user-auth --guided --discovery-depth standard
+aitri discover --feature user-auth --guided --discovery-depth deep
+```
+
 Fast full demo path:
 ```bash
 npm run demo:5min

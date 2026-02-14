@@ -39,6 +39,7 @@ test("help and version are available", () => {
   assert.match(help.stdout, /--non-interactive/);
   assert.match(help.stdout, /--json, -j/);
   assert.match(help.stdout, /--format <type>/);
+  assert.match(help.stdout, /--discovery-depth <d>/);
   assert.match(help.stdout, /--no-checkpoint/);
 });
 
@@ -360,6 +361,44 @@ Users need to authenticate securely with email and password.
   assert.match(go.stdout, /Implementation go\/no-go decision: GO/);
 });
 
+test("discover non-interactive guided defaults to quick interview mode", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-discovery-quick-"));
+  const feature = "discovery-quick";
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  runNodeOk(["draft", "--feature", feature, "--idea", "Discovery quick mode", "--non-interactive", "--yes"], { cwd: tempDir });
+
+  const draftFile = path.join(tempDir, "specs", "drafts", `${feature}.md`);
+  fs.writeFileSync(
+    draftFile,
+    `# AF-SPEC: ${feature}
+
+STATUS: DRAFT
+
+## 1. Context
+Users need workflow automation.
+
+## 2. Actors
+- Product owner
+
+## 3. Functional Rules (traceable)
+- FR-1: Capture a valid discovery baseline.
+
+## 7. Security Considerations
+- Basic access control.
+
+## 9. Acceptance Criteria
+- AC-1: Given valid input, when discovery runs, then artifacts are generated.
+`,
+    "utf8"
+  );
+
+  runNodeOk(["approve", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
+  runNodeOk(["discover", "--feature", feature, "--guided", "--non-interactive", "--yes"], { cwd: tempDir });
+
+  const discovery = fs.readFileSync(path.join(tempDir, "docs", "discovery", `${feature}.md`), "utf8");
+  assert.match(discovery, /- Interview mode:\n- quick/);
+});
+
 test("end-to-end workflow supports custom mapped paths", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-config-flow-"));
   const feature = "mapped-flow";
@@ -564,6 +603,28 @@ test("go is blocked when managed-go policy detects dependency drift", () => {
   const result = runNode(["go", "--non-interactive", "--yes"], { cwd: tempDir });
   assert.equal(result.status, 1);
   assert.match(result.stdout, /GO BLOCKED: managed-go policy checks failed/);
+});
+
+test("discover fails fast on invalid discovery depth", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-discovery-depth-invalid-"));
+  const feature = "invalid-depth";
+  fs.mkdirSync(path.join(tempDir, "specs", "approved"), { recursive: true });
+  fs.writeFileSync(
+    path.join(tempDir, "specs", "approved", `${feature}.md`),
+    `# AF-SPEC: ${feature}\nSTATUS: APPROVED\n## 3. Functional Rules (traceable)\n- FR-1: Rule.\n`,
+    "utf8"
+  );
+
+  const result = runNode([
+    "discover",
+    "--feature", feature,
+    "--guided",
+    "--discovery-depth", "invalid",
+    "--non-interactive",
+    "--yes"
+  ], { cwd: tempDir });
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /Invalid --discovery-depth value/);
 });
 
 test("verify fails with explicit reason when runtime command cannot be detected", () => {
