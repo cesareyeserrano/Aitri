@@ -88,7 +88,7 @@
 - Objective:
   - Provide business + technical visibility without abandoning CLI-first principles.
 
-### US-15
+### US-15 [DONE]
 - As a stakeholder, I want `aitri status --ui` static output, so that project health is visible without manual parsing.
 - Trace: FR-8, AC-15
 
@@ -123,7 +123,7 @@
 - AC-12: Invalid mapping configuration fails fast with explicit diagnostics and safe defaults. [DONE]
 - AC-13: Managed-go mode enforces deterministic policy checks before progression. [DONE]
 - AC-14: Dependency/policy drift output is machine-readable for CI gating. [DONE]
-- AC-15: `aitri status --ui` generates static visibility output for non-technical stakeholders.
+- AC-15: `aitri status --ui` generates static visibility output for non-technical stakeholders. [DONE]
 - AC-16: Confidence score model is documented and includes runtime + spec inputs. [DONE]
 - AC-17: Section-level retrieval is used before raw full-document loading in large workflows.
 - AC-18: Optional local semantic indexing is available in advanced mode.

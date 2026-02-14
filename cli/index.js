@@ -42,6 +42,7 @@ function ask(question) {
 function parseArgs(argv) {
   const parsed = {
     json: false,
+    ui: false,
     format: null,
     autoCheckpoint: true,
     nonInteractive: false,
@@ -58,6 +59,8 @@ function parseArgs(argv) {
     const arg = argv[i];
     if (arg === "--json" || arg === "-j") {
       parsed.json = true;
+    } else if (arg === "--ui") {
+      parsed.ui = true;
     } else if (arg === "--no-checkpoint") {
       parsed.autoCheckpoint = false;
     } else if (arg === "--format") {
@@ -103,6 +106,12 @@ function wantsJson(options, positional = []) {
   if (options.json) return true;
   if ((options.format || "").toLowerCase() === "json") return true;
   return positional.some((p) => p.toLowerCase() === "json");
+}
+
+function wantsUi(options, positional = []) {
+  if (options.ui) return true;
+  if ((options.format || "").toLowerCase() === "ui") return true;
+  return positional.some((p) => p.toLowerCase() === "ui");
 }
 
 function normalizeFeatureName(value) {
@@ -950,6 +959,7 @@ Options:
   --idea <text>          Idea text for non-interactive draft
   --verify-cmd <cmd>     Explicit runtime verification command (used by \`aitri verify\`)
   --discovery-depth <d>  Guided discovery depth: quick | standard | deep
+  --ui                   Generate static status insight page (status command)
   --non-interactive      Do not prompt; fail if required args are missing
   --json, -j             Output machine-readable JSON (status, validate)
   --format <type>        Output format (json supported)
@@ -2002,7 +2012,11 @@ if (cmd === "validate") {
 
 if (cmd === "status") {
   try {
-    runStatus({ json: wantsJson(options, options.positional), root: process.cwd() });
+    runStatus({
+      json: wantsJson(options, options.positional),
+      ui: wantsUi(options, options.positional),
+      root: process.cwd()
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : `Invalid ${CONFIG_FILE}`;
     console.log(message);

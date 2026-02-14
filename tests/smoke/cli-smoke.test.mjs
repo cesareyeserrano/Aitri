@@ -40,6 +40,7 @@ test("help and version are available", () => {
   assert.match(help.stdout, /--json, -j/);
   assert.match(help.stdout, /--format <type>/);
   assert.match(help.stdout, /--discovery-depth <d>/);
+  assert.match(help.stdout, /--ui/);
   assert.match(help.stdout, /--no-checkpoint/);
 });
 
@@ -58,6 +59,38 @@ test("status json works in empty project", () => {
   assert.equal(payload.confidence.components.runtimeVerification, 0);
   assert.equal(payload.checkpoint.state.git, false);
   assert.equal(payload.checkpoint.state.detected, false);
+});
+
+test("status ui generates static insight file and exposes path in json mode", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-status-ui-"));
+  const result = runNodeOk(["status", "--ui", "--json"], { cwd: tempDir });
+  const payload = JSON.parse(result.stdout);
+
+  assert.equal(payload.ui.enabled, true);
+  assert.match(payload.ui.file, /docs\/insight\/status\.html$/);
+  const htmlPath = path.join(tempDir, payload.ui.file);
+  assert.equal(fs.existsSync(htmlPath), true);
+  const html = fs.readFileSync(htmlPath, "utf8");
+  assert.match(html, /Aitri Insight/);
+  assert.match(html, /Confidence/);
+});
+
+test("status ui respects mapped docs path from config", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-status-ui-config-"));
+  fs.writeFileSync(
+    path.join(tempDir, "aitri.config.json"),
+    JSON.stringify({
+      paths: {
+        docs: "knowledge/docs"
+      }
+    }, null, 2),
+    "utf8"
+  );
+
+  const result = runNodeOk(["status", "--ui", "--json"], { cwd: tempDir });
+  const payload = JSON.parse(result.stdout);
+  assert.match(payload.ui.file, /knowledge\/docs\/insight\/status\.html$/);
+  assert.equal(fs.existsSync(path.join(tempDir, payload.ui.file)), true);
 });
 
 test("init respects aitri.config.json custom path mapping", () => {

@@ -58,14 +58,13 @@ Status: IN PROGRESS
 - brownfield mapping delivered (`aitri.config.json`)
 - managed-go policy checks delivered (deterministic scan model)
 - confidence score delivered in `status` output (weighted spec/runtime model)
-- static insight UI accepted (`status --ui`)
+- static insight UI delivered (`status --ui`)
 - scalable retrieval accepted as staged work (metadata first, optional semantic index later)
 
 ## Next Targets (v1.0.x)
-1. Publish `status --ui` static insight view over existing confidence scoring model.
-2. Deepen discovery-to-plan signal quality and reduce scaffold noise.
-3. Split docs into default quick path vs advanced operations path.
-4. Stage scalable retrieval for large contexts (section-level first, optional semantic index later).
+1. Deepen discovery-to-plan signal quality and reduce scaffold noise.
+2. Split docs into default quick path vs advanced operations path.
+3. Stage scalable retrieval for large contexts (section-level first, optional semantic index later).
 
 Backlog source of truth:
 - `backlog/aitri-core/backlog.md`

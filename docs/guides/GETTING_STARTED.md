@@ -89,6 +89,7 @@ Expected:
 - `policy` exits with code `0` when managed-go checks pass
 - `status json`/`handoff json` expose `recommendedCommand` for the exact next CLI action
 - `status json` exposes `confidence.score` using weighted components (`specIntegrity` 40%, `runtimeVerification` 60%)
+- `status --ui` generates a static insight page at `docs/insight/status.html`
 
 Runtime verification command detection order:
 1. `package.json` script `test:aitri`

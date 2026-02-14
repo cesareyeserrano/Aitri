@@ -284,6 +284,110 @@ function buildConfidenceReport(report) {
   };
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function levelColor(level) {
+  if (level === "high") return "#0f766e";
+  if (level === "medium") return "#b45309";
+  return "#b91c1c";
+}
+
+function renderStatusInsightHtml(report, generatedAtIso) {
+  const issues = report.validation.issues.slice(0, 20);
+  const nextRun = report.recommendedCommand || report.nextStep || "aitri status";
+  const confidenceColor = levelColor(report.confidence.level);
+  const confidenceLabel = `${report.confidence.score}% (${report.confidence.level})`;
+  const structureState = report.structure.ok ? "ok" : `missing: ${report.structure.missingDirs.join(", ")}`;
+  const approved = report.approvedSpec.found ? report.approvedSpec.feature : "none";
+  const verification = report.verification.status || "unknown";
+  const releaseReady = report.confidence.releaseReady ? "yes" : "no";
+  const issueRows = issues.length > 0
+    ? issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")
+    : "<li>No validation issues detected.</li>";
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Aitri Insight</title>
+  <style>
+    :root { color-scheme: light; }
+    body { margin: 0; font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: #f3f4f6; color: #0f172a; }
+    .wrap { max-width: 980px; margin: 24px auto; padding: 0 16px; }
+    .card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .title { font-size: 24px; margin: 0 0 6px 0; }
+    .muted { color: #475569; font-size: 13px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+    .metric { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: #f8fafc; }
+    .metric h3 { margin: 0; font-size: 12px; color: #334155; text-transform: uppercase; letter-spacing: 0.04em; }
+    .metric p { margin: 6px 0 0 0; font-size: 18px; font-weight: 700; }
+    .pill { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; background: #e2e8f0; color: #0f172a; }
+    .next { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #111827; color: #f9fafb; padding: 10px; border-radius: 8px; }
+    ul { margin: 8px 0 0 18px; padding: 0; }
+    code { background: #f1f5f9; border-radius: 6px; padding: 2px 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <h1 class="title">Aitri Insight</h1>
+      <p class="muted">Generated: ${escapeHtml(generatedAtIso)} | Root: <code>${escapeHtml(report.root)}</code></p>
+      <p class="pill" style="background:${confidenceColor}20;color:${confidenceColor};border:1px solid ${confidenceColor};">Confidence ${escapeHtml(confidenceLabel)}</p>
+    </section>
+    <section class="card">
+      <div class="grid">
+        <div class="metric"><h3>Structure</h3><p>${escapeHtml(structureState)}</p></div>
+        <div class="metric"><h3>Approved Spec</h3><p>${escapeHtml(approved)}</p></div>
+        <div class="metric"><h3>Validation</h3><p>${report.validation.ok ? "passed" : "blocked"}</p></div>
+        <div class="metric"><h3>Verification</h3><p>${escapeHtml(verification)}</p></div>
+        <div class="metric"><h3>Release Ready</h3><p>${escapeHtml(releaseReady)}</p></div>
+      </div>
+    </section>
+    <section class="card">
+      <h2 class="title" style="font-size:18px;">Next Action</h2>
+      <p class="muted">${escapeHtml(report.nextStepMessage || "Follow recommended command.")}</p>
+      <div class="next">${escapeHtml(nextRun)}</div>
+    </section>
+    <section class="card">
+      <h2 class="title" style="font-size:18px;">Confidence Breakdown</h2>
+      <ul>
+        <li>Spec integrity: ${report.confidence.components.specIntegrity}%</li>
+        <li>Runtime verification: ${report.confidence.components.runtimeVerification}%</li>
+        <li>Weights: spec ${report.confidence.weights.specIntegrity}, runtime ${report.confidence.weights.runtimeVerification}</li>
+      </ul>
+      <p class="muted">Spec reason: ${escapeHtml(report.confidence.reasons.specIntegrity)}</p>
+      <p class="muted">Runtime reason: ${escapeHtml(report.confidence.reasons.runtimeVerification)}</p>
+    </section>
+    <section class="card">
+      <h2 class="title" style="font-size:18px;">Validation Issues</h2>
+      <ul>${issueRows}</ul>
+    </section>
+  </div>
+</body>
+</html>`;
+}
+
+function writeStatusInsight(report) {
+  const docsRoot = path.join(report.root, report.config.paths.docs);
+  const outDir = path.join(docsRoot, "insight");
+  const outFile = path.join(outDir, "status.html");
+  fs.mkdirSync(outDir, { recursive: true });
+  const generatedAt = new Date().toISOString();
+  fs.writeFileSync(outFile, renderStatusInsightHtml(report, generatedAt), "utf8");
+  return {
+    file: path.relative(report.root, outFile),
+    generatedAt
+  };
+}
+
 function readGit(cmd, cwd) {
   try {
     return execSync(cmd, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
@@ -587,8 +691,28 @@ export function getStatusReport(options = {}) {
 }
 
 export function runStatus(options = {}) {
-  const { json = false, root = process.cwd() } = options;
+  const { json = false, ui = false, root = process.cwd() } = options;
   const report = getStatusReport({ root });
+
+  if (ui) {
+    const uiInfo = writeStatusInsight(report);
+    if (json) {
+      console.log(JSON.stringify({
+        ...report,
+        ui: {
+          enabled: true,
+          file: uiInfo.file,
+          generatedAt: uiInfo.generatedAt
+        }
+      }, null, 2));
+      return;
+    }
+    console.log("Aitri Status UI generated ✅");
+    console.log(`- File: ${uiInfo.file}`);
+    console.log(`- Generated at: ${uiInfo.generatedAt}`);
+    console.log(`- Open: ${uiInfo.file}`);
+    return;
+  }
 
   if (json) {
     console.log(JSON.stringify(report, null, 2));

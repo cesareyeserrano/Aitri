@@ -78,6 +78,7 @@ npm run demo:5min
 - `--idea "<text>"`: non-interactive draft input
 - `--verify-cmd "<command>"`: explicit runtime verification command
 - `--discovery-depth <quick|standard|deep>`: guided discovery depth selector
+- `--ui`: generate static status insight page (`aitri status --ui`)
 - `--no-checkpoint`: disable auto-checkpoint for one command
 
 `status` and `handoff` JSON responses include:
@@ -212,7 +213,6 @@ JSON response includes:
 - blocks `aitri go` when policy fails
 
 ## Planned Next Capabilities
-- Static insight output (`aitri status --ui`) using current confidence scoring.
 - Scalable retrieval path for large-context projects.
 
 Roadmap references:
