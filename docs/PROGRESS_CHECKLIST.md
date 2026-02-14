@@ -63,7 +63,7 @@ Check items as they are completed to prevent context drift.
 
 ## 9) Adoption Onboarding
 - [x] Zero-to-first-run guide published (global + project + skill)
-- [x] Skill bootstrap clarified for empty repositories (`status -> init -> status`)
+- [x] Skill bootstrap clarified for empty repositories (`resume -> init -> resume`)
 - [x] Troubleshooting includes real user-reported setup issues
 - [x] Checkpoint and resume protocol documented for abrupt interruptions
 
