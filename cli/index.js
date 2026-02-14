@@ -198,6 +198,17 @@ async function confirmProceed(opts) {
   }
 }
 
+async function confirmResume(opts) {
+  if (opts.yes) return true;
+  if (opts.nonInteractive) return null;
+  while (true) {
+    const answer = (await ask("Checkpoint found. Continue from checkpoint? Type 'y' to continue or 'n' to stop: ")).toLowerCase();
+    if (answer === "y" || answer === "yes") return true;
+    if (answer === "n" || answer === "no") return false;
+    console.log("Invalid input. Please type 'y' or 'n'.");
+  }
+}
+
 function printGuidedDraftWizard() {
   console.log("\nGuided Draft Wizard (English prompts)");
   console.log("Answer briefly. Aitri will transform your answers into the draft context.");
@@ -318,6 +329,7 @@ Commands:
   status     Show project state and next recommended step
   handoff    Summarize validated SDLC artifacts and require explicit go/no-go decision
   go         Explicitly enter implementation mode after handoff readiness
+  resume     Resume deterministically from checkpoint state and nextStep
 
 Options:
   --yes, -y              Auto-approve plan prompts where supported
@@ -1136,6 +1148,46 @@ if (cmd === "validate") {
 
 if (cmd === "status") {
   runStatus({ json: wantsJson(options, options.positional) });
+  process.exit(EXIT_OK);
+}
+
+if (cmd === "resume") {
+  const report = getStatusReport({ root: process.cwd() });
+  const jsonOutput = wantsJson(options, options.positional);
+  const checkpointDetected = report.checkpoint.state.detected;
+  const needsResumeDecision = report.checkpoint.state.resumeDecision === "ask_user_resume_from_checkpoint";
+  const recommendedCommand = report.nextStep === "ready_for_human_approval" ? "aitri handoff" : report.nextStep;
+
+  const payload = {
+    ok: true,
+    checkpointDetected,
+    resumeDecision: report.checkpoint.state.resumeDecision,
+    nextStep: report.nextStep,
+    recommendedCommand,
+    message: needsResumeDecision
+      ? "Checkpoint detected. Explicit user confirmation is required to continue."
+      : "No checkpoint decision required. Continue with recommended command."
+  };
+
+  if (jsonOutput) {
+    console.log(JSON.stringify(payload, null, 2));
+    process.exit(EXIT_OK);
+  }
+
+  if (needsResumeDecision) {
+    const proceed = await confirmResume(options);
+    if (proceed === null) {
+      console.log("Non-interactive mode requires --yes to confirm resume from checkpoint.");
+      process.exit(EXIT_ERROR);
+    }
+    if (!proceed) {
+      console.log("Resume decision: STOP.");
+      process.exit(EXIT_ABORTED);
+    }
+  }
+
+  console.log("Resume decision: CONTINUE.");
+  console.log(`Recommended next command: ${recommendedCommand}`);
   process.exit(EXIT_OK);
 }
 

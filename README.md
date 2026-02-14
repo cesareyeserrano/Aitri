@@ -32,7 +32,7 @@ aitri --version
 mkdir -p ~/Documents/PROJECTS/my-feature
 cd ~/Documents/PROJECTS/my-feature
 aitri init --non-interactive --yes
-aitri status json
+aitri resume json
 ```
 
 ### 3) Run the SDLC baseline flow
@@ -54,12 +54,13 @@ aitri validate --feature user-login --format json
 | `aitri plan` | Create plan artifact + structured backlog/tests templates |
 | `aitri validate` | Validate artifacts, placeholders, and coverage links |
 | `aitri status` | Show state and next recommended step |
+| `aitri resume` | Resolve checkpoint decision and print deterministic next command |
 | `aitri handoff` | Summarize SDLC readiness and require explicit go/no-go |
 | `aitri go` | Explicitly enter implementation mode after handoff readiness |
 | `aitri help` | Show command/options help |
 
 ## Output Modes and Automation Flags
-- `json` shorthand: `aitri status json`
+- `json` shorthand: `aitri status json`, `aitri resume json`
 - `--json` or `-j`: machine-readable output (`status`, `validate`)
 - `--format json`: explicit format mode
 - `--non-interactive`: disable prompts
@@ -87,10 +88,13 @@ Checkpoint policy:
 
 Resume protocol:
 ```bash
-aitri status json
+aitri resume
 ```
-Follow `nextStep`.  
-If `checkpoint.state.resumeDecision = "ask_user_resume_from_checkpoint"`, confirm resume with the user before any write action.
+For automation:
+```bash
+aitri resume json
+```
+Follow `recommendedCommand` (or `nextStep` in JSON output).
 
 ## Persona Model (Iterative, Multi-Pass)
 Aitri personas are not one-shot. Re-run them whenever context changes.
@@ -160,7 +164,7 @@ JSON response includes:
   - confirm YAML frontmatter (`name`, `description`)
   - restart Codex
 - New repo missing structure:
-  - run `aitri status json`
+  - run `aitri resume json`
   - if `nextStep = aitri init`, run `aitri init --non-interactive --yes`
 
 ## Documentation Index

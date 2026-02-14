@@ -86,7 +86,7 @@ git stash push -m "checkpoint: <feature> <phase>"
 ```
 
 Recovery anchor:
-- Always resume with `aitri status json` and follow `nextStep`.
+- Always resume with `aitri resume` (or `aitri resume json` for automation) and follow the recommended command.
 
 ## Definition of Drift
 Drift exists if any of the following is true:

@@ -48,7 +48,7 @@ OpenCode skill locations:
 - Project: `.opencode/skills/<skill-name>/SKILL.md`
 
 ## Runtime Expectations
-- Start with `aitri status json`
+- Start with `aitri resume` (or `aitri resume json` for automation)
 - Use non-interactive flags in automation
 - Respect gate approvals for all write/destructive actions
 - Report each step and next action
@@ -58,7 +58,7 @@ Run:
 ```bash
 npm run test:smoke
 node cli/index.js help
-node cli/index.js status json
+node cli/index.js resume json
 ```
 
 ## Future Compatibility

@@ -175,8 +175,8 @@ export function getStatusReport(options = {}) {
       state: detectCheckpointState(root)
     },
     resume: {
-      command: "aitri status json",
-      rule: "Follow nextStep from status output."
+      command: "aitri resume",
+      rule: "Run resume first, then follow recommendedCommand (or nextStep in JSON mode)."
     },
     handoff: {
       required: false,

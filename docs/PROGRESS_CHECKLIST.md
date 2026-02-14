@@ -73,5 +73,5 @@ Check items as they are completed to prevent context drift.
 - [x] Next-target strategy aligned with backlog source of truth
 - [ ] Persona output enforcement moved from soft guidance to CLI gates
 - [x] Explicit handoff/go commands implemented (`aitri handoff`, `aitri go`)
-- [ ] Explicit resume shortcut command implemented
+- [x] Explicit resume shortcut command implemented (`aitri resume`)
 - [ ] 5-minute reproducible demo path published

@@ -46,7 +46,7 @@ aitri help
 Expected:
 - `which aitri` points to your global npm bin path
 - `aitri --version` prints the installed version
-- `aitri help` shows `init/draft/approve/discover/plan/validate/status`
+- `aitri help` shows core workflow commands including `resume/handoff/go`
 
 ## 3) Use Aitri in a Specific Project
 
@@ -61,14 +61,14 @@ Initialize Aitri structure:
 aitri init --non-interactive --yes
 ```
 
-Check status:
+Check session state:
 ```bash
-aitri status json
+aitri resume json
 ```
 
 Expected after init:
 - `structure.ok: true`
-- `nextStep: "aitri draft"`
+- `recommendedCommand: "aitri draft"`
 
 ## 4) First Real Workflow (Non-Interactive)
 
@@ -113,7 +113,7 @@ cp adapters/codex/SKILL.md ~/.codex/skills/aitri/SKILL.md
 
 Restart Codex, then in any project prompt:
 ```text
-Use the aitri skill and run aitri status json
+Use the aitri skill and run aitri resume json
 ```
 
 If project is empty, continue with:
@@ -171,16 +171,16 @@ Restart OpenCode and request Aitri workflow execution in your target repo.
 - Add `--feature <feature-name>` in non-interactive mode
 
 `Skill tries to read docs before init in a new repo`
-- Run `aitri status json`
+- Run `aitri resume json`
 - If `nextStep` is `aitri init`, run `aitri init --non-interactive --yes`
-- Re-run `aitri status json`
+- Re-run `aitri resume json`
 
 ## 9) Operational Recommendation
 
 For reproducible team adoption:
 1. Keep Aitri installed globally in contributor machines.
 2. Add project-level skill files (`.claude/skills` or `.opencode/skills`) when team-shared behavior is required.
-3. Run `aitri status json` as the first step of every agent session.
+3. Run `aitri resume` as the first step of every agent session.
 
 ## 10) Pause and Resume Safely
 
@@ -202,10 +202,10 @@ git stash push -m "checkpoint: <feature> <phase>"
 
 When resuming in a new session:
 ```bash
-aitri status json
+aitri resume
 ```
 
-Continue with `nextStep` returned by status.
+Continue with the recommended command (or use `aitri resume json` for machine-readable `nextStep`).
 
 If `checkpoint.state.resumeDecision` says `ask_user_resume_from_checkpoint`,
 confirm resume with the user before any write command.

@@ -35,12 +35,17 @@ git stash push -m "checkpoint: <feature> <phase>"
 ## Resume Procedure (New Session)
 From your target project:
 ```bash
-aitri status json
+aitri resume
 ```
 
-Then execute the returned `nextStep`.
+For automation:
+```bash
+aitri resume json
+```
 
-If status reports:
+Then execute the returned `recommendedCommand` (or `nextStep` in JSON mode).
+
+If resume/status reports:
 - `checkpoint.state.resumeDecision = "ask_user_resume_from_checkpoint"`
 
 the agent must ask the user explicitly:
@@ -64,11 +69,11 @@ Typical mapping:
 git stash list
 git stash apply stash@{0}
 ```
-4. Run `aitri status json`.
-5. Continue with `nextStep`.
+4. Run `aitri resume`.
+5. Continue with the recommended command.
 
 ## Agent Behavior Requirement
 Agents should:
 1. Suggest a checkpoint before ending a substantial work block.
-2. Start each new session with `aitri status json`.
+2. Start each new session with `aitri resume`.
 3. Report detected state and next step before continuing.

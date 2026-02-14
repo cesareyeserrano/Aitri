@@ -18,12 +18,12 @@ Applies to agents operating Aitri from terminal:
 Before any substantial action:
 1. Read `docs/README.md`
 2. Read `docs/EXECUTION_GUARDRAILS.md`
-3. Run `aitri status json`
-4. If `checkpoint.state.resumeDecision` requests it, ask user: "Checkpoint found. Continue from checkpoint? (yes/no)"
+3. Run `aitri resume` (or `aitri resume json` in automation)
+4. If checkpoint confirmation is requested, ask user: "Checkpoint found. Continue from checkpoint? (yes/no)"
 5. Report state + next recommended step
 
 ## Standard Runtime Sequence
-1. `aitri status`
+1. `aitri resume`
 2. If structure is missing -> `aitri init`
 3. If draft/approved spec is missing -> `aitri draft`
 4. Human review of draft
@@ -79,7 +79,7 @@ After each command, the agent reports:
 At minimum, checkpoint after each major phase (`draft`, `approve`, `discover`, `plan`, `validate`):
 1. `git add -A && git commit -m "checkpoint: <feature> <phase>"`
 2. If commit is not possible: `git stash push -m "checkpoint: <feature> <phase>"`
-3. On new session: `aitri status json` and continue with `nextStep`
+3. On new session: `aitri resume` and continue with the recommended command
 
 ## Deployment Assistance Contract
 For local and production-assist deploy workflows:

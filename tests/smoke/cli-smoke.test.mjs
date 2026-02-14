@@ -33,6 +33,7 @@ test("help and version are available", () => {
   const help = runNodeOk(["help"]);
   assert.match(help.stdout, /Commands:/);
   assert.match(help.stdout, /status/);
+  assert.match(help.stdout, /resume/);
   assert.match(help.stdout, /--non-interactive/);
   assert.match(help.stdout, /--json, -j/);
   assert.match(help.stdout, /--format <type>/);
@@ -58,6 +59,16 @@ test("status accepts json shorthand without --json", () => {
   assert.equal(payload.nextStep, "aitri init");
 });
 
+test("resume json works and returns deterministic next command", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-resume-json-"));
+  const result = runNodeOk(["resume", "json"], { cwd: tempDir });
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.ok, true);
+  assert.equal(payload.checkpointDetected, false);
+  assert.equal(payload.nextStep, "aitri init");
+  assert.equal(payload.recommendedCommand, "aitri init");
+});
+
 test("status detects git checkpoint commit", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-checkpoint-"));
   spawnSync("git", ["init"], { cwd: tempDir, encoding: "utf8" });
@@ -76,6 +87,23 @@ test("status detects git checkpoint commit", () => {
   assert.match(payload.checkpoint.state.latestCommit.message, /^checkpoint:/);
   assert.equal(payload.checkpoint.state.mode, "git_commit+tag");
   assert.equal(payload.checkpoint.state.maxRetained, 10);
+});
+
+test("resume requires explicit confirmation in non-interactive mode when checkpoint is detected", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-resume-checkpoint-"));
+  spawnSync("git", ["init"], { cwd: tempDir, encoding: "utf8" });
+  spawnSync("git", ["config", "user.name", "Aitri Test"], { cwd: tempDir, encoding: "utf8" });
+  spawnSync("git", ["config", "user.email", "aitri@example.com"], { cwd: tempDir, encoding: "utf8" });
+  fs.writeFileSync(path.join(tempDir, "README.md"), "checkpoint seed\n", "utf8");
+  spawnSync("git", ["add", "README.md"], { cwd: tempDir, encoding: "utf8" });
+  spawnSync("git", ["commit", "-m", "checkpoint: seed phase"], { cwd: tempDir, encoding: "utf8" });
+
+  const blocked = runNode(["resume", "--non-interactive"], { cwd: tempDir });
+  assert.equal(blocked.status, 1);
+  assert.match(blocked.stdout, /requires --yes/);
+
+  const allowed = runNodeOk(["resume", "--non-interactive", "--yes"], { cwd: tempDir });
+  assert.match(allowed.stdout, /Resume decision: CONTINUE/);
 });
 
 test("write command creates auto-checkpoint in git repo", () => {
