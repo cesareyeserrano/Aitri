@@ -124,18 +124,6 @@
 - As a maintainer, I want file growth budgets checked in CI, so that uncontrolled file expansion is detected before merge.
 - Trace: FR-10, AC-21
 
-## Epic 11: CI/CD and Release Automation
-- Objective:
-  - Keep Aitri itself releasable and provide a repeatable CI/CD baseline for adopter projects.
-
-### US-22 [DONE]
-- As a maintainer, I want repository CI and release workflows automated, so that quality gates and npm releases are deterministic.
-- Trace: FR-11, AC-22
-
-### US-23
-- As an adopter, I want Aitri to scaffold project-level CI/CD baseline workflows, so that new products start with enforceable quality and release gates.
-- Trace: FR-11, AC-23
-
 ## Acceptance Criteria (Next Improvement Scope)
 - AC-1: Persona-required fields are machine-checked for at least Discovery/Product/Architect outputs. [DONE]
 - AC-2: `plan` blocks when critical discovery confidence is Low or required sections are missing. [DONE]
@@ -158,5 +146,3 @@
 - AC-19: CLI command routing and handlers are split into bounded modules with no single file above agreed hard thresholds.
 - AC-20: Smoke tests are partitioned by capability with deterministic naming and equivalent coverage.
 - AC-21: CI emits growth warnings using file-size/line-count budgets and blocks when configured hard thresholds are exceeded.
-- AC-22: Aitri repository has PR/main CI gates plus semantic-tag release automation with npm publish and GitHub release creation. [DONE]
-- AC-23: Aitri can apply CI/CD workflow templates to adopter repositories through a documented command path.

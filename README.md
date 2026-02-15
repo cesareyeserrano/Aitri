@@ -110,24 +110,6 @@ npm run test:smoke
 npm run demo:5min
 ```
 
-## CI/CD and Release
-This repository includes two GitHub Actions workflows:
-- `Aitri CI`: runs on pull requests and pushes to `main` with smoke tests and CLI JSON checks.
-- `Release`: runs on semantic version tags (`vX.Y.Z`) and publishes to npm + creates GitHub Release notes.
-
-Release requirements:
-- Repository secret: `NPM_TOKEN`
-- Version/tag match rule: `package.json` version must match pushed tag (for example, `0.2.23` and `v0.2.23`)
-
-Typical release flow:
-```bash
-npm version patch
-git push origin main --follow-tags
-```
-
-For operational details, read:
-- `docs/runbook/CI_CD_RELEASE_WORKFLOW.md`
-
 ## License
 - License: Apache-2.0 (`LICENSE`)
 - Attribution: `NOTICE`

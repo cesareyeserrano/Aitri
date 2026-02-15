@@ -61,15 +61,6 @@ Status: IN PROGRESS
 - static insight UI delivered (`status --ui`)
 - section-level retrieval delivered for discover/plan
 - optional semantic-lite retrieval delivered for advanced mode
-- CI/release automation baseline delivered for Aitri repository
-
-### Phase G: CI/CD and Release Automation
-Status: COMPLETE (baseline)
-- PR + main CI workflow with smoke + JSON checks
-- semantic-tag release workflow (`vX.Y.Z`)
-- npm publish + GitHub release notes automation
-- release guard for tag/package version parity
-- CI/CD runbook published for maintainers
 
 ## Next Targets (v1.0.x)
 1. Deepen discovery-to-plan signal quality and reduce scaffold noise.
@@ -77,10 +68,9 @@ Status: COMPLETE (baseline)
 3. Improve semantic retrieval quality beyond heuristic matching (optional advanced mode).
 4. Control monolith growth in CLI/runtime reporting modules through bounded modularization.
 5. Add file-size budgets and CI alerts for uncontrolled growth in core files.
-6. Add project-level CI/CD scaffolding command so Aitri can apply baseline pipelines to adopter repos.
 
 ## Maintainability Watchlist (Baseline: 2026-02-15)
-- `cli/index.js`: 963 lines
+- `cli/index.js`: 2409 lines
 - `cli/commands/status.js`: 854 lines
 - `tests/smoke/cli-smoke.test.mjs`: 1244 lines
 

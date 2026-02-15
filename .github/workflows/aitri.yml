@@ -1,18 +1,9 @@
-name: Aitri CI
+name: Aitri
 
 on:
   pull_request:
   push:
-    branches:
-      - main
-  workflow_dispatch:
-
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
+    branches: [ main ]
 
 jobs:
   validate:
@@ -25,15 +16,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
 
       - name: Install dependencies
-        run: |
-          if [ -f package-lock.json ] || [ -f npm-shrinkwrap.json ]; then
-            npm ci --ignore-scripts
-          else
-            npm install --ignore-scripts
-          fi
+        run: npm install --ignore-scripts
 
       - name: Run smoke tests
         run: npm run test:smoke
