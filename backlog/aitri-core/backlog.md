@@ -104,8 +104,8 @@
 - As an agent operator, I want section-level retrieval before full-file loading, so that planning and refinement stay coherent in large scopes.
 - Trace: FR-9, AC-17
 
-### US-18
-- As a maintainer, I want optional local semantic indexing in advanced mode, so that retrieval quality scales without mandatory cloud services.
+### US-18 [DONE]
+- As a maintainer, I want optional local semantic retrieval in advanced mode (semantic-lite heuristic), so that retrieval quality scales without mandatory cloud services.
 - Trace: FR-9, AC-18
 
 ## Acceptance Criteria (Next Improvement Scope)
@@ -126,4 +126,4 @@
 - AC-15: `aitri status --ui` generates static visibility output for non-technical stakeholders. [DONE]
 - AC-16: Confidence score model is documented and includes runtime + spec inputs. [DONE]
 - AC-17: Section-level retrieval is used before raw full-document loading in large workflows. [DONE]
-- AC-18: Optional local semantic indexing is available in advanced mode.
+- AC-18: Optional local semantic retrieval is available in advanced mode (semantic-lite heuristic). [DONE]

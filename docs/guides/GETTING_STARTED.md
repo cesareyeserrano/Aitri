@@ -117,6 +117,13 @@ aitri discover --feature user-auth --guided --discovery-depth standard
 aitri discover --feature user-auth --guided --discovery-depth deep
 ```
 
+Optional retrieval mode:
+```bash
+aitri discover --feature user-auth --retrieval-mode section --non-interactive --yes
+aitri discover --feature user-auth --retrieval-mode semantic --non-interactive --yes
+aitri plan --feature user-auth --retrieval-mode semantic --non-interactive --yes
+```
+
 `aitri plan` reads discovery interview mode and emits matching rigor guidance in:
 - `docs/plan/<feature>.md`
 - `backlog/<feature>/backlog.md`

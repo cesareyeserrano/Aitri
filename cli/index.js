@@ -52,6 +52,7 @@ function parseArgs(argv) {
     feature: null,
     verifyCmd: null,
     discoveryDepth: null,
+    retrievalMode: null,
     positional: []
   };
 
@@ -94,6 +95,11 @@ function parseArgs(argv) {
       i += 1;
     } else if (arg.startsWith("--discovery-depth=")) {
       parsed.discoveryDepth = arg.slice("--discovery-depth=".length).trim().toLowerCase();
+    } else if (arg === "--retrieval-mode") {
+      parsed.retrievalMode = (argv[i + 1] || "").trim().toLowerCase();
+      i += 1;
+    } else if (arg.startsWith("--retrieval-mode=")) {
+      parsed.retrievalMode = arg.slice("--retrieval-mode=".length).trim().toLowerCase();
     } else {
       parsed.positional.push(arg);
     }
@@ -124,6 +130,14 @@ function normalizeDiscoveryDepth(value) {
   if (raw === "q" || raw === "quick") return "quick";
   if (raw === "s" || raw === "standard") return "standard";
   if (raw === "d" || raw === "deep") return "deep";
+  return null;
+}
+
+function normalizeRetrievalMode(value) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === "section" || raw === "section-level" || raw === "section_level") return "section-level";
+  if (raw === "semantic" || raw === "semantic-lite" || raw === "semantic_lite") return "semantic-lite";
   return null;
 }
 
@@ -500,6 +514,7 @@ function extractListById(content, idPrefix, fallback = "Not specified in spec.",
 
 function buildSpecSectionSnapshot(specContent) {
   return {
+    mode: "section-level",
     context: compactSectionLines(
       extractFirstSection(specContent, ["## 1. Context"]),
       3,
@@ -521,8 +536,123 @@ function buildSpecSectionSnapshot(specContent) {
       extractFirstSection(specContent, ["## 8. Out of Scope"]),
       3,
       "Out-of-scope items are missing."
-    )
+    ),
+    retrievalEvidence: [
+      "1. Context",
+      "2. Actors",
+      "3. Functional Rules",
+      "7. Security Considerations",
+      "8. Out of Scope",
+      "9. Acceptance Criteria"
+    ]
   };
+}
+
+const RETRIEVAL_STOPWORDS = new Set([
+  "the", "and", "for", "that", "with", "this", "from", "are", "was", "were", "have", "has", "had",
+  "you", "your", "into", "under", "over", "when", "then", "than", "also", "must", "should", "would",
+  "can", "could", "use", "using", "used", "not", "only", "its", "it's", "about", "what", "which",
+  "where", "who", "how", "why", "any", "all", "our", "their", "them", "more", "less", "very",
+  "user", "users", "feature", "system", "spec", "rule"
+]);
+
+function tokenizeRetrieval(text) {
+  return [...new Set(
+    String(text || "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 3)
+      .filter((token) => !RETRIEVAL_STOPWORDS.has(token))
+  )];
+}
+
+function splitSpecSections(specContent) {
+  const lines = String(specContent || "").split("\n");
+  const sections = [];
+  let heading = "Document";
+  let body = [];
+
+  const flush = () => {
+    const joined = body.join("\n").trim();
+    if (joined) sections.push({ heading, body: joined });
+  };
+
+  lines.forEach((line) => {
+    const h2 = line.match(/^##\s+(.+)$/);
+    if (h2) {
+      flush();
+      heading = h2[1].trim();
+      body = [];
+      return;
+    }
+    body.push(line);
+  });
+  flush();
+  return sections;
+}
+
+function semanticRetrieve(specContent, query, fallback = "Not specified in spec.") {
+  const tokens = tokenizeRetrieval(query);
+  const sections = splitSpecSections(specContent);
+  if (sections.length === 0) {
+    return { text: `- ${fallback}`, headings: [] };
+  }
+
+  const ranked = sections.map((section) => {
+    const headingLower = section.heading.toLowerCase();
+    const bodyLower = section.body.toLowerCase();
+    let score = 0;
+    tokens.forEach((token) => {
+      if (headingLower.includes(token)) score += 4;
+      if (bodyLower.includes(token)) score += 1;
+    });
+    return { ...section, score };
+  }).sort((a, b) => b.score - a.score);
+
+  const selected = ranked.filter((item) => item.score > 0).slice(0, 2);
+  const effective = selected.length > 0 ? selected : ranked.slice(0, 1);
+  const combined = effective.map((item) => item.body).join("\n");
+  return {
+    text: compactSectionLines(combined, 3, fallback),
+    headings: effective.map((item) => item.heading)
+  };
+}
+
+function buildSpecSemanticSnapshot(specContent) {
+  const contextRes = semanticRetrieve(specContent, "problem context business impact why now", "Context is missing.");
+  const actorsRes = semanticRetrieve(specContent, "actors personas stakeholders users", "Actors are missing.");
+  const securityRes = semanticRetrieve(specContent, "security controls threats auth authorization abuse", "Security considerations are missing.");
+  const outOfScopeRes = semanticRetrieve(specContent, "out of scope excluded deferred not included", "Out-of-scope items are missing.");
+  const evidence = [
+    ...contextRes.headings,
+    ...actorsRes.headings,
+    ...securityRes.headings,
+    ...outOfScopeRes.headings
+  ];
+
+  return {
+    mode: "semantic-lite",
+    context: contextRes.text,
+    actors: actorsRes.text,
+    functionalRules: extractListById(specContent, "FR", "Functional rules are missing."),
+    acceptanceCriteria: extractListById(specContent, "AC", "Acceptance criteria are missing."),
+    security: securityRes.text,
+    outOfScope: outOfScopeRes.text,
+    retrievalEvidence: [...new Set(evidence)]
+  };
+}
+
+function buildSpecSnapshot(specContent, retrievalMode) {
+  const mode = retrievalMode || "section-level";
+  if (mode === "semantic-lite") return buildSpecSemanticSnapshot(specContent);
+  return buildSpecSectionSnapshot(specContent);
+}
+
+function detectRetrievalModeFromDiscovery(discoveryContent) {
+  const mode = String(discoveryContent || "").match(/Retrieval mode:\s*(section-level|semantic-lite)/i);
+  if (!mode) return null;
+  return mode[1].toLowerCase();
 }
 
 function hasMeaningfulContent(content) {
@@ -1020,6 +1150,7 @@ Options:
   --idea <text>          Idea text for non-interactive draft
   --verify-cmd <cmd>     Explicit runtime verification command (used by \`aitri verify\`)
   --discovery-depth <d>  Guided discovery depth: quick | standard | deep
+  --retrieval-mode <m>   Retrieval mode for discover/plan: section | semantic
   --ui                   Generate static status insight page (status command)
   --non-interactive      Do not prompt; fail if required args are missing
   --json, -j             Output machine-readable JSON (status, validate)
@@ -1323,6 +1454,13 @@ if (cmd === "discover") {
     process.exit(EXIT_ERROR);
   }
 
+  const requestedRetrievalMode = normalizeRetrievalMode(options.retrievalMode);
+  if (options.retrievalMode && !requestedRetrievalMode) {
+    console.log("Invalid --retrieval-mode value. Use section or semantic.");
+    process.exit(EXIT_ERROR);
+  }
+  const retrievalMode = requestedRetrievalMode || "section-level";
+
   const approvedFile = project.paths.approvedSpecFile(feature);
   if (!fs.existsSync(approvedFile)) {
     console.log(`Approved spec not found: ${path.relative(process.cwd(), approvedFile)}`);
@@ -1369,7 +1507,7 @@ if (cmd === "discover") {
   fs.mkdirSync(testsDir, { recursive: true });
 
   const approvedSpec = fs.readFileSync(approvedFile, "utf8");
-  const specSnapshot = buildSpecSectionSnapshot(approvedSpec);
+  const specSnapshot = buildSpecSnapshot(approvedSpec, retrievalMode);
   let discoveryInterview;
   try {
     discoveryInterview = await collectDiscoveryInterview(options);
@@ -1414,8 +1552,9 @@ if (cmd === "discover") {
   discovery = discovery.replace(
     "## 1. Problem Statement\n- What problem are we solving?\n- Why now?",
     `## 1. Problem Statement
-Derived from approved spec (section-level retrieval):
-- Retrieval mode: section-level
+Derived from approved spec retrieval snapshot:
+- Retrieval mode: ${specSnapshot.mode}
+- Retrieved sections: ${specSnapshot.retrievalEvidence.length > 0 ? specSnapshot.retrievalEvidence.join(", ") : "none"}
 
 ### Context snapshot
 ${specSnapshot.context}
@@ -1502,6 +1641,12 @@ if (cmd === "plan") {
     process.exit(EXIT_ERROR);
   }
 
+  const requestedRetrievalMode = normalizeRetrievalMode(options.retrievalMode);
+  if (options.retrievalMode && !requestedRetrievalMode) {
+    console.log("Invalid --retrieval-mode value. Use section or semantic.");
+    process.exit(EXIT_ERROR);
+  }
+
   const approvedFile = project.paths.approvedSpecFile(feature);
   const discoveryFile = project.paths.discoveryFile(feature);
   if (!fs.existsSync(approvedFile)) {
@@ -1584,8 +1729,10 @@ if (cmd === "plan") {
   fs.mkdirSync(path.dirname(testsFile), { recursive: true });
 
   const approvedSpec = fs.readFileSync(approvedFile, "utf8");
-  const specSnapshot = buildSpecSectionSnapshot(approvedSpec);
   const discoveryDoc = fs.readFileSync(discoveryFile, "utf8");
+  const inheritedRetrievalMode = detectRetrievalModeFromDiscovery(discoveryDoc);
+  const retrievalMode = requestedRetrievalMode || inheritedRetrievalMode || "section-level";
+  const specSnapshot = buildSpecSnapshot(approvedSpec, retrievalMode);
   let planDoc = fs.readFileSync(templatePath, "utf8");
 
   // Inject feature name and include approved spec for traceability
@@ -1611,7 +1758,11 @@ ${specSnapshot.acceptanceCriteria}
 ${specSnapshot.security}
 
 ### Out-of-scope snapshot
-${specSnapshot.outOfScope}`
+${specSnapshot.outOfScope}
+
+### Retrieval metadata
+- Retrieval mode: ${specSnapshot.mode}
+- Retrieved sections: ${specSnapshot.retrievalEvidence.length > 0 ? specSnapshot.retrievalEvidence.join(", ") : "none"}`
   );
 
   const frList = [...approvedSpec.matchAll(/- FR-\d+:\s*(.+)/g)].map((m) => m[1].trim());

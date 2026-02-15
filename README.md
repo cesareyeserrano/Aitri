@@ -78,6 +78,7 @@ npm run demo:5min
 - `--idea "<text>"`: non-interactive draft input
 - `--verify-cmd "<command>"`: explicit runtime verification command
 - `--discovery-depth <quick|standard|deep>`: guided discovery depth selector
+- `--retrieval-mode <section|semantic>`: retrieval mode for `discover`/`plan`
 - `--ui`: generate static status insight page (`aitri status --ui`)
 - `--no-checkpoint`: disable auto-checkpoint for one command
 
@@ -99,10 +100,11 @@ npm run demo:5min
   - `standard`: quick + scope/journey/assumptions.
   - `deep`: standard + urgency/baseline/no-go prompts.
   - Uses section-level spec retrieval for context snapshots (avoids full-spec dumps).
+  - Optional advanced mode: `--retrieval-mode semantic` (local semantic-lite retrieval).
 - `aitri plan`
   - Blocks if discovery confidence is `Low` or required discovery sections are missing.
   - Adapts planning rigor from discovery `Interview mode` (`quick|standard|deep`) and propagates it into plan/backlog/tests guidance.
-  - Uses section-level retrieval from approved spec before any full-context fallback.
+  - Inherits retrieval mode from discovery (or override with `--retrieval-mode`).
 
 ## Auto-Checkpoint and Resume
 Write commands (`init`, `draft`, `approve`, `discover`, `plan`) create auto-checkpoints in Git repositories.
@@ -215,7 +217,7 @@ JSON response includes:
 - blocks `aitri go` when policy fails
 
 ## Planned Next Capabilities
-- Optional semantic retrieval mode for large-context projects.
+- Advanced semantic indexing improvements for very large-context projects.
 
 Roadmap references:
 - `backlog/aitri-core/backlog.md`

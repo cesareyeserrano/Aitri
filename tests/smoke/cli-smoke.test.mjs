@@ -40,6 +40,7 @@ test("help and version are available", () => {
   assert.match(help.stdout, /--json, -j/);
   assert.match(help.stdout, /--format <type>/);
   assert.match(help.stdout, /--discovery-depth <d>/);
+  assert.match(help.stdout, /--retrieval-mode <m>/);
   assert.match(help.stdout, /--ui/);
   assert.match(help.stdout, /--no-checkpoint/);
 });
@@ -678,6 +679,27 @@ test("discover fails fast on invalid discovery depth", () => {
   assert.match(result.stdout, /Invalid --discovery-depth value/);
 });
 
+test("discover fails fast on invalid retrieval mode", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-retrieval-mode-invalid-"));
+  const feature = "invalid-retrieval";
+  fs.mkdirSync(path.join(tempDir, "specs", "approved"), { recursive: true });
+  fs.writeFileSync(
+    path.join(tempDir, "specs", "approved", `${feature}.md`),
+    `# AF-SPEC: ${feature}\nSTATUS: APPROVED\n## 3. Functional Rules (traceable)\n- FR-1: Rule.\n`,
+    "utf8"
+  );
+
+  const result = runNode([
+    "discover",
+    "--feature", feature,
+    "--retrieval-mode", "invalid",
+    "--non-interactive",
+    "--yes"
+  ], { cwd: tempDir });
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /Invalid --retrieval-mode value/);
+});
+
 test("plan reflects deep discovery rigor profile when deep mode is selected", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-plan-deep-rigor-"));
   const feature = "plan-deep-rigor";
@@ -726,6 +748,59 @@ Teams need strict execution planning.
   assert.match(plan, /Discovery interview mode: deep/);
   assert.match(backlog, /Discovery rigor profile: deep/);
   assert.match(tests, /Discovery rigor profile: deep/);
+});
+
+test("discover and plan support semantic retrieval mode", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-retrieval-semantic-"));
+  const feature = "semantic-retrieval";
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  runNodeOk(["draft", "--feature", feature, "--idea", "Semantic retrieval smoke", "--non-interactive", "--yes"], { cwd: tempDir });
+
+  const draftFile = path.join(tempDir, "specs", "drafts", `${feature}.md`);
+  fs.writeFileSync(
+    draftFile,
+    `# AF-SPEC: ${feature}
+
+STATUS: DRAFT
+
+## 1. Context
+A searchable context should prioritize relevant chunks.
+
+## 2. Actors
+- Product manager
+- Developer
+
+## 3. Functional Rules (traceable)
+- FR-1: Select relevant requirement sections for planning.
+- FR-2: Keep retrieval deterministic for repeatability.
+
+## 7. Security Considerations
+- Avoid leaking restricted requirements in unrelated outputs.
+
+## 8. Out of Scope
+- Cloud vector databases.
+
+## 9. Acceptance Criteria
+- AC-1: Given approved spec, when retrieval runs, then relevant sections are selected.
+- AC-2: Given same input, when retrieval reruns, then output remains deterministic.
+`,
+    "utf8"
+  );
+
+  runNodeOk(["approve", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
+  runNodeOk([
+    "discover",
+    "--feature", feature,
+    "--retrieval-mode", "semantic",
+    "--non-interactive",
+    "--yes"
+  ], { cwd: tempDir });
+  runNodeOk(["plan", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
+
+  const discovery = fs.readFileSync(path.join(tempDir, "docs", "discovery", `${feature}.md`), "utf8");
+  const plan = fs.readFileSync(path.join(tempDir, "docs", "plan", `${feature}.md`), "utf8");
+  assert.match(discovery, /Retrieval mode: semantic-lite/);
+  assert.match(plan, /Retrieval mode: semantic-lite/);
 });
 
 test("verify fails with explicit reason when runtime command cannot be detected", () => {

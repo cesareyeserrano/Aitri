@@ -60,12 +60,12 @@ Status: IN PROGRESS
 - confidence score delivered in `status` output (weighted spec/runtime model)
 - static insight UI delivered (`status --ui`)
 - section-level retrieval delivered for discover/plan
-- optional semantic retrieval remains staged work for advanced mode
+- optional semantic-lite retrieval delivered for advanced mode
 
 ## Next Targets (v1.0.x)
 1. Deepen discovery-to-plan signal quality and reduce scaffold noise.
 2. Split docs into default quick path vs advanced operations path.
-3. Implement optional semantic retrieval for advanced large-context workflows.
+3. Improve semantic retrieval quality beyond heuristic matching (optional advanced mode).
 
 Backlog source of truth:
 - `backlog/aitri-core/backlog.md`

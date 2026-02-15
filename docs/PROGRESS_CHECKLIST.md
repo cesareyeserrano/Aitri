@@ -82,4 +82,4 @@ Check items as they are completed to prevent context drift.
 - [x] Static insight UI output available (`aitri status --ui`)
 - [x] Confidence score model integrated into status output
 - [x] Section-level staged retrieval implemented for discover/plan
-- [ ] Optional semantic indexing implemented for advanced large-context workflows
+- [x] Optional semantic-lite retrieval implemented for advanced large-context workflows
