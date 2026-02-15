@@ -42,6 +42,7 @@ test("help and version are available", () => {
   assert.match(help.stdout, /--discovery-depth <d>/);
   assert.match(help.stdout, /--retrieval-mode <m>/);
   assert.match(help.stdout, /--ui/);
+  assert.match(help.stdout, /--no-open/);
   assert.match(help.stdout, /--no-checkpoint/);
 });
 
@@ -92,6 +93,13 @@ test("status ui respects mapped docs path from config", () => {
   const payload = JSON.parse(result.stdout);
   assert.match(payload.ui.file, /knowledge\/docs\/insight\/status\.html$/);
   assert.equal(fs.existsSync(path.join(tempDir, payload.ui.file)), true);
+});
+
+test("status ui supports --no-open for non-json output", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-status-ui-no-open-"));
+  const result = runNodeOk(["status", "--ui", "--no-open"], { cwd: tempDir });
+  assert.match(result.stdout, /Aitri Status UI generated/);
+  assert.doesNotMatch(result.stdout, /Browser auto-open failed/);
 });
 
 test("init respects aitri.config.json custom path mapping", () => {
@@ -886,6 +894,49 @@ test("status requires re-verify when verification evidence is stale", () => {
   assert.equal(payload.confidence.level, "medium");
   assert.equal(payload.confidence.components.runtimeVerification, 55);
   assert.equal(payload.confidence.releaseReady, false);
+});
+
+test("status confidence penalizes manual smoke-only verification evidence", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-verify-limited-scope-"));
+  const feature = "verify-limited-scope";
+
+  fs.mkdirSync(path.join(tempDir, "specs", "approved"), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "docs", "discovery"), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "docs", "plan"), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "docs", "verification"), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "backlog", feature), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "tests", feature), { recursive: true });
+
+  fs.writeFileSync(path.join(tempDir, "specs", "approved", `${feature}.md`), `# AF-SPEC: ${feature}\nSTATUS: APPROVED\n## 3. Functional Rules (traceable)\n- FR-1: Rule one.\n`, "utf8");
+  fs.writeFileSync(path.join(tempDir, "docs", "discovery", `${feature}.md`), `# Discovery: ${feature}\n\n## 2. Discovery Interview Summary (Discovery Persona)\n- Primary users:\n- Users\n- Jobs to be done:\n- Complete key flow\n- Current pain:\n- Unreliable outcomes\n- Constraints (business/technical/compliance):\n- Basic compliance\n- Dependencies:\n- Internal service\n- Success metrics:\n- Success rate > 95%\n- Assumptions:\n- Inputs remain stable\n\n## 3. Scope\n### In scope\n- Core flow\n\n### Out of scope\n- Extras\n\n## 9. Discovery Confidence\n- Confidence:\n- Medium\n\n- Reason:\n- Baseline inputs present\n\n- Evidence gaps:\n- Latency SLO pending\n\n- Handoff decision:\n- Ready for Product/Architecture\n`, "utf8");
+  fs.writeFileSync(path.join(tempDir, "docs", "plan", `${feature}.md`), `# Plan: ${feature}\n\n## 4. Product Review (Product Persona)\n### Business value\n- Reduce failure rate in core flow.\n\n### Success metric\n- Success rate above 95%.\n\n### Assumptions to validate\n- User input profile stays stable.\n\n## 5. Architecture (Architect Persona)\n### Components\n- API gateway\n- Service layer\n\n### Data flow\n- Request to service and response back to caller.\n\n### Key decisions\n- Explicit contracts between layers.\n\n### Risks & mitigations\n- Retry with bounded backoff for dependency failures.\n\n### Observability (logs/metrics/tracing)\n- Logs, latency metrics, and trace IDs.\n`, "utf8");
+  fs.writeFileSync(path.join(tempDir, "backlog", feature, "backlog.md"), `# Backlog: ${feature}\n### US-1\n- Trace: FR-1, AC-1\n`, "utf8");
+  fs.writeFileSync(path.join(tempDir, "tests", feature, "tests.md"), `# Test Cases: ${feature}\n### TC-1\n- Trace: US-1, FR-1, AC-1\n`, "utf8");
+
+  fs.writeFileSync(
+    path.join(tempDir, "docs", "verification", `${feature}.json`),
+    JSON.stringify({
+      ok: true,
+      feature,
+      command: "node --test tests/web/zombite-smoke.test.mjs",
+      commandSource: "flag:verify-cmd",
+      exitCode: 0,
+      startedAt: "2026-02-14T00:00:00.000Z",
+      finishedAt: "2099-01-01T00:00:01.000Z",
+      reason: "passed"
+    }, null, 2),
+    "utf8"
+  );
+
+  const status = runNodeOk(["status", "--json"], { cwd: tempDir });
+  const payload = JSON.parse(status.stdout);
+  assert.equal(payload.verification.status, "passed");
+  assert.equal(payload.nextStep, "ready_for_human_approval");
+  assert.equal(payload.confidence.components.runtimeVerification, 60);
+  assert.equal(payload.confidence.level, "medium");
+  assert.equal(payload.confidence.releaseReady, false);
+  assert.equal(payload.confidence.details.runtimeVerification.commandSource, "flag:verify-cmd");
+  assert.equal(payload.confidence.details.runtimeVerification.notes.length, 2);
 });
 
 test("plan blocks when discovery confidence is low", () => {

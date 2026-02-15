@@ -43,6 +43,7 @@ function parseArgs(argv) {
   const parsed = {
     json: false,
     ui: false,
+    openUi: true,
     format: null,
     autoCheckpoint: true,
     nonInteractive: false,
@@ -62,6 +63,8 @@ function parseArgs(argv) {
       parsed.json = true;
     } else if (arg === "--ui") {
       parsed.ui = true;
+    } else if (arg === "--no-open") {
+      parsed.openUi = false;
     } else if (arg === "--no-checkpoint") {
       parsed.autoCheckpoint = false;
     } else if (arg === "--format") {
@@ -1152,6 +1155,7 @@ Options:
   --discovery-depth <d>  Guided discovery depth: quick | standard | deep
   --retrieval-mode <m>   Retrieval mode for discover/plan: section | semantic
   --ui                   Generate static status insight page (status command)
+  --no-open              Do not auto-open generated status UI page
   --non-interactive      Do not prompt; fail if required args are missing
   --json, -j             Output machine-readable JSON (status, validate)
   --format <type>        Output format (json supported)
@@ -2269,6 +2273,7 @@ if (cmd === "status") {
     runStatus({
       json: wantsJson(options, options.positional),
       ui: wantsUi(options, options.positional),
+      openUi: options.openUi,
       root: process.cwd()
     });
   } catch (error) {

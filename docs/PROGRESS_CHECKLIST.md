@@ -83,3 +83,10 @@ Check items as they are completed to prevent context drift.
 - [x] Confidence score model integrated into status output
 - [x] Section-level staged retrieval implemented for discover/plan
 - [x] Optional semantic-lite retrieval implemented for advanced large-context workflows
+
+## 11) Maintainability Growth Control
+- [ ] Split `cli/index.js` into command-level modules with clear boundaries
+- [ ] Split `tests/smoke/cli-smoke.test.mjs` into domain-focused smoke suites
+- [ ] Define and enforce line-count budgets for core source/test files
+- [ ] Add CI warning/block policy for files over growth thresholds
+- [ ] Document file-growth dashboard/check report in contributor workflow

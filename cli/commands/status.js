@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { execSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { loadAitriConfig, resolveProjectPaths } from "../config.js";
 
 function exists(p) {
@@ -230,23 +230,44 @@ function computeSpecIntegrity(report) {
 
 function computeRuntimeVerificationScore(verification) {
   if (!verification || verification.required === false) {
-    return { score: 100, reason: "Runtime verification is not required." };
+    return { score: 100, reason: "Runtime verification is not required.", notes: [] };
   }
 
   if (verification.ok) {
-    return { score: 100, reason: "Runtime verification passed with current evidence." };
+    let score = 100;
+    const notes = [];
+    const command = String(verification.command || "").toLowerCase();
+    const source = String(verification.commandSource || "").toLowerCase();
+
+    if (/\bsmoke\b/.test(command)) {
+      score -= 25;
+      notes.push("Smoke-only runtime verification detected.");
+    }
+    if (source === "flag:verify-cmd") {
+      score -= 15;
+      notes.push("Verification command was provided manually with --verify-cmd.");
+    }
+
+    score = Math.max(60, score);
+    return {
+      score,
+      reason: score === 100
+        ? "Runtime verification passed with current evidence."
+        : "Runtime verification passed with limited scope evidence.",
+      notes
+    };
   }
 
   switch (verification.status) {
     case "stale":
-      return { score: 55, reason: "Runtime evidence is stale and must be re-verified." };
+      return { score: 55, reason: "Runtime evidence is stale and must be re-verified.", notes: [] };
     case "failed":
-      return { score: 25, reason: "Runtime verification failed." };
+      return { score: 25, reason: "Runtime verification failed.", notes: [] };
     case "invalid":
-      return { score: 10, reason: "Runtime evidence is invalid or unreadable." };
+      return { score: 10, reason: "Runtime evidence is invalid or unreadable.", notes: [] };
     case "missing":
     default:
-      return { score: 0, reason: "Runtime verification evidence is missing." };
+      return { score: 0, reason: "Runtime verification evidence is missing.", notes: [] };
   }
 }
 
@@ -274,7 +295,13 @@ function buildConfidenceReport(report) {
       runtimeVerification: runtime.score
     },
     details: {
-      specIntegrity: spec.details
+      specIntegrity: spec.details,
+      runtimeVerification: {
+        status: report.verification.status,
+        command: report.verification.command || null,
+        commandSource: report.verification.commandSource || null,
+        notes: runtime.notes || []
+      }
     },
     releaseReady: report.nextStep === "ready_for_human_approval" && score >= 85,
     reasons: {
@@ -311,6 +338,10 @@ function renderStatusInsightHtml(report, generatedAtIso) {
   const issueRows = issues.length > 0
     ? issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")
     : "<li>No validation issues detected.</li>";
+  const runtimeNotes = (report.confidence.details.runtimeVerification.notes || []);
+  const runtimeNoteRows = runtimeNotes.length > 0
+    ? runtimeNotes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")
+    : "<li>No scope-reduction notes for runtime verification.</li>";
 
   return `<!doctype html>
 <html lang="en">
@@ -365,6 +396,7 @@ function renderStatusInsightHtml(report, generatedAtIso) {
       </ul>
       <p class="muted">Spec reason: ${escapeHtml(report.confidence.reasons.specIntegrity)}</p>
       <p class="muted">Runtime reason: ${escapeHtml(report.confidence.reasons.runtimeVerification)}</p>
+      <ul>${runtimeNoteRows}</ul>
     </section>
     <section class="card">
       <h2 class="title" style="font-size:18px;">Validation Issues</h2>
@@ -386,6 +418,19 @@ function writeStatusInsight(report) {
     file: path.relative(report.root, outFile),
     generatedAt
   };
+}
+
+function openStatusInsight(root, relativeFile) {
+  const absolute = path.join(root, relativeFile);
+  let run;
+  if (process.platform === "darwin") {
+    run = spawnSync("open", [absolute], { stdio: "ignore" });
+  } else if (process.platform === "win32") {
+    run = spawnSync("cmd", ["/c", "start", "", absolute], { stdio: "ignore", shell: true });
+  } else {
+    run = spawnSync("xdg-open", [absolute], { stdio: "ignore" });
+  }
+  return run.status === 0;
 }
 
 function readGit(cmd, cwd) {
@@ -509,6 +554,7 @@ function detectVerificationState(root, paths, feature) {
     status: stale ? "stale" : (payload.ok ? "passed" : "failed"),
     file: path.relative(root, verificationFile),
     command: payload.command || null,
+    commandSource: payload.commandSource || null,
     exitCode: typeof payload.exitCode === "number" ? payload.exitCode : null,
     finishedAt: payload.finishedAt || null,
     reason: stale ? "verification_stale" : (payload.reason || null)
@@ -691,7 +737,7 @@ export function getStatusReport(options = {}) {
 }
 
 export function runStatus(options = {}) {
-  const { json = false, ui = false, root = process.cwd() } = options;
+  const { json = false, ui = false, openUi = true, root = process.cwd() } = options;
   const report = getStatusReport({ root });
 
   if (ui) {
@@ -711,6 +757,12 @@ export function runStatus(options = {}) {
     console.log(`- File: ${uiInfo.file}`);
     console.log(`- Generated at: ${uiInfo.generatedAt}`);
     console.log(`- Open: ${uiInfo.file}`);
+    if (openUi) {
+      const opened = openStatusInsight(root, uiInfo.file);
+      if (!opened) {
+        console.log("- Browser auto-open failed. Open the file manually from the path above.");
+      }
+    }
     return;
   }
 

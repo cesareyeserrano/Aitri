@@ -108,6 +108,22 @@
 - As a maintainer, I want optional local semantic retrieval in advanced mode (semantic-lite heuristic), so that retrieval quality scales without mandatory cloud services.
 - Trace: FR-9, AC-18
 
+## Epic 10: Maintainability and Growth Control
+- Objective:
+  - Keep core CLI internals maintainable by controlling monolith growth and enforcing size guardrails.
+
+### US-19
+- As a maintainer, I want `cli/index.js` split into command modules, so that command evolution remains low-risk and reviewable.
+- Trace: FR-10, AC-19
+
+### US-20
+- As a maintainer, I want smoke tests split by domain (status, verify, policy, workflow), so that failures are easier to isolate and test files stay maintainable.
+- Trace: FR-10, AC-20
+
+### US-21
+- As a maintainer, I want file growth budgets checked in CI, so that uncontrolled file expansion is detected before merge.
+- Trace: FR-10, AC-21
+
 ## Acceptance Criteria (Next Improvement Scope)
 - AC-1: Persona-required fields are machine-checked for at least Discovery/Product/Architect outputs. [DONE]
 - AC-2: `plan` blocks when critical discovery confidence is Low or required sections are missing. [DONE]
@@ -127,3 +143,6 @@
 - AC-16: Confidence score model is documented and includes runtime + spec inputs. [DONE]
 - AC-17: Section-level retrieval is used before raw full-document loading in large workflows. [DONE]
 - AC-18: Optional local semantic retrieval is available in advanced mode (semantic-lite heuristic). [DONE]
+- AC-19: CLI command routing and handlers are split into bounded modules with no single file above agreed hard thresholds.
+- AC-20: Smoke tests are partitioned by capability with deterministic naming and equivalent coverage.
+- AC-21: CI emits growth warnings using file-size/line-count budgets and blocks when configured hard thresholds are exceeded.

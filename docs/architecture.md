@@ -41,6 +41,28 @@ Under human supervision, Aitri should cover:
 V1 scope note:
 - In V1, development/deployment assistance remains a **documented target capability** (not mandatory full automation in the core).
 
+## Scope Boundaries (Current)
+In scope:
+- CLI-first operation
+- deterministic command flow
+- traceability and quality gates
+- agent skill support under human control
+- implementation/deployment assistance with explicit human approval
+
+Out of scope:
+- autonomous multi-agent orchestration
+- dashboard-first operation
+- mandatory external SaaS integrations
+- opaque scoring systems without deterministic controls
+- automatic production deployment without explicit human confirmation
+
+Definition of done baseline:
+1. End-to-end CLI works in greenfield and brownfield projects.
+2. Validation and verification fail clearly when quality gates are not met.
+3. Status/handoff guidance is deterministic.
+4. Documentation preserves continuity without relying on one maintainer.
+5. Agent skills execute flow without bypassing gates.
+
 ## Artifact Topology
 Standard project structure:
 - `specs/drafts/`
@@ -96,9 +118,8 @@ The `docs/` folder is long-term memory and the verification baseline.
 
 Any change in philosophy, scope, or workflow must update:
 1. `docs/architecture.md`
-2. `docs/SCOPE_V1.md`
+2. `docs/EXECUTION_GUARDRAILS.md`
 3. `docs/STRATEGY_EXECUTION.md`
-4. `docs/AGENT_EXECUTION_CHECKLIST.md`
-5. `docs/PROGRESS_CHECKLIST.md`
+4. `docs/PROGRESS_CHECKLIST.md`
 
 If code and docs conflict, resolve the conflict explicitly before continuing roadmap work.

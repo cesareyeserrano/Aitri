@@ -66,6 +66,19 @@ Status: IN PROGRESS
 1. Deepen discovery-to-plan signal quality and reduce scaffold noise.
 2. Split docs into default quick path vs advanced operations path.
 3. Improve semantic retrieval quality beyond heuristic matching (optional advanced mode).
+4. Control monolith growth in CLI/runtime reporting modules through bounded modularization.
+5. Add file-size budgets and CI alerts for uncontrolled growth in core files.
+
+## Maintainability Watchlist (Baseline: 2026-02-15)
+- `cli/index.js`: 2409 lines
+- `cli/commands/status.js`: 854 lines
+- `tests/smoke/cli-smoke.test.mjs`: 1244 lines
+
+Control policy to implement:
+- Soft warning threshold: 900 lines per source file.
+- Hard warning threshold: 1200 lines per source file.
+- Test suite split threshold: 700 lines per test file.
+- CI should emit a warning when thresholds are exceeded and require explicit override notes for further growth.
 
 Backlog source of truth:
 - `backlog/aitri-core/backlog.md`

@@ -27,7 +27,7 @@ Any request that changes scope, quality bar, or architecture direction must pass
    - what is lost
    - what risk increases
 3. Update scope/governance docs first:
-   - `docs/SCOPE_V1.md`
+   - `docs/architecture.md`
    - `docs/STRATEGY_EXECUTION.md`
    - `docs/PROGRESS_CHECKLIST.md`
 4. Reconfirm execution with explicit human approval.
@@ -59,8 +59,44 @@ Required docs update:
 At the start of every session:
 1. Read `docs/README.md`
 2. Read `docs/EXECUTION_GUARDRAILS.md`
-3. Run `aitri status`
-4. Report current state and next recommended step
+3. Run `aitri resume` (or `aitri resume json` in automation)
+4. If checkpoint confirmation is requested, ask user whether to continue from checkpoint
+5. Report current state and next recommended step
+
+## Runtime Sequence Contract (for agents)
+Use the following sequence and do not skip gates:
+1. `aitri resume`
+2. `aitri init` (if structure is missing)
+3. `aitri draft`
+4. human review
+5. `aitri approve`
+6. `aitri discover`
+7. `aitri plan`
+8. persona refinement as needed
+9. `aitri validate`
+10. `aitri verify`
+11. `aitri policy`
+12. human approval before implementation
+13. human approval before deployment assistance
+
+## Mandatory Stop Conditions
+Stop and ask for direction when any of these is true:
+- approved spec is missing
+- `validate` fails
+- unresolved placeholders exist
+- required artifacts are missing
+- requested action violates documented scope
+- deployment target or risk is ambiguous
+- `verify` or `policy` fails
+
+## Validation Floor Contract
+`validate`/`verify`/`policy` must guarantee at minimum:
+- approved spec, backlog, and tests exist
+- placeholder blocking stays enforced
+- FR/US/TC structure and coverage are checked
+- persona gates remain enforced for Discovery/Product/Architect outputs
+- runtime verification evidence exists, is passing, and not stale
+- managed-go policy checks pass (dependency drift + forbidden imports/paths)
 
 ## Session End Contract (for agents)
 Before ending a substantial work block:
