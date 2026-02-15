@@ -13,10 +13,11 @@ Use this folder as the official reference for product intent, governance, execut
 8. `docs/runbook/DEMO_5_MINUTES.md` - reproducible <=5 minute end-to-end demo
 9. `docs/runbook/PERSONA_INTERACTION_FLOW.md` - role boundaries and multi-pass persona flow
 10. `docs/runbook/BUILD_DEPLOY_ASSIST_WORKFLOW.md` - supervised build/deploy-assist flow
-11. `backlog/aitri-core/backlog.md` - prioritized next-improvement backlog
-12. `docs/templates/deploy/` - deployment plan/checklist templates
-13. `docs/feedback/STRATEGIC_FEEDBACK_2026-02.md` - audited strategic feedback with implementation verdicts
-14. `docs/feedback/MAINTAINABILITY_GROWTH_AUDIT_2026-02-15.md` - baseline growth audit and modularization controls
+11. `docs/runbook/CI_CD_RELEASE_WORKFLOW.md` - CI and release operating runbook for Aitri and adopter projects
+12. `backlog/aitri-core/backlog.md` - prioritized next-improvement backlog
+13. `docs/templates/deploy/` - deployment plan/checklist templates
+14. `docs/feedback/STRATEGIC_FEEDBACK_2026-02.md` - audited strategic feedback with implementation verdicts
+15. `docs/feedback/MAINTAINABILITY_GROWTH_AUDIT_2026-02-15.md` - baseline growth audit and modularization controls
 
 ## Purpose
 Preserve continuity across time, contributors, and agent platforms.
