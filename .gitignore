@@ -2,3 +2,15 @@
 node_modules/
 .env
 docs/insight/status.html
+
+# Internal docs — kept locally, excluded from GitHub
+docs/feedback/
+docs/quality/
+docs/release/
+docs/runbook/
+docs/templates/
+docs/architecture/PHASE_IJK_IMPLEMENTATION_DESIGN.md
+docs/PROGRESS_CHECKLIST.md
+docs/STRATEGY_EXECUTION.md
+docs/EXECUTION_GUARDRAILS.md
+docs/README.md

@@ -12,7 +12,8 @@
     "cli",
     "core",
     "adapters",
-    "docs",
+    "docs/architecture.md",
+    "docs/guides",
     "README.md",
     "LICENSE"
   ],
