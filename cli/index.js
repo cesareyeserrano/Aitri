@@ -66,7 +66,8 @@ function parseArgs(argv) {
     autoAdvance: true,
     nonInteractive: false,
     strictPolicy: false,
-    guided: false,
+    guided: true,
+    raw: false,
     yes: false,
     idea: null,
     feature: null,
@@ -99,6 +100,9 @@ function parseArgs(argv) {
       parsed.strictPolicy = true;
     } else if (arg === "--guided") {
       parsed.guided = true;
+    } else if (arg === "--raw") {
+      parsed.guided = false;
+      parsed.raw = true;
     } else if (arg === "--yes" || arg === "-y") {
       parsed.yes = true;
     } else if (arg === "--idea") {
@@ -490,47 +494,57 @@ if (cmd === "--version" || cmd === "-v") {
 
 if (!cmd || cmd === "help") {
   showBanner();
+  const advanced = process.argv.includes("--advanced");
   console.log(`
-Aitri ⚒️
+Aitri ⚒️  — Spec-driven software factory
 
-Commands:
-  init       Initialize project structure
-  draft      Create a draft spec from an idea (use --guided for guided input)
-  approve    Approve a draft spec (runs gates and moves draft into approved specs)
-  discover   Generate discovery + artifact scaffolding from an approved spec (use --guided for discovery interview)
-  plan       Generate plan doc + traceable backlog/tests from an approved spec
-  scaffold   Generate post-go project skeleton, executable TC stubs, and FR interfaces
-  implement  Generate ordered implementation briefs per US-* after scaffold
-  deliver    Run final delivery gate (FR coverage + TC pass + confidence threshold)
-  verify     Execute runtime verification suite and persist machine-readable evidence
-  policy     Run managed-go policy checks (dependency drift, forbidden imports/paths)
-  validate   Validate traceability placeholders are resolved (FR/AC/US/TC)
-  status     Show project state and next recommended step
-  handoff    Summarize validated SDLC artifacts and require explicit go/no-go decision
-  go         Explicitly enter implementation mode after handoff readiness
-  resume     Resume deterministically from checkpoint state and nextStep
+Workflow (Aitri guides you through each step):
+  1. aitri init         Set up project structure
+  2. aitri draft        Describe what you want to build (guided wizard)
+  3. aitri approve      Quality gate — validates your spec is complete
+  4. aitri discover     Generate discovery analysis
+  5. aitri plan         Generate plan, backlog, and test cases
+  6. aitri validate     Check traceability (FR → US → TC)
+  7. aitri verify       Run tests and persist evidence
+  8. aitri policy       Check dependency and security policy
+  9. aitri handoff      Summarize readiness for implementation
+  10. aitri go          Approve implementation start (human decision)
+  11. aitri scaffold    Generate project skeleton and test stubs
+  12. aitri implement   Generate implementation briefs per story
+      [WRITE CODE]     You or your AI agent implements each story
+  13. aitri verify      Confirm all tests pass
+  14. aitri deliver     Final delivery gate
 
-Options:
-  --yes, -y              Auto-approve plan prompts where supported
-  --feature, -f <name>   Feature name for non-interactive runs
+Other:
+  aitri status         Show current state and next step
+  aitri resume         Resume from last checkpoint
+
+Common options:
+  --feature, -f <name>   Specify feature name
+  --yes, -y              Auto-confirm prompts
+  --raw                  Use free-form draft instead of guided wizard
+  --json, -j             Machine-readable output`);
+
+  if (advanced) {
+    console.log(`
+Advanced options:
   --idea <text>          Idea text for non-interactive draft
-  --verify-cmd <cmd>     Explicit runtime verification command (used by \`aitri verify\`)
-  --discovery-depth <d>  Guided discovery depth: quick | standard | deep
-  --retrieval-mode <m>   Retrieval mode for discover/plan: section | semantic
-  --ui                   Generate static status insight page (status command)
-  --no-open              Do not auto-open generated status UI page
-  --no-auto-advance      Disable guided yes/no auto-advance to the next step
-  --strict-policy        Require full git-based managed-go policy checks (blocks go outside git)
-  --non-interactive      Do not prompt; fail if required args are missing
-  --json, -j             Output machine-readable JSON (status, validate)
-  --format <type>        Output format (json supported)
-  --no-checkpoint        Disable auto-checkpoint for this command
+  --verify-cmd <cmd>     Explicit runtime verification command
+  --discovery-depth <d>  Discovery depth: quick | standard | deep
+  --retrieval-mode <m>   Retrieval mode: section | semantic
+  --ui                   Generate status insight page
+  --no-open              Don't auto-open status page
+  --no-auto-advance      Disable auto-advance to next step
+  --strict-policy        Require git for policy checks
+  --non-interactive      Suppress all prompts (CI/pipeline mode)
+  --no-checkpoint        Disable auto-checkpoint
+  --format <type>        Output format (json)`);
+  } else {
+    console.log(`
+Run \`aitri help --advanced\` for all options.`);
+  }
 
-Exit codes:
-  0 success
-  1 error (validation/usage/runtime)
-  2 aborted by user
-`);
+  console.log("");
   process.exit(EXIT_OK);
 }
 
@@ -595,66 +609,111 @@ if (cmd === "draft") {
   }
 
   let idea = options.idea || "";
-  if (options.guided) {
-    if (options.nonInteractive && !idea) {
-      console.log("In guided + non-interactive mode, provide --idea \"<summary>\".");
-      process.exit(EXIT_ERROR);
+  let wizardSections = null;
+
+  if (options.guided && !options.nonInteractive) {
+    // Full guided wizard — produces complete spec sections
+    printGuidedDraftWizard();
+    const summary = idea || await ask("1) What do you want to build? (1-2 lines): ");
+    const actor = await ask("2) Who uses it? (example: customer, admin, player): ");
+    const outcome = await ask("3) What should happen when it works? (expected outcome): ");
+    const inScope = await ask("4) What's included? (main things in scope): ");
+    const outOfScope = await ask("5) What's excluded? (out of scope, optional): ");
+
+    const detectedTech = detectTechInText(summary);
+    const suggestedStack = suggestStackFromSummary(summary);
+    const techPrompt = detectedTech
+      ? `6) Tech detected: ${detectedTech}. Press Enter to confirm, or type replacement: `
+      : `6) Preferred stack? Suggested: ${suggestedStack}. Press Enter to accept or type replacement: `;
+    const technology = await ask(techPrompt);
+    const resolvedTech = technology || detectedTech || suggestedStack;
+
+    console.log("\nNow let's define the key rules and quality criteria.");
+    console.log("Tip: be specific. Aitri uses these to generate tests and validate delivery.\n");
+
+    const fr1 = await ask("7) Main functional rule (what MUST the system do?): ");
+    const fr2 = await ask("8) Second rule (optional, press Enter to skip): ");
+
+    const edge1 = await ask("9) An edge case to consider (what could go wrong?): ");
+
+    const sec1 = await ask("10) A security consideration (access control, input validation, etc.): ");
+
+    const ac1 = await ask("11) Acceptance criterion — complete the sentence:\n   Given [context], when [action], then [result]: ");
+
+    // Detect if domain needs resource strategy
+    const domainText = (summary + " " + outcome + " " + inScope).toLowerCase();
+    const needsResources = /\b(game|juego|sprite|canvas|webgl|ui|dashboard|web\s*app|mobile|imagen|image|audio|sound|animation|video|icon|logo|font|theme|css|design)\b/.test(domainText);
+
+    let resourceStrategy = "";
+    if (needsResources) {
+      console.log("\nAitri detected this project may need external resources (images, sounds, styles, etc.).");
+      console.log("  a) I have my own resources (I'll provide them)");
+      console.log("  b) Generate programmatic placeholders (code-only, no external files)");
+      console.log("  c) Search for free resources online (the agent will search)");
+      console.log("  d) I have an account/service for resources");
+      const resourceAnswer = (await ask("12) Resource strategy (a/b/c/d): ")).trim().toLowerCase();
+      if (resourceAnswer === "a" || resourceAnswer.startsWith("a")) {
+        resourceStrategy = "User provides own resources. Agent must ask for resource paths before implementation.";
+      } else if (resourceAnswer === "c" || resourceAnswer.startsWith("c")) {
+        resourceStrategy = "Agent should search for free/open-licensed resources online before implementation.";
+      } else if (resourceAnswer === "d" || resourceAnswer.startsWith("d")) {
+        const service = await ask("    Which service? (e.g., itch.io, OpenGameArt, Unsplash, Figma): ");
+        resourceStrategy = `User has account on: ${service || "external service"}. Agent should use this source for resources.`;
+      } else {
+        resourceStrategy = "Generate programmatic placeholders only. No external resource files required.";
+      }
     }
 
-    if (!options.nonInteractive) {
-      printGuidedDraftWizard();
-      const summary = idea || await ask("1) What capability do you want to build? (1-2 lines): ");
-      const actor = await ask("2) Primary actor (example: customer, admin): ");
-      const outcome = await ask("3) Expected outcome (what should happen): ");
-      const inScope = await ask("4) In scope (main things to include): ");
-      const outOfScope = await ask("5) Out of scope (optional): ");
-      const detectedTech = detectTechInText(summary);
-      const suggestedStack = suggestStackFromSummary(summary);
-      const techPrompt = detectedTech
-        ? `6) Requirement mentions: ${detectedTech}. Press Enter to confirm, or type replacement: `
-        : `6) Preferred language/stack (optional). Suggested: ${suggestedStack}. Press Enter to accept or type replacement: `;
-      const technology = await ask(techPrompt);
-      idea = [
-        `Summary: ${summary || "TBD"}`,
+    wizardSections = {
+      context: [
+        summary || "TBD",
+        "",
         `Primary actor: ${actor || "TBD"}`,
         `Expected outcome: ${outcome || "TBD"}`,
         `In scope: ${inScope || "TBD"}`,
         `Out of scope: ${outOfScope || "Not specified"}`,
-        `Technology preference: ${technology || detectedTech || suggestedStack}`,
-        `Technology source: ${detectedTech ? "Requirement-defined (confirmed)" : "Aitri suggestion (accepted/replaced)"}`
-      ].join("\n");
-    } else {
-      const detectedTech = detectTechInText(idea);
-      const suggestedStack = suggestStackFromSummary(idea);
-      idea = [
-        `Summary: ${idea}`,
-        "Primary actor: TBD",
-        "Expected outcome: TBD",
-        "In scope: TBD",
-        "Out of scope: Not specified",
-        `Technology preference: ${detectedTech || suggestedStack}`,
-        `Technology source: ${detectedTech ? "Requirement-defined (auto-detected)" : "Aitri suggestion (auto-applied)"}`
-      ].join("\n");
+        `Technology: ${resolvedTech}`
+      ].join("\n"),
+      actors: actor ? `- ${actor}` : "- End user",
+      functionalRules: [
+        fr1 ? `- FR-1: ${fr1}` : null,
+        fr2 ? `- FR-2: ${fr2}` : null
+      ].filter(Boolean).join("\n") || "- FR-1: TBD (define during review)",
+      edgeCases: edge1 ? `- ${edge1}` : "- TBD (define during review)",
+      security: sec1 ? `- ${sec1}` : "- TBD (define during review)",
+      acceptanceCriteria: ac1 ? `- AC-1: ${ac1}` : "- AC-1: TBD (define during review)",
+      resourceStrategy
+    };
+
+    idea = wizardSections.context;
+
+  } else if (options.guided && options.nonInteractive) {
+    // Non-interactive guided — minimal enrichment from --idea
+    if (!idea) {
+      console.log("In non-interactive mode, provide --idea \"<summary>\".");
+      process.exit(EXIT_ERROR);
     }
-  } else if (!idea && !options.nonInteractive) {
-    idea = await ask("Describe the idea in 1-3 lines: ");
+    const detectedTech = detectTechInText(idea);
+    const suggestedStack = suggestStackFromSummary(idea);
+    idea = [
+      `Summary: ${idea}`,
+      "Primary actor: TBD",
+      "Expected outcome: TBD",
+      "In scope: TBD",
+      "Out of scope: Not specified",
+      `Technology preference: ${detectedTech || suggestedStack}`,
+      `Technology source: ${detectedTech ? "Requirement-defined (auto-detected)" : "Aitri suggestion (auto-applied)"}`
+    ].join("\n");
+  } else {
+    // Raw mode (--raw): free-form idea text
+    if (!idea && !options.nonInteractive) {
+      idea = await ask("Describe the idea in 1-3 lines: ");
+    }
   }
   if (!idea) {
     console.log("Idea is required. Provide --idea in non-interactive mode.");
     process.exit(EXIT_ERROR);
   }
-
-  // Locate Aitri core template relative to where this CLI package lives
-  const cliDir = path.dirname(fileURLToPath(import.meta.url));
-  const templatePath = path.resolve(cliDir, "..", "core", "templates", "af_spec.md");
-
-  if (!fs.existsSync(templatePath)) {
-    console.log(`Template not found at: ${templatePath}`);
-    console.log("Make sure Aitri repo has core/templates/af_spec.md");
-    process.exit(EXIT_ERROR);
-  }
-
-  const template = fs.readFileSync(templatePath, "utf8");
 
   const outDir = project.paths.specsDraftsDir;
   const outFile = project.paths.draftSpecFile(feature);
@@ -679,13 +738,63 @@ if (cmd === "draft") {
 
   fs.mkdirSync(outDir, { recursive: true });
 
-  // Insert idea into Context section (simple but effective for v0.1)
-  const enriched = template.replace(
-    "## 1. Context\nDescribe the problem context.",
-    `## 1. Context\n${idea}\n\n---\n\n(Assumptions and details will be refined during review.)`
-  );
+  let specContent;
+  if (wizardSections) {
+    // Generate complete spec from wizard answers — no template placeholders
+    const parts = [
+      `# AF-SPEC: ${feature}`,
+      "",
+      "STATUS: DRAFT",
+      "",
+      "## 1. Context",
+      wizardSections.context,
+      "",
+      "## 2. Actors",
+      wizardSections.actors,
+      "",
+      "## 3. Functional Rules (traceable)",
+      wizardSections.functionalRules,
+      "",
+      "## 4. Edge Cases",
+      wizardSections.edgeCases,
+      "",
+      "## 5. Failure Conditions",
+      "- TBD (refine during review)",
+      "",
+      "## 6. Non-Functional Requirements",
+      "- TBD (refine during review)",
+      "",
+      "## 7. Security Considerations",
+      wizardSections.security,
+      "",
+      "## 8. Out of Scope",
+      `- ${wizardSections.context.includes("Out of scope:") ? "See context above" : "TBD"}`,
+      "",
+      "## 9. Acceptance Criteria",
+      wizardSections.acceptanceCriteria
+    ];
+    if (wizardSections.resourceStrategy) {
+      parts.push("", "## 10. Resource Strategy", `- ${wizardSections.resourceStrategy}`);
+    }
+    parts.push("");
+    specContent = parts.join("\n");
+  } else {
+    // Raw mode — use template with idea injected into context
+    const cliDir = path.dirname(fileURLToPath(import.meta.url));
+    const templatePath = path.resolve(cliDir, "..", "core", "templates", "af_spec.md");
+    if (!fs.existsSync(templatePath)) {
+      console.log(`Template not found at: ${templatePath}`);
+      console.log("Make sure Aitri repo has core/templates/af_spec.md");
+      process.exit(EXIT_ERROR);
+    }
+    const template = fs.readFileSync(templatePath, "utf8");
+    specContent = template.replace(
+      "## 1. Context\nDescribe the problem context.",
+      `## 1. Context\n${idea}\n\n---\n\n(Assumptions and details will be refined during review.)`
+    );
+  }
 
-  fs.writeFileSync(outFile, enriched, "utf8");
+  fs.writeFileSync(outFile, specContent, "utf8");
 
   console.log(`Draft spec created: ${path.relative(process.cwd(), outFile)}`);
   printCheckpointSummary(runAutoCheckpoint({
@@ -857,15 +966,120 @@ if (cmd === "approve") {
     }
   }
 
+  if (issues.length > 0 && !options.nonInteractive) {
+    // Interactive correction mode
+    console.log("APPROVE GATE — issues found:");
+    issues.forEach((issue, idx) => console.log(`  ${idx + 1}. ${issue}`));
+    console.log("\nAitri can help you fix these now.\n");
+
+    let updatedContent = content;
+    let fixedCount = 0;
+
+    for (const issue of issues) {
+      if (issue.includes("Functional Rules")) {
+        const answer = await ask("Enter a functional rule (e.g., 'The system must validate user input before processing'): ");
+        if (answer.trim()) {
+          const frLine = `- FR-1: ${answer.trim()}`;
+          updatedContent = updatedContent.replace(
+            /## 3\. Functional Rules[^\n]*\n([\s\S]*?)(\n##)/,
+            `## 3. Functional Rules (traceable)\n${frLine}\n$2`
+          );
+          fixedCount++;
+        }
+      } else if (issue.includes("Security Considerations")) {
+        const answer = await ask("Enter a security consideration (e.g., 'Sanitize all user input to prevent injection'): ");
+        if (answer.trim()) {
+          updatedContent = updatedContent.replace(
+            /## 7\. Security Considerations\n([\s\S]*?)(\n##)/,
+            `## 7. Security Considerations\n- ${answer.trim()}\n$2`
+          );
+          fixedCount++;
+        }
+      } else if (issue.includes("Acceptance Criteria")) {
+        const answer = await ask("Enter an acceptance criterion (Given [context], when [action], then [result]): ");
+        if (answer.trim()) {
+          updatedContent = updatedContent.replace(
+            /## 9\. Acceptance Criteria[^\n]*\n([\s\S]*?)(\n##|$)/,
+            `## 9. Acceptance Criteria\n- AC-1: ${answer.trim()}\n$2`
+          );
+          fixedCount++;
+        }
+      } else if (issue.includes("Actors")) {
+        const answer = await ask("Who uses this system? (e.g., 'End user', 'Admin'): ");
+        if (answer.trim()) {
+          if (actorsMatch) {
+            updatedContent = updatedContent.replace(
+              /## 2\. Actors\n([\s\S]*?)(\n##)/,
+              `## 2. Actors\n- ${answer.trim()}\n$2`
+            );
+          } else {
+            updatedContent = updatedContent.replace(
+              /## 3\./,
+              `## 2. Actors\n- ${answer.trim()}\n\n## 3.`
+            );
+          }
+          fixedCount++;
+        }
+      } else if (issue.includes("Edge Cases")) {
+        const answer = await ask("Enter an edge case (what could go wrong?): ");
+        if (answer.trim()) {
+          if (edgeMatch) {
+            updatedContent = updatedContent.replace(
+              /## 4\. Edge Cases\n([\s\S]*?)(\n##)/,
+              `## 4. Edge Cases\n- ${answer.trim()}\n$2`
+            );
+          } else {
+            updatedContent = updatedContent.replace(
+              /## 5\./,
+              `## 4. Edge Cases\n- ${answer.trim()}\n\n## 5.`
+            );
+            if (!updatedContent.includes("## 4. Edge Cases")) {
+              updatedContent = updatedContent.replace(
+                /## 7\./,
+                `## 4. Edge Cases\n- ${answer.trim()}\n\n## 7.`
+              );
+            }
+          }
+          fixedCount++;
+        }
+      } else if (issue.includes("asset strategy") || issue.includes("visual/game")) {
+        console.log("This project needs a resource/asset strategy.");
+        console.log("  a) I have my own resources");
+        console.log("  b) Generate programmatic placeholders");
+        console.log("  c) Search for free resources online");
+        console.log("  d) I have an account/service");
+        const answer = (await ask("Resource strategy (a/b/c/d): ")).trim().toLowerCase();
+        let strategy = "Generate programmatic placeholders only.";
+        if (answer === "a" || answer.startsWith("a")) {
+          strategy = "User provides own resources. Agent must ask for resource paths.";
+        } else if (answer === "c" || answer.startsWith("c")) {
+          strategy = "Agent should search for free/open-licensed resources online.";
+        } else if (answer === "d" || answer.startsWith("d")) {
+          const svc = await ask("  Which service? (e.g., itch.io, Unsplash): ");
+          strategy = `User has account on: ${svc || "external service"}.`;
+        }
+        updatedContent += `\n## 10. Resource Strategy\n- ${strategy}\n`;
+        fixedCount++;
+      }
+    }
+
+    if (fixedCount > 0) {
+      fs.writeFileSync(draftsFile, updatedContent, "utf8");
+      console.log(`\nFixed ${fixedCount} issue(s) in ${path.relative(process.cwd(), draftsFile)}.`);
+      console.log(`Run again: aitri approve --feature ${feature}`);
+    } else {
+      console.log(`\nNo fixes applied. Edit manually: ${path.relative(process.cwd(), draftsFile)}`);
+      console.log(`Then run: aitri approve --feature ${feature}`);
+    }
+    process.exit(EXIT_ERROR);
+  }
+
   if (issues.length > 0) {
+    // Non-interactive mode — just report
     console.log("GATE FAILED:");
     issues.forEach(i => console.log("- " + i));
-    console.log("\nNext recommended step:");
-    console.log(`- Fix: ${path.relative(process.cwd(), draftsFile)}`);
-    if (issues.some((issue) => issue.includes("Security Considerations"))) {
-      console.log("- Tip: add at least one concrete bullet under `## 7. Security Considerations`.");
-    }
-    console.log(`- Run: aitri approve --feature ${feature}`);
+    console.log(`\nFix: ${path.relative(process.cwd(), draftsFile)}`);
+    console.log(`Run: aitri approve --feature ${feature}`);
     process.exit(EXIT_ERROR);
   }
 

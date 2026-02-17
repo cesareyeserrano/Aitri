@@ -14,8 +14,8 @@ Aitri execution model:
 - Agent executes within Aitri constraints
 
 ## Session Bootstrap (Mandatory)
-1. Run `aitri resume` (or `aitri resume json` in automation)
-2. If structure is missing (`nextStep: "aitri init"`), run `aitri init --non-interactive --yes`
+1. Run `aitri resume` (or `aitri resume json` for machine-readable output)
+2. If structure is missing (`nextStep: "aitri init"`), run `aitri init`
 3. Re-run `aitri resume`
 4. If checkpoint confirmation is requested, ask: "Checkpoint found. Continue from checkpoint? (yes/no)" and wait for explicit user decision.
 5. Read `docs/README.md` and `docs/EXECUTION_GUARDRAILS.md` if present
@@ -50,12 +50,18 @@ Aitri execution model:
 - `aitri verify` — (enhanced) map test results to TC-*, report FR/US coverage
 - `aitri deliver` — final delivery gate: all FRs covered, all TCs passing
 
-## CI/Agent Mode
-For non-interactive execution:
-- Use `--non-interactive`
-- For write commands (`init`, `draft`, `approve`, `discover`, `plan`) also use `--yes`
-- Pass feature explicitly where needed: `--feature <name>`
-- Use `json`, `-j`, or `--format json` for machine-readable output (`status`, `verify`, `policy`, `validate`)
+## Interactive Mode (Default)
+Aitri commands are **interactive by default**. The agent should:
+- Let Aitri prompt for confirmations naturally
+- Review each PLAN output before confirming
+- Never add `--non-interactive --yes` unless the user explicitly requests automation
+
+## CI/Pipeline Mode (Opt-in Only)
+Only use these flags in CI pipelines or when the user explicitly requests unattended execution:
+- `--non-interactive` — suppress prompts, fail if required args are missing
+- `--yes` — auto-confirm write operations
+- `--feature <name>` — pass feature explicitly
+- `json`, `-j`, or `--format json` — machine-readable output (`status`, `verify`, `policy`, `validate`)
 
 ## Recommended Workflow
 

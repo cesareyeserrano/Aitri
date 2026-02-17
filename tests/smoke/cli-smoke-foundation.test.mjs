@@ -11,20 +11,20 @@ test("help and version are available", () => {
   assert.match(version.stdout, /aitri v\d+\.\d+\.\d+/);
 
   const help = runNodeOk(["help"]);
-  assert.match(help.stdout, /Commands:/);
+  assert.match(help.stdout, /Workflow/);
   assert.match(help.stdout, /status/);
   assert.match(help.stdout, /resume/);
   assert.match(help.stdout, /verify/);
-  assert.match(help.stdout, /policy/);
-  assert.match(help.stdout, /--non-interactive/);
+  assert.match(help.stdout, /deliver/);
   assert.match(help.stdout, /--json, -j/);
-  assert.match(help.stdout, /--format <type>/);
-  assert.match(help.stdout, /--discovery-depth <d>/);
-  assert.match(help.stdout, /--retrieval-mode <m>/);
-  assert.match(help.stdout, /--ui/);
-  assert.match(help.stdout, /--no-open/);
-  assert.match(help.stdout, /--strict-policy/);
-  assert.match(help.stdout, /--no-checkpoint/);
+  assert.match(help.stdout, /--advanced/);
+
+  const advanced = runNodeOk(["help", "--advanced"]);
+  assert.match(advanced.stdout, /--non-interactive/);
+  assert.match(advanced.stdout, /--discovery-depth <d>/);
+  assert.match(advanced.stdout, /--retrieval-mode <m>/);
+  assert.match(advanced.stdout, /--strict-policy/);
+  assert.match(advanced.stdout, /--no-checkpoint/);
 });
 
 test("status json works in empty project", () => {
@@ -365,13 +365,13 @@ test("approve gate failure includes corrective next-step guidance", () => {
 
   const draftFile = path.join(tempDir, "specs", "drafts", `${feature}.md`);
   const content = fs.readFileSync(draftFile, "utf8")
-    .replace("## 7. Security Considerations\n- <list minimal security constraints>", "## 7. Security Considerations\n-");
+    .replace("## 7. Security Considerations\n- <at least one security note/control>", "## 7. Security Considerations\n-");
   fs.writeFileSync(draftFile, content, "utf8");
 
   const result = runNode(["approve", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
   assert.equal(result.status, 1);
   assert.match(result.stdout, /GATE FAILED:/);
   assert.match(result.stdout, /Security Considerations must include at least one meaningful bullet/);
-  assert.match(result.stdout, /Next recommended step:/);
-  assert.match(result.stdout, new RegExp(`- Run: aitri approve --feature ${feature}`));
+  assert.match(result.stdout, /Fix:/);
+  assert.match(result.stdout, new RegExp(`aitri approve --feature ${feature}`));
 });

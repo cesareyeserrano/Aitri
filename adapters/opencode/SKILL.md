@@ -9,8 +9,8 @@ description: Spec-driven SDLC workflow guardrail for OpenCode sessions using Ait
 Use Aitri as the CLI guardrail for spec-driven SDLC execution with mandatory human approvals.
 
 ## Session Bootstrap
-1. Run `aitri resume` (or `aitri resume json` in automation)
-2. If structure is missing (`nextStep: "aitri init"`), run `aitri init --non-interactive --yes`
+1. Run `aitri resume` (or `aitri resume json` for machine-readable output)
+2. If structure is missing (`nextStep: "aitri init"`), run `aitri init`
 3. Re-run `aitri resume`
 4. If checkpoint confirmation is requested, ask: "Checkpoint found. Continue from checkpoint? (yes/no)" and wait for explicit user decision.
 5. Read `docs/README.md` and `docs/EXECUTION_GUARDRAILS.md` if present
@@ -54,11 +54,18 @@ Use Aitri as the CLI guardrail for spec-driven SDLC execution with mandatory hum
 5. Repeat 3-4 until all stories pass
 6. `aitri deliver` — final delivery gate
 
-## CI/Automation Mode
-- `--non-interactive`
-- `--yes` for write commands
-- `--feature <name>` where required
-- `json`, `-j`, or `--format json` for `status`, `verify`, `policy`, and `validate`
+## Interactive Mode (Default)
+Aitri commands are **interactive by default**. The agent should:
+- Let Aitri prompt for confirmations naturally
+- Review each PLAN output before confirming
+- Never add `--non-interactive --yes` unless the user explicitly requests automation
+
+## CI/Pipeline Mode (Opt-in Only)
+Only use these flags in CI pipelines or when the user explicitly requests unattended execution:
+- `--non-interactive` — suppress prompts, fail if required args are missing
+- `--yes` — auto-confirm write operations
+- `--feature <name>` — pass feature explicitly
+- `json`, `-j`, or `--format json` — machine-readable output for `status`, `verify`, `policy`, `validate`
 
 ## Checkpoint Behavior
 Write commands create auto-checkpoints by default in git repositories (retained max: 10).
