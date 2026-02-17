@@ -62,7 +62,7 @@ cd ~/Documents/PROJECTS/my-project
 
 Initialize Aitri structure:
 ```bash
-aitri init --non-interactive --yes
+aitri init
 ```
 
 Check session state:
@@ -74,16 +74,16 @@ Expected after init:
 - `structure.ok: true`
 - `recommendedCommand: "aitri draft"`
 
-## 4) First Real Workflow (Non-Interactive)
+## 4) First Real Workflow (Interactive Default)
 
 ```bash
-aitri draft --feature user-auth --idea "Email and password login with forgot-password flow" --non-interactive --yes
-aitri approve --feature user-auth --non-interactive --yes
-aitri discover --feature user-auth --non-interactive --yes
-aitri plan --feature user-auth --non-interactive --yes
-aitri validate --feature user-auth --non-interactive --format json
-aitri verify --feature user-auth --non-interactive --format json
-aitri policy --feature user-auth --non-interactive --format json
+aitri draft --feature user-auth --idea "Email and password login with forgot-password flow"
+aitri approve --feature user-auth
+aitri discover --feature user-auth
+aitri plan --feature user-auth
+aitri validate --feature user-auth --format json
+aitri verify --feature user-auth --format json
+aitri policy --feature user-auth --format json
 ```
 
 Expected:
@@ -125,9 +125,9 @@ aitri discover --feature user-auth --guided --discovery-depth deep
 
 Optional retrieval mode:
 ```bash
-aitri discover --feature user-auth --retrieval-mode section --non-interactive --yes
-aitri discover --feature user-auth --retrieval-mode semantic --non-interactive --yes
-aitri plan --feature user-auth --retrieval-mode semantic --non-interactive --yes
+aitri discover --feature user-auth --retrieval-mode section
+aitri discover --feature user-auth --retrieval-mode semantic
+aitri plan --feature user-auth --retrieval-mode semantic
 ```
 
 `aitri plan` reads discovery interview mode and emits matching rigor guidance in:
@@ -165,7 +165,7 @@ Use the aitri skill and run aitri resume json
 
 If project is empty, continue with:
 ```text
-Use the aitri skill and run aitri init --non-interactive --yes
+Use the aitri skill and run aitri init
 ```
 
 ## 6) Install Aitri as a Claude Skill
@@ -212,14 +212,14 @@ Restart OpenCode and request Aitri workflow execution in your target repo.
 - Restart the agent CLI after installing/updating skill files
 
 `Aitri asks for confirmation in automation`
-- Add `--non-interactive --yes` for write commands
+- Add `--non-interactive --yes` for write commands only in CI/automation
 
 `validate fails with missing feature`
-- Add `--feature <feature-name>` in non-interactive mode
+- Add `--feature <feature-name>` in automated runs (recommended always in multi-feature repos)
 
 `Skill tries to read docs before init in a new repo`
 - Run `aitri resume json`
-- If `nextStep` is `aitri init`, run `aitri init --non-interactive --yes`
+- If `nextStep` is `aitri init`, run `aitri init`
 - Re-run `aitri resume json`
 
 ## 9) Operational Recommendation

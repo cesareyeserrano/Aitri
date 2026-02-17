@@ -41,6 +41,9 @@ Workspace baseline commit: `218cc58` (branch `main`)
   - Guided draft requires explicit user input for core requirement fields.
   - Approve gate blocks inferred marker strings.
   - Docs/adapters updated to state non-invention and explicit human control.
+- Interaction defaults:
+  - README and onboarding guide now default to interactive commands.
+  - `--non-interactive --yes` guidance is reserved for explicit CI/automation contexts.
 - Regression coverage:
   - Added `tests/regression/requirements-source-integrity.test.mjs`.
   - Added `tests/regression/workflow-guards.test.mjs`.

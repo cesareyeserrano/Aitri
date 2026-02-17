@@ -195,3 +195,4 @@ Check items as they are completed to prevent context drift.
 - [x] Maintainability gate fix: `cli/index.js` reduced below strict hard budget
 - [x] Regression coverage added for security/path validation, multi-feature flow, and init project profile
 - [x] Feedback closure report published (`docs/feedback/AITRI_0.2.24_FEEDBACK_CLOSURE_2026-02-17.md`)
+- [x] Interactive-first guidance restored in onboarding docs; `--non-interactive --yes` reserved for CI/automation only

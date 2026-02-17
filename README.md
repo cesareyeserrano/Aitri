@@ -49,21 +49,23 @@ Initialize a target project:
 ```bash
 mkdir -p ~/Documents/PROJECTS/my-feature
 cd ~/Documents/PROJECTS/my-feature
-aitri init --non-interactive --yes
-aitri resume json
+aitri init
+aitri resume
 ```
 
-Run the baseline SDLC workflow:
+Run the baseline SDLC workflow (interactive default):
 ```bash
-aitri draft --feature user-login --idea "Email/password login" --non-interactive --yes
-aitri approve --feature user-login --non-interactive --yes
-aitri discover --feature user-login --non-interactive --yes
-aitri plan --feature user-login --non-interactive --yes
+aitri draft --feature user-login --idea "Email/password login"
+aitri approve --feature user-login
+aitri discover --feature user-login
+aitri plan --feature user-login
 aitri validate --feature user-login --format json
 aitri verify --feature user-login --format json
 aitri policy --feature user-login --format json
 aitri handoff
 ```
+
+Automation/CI mode (optional): use `--non-interactive --yes` only when you explicitly need unattended execution.
 
 Check state at any point:
 ```bash
@@ -94,8 +96,8 @@ Use `--no-open` if you only want file generation.
 | `aitri help` | Show command and option reference |
 
 Common flags:
-- `--non-interactive`
-- `--yes`
+- `--non-interactive` (automation/CI only)
+- `--yes` (automation/CI only)
 - `--feature <name>`
 - `--json` / `--format json`
 - `--verify-cmd "<command>"`
