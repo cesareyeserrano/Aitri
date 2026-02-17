@@ -59,6 +59,47 @@ function parseTcMapByStory(testsContent) {
   return map;
 }
 
+function parseResourceStrategy(specContent) {
+  const assetMatch = String(specContent || "").match(/## (?:8\. Asset Strategy|10\. Resource Strategy|Asset Strategy|Resource Strategy)([\s\S]*?)(\n##\s|\s*$)/i);
+  if (!assetMatch) return null;
+  const lines = assetMatch[1].split("\n").map(l => l.trim()).filter(l => l && l !== "-");
+  return lines.length > 0 ? lines : null;
+}
+
+function scanProjectAssets(root) {
+  const assetDirs = ["web/assets", "assets", "public/assets", "src/assets", "static"];
+  const found = [];
+  for (const dir of assetDirs) {
+    const abs = path.join(root, dir);
+    if (!fs.existsSync(abs) || !fs.statSync(abs).isDirectory()) continue;
+    try {
+      const entries = scanDirRecursive(abs, root, 3);
+      found.push(...entries);
+    } catch { /* skip unreadable dirs */ }
+  }
+  return found.length > 0 ? found : null;
+}
+
+function scanDirRecursive(dir, root, maxDepth, depth = 0) {
+  if (depth > maxDepth) return [];
+  const results = [];
+  let entries;
+  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.name.startsWith(".") || entry.name.endsWith(".zip")) continue;
+    if (entry.isDirectory()) {
+      results.push(...scanDirRecursive(full, root, maxDepth, depth + 1));
+    } else {
+      const ext = path.extname(entry.name).toLowerCase();
+      if ([".png", ".jpg", ".jpeg", ".webp", ".svg", ".gif", ".ogg", ".mp3", ".wav", ".ttf", ".woff", ".woff2", ".json"].includes(ext)) {
+        results.push(path.relative(root, full));
+      }
+    }
+  }
+  return results;
+}
+
 function parseQualityConstraints(planContent) {
   const architecture = extractSection(planContent, "## 5. Architecture (Architect Persona)");
   const domain = normalizeLine((architecture.match(/-\s*Domain:\s*(.+)/i) || [null, "Not specified"])[1]);
@@ -144,7 +185,9 @@ function buildBriefContent({
   hints,
   linkedTc,
   references,
-  dependencies
+  dependencies,
+  resourceStrategy,
+  projectAssets
 }) {
   const acceptance = story.acceptance.length > 0
     ? story.acceptance.map((ac) => `- Given ${ac.given}, when ${ac.when}, then ${ac.then}.`).join("\n")
@@ -188,6 +231,14 @@ ${referencesSection.length > 0 ? referencesSection.join("\n") : "- Run \`aitri s
 - Stack constraint: ${quality.stackConstraint}
 - Forbidden defaults: ${quality.forbiddenDefaults}
 - Non-negotiable: keep FR traceability comments in interfaces and TC markers in tests.
+${resourceStrategy ? `
+## 7. Resource/Asset Strategy (from approved spec)
+${resourceStrategy.map(l => l.startsWith("-") ? l : `- ${l}`).join("\n")}
+` : ""}${projectAssets ? `
+## 8. Available Assets in Project
+The following asset files were found in the project. Use these instead of generating new ones:
+${projectAssets.slice(0, 40).map(a => `- ${a}`).join("\n")}${projectAssets.length > 40 ? `\n- ... and ${projectAssets.length - 40} more files` : ""}
+` : ""}
 `;
 }
 
@@ -270,6 +321,8 @@ export async function runImplementCommand({
   const tcMapByStory = parseTcMapByStory(testsContent);
   const quality = parseQualityConstraints(planContent);
   const hints = parseImplementationHints(planContent);
+  const resourceStrategy = parseResourceStrategy(approvedSpec);
+  const projectAssets = scanProjectAssets(process.cwd());
   const scaffoldManifest = readJsonFile(scaffoldManifestFile) || {};
   const ordered = buildImplementationOrder(stories, tcMapByStory);
 
@@ -321,7 +374,9 @@ export async function runImplementCommand({
       hints,
       linkedTc,
       references,
-      dependencies: dependencyNotes
+      dependencies: dependencyNotes,
+      resourceStrategy,
+      projectAssets
     });
     writeFile(path.join(implementationDir, `${story.id}.md`), brief);
   });
