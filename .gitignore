@@ -6,6 +6,7 @@ docs/insight/status.html
 # Internal docs — kept locally, excluded from GitHub
 docs/feedback/
 docs/quality/
+!docs/quality/file-size-budgets.json
 docs/release/
 docs/runbook/
 docs/templates/
