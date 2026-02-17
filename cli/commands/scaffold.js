@@ -52,8 +52,24 @@ function parseTestCases(testsContent) {
     const title = titleMatch
       ? titleMatch[1].trim().replace(/\.$/, "")
       : `Validate ${id.toLowerCase()} behavior`;
-    return { id, title };
+    const traceLine = (body.match(/-\s*Trace:\s*([^\n]+)/i) || [null, ""])[1];
+    const acIds = [...new Set(
+      [...String(traceLine).matchAll(/\bAC-\d+\b/g)].map((m) => m[0])
+    )];
+    return { id, title, acIds };
   });
+}
+
+function buildAcTemplateVars(tc, parsedSpec) {
+  const acIds = tc.acIds || [];
+  if (acIds.length === 0) return { AC_IDS: "none", AC_DESCRIPTIONS: "No AC mapped to this TC." };
+  const acMap = new Map(
+    (parsedSpec.acceptanceCriteria || []).map((ac) => [ac.id, ac.text])
+  );
+  const descriptions = acIds
+    .map((id) => `${id}: ${acMap.get(id) || "No description available."}`)
+    .join("\n// ");
+  return { AC_IDS: acIds.join(", "), AC_DESCRIPTIONS: descriptions };
 }
 
 function parseArchitectureComponents(planContent) {
@@ -205,12 +221,14 @@ function scaffoldTemplatesByStack(stackFamily) {
   };
 }
 
-function createTestStub({ root, stackFamily, feature, tc, testTemplate }) {
+function createTestStub({ root, stackFamily, feature, tc, testTemplate, parsedSpec }) {
+  const acVars = buildAcTemplateVars(tc, parsedSpec || {});
   const file = testPathByStack(root, stackFamily, feature, tc.id, tc.title);
   const body = renderTemplate(testTemplate, {
     TC_ID: tc.id,
     TC_TITLE: tc.title,
-    TEST_NAME: slugify(`${tc.id}-${tc.title}`).replace(/-/g, "_")
+    TEST_NAME: slugify(`${tc.id}-${tc.title}`).replace(/-/g, "_"),
+    ...acVars
   });
   writeFile(file, body);
   return file;
@@ -319,7 +337,8 @@ export async function runScaffoldCommand({
     stackFamily,
     feature,
     tc,
-    testTemplate: templates.test
+    testTemplate: templates.test,
+    parsedSpec
   }));
   const writtenInterfaces = interfaceRules.map((fr) => createInterfaceStub({
     root: process.cwd(),

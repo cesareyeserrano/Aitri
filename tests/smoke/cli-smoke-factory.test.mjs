@@ -174,6 +174,28 @@ test("deliver blocks when FR coverage is incomplete", () => {
   assert.ok(payload.blockers.length >= 1);
 });
 
+test("deliver blocks when AC coverage is incomplete", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-deliver-ac-block-"));
+  const feature = "deliver-ac-block";
+  prepareImplementedFeature(tempDir, feature);
+
+  // Inject an extra AC into the approved spec that no TC traces to
+  const specFile = path.join(tempDir, "specs", "approved", `${feature}.md`);
+  const specContent = fs.readFileSync(specFile, "utf8");
+  fs.writeFileSync(specFile, specContent + "\n- AC-99: Given a phantom criterion, when deliver runs, then it must be flagged as uncovered.\n", "utf8");
+
+  runNodeOk(["verify", "--feature", feature, "--non-interactive", "--json"], { cwd: tempDir });
+  const deliver = runNode(["deliver", "--feature", feature, "--non-interactive", "--yes", "--json"], { cwd: tempDir });
+  assert.equal(deliver.status, 1);
+  const payload = JSON.parse(deliver.stdout);
+  assert.equal(payload.decision, "BLOCKED");
+  assert.ok(payload.blockers.some((b) => /Uncovered ACs:.*AC-99/.test(b)));
+  assert.ok(Array.isArray(payload.acMatrix));
+  const ac99 = payload.acMatrix.find((row) => row.acId === "AC-99");
+  assert.ok(ac99, "AC-99 should appear in acMatrix");
+  assert.equal(ac99.covered, false);
+});
+
 test("factory E2E flow completes through deliver gate", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-factory-e2e-"));
   const feature = "factory-e2e";
@@ -184,8 +206,14 @@ test("factory E2E flow completes through deliver gate", () => {
   const payload = JSON.parse(deliver.stdout);
   assert.equal(payload.decision, "SHIP");
   assert.equal(payload.ok, true);
+  assert.ok(Array.isArray(payload.acMatrix), "acMatrix should be present");
+  assert.ok(payload.acMatrix.length >= 1, "acMatrix should have entries");
+  assert.ok(payload.acMatrix.every((row) => row.covered), "all ACs should be covered");
   assert.match(payload.reportJson, /docs\/delivery\/factory-e2e\.json/);
   assert.match(payload.reportMarkdown, /docs\/delivery\/factory-e2e\.md/);
+
+  const reportMd = fs.readFileSync(path.join(tempDir, payload.reportMarkdown), "utf8");
+  assert.match(reportMd, /## AC Coverage Matrix/);
 
   const statusAfterDeliver = JSON.parse(
     runNodeOk(["status", "--feature", feature, "--json"], { cwd: tempDir }).stdout

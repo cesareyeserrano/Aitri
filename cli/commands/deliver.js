@@ -39,6 +39,13 @@ function parseSpecFr(specContent) {
   )];
 }
 
+function parseSpecAc(specContent) {
+  return [...new Set(
+    [...String(specContent || "").matchAll(/\bAC-\d+\b/g)]
+      .map((match) => match[0])
+  )];
+}
+
 function readJson(file) {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8"));
@@ -52,6 +59,7 @@ function buildMarkdownReport(payload) {
     ? payload.blockers.map((line) => `- ${line}`).join("\n")
     : "- None";
   const frRows = payload.frMatrix.map((row) => `- ${row.frId}: passingTC=${row.passingTc.join(", ") || "none"} | uncovered=${row.covered ? "no" : "yes"}`).join("\n");
+  const acRows = (payload.acMatrix || []).map((row) => `- ${row.acId}: passingTC=${row.passingTc.join(", ") || "none"} | uncovered=${row.covered ? "no" : "yes"}`).join("\n");
   return `# Delivery Report: ${payload.feature}
 
 Decision: ${payload.decision}
@@ -71,6 +79,9 @@ Generated at: ${payload.generatedAt}
 
 ## FR Coverage Matrix
 ${frRows || "- No FR data available."}
+
+## AC Coverage Matrix
+${acRows || "- No AC data available."}
 
 ## Timeline
 - go: ${payload.timeline.go || "missing"}
@@ -143,6 +154,7 @@ export async function runDeliverCommand({
   const testsContent = fs.readFileSync(testsFile, "utf8");
   const traceMap = parseTcTraceMap(testsContent);
   const specFr = parseSpecFr(specContent);
+  const specAc = parseSpecAc(specContent);
   const tcCoverage = verifyPayload.tcCoverage || {
     declared: 0,
     executable: 0,
@@ -167,6 +179,17 @@ export async function runDeliverCommand({
     };
   });
 
+  const acMatrix = specAc.map((acId) => {
+    const relatedTc = Object.keys(traceMap).filter((tcId) => (traceMap[tcId]?.acIds || []).includes(acId));
+    const passingForAc = relatedTc.filter((tcId) => passingTc.includes(tcId));
+    return {
+      acId,
+      tc: relatedTc,
+      passingTc: passingForAc,
+      covered: passingForAc.length > 0
+    };
+  });
+
   const status = getStatusReport({
     root: process.cwd(),
     feature
@@ -186,6 +209,10 @@ export async function runDeliverCommand({
   const uncoveredFr = frMatrix.filter((row) => !row.covered).map((row) => row.frId);
   if (uncoveredFr.length > 0) {
     blockers.push(`Uncovered FRs: ${uncoveredFr.join(", ")}`);
+  }
+  const uncoveredAc = acMatrix.filter((row) => !row.covered).map((row) => row.acId);
+  if (uncoveredAc.length > 0) {
+    blockers.push(`Uncovered ACs: ${uncoveredAc.join(", ")}`);
   }
   if (confidenceScore < threshold) {
     blockers.push(`Confidence score ${Math.round(confidenceScore * 100)}% is below threshold ${Math.round(threshold * 100)}%.`);
@@ -214,6 +241,7 @@ export async function runDeliverCommand({
       missing: Number(tcCoverage.missing || 0)
     },
     frMatrix,
+    acMatrix,
     blockers,
     timeline: {
       go: goMarker.decidedAt || null,

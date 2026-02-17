@@ -522,6 +522,7 @@ Teams need a Node.js command workflow to orchestrate approvals.
   assert.ok(generatedFiles.length >= 1);
   const testContent = fs.readFileSync(path.join(generatedDir, generatedFiles[0]), "utf8");
   assert.match(testContent, /\/\/ TC-\d+:/);
+  assert.match(testContent, /\/\/ Acceptance Criteria: AC-/);
 
   const contractsDir = path.join(tempDir, "src", "contracts");
   const contractFiles = fs.readdirSync(contractsDir).filter((name) => name.endsWith(".js"));

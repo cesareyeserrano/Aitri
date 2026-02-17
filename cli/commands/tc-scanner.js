@@ -51,6 +51,14 @@ function markerInContent(content, tcId) {
   return candidates.some((regex) => regex.test(content));
 }
 
+function extractAcMarkersFromContent(content) {
+  const match = content.match(/(?:\/\/|#)\s*Acceptance Criteria:\s*([^\n]+)/i);
+  if (!match) return [];
+  return [...new Set(
+    [...match[1].matchAll(/\bAC-\d+\b/g)].map((m) => m[0])
+  )];
+}
+
 export function scanTcMarkers({ root, feature, testsFile, generatedDir }) {
   if (!fs.existsSync(testsFile)) {
     return {
@@ -80,6 +88,7 @@ export function scanTcMarkers({ root, feature, testsFile, generatedDir }) {
     map[tcId] = { found: false, file: null };
   });
 
+  const acMarkers = {};
   files.forEach((abs) => {
     const rel = toPosix(path.relative(root, abs));
     const content = fs.readFileSync(abs, "utf8");
@@ -92,6 +101,10 @@ export function scanTcMarkers({ root, feature, testsFile, generatedDir }) {
         };
       }
     });
+    const fileAcIds = extractAcMarkersFromContent(content);
+    if (fileAcIds.length > 0) {
+      acMarkers[rel] = fileAcIds;
+    }
   });
 
   return {
@@ -100,6 +113,7 @@ export function scanTcMarkers({ root, feature, testsFile, generatedDir }) {
     feature,
     filesScanned: files.map((file) => toPosix(path.relative(root, file))),
     map,
+    acMarkers,
     declared: declaredTc.length
   };
 }
