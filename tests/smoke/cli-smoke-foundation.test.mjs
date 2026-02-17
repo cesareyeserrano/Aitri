@@ -323,6 +323,22 @@ test("write command creates auto-checkpoint in git repo", () => {
   assert.match(tags.stdout, /aitri-checkpoint\//);
 });
 
+test("draft rejects short ideas in non-interactive mode", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-draft-short-idea-"));
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+
+  const result = runNode([
+    "draft",
+    "--feature", "short-idea",
+    "--idea", "OEL",
+    "--non-interactive",
+    "--yes"
+  ], { cwd: tempDir });
+
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /too short/);
+});
+
 test("draft rejects traversal-style feature names", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-draft-traversal-"));
   runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });

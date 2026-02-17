@@ -693,6 +693,11 @@ if (cmd === "draft") {
       console.log("In non-interactive mode, provide --idea \"<summary>\".");
       process.exit(EXIT_ERROR);
     }
+    if (idea.trim().length < 15) {
+      console.log("Idea is too short. Provide at least 15 characters describing what you want to build.");
+      console.log("Example: --idea \"A REST API for tracking expense entries with validation and audit logs\"");
+      process.exit(EXIT_ERROR);
+    }
     const detectedTech = detectTechInText(idea);
     const suggestedStack = suggestStackFromSummary(idea);
     idea = [
