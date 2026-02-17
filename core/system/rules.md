@@ -8,3 +8,4 @@ Aitri operates under strict principles:
 4. All assumptions must be explicit.
 5. If something is unclear, it must be clarified before proceeding.
 6. Every change must be traceable to an approved spec.
+7. Requirements and spec statements must be provided by the user; Aitri does not invent requirements.

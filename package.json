@@ -1,6 +1,6 @@
 {
   "name": "aitri",
-  "version": "0.2.24",
+  "version": "0.2.25",
   "author": "César Augusto Reyes",
   "license": "Apache-2.0",
   "private": false,
@@ -29,6 +29,8 @@
   },
   "scripts": {
     "test:smoke": "node --test tests/smoke/cli-smoke-*.test.mjs",
+    "test:regression": "node --test tests/regression/*.test.mjs",
+    "test:all": "npm run test:smoke && npm run test:regression",
     "check:file-growth": "node scripts/check-file-growth.mjs",
     "check:file-growth:strict": "node scripts/check-file-growth.mjs --strict",
     "demo:5min": "bash scripts/demo-5min.sh"

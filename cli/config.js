@@ -36,6 +36,12 @@ function validateMappedPath(key, value) {
   if (normalized.split("/").includes("..")) {
     return `paths.${key} must not contain "..".`;
   }
+  if (/[\r\n\t]/.test(normalized)) {
+    return `paths.${key} must not contain control characters.`;
+  }
+  if (/[`$;&|<>]/.test(normalized)) {
+    return `paths.${key} contains unsupported characters.`;
+  }
   return null;
 }
 

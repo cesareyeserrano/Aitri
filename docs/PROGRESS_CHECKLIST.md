@@ -175,3 +175,23 @@ Check items as they are completed to prevent context drift.
 - [x] Status reports post-go states correctly
 - [x] Smoke tests verify delivery gate behavior
 - [x] Full E2E test: draft → approve → discover → plan → validate → verify → go → scaffold → implement → verify → deliver
+
+## 16) Requirement Source Integrity (2026-02-17)
+- [x] Product narrative updated: Aitri transforms user requirements into verified software (not docs-only)
+- [x] Non-invention guardrail documented in architecture and execution guardrails
+- [x] Draft generation updated to avoid inferred requirement injection in non-interactive guided mode
+- [x] Guided draft flow requires explicit user-provided core requirement fields
+- [x] Approve gate blocks inferred requirement markers (`Aitri suggestion (auto-applied)`)
+- [x] Regression test module added (`tests/regression`)
+- [x] Regression script added (`npm run test:regression`)
+- [x] CI runs regression suite in addition to smoke suite
+
+## 17) Feedback Closure 0.2.24 (2026-02-17)
+- [x] Security hardening: auto-checkpoint command execution moved to argv-based git calls
+- [x] Config hardening: unsafe path metacharacters rejected in `aitri.config.json` mapping
+- [x] Multi-feature fix: `handoff` and `go` honor explicit `--feature` context
+- [x] Init UX improvement: `--project` added and `docs/project.json` generated
+- [x] Demo reliability fix: `demo:5min` no longer fails due to unresolved edge placeholders
+- [x] Maintainability gate fix: `cli/index.js` reduced below strict hard budget
+- [x] Regression coverage added for security/path validation, multi-feature flow, and init project profile
+- [x] Feedback closure report published (`docs/feedback/AITRI_0.2.24_FEEDBACK_CLOSURE_2026-02-17.md`)

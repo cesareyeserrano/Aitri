@@ -10,3 +10,6 @@
 8. Document security considerations.
 9. Produce draft AF-SPEC.
 10. Submit for Gate A review.
+
+Rule:
+- Requirements in the draft must come from explicit user input. Do not infer or invent requirements.

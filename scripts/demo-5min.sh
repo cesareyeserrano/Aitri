@@ -36,6 +36,7 @@ run "${AITRI_CMD[@]}" draft --feature "$FEATURE" --idea "Email and password logi
 DRAFT_FILE="specs/drafts/${FEATURE}.md"
 if [ -f "$DRAFT_FILE" ]; then
   perl -0pi -e 's/- FR-1: <verifiable rule>\n- FR-2: <verifiable rule>/- FR-1: User can sign in with email and password.\n- FR-2: User can request password reset via verified email./g' "$DRAFT_FILE"
+  perl -0pi -e 's/- <edge case>/- Repeated failed login attempts trigger temporary lockout./g' "$DRAFT_FILE"
   perl -0pi -e 's/- <at least one security note\/control>/- Enforce rate limiting on login and reset endpoints./g' "$DRAFT_FILE"
   perl -0pi -e 's/- AC-1: Given <context>, when <action>, then <expected>\.\n- AC-2: Given <context>, when <action>, then <expected>\./- AC-1: Given a registered user, when valid credentials are submitted, then login succeeds.\n- AC-2: Given an unknown user, when login is attempted, then access is denied.\n- AC-3: Given a registered user, when password reset is requested, then a reset token is sent./g' "$DRAFT_FILE"
 fi

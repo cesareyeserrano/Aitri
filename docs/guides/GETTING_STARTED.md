@@ -13,6 +13,10 @@ Language behavior:
 - Aitri CLI prompts are in English.
 - You can speak to Codex/Claude/OpenCode in Spanish; command responses from Aitri remain English.
 
+Requirement source rule:
+- Requirements/spec content must be provided explicitly by the user.
+- Aitri structures, validates, and traces requirements; it does not invent requirements.
+
 ## 1) Prerequisites
 
 Install these first:

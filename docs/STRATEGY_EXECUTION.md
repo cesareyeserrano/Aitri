@@ -15,6 +15,7 @@ Priority order:
 - Determinism before complexity
 - Reproducible CLI behavior before integrations
 - Human supervision at every irreversible step
+- Requirement source integrity before generation: user provides requirements, Aitri structures/validates
 
 ## Phase Status
 
@@ -67,6 +68,7 @@ Status: COMPLETE (stabilization remediation closed)
 - file-growth budgets and warning/block policy defined (`check:file-growth` + strict mode)
 - E2E audit findings documented (`docs/feedback/AUDITORIA_E2E_2026-02-16.md`)
 - production-quality feedback assessment documented (`docs/feedback/PRODUCTION_QUALITY_FEEDBACK_ASSESSMENT_2026-02-16.md`)
+- 0.2.24 feedback closure documented with impact/severity/value matrix (`docs/feedback/AITRI_0.2.24_FEEDBACK_CLOSURE_2026-02-17.md`)
 
 ## Critical Stabilization Window (Post-Audit: 2026-02-16)
 Status: CLOSED (2026-02-16)

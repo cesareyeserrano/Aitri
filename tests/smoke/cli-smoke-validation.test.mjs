@@ -471,7 +471,7 @@ test("validate supports --format json", () => {
   assert.match(payload.issues[0], /Feature name is required/);
 });
 
-test("guided draft non-interactive includes technology preference", () => {
+test("guided draft non-interactive preserves user input without inferred requirements", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-guided-tech-"));
   const feature = "guided-tech";
   runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
@@ -486,6 +486,9 @@ test("guided draft non-interactive includes technology preference", () => {
 
   const draftFile = path.join(tempDir, "specs", "drafts", `${feature}.md`);
   const content = fs.readFileSync(draftFile, "utf8");
-  assert.match(content, /Technology preference:/);
-  assert.match(content, /Technology source:/);
+  assert.match(content, /Summary \(provided by user\):/);
+  assert.match(content, /Requirement source: provided explicitly by user via --idea/);
+  assert.match(content, /No inferred requirements were added by Aitri/);
+  assert.doesNotMatch(content, /Aitri suggestion \(auto-applied\)/);
+  assert.doesNotMatch(content, /Technology source:/);
 });

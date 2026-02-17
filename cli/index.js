@@ -2,7 +2,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
-import { execSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { getStatusReport, runStatus } from "./commands/status.js";
 import {
@@ -12,6 +11,7 @@ import {
 } from "./commands/discovery-plan-validate.js";
 import { runDeliverCommand } from "./commands/deliver.js";
 import { runImplementCommand } from "./commands/implement.js";
+import { runInitCommand } from "./commands/init.js";
 import { runCompletionGuide } from "./commands/post-delivery.js";
 import {
   runGoCommand,
@@ -23,6 +23,14 @@ import {
 import { runScaffoldCommand } from "./commands/scaffold.js";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import { normalizeFeatureName } from "./lib.js";
+import {
+  confirmProceed as confirmProceedSession,
+  confirmResume as confirmResumeSession,
+  confirmYesNo as confirmYesNoSession,
+  runAutoCheckpoint as runAutoCheckpointSession,
+  printCheckpointSummary,
+  exitWithFlow as exitWithFlowSession
+} from "./commands/session-control.js";
 
 function showBanner() {
   const iron = "\x1b[38;5;24m";      // dark iron gray
@@ -56,6 +64,14 @@ function ask(question) {
   );
 }
 
+async function askRequired(question) {
+  while (true) {
+    const value = await ask(question);
+    if (String(value || "").trim()) return value.trim();
+    console.log("This field is required. Aitri cannot infer requirements.");
+  }
+}
+
 function parseArgs(argv) {
   const parsed = {
     json: false,
@@ -71,6 +87,7 @@ function parseArgs(argv) {
     yes: false,
     idea: null,
     feature: null,
+    project: null,
     verifyCmd: null,
     discoveryDepth: null,
     retrievalMode: null,
@@ -115,6 +132,11 @@ function parseArgs(argv) {
       i += 1;
     } else if (arg.startsWith("--feature=")) {
       parsed.feature = arg.slice("--feature=".length).trim();
+    } else if (arg === "--project") {
+      parsed.project = (argv[i + 1] || "").trim();
+      i += 1;
+    } else if (arg.startsWith("--project=")) {
+      parsed.project = arg.slice("--project=".length).trim();
     } else if (arg === "--verify-cmd") {
       parsed.verifyCmd = (argv[i + 1] || "").trim();
       i += 1;
@@ -173,9 +195,9 @@ function getProjectContextOrExit() {
   }
 }
 
-function getStatusReportOrExit() {
+function getStatusReportOrExit(feature = null) {
   try {
-    return getStatusReport({ root: process.cwd() });
+    return getStatusReport({ root: process.cwd(), feature });
   } catch (error) {
     const message = error instanceof Error ? error.message : `Invalid ${CONFIG_FILE}`;
     console.log(message);
@@ -183,303 +205,47 @@ function getStatusReportOrExit() {
   }
 }
 
-function shellEscapeSingle(value) {
-  return String(value).replace(/'/g, "'\\''");
-}
-
-function runGit(cmd, cwd) {
-  try {
-    const out = execSync(cmd, {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"]
-    }).trim();
-    return { ok: true, out };
-  } catch (error) {
-    const stderr = error && error.stderr ? String(error.stderr).trim() : "";
-    return { ok: false, out: "", err: stderr || "git command failed" };
-  }
-}
-
-function runGitRaw(cmd, cwd) {
-  try {
-    const out = execSync(cmd, {
-      cwd,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"]
-    });
-    return { ok: true, out };
-  } catch (error) {
-    const stderr = error && error.stderr ? String(error.stderr).trim() : "";
-    return { ok: false, out: "", err: stderr || "git command failed" };
-  }
-}
-
-function sanitizeTagPart(value) {
-  return String(value || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
 function runAutoCheckpoint({ enabled, phase, feature }) {
-  if (!enabled) return { performed: false, reason: "disabled" };
-  const cwd = process.cwd();
-
-  const inside = runGit("git rev-parse --is-inside-work-tree", cwd);
-  if (!inside.ok || inside.out !== "true") {
-    return { performed: false, reason: "not_git_repo" };
-  }
-
-  const project = getProjectContextOrExit();
-  const managed = Object.values(project.config.paths).map((p) => shellEscapeSingle(p));
-  const addPaths = managed.join(" ");
-  const add = runGit(`git add -- ${addPaths}`, cwd);
-  if (!add.ok) return { performed: false, reason: "git_add_failed", detail: add.err };
-
-  const hasChanges = runGit("git diff --cached --name-only", cwd);
-  if (!hasChanges.ok) return { performed: false, reason: "git_diff_failed", detail: hasChanges.err };
-  if (!hasChanges.out) return { performed: false, reason: "no_changes" };
-
-  const label = feature || "project";
-  const message = `checkpoint: ${label} ${phase}`;
-  const commit = runGit(`git commit -m '${shellEscapeSingle(message)}'`, cwd);
-  if (!commit.ok) return { performed: false, reason: "git_commit_failed", detail: commit.err };
-
-  const head = runGit("git rev-parse --short HEAD", cwd);
-  const ts = new Date().toISOString().replace(/[:.]/g, "-");
-  const tagName = `aitri-checkpoint/${sanitizeTagPart(label)}-${sanitizeTagPart(phase)}-${ts}`;
-  const tag = runGit(`git tag '${shellEscapeSingle(tagName)}' HEAD`, cwd);
-
-  const tags = runGit("git tag --list 'aitri-checkpoint/*' --sort=-creatordate", cwd);
-  if (tags.ok) {
-    const list = tags.out.split("\n").map((t) => t.trim()).filter(Boolean);
-    list.slice(AUTO_CHECKPOINT_MAX).forEach((oldTag) => {
-      runGit(`git tag -d '${shellEscapeSingle(oldTag)}'`, cwd);
-    });
-  }
-
-  return {
-    performed: true,
-    commit: head.ok ? head.out : null,
-    tag: tag.ok ? tagName : null,
-    max: AUTO_CHECKPOINT_MAX
-  };
-}
-
-function printCheckpointSummary(result) {
-  if (result.performed) {
-    console.log(`Auto-checkpoint saved${result.commit ? `: ${result.commit}` : ""}`);
-    console.log(`Checkpoint retention: last ${result.max}`);
-    return;
-  }
-  if (result.reason === "disabled") {
-    console.log("Auto-checkpoint disabled for this run.");
-    return;
-  }
-  if (result.reason === "not_git_repo") {
-    console.log("Auto-checkpoint skipped: not a git repository.");
-    console.log("Tip: initialize git to enable checkpoints (`git init && git add -A && git commit -m \"baseline\"`).");
-    return;
-  }
-  if (result.reason !== "no_changes") {
-    console.log(`Auto-checkpoint skipped: ${result.reason}${result.detail ? ` (${result.detail})` : ""}`);
-  }
+  return runAutoCheckpointSession({
+    enabled,
+    phase,
+    feature,
+    getProjectContextOrExit,
+    autoCheckpointMax: AUTO_CHECKPOINT_MAX,
+    cwd: process.cwd()
+  });
 }
 
 async function confirmProceed(opts) {
-  if (opts.yes) return true;
-  if (opts.nonInteractive) return null;
-  while (true) {
-    const answer = (await ask("Proceed with this plan? Type 'y' to continue or 'n' to cancel: ")).toLowerCase();
-    if (answer === "y" || answer === "yes") return true;
-    if (answer === "n" || answer === "no") return false;
-    console.log("Invalid input. Please type 'y' or 'n'.");
-  }
+  return confirmProceedSession({ options: opts, ask });
 }
 
 async function confirmResume(opts) {
-  if (opts.yes) return true;
-  if (opts.nonInteractive) return null;
-  while (true) {
-    const answer = (await ask("Checkpoint found. Continue from checkpoint? Type 'y' to continue or 'n' to stop: ")).toLowerCase();
-    if (answer === "y" || answer === "yes") return true;
-    if (answer === "n" || answer === "no") return false;
-    console.log("Invalid input. Please type 'y' or 'n'.");
-  }
-}
-
-async function confirmYesNo(question, defaultYes = true) {
-  while (true) {
-    const answer = (await ask(question)).trim().toLowerCase();
-    if (!answer) return defaultYes;
-    if (answer === "y" || answer === "yes") return true;
-    if (answer === "n" || answer === "no") return false;
-    console.log("Invalid input. Please type 'y' or 'n'.");
-  }
-}
-
-function parseRecommendedCommandTokens(recommendedCommand) {
-  const raw = String(recommendedCommand || "").trim();
-  if (!raw || /<[^>]+>/.test(raw)) return null;
-  const tokens = raw.split(/\s+/).filter(Boolean);
-  if (tokens.length === 0) return null;
-  if (tokens[0] === "aitri") {
-    tokens.shift();
-  }
-  if (tokens.length === 0) return null;
-  return tokens;
-}
-
-function shouldOfferAutoAdvance({ code, command, options }) {
-  if (code !== EXIT_OK) return false;
-  if (!options || options.autoAdvance === false) return false;
-  if (options.nonInteractive || options.yes) return false;
-  if (wantsJson(options, options.positional) || wantsUi(options, options.positional)) return false;
-  if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
-  if (command === "help") return false;
-  return true;
-}
-
-async function maybePromptAndAdvance({ code, command, options, feature = null }) {
-  if (!shouldOfferAutoAdvance({ code, command, options })) {
-    return code;
-  }
-
-  let report;
-  try {
-    report = getStatusReport({
-      root: process.cwd(),
-      feature: feature || options.feature || null
-    });
-  } catch {
-    return code;
-  }
-
-  let recommended = report.recommendedCommand || toRecommendedCommand(report.nextStep);
-  if (command === "handoff" && report.nextStep === "ready_for_human_approval") {
-    // handoff already confirmed readiness; next operational step is explicit go/no-go.
-    recommended = "aitri go";
-  }
-  if (!recommended) return code;
-
-  const nextTokens = parseRecommendedCommandTokens(recommended);
-  const isSameCommand = Boolean(nextTokens && nextTokens[0] === command);
-
-  console.log("\nAitri guide:");
-  console.log(`- Current state: ${report.nextStep || "unknown"}`);
-  console.log(`- Recommended next step: ${recommended}`);
-  if (report.nextStepMessage) {
-    console.log(`- Why: ${report.nextStepMessage}`);
-  }
-
-  if (report.nextStep === "delivery_complete") {
-    return runCompletionGuide({
-      report,
-      root: process.cwd(),
-      cliPath: fileURLToPath(import.meta.url),
-      confirmYesNo,
-      baseCode: code
-    });
-  }
-
-  if (!nextTokens) {
-    console.log(`- Continue manually with: ${recommended}`);
-    return code;
-  }
-
-  if (isSameCommand) {
-    console.log(`- Continue manually with: ${recommended}`);
-    return code;
-  }
-
-  // After implement, the agent/human must write actual code before verify can pass.
-  // Do NOT auto-advance past this point — the test stubs fail by design.
-  if (command === "implement") {
-    console.log("\n⚒ IMPLEMENTATION REQUIRED:");
-    console.log("- Aitri generated implementation briefs. Now YOU (or your AI agent) must write the actual code.");
-    console.log("- Read: docs/implementation/<feature>/IMPLEMENTATION_ORDER.md");
-    console.log("- For each US-* brief, implement the code that satisfies the acceptance criteria.");
-    console.log("- Test stubs are in tests/<feature>/generated/ — they FAIL until you write real logic.");
-    console.log("- After implementing each story, run: aitri verify");
-    return code;
-  }
-
-  const proceed = await confirmYesNo("Run this next step now? (Y/n): ", true);
-  if (!proceed) {
-    console.log(`Stopped. Continue later with: ${recommended}`);
-    return code;
-  }
-
-  const cliPath = fileURLToPath(import.meta.url);
-  const printable = `aitri ${nextTokens.join(" ")}`;
-  console.log(`Running next step: ${printable}`);
-
-  const run = spawnSync(process.execPath, [cliPath, ...nextTokens], {
-    cwd: process.cwd(),
-    stdio: "inherit",
-    env: { ...process.env }
-  });
-
-  if (typeof run.status === "number") {
-    return run.status;
-  }
-
-  if (run.error instanceof Error) {
-    console.log(`Auto-advance failed: ${run.error.message}`);
-  } else {
-    console.log("Auto-advance failed.");
-  }
-  return EXIT_ERROR;
+  return confirmResumeSession({ options: opts, ask });
 }
 
 async function exitWithFlow({ code, command, options, feature = null }) {
-  const finalCode = await maybePromptAndAdvance({ code, command, options, feature });
-  process.exit(finalCode);
+  await exitWithFlowSession({
+    code,
+    command,
+    options,
+    feature,
+    getStatusReport,
+    toRecommendedCommand,
+    wantsJson,
+    wantsUi,
+    runCompletionGuide,
+    confirmYesNoFn: ({ question, defaultYes = true }) => confirmYesNoSession({ ask, question, defaultYes }),
+    cliPath: fileURLToPath(import.meta.url),
+    exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR }
+  });
 }
 
 function printGuidedDraftWizard() {
   console.log("\nGuided Draft Wizard (English prompts)");
-  console.log("Answer briefly. Aitri will transform your answers into the draft context.");
-  console.log("Aitri will ask for technology preferences and can suggest a baseline stack.");
+  console.log("Answer explicitly. Aitri structures your inputs but does not invent requirements.");
+  console.log("All requirements in the draft must be provided by you.");
   console.log("Example feature name: user-login\n");
-}
-
-function detectTechInText(text) {
-  const value = (text || "").toLowerCase();
-  const known = [
-    "react", "next.js", "nextjs", "vue", "angular", "svelte",
-    "node", "node.js", "express", "nestjs", "fastify",
-    "python", "fastapi", "django", "flask",
-    "java", "spring", "spring boot",
-    "go", "golang", "rust", "php", "laravel",
-    "postgres", "postgresql", "mysql", "mongodb", "sqlite",
-    "redis", "graphql"
-  ];
-
-  const found = known.filter((k) => value.includes(k));
-  if (found.length === 0) return null;
-  return [...new Set(found)].join(", ");
-}
-
-function suggestStackFromSummary(text) {
-  const value = (text || "").toLowerCase();
-  if (/\b(cli|terminal|command line)\b/.test(value)) {
-    return "Node.js CLI";
-  }
-  if (/\b(mobile|ios|android|app)\b/.test(value)) {
-    return "React Native + Node.js API + PostgreSQL";
-  }
-  if (/\b(ai|llm|rag|assistant|chatbot)\b/.test(value)) {
-    return "Python (FastAPI) + PostgreSQL + Redis";
-  }
-  if (/\b(api|backend|service)\b/.test(value)) {
-    return "Node.js (Express) + PostgreSQL";
-  }
-  if (/\b(web|dashboard|portal|frontend|ui)\b/.test(value)) {
-    return "React + Node.js API + PostgreSQL";
-  }
-  return "Node.js (Express) + PostgreSQL";
 }
 
 const cmd = process.argv[2];
@@ -500,7 +266,7 @@ Aitri ⚒️  — Spec-driven software factory
 
 Workflow (Aitri guides you through each step):
   1. aitri init         Set up project structure
-  2. aitri draft        Describe what you want to build (guided wizard)
+  2. aitri draft        Capture user-provided requirements into a draft spec
   3. aitri approve      Quality gate — validates your spec is complete
   4. aitri discover     Generate discovery analysis
   5. aitri plan         Generate plan, backlog, and test cases
@@ -521,6 +287,7 @@ Other:
 
 Common options:
   --feature, -f <name>   Specify feature name
+  --project <name>       Specify project name (init metadata)
   --yes, -y              Auto-confirm prompts
   --raw                  Use free-form draft instead of guided wizard
   --json, -j             Machine-readable output`);
@@ -549,41 +316,17 @@ Run \`aitri help --advanced\` for all options.`);
 }
 
 if (cmd === "init") {
-  const project = getProjectContextOrExit();
-  showBanner();
-  const initDirs = [
-    project.paths.specsDraftsDir,
-    project.paths.specsApprovedDir,
-    project.paths.backlogRoot,
-    project.paths.testsRoot,
-    project.paths.docsRoot
-  ];
-
-  console.log("PLAN:");
-  initDirs.forEach((dir) => console.log("- Create: " + path.relative(process.cwd(), dir)));
-  if (project.config.loaded) {
-    console.log(`- Config: ${project.config.file}`);
-  }
-
-  const proceed = await confirmProceed(options);
-  if (proceed === null) {
-    console.log("Non-interactive mode requires --yes for commands that modify files.");
-    process.exit(EXIT_ERROR);
-  }
-  if (!proceed) {
-    console.log("Aborted.");
-    process.exit(EXIT_ABORTED);
-  }
-
-  initDirs.forEach((dir) => fs.mkdirSync(dir, { recursive: true }));
-
-  console.log("Project initialized by Aitri ⚒️");
-  printCheckpointSummary(runAutoCheckpoint({
-    enabled: options.autoCheckpoint,
-    phase: "init",
-    feature: "project"
-  }));
-  await exitWithFlow({ code: EXIT_OK, command: cmd, options });
+  const code = await runInitCommand({
+    options,
+    ask,
+    showBanner,
+    getProjectContextOrExit,
+    confirmProceed,
+    runAutoCheckpoint,
+    printCheckpointSummary,
+    exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED }
+  });
+  await exitWithFlow({ code, command: cmd, options });
 }
  
 if (cmd === "draft") {
@@ -614,55 +357,26 @@ if (cmd === "draft") {
   if (options.guided && !options.nonInteractive) {
     // Full guided wizard — produces complete spec sections
     printGuidedDraftWizard();
-    const summary = idea || await ask("1) What do you want to build?\n   Example: \"A zombie survival game with waves, power-ups, and a scoring system\"\n   > ");
-    const actor = await ask("2) Who uses it?\n   Example: \"Player\", \"Admin\", \"Support agent\"\n   > ");
-    const outcome = await ask("3) What should happen when it works?\n   Example: \"Player can survive zombie waves, collect power-ups, and see their score\"\n   > ");
-    const inScope = await ask("4) What's included?\n   Example: \"Game mechanics, scoring, 3 zombie types, health system\"\n   > ");
+    const summary = idea || await askRequired("1) What do you want to build?\n   Example: \"A zombie survival game with waves, power-ups, and a scoring system\"\n   > ");
+    const actor = await askRequired("2) Who uses it?\n   Example: \"Player\", \"Admin\", \"Support agent\"\n   > ");
+    const outcome = await askRequired("3) What should happen when it works?\n   Example: \"Player can survive zombie waves, collect power-ups, and see their score\"\n   > ");
+    const inScope = await askRequired("4) What's included?\n   Example: \"Game mechanics, scoring, 3 zombie types, health system\"\n   > ");
     const outOfScope = await ask("5) What's excluded? (optional, press Enter to skip)\n   Example: \"Multiplayer, leaderboard server, account system\"\n   > ");
-
-    const detectedTech = detectTechInText(summary);
-    const suggestedStack = suggestStackFromSummary(summary);
-    const techPrompt = detectedTech
-      ? `6) Tech detected: ${detectedTech}. Press Enter to confirm, or type replacement:\n   > `
-      : `6) Preferred stack? Suggested: ${suggestedStack}. Press Enter to accept or type replacement:\n   > `;
-    const technology = await ask(techPrompt);
-    const resolvedTech = technology || detectedTech || suggestedStack;
+    const technology = await ask("6) Preferred stack (optional):\n   Example: \"React + Node.js + PostgreSQL\"\n   > ");
+    const resolvedTech = technology || "Not specified by user.";
 
     console.log("\nNow let's define the key rules and quality criteria.");
     console.log("Tip: be specific. Aitri uses these to generate tests and validate delivery.\n");
 
-    const fr1 = await ask("7) Main functional rule — what MUST the system do?\n   Example: \"The system must spawn a new zombie wave every 30 seconds with increasing difficulty\"\n   > ");
+    const fr1 = await askRequired("7) Main functional rule — what MUST the system do?\n   Example: \"The system must spawn a new zombie wave every 30 seconds with increasing difficulty\"\n   > ");
     const fr2 = await ask("8) Second rule (optional, press Enter to skip)\n   Example: \"The system must save the player's high score locally\"\n   > ");
 
-    const edge1 = await ask("9) An edge case — what could go wrong or be unexpected?\n   Example: \"Player dies while a power-up animation is active\"\n   > ");
+    const edge1 = await askRequired("9) An edge case — what could go wrong or be unexpected?\n   Example: \"Player dies while a power-up animation is active\"\n   > ");
 
-    const sec1 = await ask("10) A security consideration\n   Example: \"Sanitize user input in the score submission form\"\n   > ");
+    const sec1 = await askRequired("10) A security consideration\n   Example: \"Sanitize user input in the score submission form\"\n   > ");
 
-    const ac1 = await ask("11) Acceptance criterion — describe a testable scenario:\n   Example: \"Given a player with full health, when hit by a zombie, then health decreases by 20\"\n   > ");
-
-    // Detect if domain needs resource strategy
-    const domainText = (summary + " " + outcome + " " + inScope).toLowerCase();
-    const needsResources = /\b(game|juego|sprite|canvas|webgl|ui|dashboard|web\s*app|mobile|imagen|image|audio|sound|animation|video|icon|logo|font|theme|css|design)\b/.test(domainText);
-
-    let resourceStrategy = "";
-    if (needsResources) {
-      console.log("\nAitri detected this project may need external resources (images, sounds, styles, etc.).");
-      console.log("  a) I have my own resources (I'll provide them)");
-      console.log("  b) Generate programmatic placeholders (code-only, no external files)");
-      console.log("  c) Search for free resources online (the agent will search)");
-      console.log("  d) I have an account/service for resources");
-      const resourceAnswer = (await ask("12) Resource strategy (a/b/c/d): ")).trim().toLowerCase();
-      if (resourceAnswer === "a" || resourceAnswer.startsWith("a")) {
-        resourceStrategy = "User provides own resources. Agent must ask for resource paths before implementation.";
-      } else if (resourceAnswer === "c" || resourceAnswer.startsWith("c")) {
-        resourceStrategy = "Agent should search for free/open-licensed resources online before implementation.";
-      } else if (resourceAnswer === "d" || resourceAnswer.startsWith("d")) {
-        const service = await ask("    Which service? (e.g., itch.io, OpenGameArt, Unsplash, Figma): ");
-        resourceStrategy = `User has account on: ${service || "external service"}. Agent should use this source for resources.`;
-      } else {
-        resourceStrategy = "Generate programmatic placeholders only. No external resource files required.";
-      }
-    }
+    const ac1 = await askRequired("11) Acceptance criterion — describe a testable scenario:\n   Example: \"Given a player with full health, when hit by a zombie, then health decreases by 20\"\n   > ");
+    const resourceStrategy = await ask("12) Resource strategy (optional):\n   Example: \"Assets provided by user in /assets\" or \"No external assets required\"\n   > ");
 
     wizardSections = {
       context: [
@@ -671,24 +385,26 @@ if (cmd === "draft") {
         `Primary actor: ${actor || "TBD"}`,
         `Expected outcome: ${outcome || "TBD"}`,
         `In scope: ${inScope || "TBD"}`,
-        `Out of scope: ${outOfScope || "Not specified"}`,
-        `Technology: ${resolvedTech}`
+        `Out of scope: ${outOfScope || "Not specified by user."}`,
+        `Technology: ${resolvedTech}`,
+        "Requirement source: Provided explicitly by user in guided draft."
       ].join("\n"),
-      actors: actor ? `- ${actor}` : "- End user",
+      actors: `- ${actor}`,
       functionalRules: [
-        fr1 ? `- FR-1: ${fr1}` : null,
+        `- FR-1: ${fr1}`,
         fr2 ? `- FR-2: ${fr2}` : null
-      ].filter(Boolean).join("\n") || "- FR-1: TBD (define during review)",
-      edgeCases: edge1 ? `- ${edge1}` : "- TBD (define during review)",
-      security: sec1 ? `- ${sec1}` : "- TBD (define during review)",
-      acceptanceCriteria: ac1 ? `- AC-1: ${ac1}` : "- AC-1: TBD (define during review)",
-      resourceStrategy
+      ].filter(Boolean).join("\n"),
+      edgeCases: `- ${edge1}`,
+      security: `- ${sec1}`,
+      acceptanceCriteria: `- AC-1: ${ac1}`,
+      outOfScope: outOfScope || "Not specified by user.",
+      resourceStrategy: resourceStrategy.trim()
     };
 
     idea = wizardSections.context;
 
   } else if (options.guided && options.nonInteractive) {
-    // Non-interactive guided — minimal enrichment from --idea
+    // Non-interactive guided — no inferred requirements.
     if (!idea) {
       console.log("In non-interactive mode, provide --idea \"<summary>\".");
       process.exit(EXIT_ERROR);
@@ -698,16 +414,10 @@ if (cmd === "draft") {
       console.log("Example: --idea \"A REST API for tracking expense entries with validation and audit logs\"");
       process.exit(EXIT_ERROR);
     }
-    const detectedTech = detectTechInText(idea);
-    const suggestedStack = suggestStackFromSummary(idea);
     idea = [
-      `Summary: ${idea}`,
-      "Primary actor: TBD",
-      "Expected outcome: TBD",
-      "In scope: TBD",
-      "Out of scope: Not specified",
-      `Technology preference: ${detectedTech || suggestedStack}`,
-      `Technology source: ${detectedTech ? "Requirement-defined (auto-detected)" : "Aitri suggestion (auto-applied)"}`
+      `Summary (provided by user): ${idea}`,
+      "Requirement source: provided explicitly by user via --idea.",
+      "No inferred requirements were added by Aitri."
     ].join("\n");
   } else {
     // Raw mode (--raw): free-form idea text
@@ -773,13 +483,17 @@ if (cmd === "draft") {
       wizardSections.security,
       "",
       "## 8. Out of Scope",
-      `- ${wizardSections.context.includes("Out of scope:") ? "See context above" : "TBD"}`,
+      `- ${wizardSections.outOfScope}`,
       "",
       "## 9. Acceptance Criteria",
-      wizardSections.acceptanceCriteria
+      wizardSections.acceptanceCriteria,
+      "",
+      "## 10. Requirement Source Statement",
+      "- All requirements in this draft were provided explicitly by the user.",
+      "- Aitri structured the content and did not invent requirements."
     ];
     if (wizardSections.resourceStrategy) {
-      parts.push("", "## 10. Resource Strategy", `- ${wizardSections.resourceStrategy}`);
+      parts.push("", "## 11. Resource Strategy", `- ${wizardSections.resourceStrategy}`);
     }
     parts.push("");
     specContent = parts.join("\n");
@@ -795,8 +509,9 @@ if (cmd === "draft") {
     const template = fs.readFileSync(templatePath, "utf8");
     specContent = template.replace(
       "## 1. Context\nDescribe the problem context.",
-      `## 1. Context\n${idea}\n\n---\n\n(Assumptions and details will be refined during review.)`
+      `## 1. Context\n${idea}\n\n---\n\n(Complete all requirement sections with explicit user-provided requirements before approve.)`
     );
+    specContent = `${specContent}\n## 10. Requirement Source Statement\n- Requirements must be provided explicitly by the user.\n- Aitri does not invent requirements.\n`;
   }
 
   fs.writeFileSync(outFile, specContent, "utf8");
@@ -969,6 +684,10 @@ if (cmd === "approve") {
     if (!hasAssetSection && !hasAssetMention) {
       issues.push("This spec describes a visual/game project but has no asset strategy. Add a section describing required assets (sprites, sounds, art style, etc.) or reference them in Functional Rules.");
     }
+  }
+
+  if (/Aitri suggestion \(auto-applied\)/i.test(content) || /Technology source:\s*Aitri suggestion/i.test(content)) {
+    issues.push("Requirements source integrity: this draft contains AI-inferred requirement hints. Replace them with explicit user-provided requirements before approve.");
   }
 
   if (issues.length > 0 && !options.nonInteractive) {

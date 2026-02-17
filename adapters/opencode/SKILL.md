@@ -23,6 +23,8 @@ Use Aitri as the CLI guardrail for spec-driven SDLC execution with mandatory hum
 - Use non-interactive mode only when explicitly needed.
 - Persona usage is iterative; re-run relevant personas when context changes.
 - Discovery persona should be applied before planning when requirements are ambiguous.
+- Do not invent requirements. Requirements/spec content must come from explicit user input.
+- If requirement details are missing, ask the user and stop advancement until clarified.
 
 ## Commands
 
@@ -59,6 +61,7 @@ Aitri commands are **interactive by default**. The agent should:
 - Let Aitri prompt for confirmations naturally
 - Review each PLAN output before confirming
 - Never add `--non-interactive --yes` unless the user explicitly requests automation
+- Never suggest `--non-interactive --yes` by default in conversational sessions
 
 ## CI/Pipeline Mode (Opt-in Only)
 Only use these flags in CI pipelines or when the user explicitly requests unattended execution:

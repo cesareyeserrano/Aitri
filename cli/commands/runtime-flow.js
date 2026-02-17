@@ -54,7 +54,7 @@ function printVerificationResult(payload) {
     console.log("- If tests are not ready yet: aitri verify --verify-cmd \"<command>\".");
     return;
   }
-  if (payload.reason === "verify_command_invalid") {
+  if (payload.reason === "invalid_verify_command") {
     console.log("- Fix command syntax and run verify again.");
     console.log(`- Run: aitri verify --feature ${payload.feature} --verify-cmd \"<command>\"`);
     return;
@@ -345,7 +345,7 @@ export function runHandoffCommand({
   exitCodes
 }) {
   const { OK, ERROR } = exitCodes;
-  const report = getStatusReportOrExit();
+  const report = getStatusReportOrExit(options.feature || null);
   const jsonOutput = wantsJson(options, options.positional);
   const recommendedCommand = report.recommendedCommand || toRecommendedCommand(report.nextStep);
   const payload = {
@@ -384,7 +384,7 @@ export async function runGoCommand({
   exitCodes
 }) {
   const { OK, ERROR, ABORTED } = exitCodes;
-  const report = getStatusReportOrExit();
+  const report = getStatusReportOrExit(options.feature || null);
   const recommendedCommand = report.recommendedCommand || toRecommendedCommand(report.nextStep);
   const ready = report.nextStep === "ready_for_human_approval";
   if (!ready) {

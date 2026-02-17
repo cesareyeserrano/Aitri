@@ -22,8 +22,10 @@ Use this folder as the official reference for product intent, governance, execut
 17. `docs/feedback/MAINTAINABILITY_GROWTH_AUDIT_2026-02-15.md` - baseline growth audit and modularization controls
 18. `docs/feedback/AUDITORIA_E2E_2026-02-16.md` - E2E audit findings (Impacto/Severidad/Valor/Riesgo) and stabilization gate (no new features until critical closure)
 19. `docs/feedback/PRODUCTION_QUALITY_FEEDBACK_ASSESSMENT_2026-02-16.md` - assessment of governance-to-production-quality feedback and integrated pending-closure plan
+20. `docs/feedback/AITRI_0.2.24_FEEDBACK_CLOSURE_2026-02-17.md` - closure matrix for 0.2.24 feedback (hallazgo/impacto/severidad/afectacion/valor) and implementation evidence
 
 ## Purpose
 Preserve continuity across time, contributors, and agent platforms.
+Protect requirement source integrity: requirements/spec statements must be user-provided, not invented by agents.
 
 If implementation and docs diverge, fix the divergence explicitly before continuing roadmap work.

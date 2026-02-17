@@ -10,10 +10,11 @@
 
 ## What Is Aitri
 Aitri is a command-line SDLC engine that enforces disciplined, spec-driven execution for AI-assisted development.
-It helps teams move from idea to validated artifacts before implementation, with explicit human approval gates.
+It helps teams move from user requirements to verified software through explicit workflow gates and human approvals.
 
 Core operating model:
 - Spec first, implementation second.
+- Requirements are user-authored: Aitri structures and validates; it does not invent requirements.
 - Traceability by default: `FR -> US -> TC`.
 - Runtime verification required before handoff.
 - Human go/no-go decisions are mandatory.
@@ -126,6 +127,7 @@ Primary references:
 ## Contributor Validation
 ```bash
 npm run test:smoke
+npm run test:regression
 npm run check:file-growth
 npm run check:file-growth:strict
 npm run demo:5min

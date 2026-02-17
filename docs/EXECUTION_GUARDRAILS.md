@@ -18,6 +18,7 @@ When rules conflict, use this order:
 3. No scope expansion without explicit scope update in docs.
 4. No silent quality downgrade (tests, validation, traceability, docs).
 5. No destructive action without explicit human approval.
+6. No invented requirements: Aitri and agents must not create requirements not explicitly provided by the user.
 
 ## Stabilization Freeze Rule (Closed 2026-02-16)
 Historical rule (now closed):
@@ -128,6 +129,7 @@ Stop and ask for direction when any of these is true:
 - approved spec is missing
 - `validate` fails
 - unresolved placeholders exist
+- inferred or auto-generated requirements are detected without explicit user confirmation
 - required artifacts are missing
 - requested action violates documented scope
 - deployment target or risk is ambiguous

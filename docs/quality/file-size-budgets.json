@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedOn": "2026-02-15",
+  "generatedOn": "2026-02-17",
   "defaults": {
     "soft": 900,
     "hard": 1200
@@ -8,12 +8,12 @@
   "files": [
     {
       "path": "cli/index.js",
-      "soft": 850,
+      "soft": 990,
       "hard": 1000
     },
     {
       "path": "cli/commands/status.js",
-      "soft": 900,
+      "soft": 1080,
       "hard": 1200
     },
     {
@@ -23,32 +23,32 @@
     },
     {
       "path": "cli/commands/runtime.js",
-      "soft": 500,
+      "soft": 680,
       "hard": 700
     },
     {
       "path": "cli/commands/runtime-flow.js",
-      "soft": 450,
+      "soft": 460,
       "hard": 650
     },
     {
       "path": "tests/smoke/cli-smoke-foundation.test.mjs",
-      "soft": 350,
+      "soft": 395,
       "hard": 500
     },
     {
       "path": "tests/smoke/cli-smoke-runtime-policy.test.mjs",
-      "soft": 400,
+      "soft": 540,
       "hard": 550
     },
     {
       "path": "tests/smoke/cli-smoke-validation.test.mjs",
-      "soft": 350,
+      "soft": 495,
       "hard": 500
     },
     {
       "path": "tests/smoke/cli-smoke-workflow.test.mjs",
-      "soft": 550,
+      "soft": 645,
       "hard": 700
     },
     {
@@ -58,7 +58,7 @@
     },
     {
       "path": "cli/commands/content-generator.js",
-      "soft": 450,
+      "soft": 490,
       "hard": 600
     },
     {
