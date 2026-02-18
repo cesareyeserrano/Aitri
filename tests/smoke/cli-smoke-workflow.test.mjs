@@ -140,7 +140,7 @@ Users need to authenticate securely with email and password.
   const handoffPayload = JSON.parse(handoff.stdout);
   assert.equal(handoffPayload.ok, true);
   assert.equal(handoffPayload.nextStep, "ready_for_human_approval");
-  assert.equal(handoffPayload.recommendedCommand, "aitri handoff");
+  assert.equal(handoffPayload.recommendedCommand, "aitri go");
 
   const go = runNodeOk(["go", "--non-interactive", "--yes"], { cwd: tempDir });
   assert.match(go.stdout, /Implementation go\/no-go decision: GO/);
@@ -641,4 +641,58 @@ Context.
   const result = runNode(["plan", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
   assert.equal(result.status, 1);
   assert.match(result.stdout, /PLAN BLOCKED: Discovery confidence is Low/);
+});
+
+test("plan runs discovery interview inline when no discovery file exists", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-plan-inline-disc-"));
+  const feature = "inline-discovery";
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  runNodeOk(["draft", "--feature", feature, "--idea", "Plan without explicit discover step", "--non-interactive", "--yes"], { cwd: tempDir });
+
+  const draftFile = path.join(tempDir, "specs", "drafts", `${feature}.md`);
+  fs.writeFileSync(
+    draftFile,
+    `# AF-SPEC: ${feature}
+
+STATUS: DRAFT
+
+## 1. Context
+A utility CLI for task management.
+
+## 2. Actors
+- Developer
+
+## 3. Functional Rules (traceable)
+- FR-1: The system must create tasks from command-line input.
+
+## 4. Edge Cases
+- Empty task description provided.
+
+## 7. Security Considerations
+- Sanitize task input to prevent injection.
+
+## 9. Acceptance Criteria
+- AC-1: Given valid input, when a task is created, then it appears in the task list.
+`,
+    "utf8"
+  );
+
+  runNodeOk(["approve", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
+
+  // Run plan directly without discover — should auto-run discovery inline
+  const planResult = runNodeOk(["plan", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
+  assert.match(planResult.stdout, /No discovery found\. Running discovery inline/);
+  assert.match(planResult.stdout, /Discovery created:/);
+  assert.match(planResult.stdout, /Plan created:/);
+
+  // Verify discovery file was created
+  const discoveryFile = path.join(tempDir, "docs", "discovery", `${feature}.md`);
+  assert.ok(fs.existsSync(discoveryFile), "Discovery file should exist after inline creation");
+
+  // Verify plan has Security section
+  const planFile = path.join(tempDir, "docs", "plan", `${feature}.md`);
+  const planContent = fs.readFileSync(planFile, "utf8");
+  assert.match(planContent, /## 6\. Security \(Security Persona\)/);
+  assert.match(planContent, /### Threats/);
+  assert.match(planContent, /### Required controls/);
 });

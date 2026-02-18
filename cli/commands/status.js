@@ -2,11 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { execSync, spawnSync } from "node:child_process";
 import { loadAitriConfig, resolveProjectPaths } from "../config.js";
-import {
-  normalizeFeatureName,
-  extractSection as getSection,
-  extractSubsection as getSubsection
-} from "../lib.js";
+import { normalizeFeatureName } from "../lib.js";
+import { collectPersonaValidationIssues, hasMeaningfulContent as hasMeaningfulContentFn } from "./persona-validation.js";
 
 function exists(p) {
   return fs.existsSync(p);
@@ -15,79 +12,6 @@ function exists(p) {
 function listMd(dir) {
   if (!exists(dir)) return [];
   return fs.readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
-}
-
-function hasMeaningfulContent(content) {
-  const lines = String(content)
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  return lines.some((line) => {
-    if (/^###\s+/.test(line)) return false;
-    const cleaned = line
-      .replace(/^[-*]\s*/, "")
-      .replace(/^\d+\)\s*/, "")
-      .replace(/^\d+\.\s*/, "")
-      .trim();
-    if (!cleaned || cleaned === "-") return false;
-    if (cleaned.length < 6) return false;
-    if (/^<.*>$/.test(cleaned)) return false;
-    if (/\b(TBD|Not specified|pending|to be refined|to be confirmed)\b/i.test(cleaned)) return false;
-    return true;
-  });
-}
-
-function collectPersonaIssues(discovery, plan) {
-  const issues = [];
-
-  if (discovery) {
-    const discoveryInterview = getSection(discovery, "## 2. Discovery Interview Summary (Discovery Persona)");
-    if (!discoveryInterview) {
-      issues.push("Persona gate: Discovery section is missing `## 2. Discovery Interview Summary (Discovery Persona)`.");
-    } else if (!hasMeaningfulContent(discoveryInterview)) {
-      issues.push("Persona gate: Discovery interview summary is unresolved.");
-    }
-
-    const discoveryConfidence = getSection(discovery, "## 9. Discovery Confidence");
-    if (!discoveryConfidence) {
-      issues.push("Persona gate: Discovery section is missing `## 9. Discovery Confidence`.");
-    } else if (/- Confidence:\s*\n-\s*Low\b/i.test(discoveryConfidence)) {
-      issues.push("Persona gate: Discovery confidence is Low. Resolve evidence gaps before handoff.");
-    }
-  }
-
-  if (plan) {
-    const product = getSection(plan, "## 4. Product Review (Product Persona)");
-    if (!product) {
-      issues.push("Persona gate: Plan is missing `## 4. Product Review (Product Persona)`.");
-    } else {
-      const businessValue = getSubsection(product, "### Business value");
-      const successMetric = getSubsection(product, "### Success metric");
-      const assumptions = getSubsection(product, "### Assumptions to validate");
-      if (!hasMeaningfulContent(businessValue)) issues.push("Persona gate: Product `Business value` is unresolved.");
-      if (!hasMeaningfulContent(successMetric)) issues.push("Persona gate: Product `Success metric` is unresolved.");
-      if (!hasMeaningfulContent(assumptions)) issues.push("Persona gate: Product `Assumptions to validate` is unresolved.");
-    }
-
-    const architecture = getSection(plan, "## 5. Architecture (Architect Persona)");
-    if (!architecture) {
-      issues.push("Persona gate: Plan is missing `## 5. Architecture (Architect Persona)`.");
-    } else {
-      const components = getSubsection(architecture, "### Components");
-      const dataFlow = getSubsection(architecture, "### Data flow");
-      const keyDecisions = getSubsection(architecture, "### Key decisions");
-      const risks = getSubsection(architecture, "### Risks & mitigations");
-      const observability = getSubsection(architecture, "### Observability (logs/metrics/tracing)");
-      if (!hasMeaningfulContent(components)) issues.push("Persona gate: Architect `Components` is unresolved.");
-      if (!hasMeaningfulContent(dataFlow)) issues.push("Persona gate: Architect `Data flow` is unresolved.");
-      if (!hasMeaningfulContent(keyDecisions)) issues.push("Persona gate: Architect `Key decisions` is unresolved.");
-      if (!hasMeaningfulContent(risks)) issues.push("Persona gate: Architect `Risks & mitigations` is unresolved.");
-      if (!hasMeaningfulContent(observability)) issues.push("Persona gate: Architect `Observability` is unresolved.");
-    }
-  }
-
-  return issues;
 }
 
 function collectValidationIssues(spec, backlog, tests, discovery = "", plan = "") {
@@ -139,7 +63,7 @@ function collectValidationIssues(spec, backlog, tests, discovery = "", plan = ""
   }
 
   if (discovery || plan) {
-    collectPersonaIssues(discovery, plan).forEach((issue) => issues.push(issue));
+    collectPersonaValidationIssues({ discoveryContent: discovery, planContent: plan, specContent: spec }).forEach((issue) => issues.push(issue));
   }
 
   return issues;
@@ -163,21 +87,22 @@ function computeNextStep({
   goCompleted,
   scaffoldReady,
   implementReady,
+  buildReady,
   deliveryReady,
   verification
 }) {
   if (goCompleted) {
-    if (!scaffoldReady) return "scaffold_pending";
-    if (!implementReady) return "implement_pending";
+    const hasLegacy = scaffoldReady && implementReady;
+    const hasBuild = buildReady;
+    if (!hasLegacy && !hasBuild) return "build_pending";
     if (!hasPostGoVerificationReady(verification)) return "verify_pending";
     if (!deliveryReady) return "deliver_pending";
     return "delivery_complete";
   }
   if (missingDirs.length > 0) return "aitri init";
   if (!approvedSpecFound) return "aitri draft";
-  if (!discoveryExists) return "aitri discover";
+  if (!discoveryExists) return "aitri plan";
   if (!planExists) return "aitri plan";
-  if (!validateOk) return "aitri validate";
   if (!verifyOk) return "aitri verify";
   return "ready_for_human_approval";
 }
@@ -236,9 +161,10 @@ function resolveFeatureSelection({ requestedFeature, hasFeatureFilter, approvedF
 
 function toRecommendedCommand(nextStep) {
   if (!nextStep) return null;
-  if (nextStep === "ready_for_human_approval") return "aitri handoff";
-  if (nextStep === "scaffold_pending") return "aitri scaffold";
-  if (nextStep === "implement_pending") return "aitri implement";
+  if (nextStep === "ready_for_human_approval") return "aitri go";
+  if (nextStep === "scaffold_pending") return "aitri build";
+  if (nextStep === "implement_pending") return "aitri build";
+  if (nextStep === "build_pending") return "aitri build";
   if (nextStep === "verify_pending") return "aitri verify";
   if (nextStep === "deliver_pending") return "aitri deliver";
   if (nextStep === "delivery_complete") return "aitri status --ui";
@@ -249,6 +175,9 @@ function nextStepMessage(nextStep) {
   if (!nextStep) return "No next step detected.";
   if (nextStep === "ready_for_human_approval") {
     return "SDLC artifacts are complete. Human go/no-go approval is required.";
+  }
+  if (nextStep === "build_pending") {
+    return "Post-go execution started. Run build to scaffold and generate briefs per story.";
   }
   if (nextStep === "scaffold_pending") {
     return "Post-go execution started. Generate scaffold artifacts next.";
@@ -860,16 +789,19 @@ export function getStatusReport(options = {}) {
     const goMarkerFile = paths.goMarkerFile(feature);
     const scaffoldManifestFile = path.join(paths.implementationFeatureDir(feature), "scaffold-manifest.json");
     const implementManifestFile = path.join(paths.implementationFeatureDir(feature), "implement-manifest.json");
+    const buildManifestFile = paths.buildManifestFile(feature);
     const deliveryReportFile = paths.deliveryJsonFile(feature);
     const deliveryPayload = exists(deliveryReportFile) ? readJsonSafe(deliveryReportFile) : null;
     report.factory = {
       goCompleted: exists(goMarkerFile),
       scaffoldReady: exists(scaffoldManifestFile),
       implementReady: exists(implementManifestFile),
+      buildReady: exists(buildManifestFile),
       deliveryReady: deliveryPayload?.decision === "SHIP",
       goMarker: exists(goMarkerFile) ? path.relative(root, goMarkerFile) : null,
       scaffoldManifest: exists(scaffoldManifestFile) ? path.relative(root, scaffoldManifestFile) : null,
       implementManifest: exists(implementManifestFile) ? path.relative(root, implementManifestFile) : null,
+      buildManifest: exists(buildManifestFile) ? path.relative(root, buildManifestFile) : null,
       deliveryReport: exists(deliveryReportFile) ? path.relative(root, deliveryReportFile) : null,
       deliveryDecision: deliveryPayload?.decision || null
     };
@@ -884,6 +816,7 @@ export function getStatusReport(options = {}) {
       goCompleted: report.factory.goCompleted,
       scaffoldReady: report.factory.scaffoldReady,
       implementReady: report.factory.implementReady,
+      buildReady: report.factory.buildReady,
       deliveryReady: report.factory.deliveryReady,
       verification: report.verification
     });
@@ -902,6 +835,7 @@ export function getStatusReport(options = {}) {
       goCompleted: false,
       scaffoldReady: false,
       implementReady: false,
+      buildReady: false,
       deliveryReady: false,
       verification: null
     });

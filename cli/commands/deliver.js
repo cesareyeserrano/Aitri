@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { getStatusReport } from "./status.js";
 import { resolveFeature } from "../lib.js";
 import { parseApprovedSpec } from "./spec-parser.js";
@@ -53,6 +54,31 @@ function readJson(file) {
   } catch {
     return null;
   }
+}
+
+function createReleaseTag(feature, root) {
+  const check = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: root, encoding: "utf8" });
+  if (check.status !== 0) return { ok: false, tag: null, reason: "Not inside a git repository." };
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const tag = `aitri-release/${feature}-${timestamp}`;
+  const result = spawnSync("git", ["tag", tag, "HEAD"], { cwd: root, encoding: "utf8" });
+  if (result.status !== 0) return { ok: false, tag, reason: result.stderr || "git tag failed." };
+  return { ok: true, tag, reason: null };
+}
+
+function detectBuildCommand(root) {
+  const pkgPath = path.join(root, "package.json");
+  if (fs.existsSync(pkgPath)) {
+    try {
+      const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+      if (pkg.scripts?.build) return "npm run build";
+    } catch { /* ignore */ }
+  }
+  if (fs.existsSync(path.join(root, "Makefile"))) {
+    const content = fs.readFileSync(path.join(root, "Makefile"), "utf8");
+    if (/^build\s*:/m.test(content)) return "make build";
+  }
+  return null;
 }
 
 function buildMarkdownReport(payload) {
@@ -241,6 +267,7 @@ export async function runDeliverCommand({
   const scaffoldManifest = readJson(scaffoldManifestFile) || {};
   const implementManifest = readJson(implementManifestFile) || {};
   const payload = {
+    schemaVersion: 1,
     ok: decision === "SHIP",
     feature,
     decision,
@@ -296,6 +323,19 @@ export async function runDeliverCommand({
     return ABORTED;
   }
 
+  if (decision === "SHIP") {
+    const tagResult = createReleaseTag(feature, process.cwd());
+    payload.releaseTag = tagResult.ok ? tagResult.tag : null;
+    payload.releaseTagError = tagResult.ok ? null : tagResult.reason;
+
+    const buildCmd = detectBuildCommand(process.cwd());
+    if (buildCmd && !options.noBuild) {
+      const parts = buildCmd.split(/\s+/);
+      const buildResult = spawnSync(parts[0], parts.slice(1), { cwd: process.cwd(), encoding: "utf8" });
+      payload.buildExitCode = buildResult.status;
+    }
+  }
+
   fs.mkdirSync(path.dirname(reportJsonFile), { recursive: true });
   fs.writeFileSync(reportJsonFile, JSON.stringify(payload, null, 2), "utf8");
   fs.writeFileSync(reportMdFile, buildMarkdownReport(payload), "utf8");
@@ -311,6 +351,9 @@ export async function runDeliverCommand({
     console.log(`- Feature: ${feature}`);
     console.log(`- JSON report: ${path.relative(process.cwd(), reportJsonFile)}`);
     console.log(`- Markdown report: ${path.relative(process.cwd(), reportMdFile)}`);
+    if (payload.releaseTag) {
+      console.log(`- Release tag: ${payload.releaseTag}`);
+    }
     if (blockers.length > 0) {
       blockers.forEach((line) => console.log(`- Blocker: ${line}`));
     }

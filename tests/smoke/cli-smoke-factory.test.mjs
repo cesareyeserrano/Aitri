@@ -137,8 +137,8 @@ test("status reports post-go factory states deterministically", () => {
   prepareScaffoldedFeature(tempDir, feature);
 
   const afterScaffold = JSON.parse(runNodeOk(["status", "--feature", feature, "--json"], { cwd: tempDir }).stdout);
-  assert.equal(afterScaffold.nextStep, "implement_pending");
-  assert.equal(afterScaffold.recommendedCommand, "aitri implement");
+  assert.equal(afterScaffold.nextStep, "build_pending");
+  assert.equal(afterScaffold.recommendedCommand, "aitri build");
 
   runNodeOk(["implement", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
   const afterImplement = JSON.parse(runNodeOk(["status", "--feature", feature, "--json"], { cwd: tempDir }).stdout);
@@ -211,6 +211,8 @@ test("factory E2E flow completes through deliver gate", () => {
   assert.ok(payload.acMatrix.every((row) => row.covered), "all ACs should be covered");
   assert.match(payload.reportJson, /docs\/delivery\/factory-e2e\.json/);
   assert.match(payload.reportMarkdown, /docs\/delivery\/factory-e2e\.md/);
+  assert.ok(payload.releaseTag, "SHIP decision should create a release tag");
+  assert.match(payload.releaseTag, /aitri-release\/factory-e2e/);
 
   const reportMd = fs.readFileSync(path.join(tempDir, payload.reportMarkdown), "utf8");
   assert.match(reportMd, /## AC Coverage Matrix/);

@@ -1,6 +1,6 @@
 import { extractSection, extractSubsection } from "../lib.js";
 
-function hasMeaningfulContent(content) {
+export function hasMeaningfulContent(content) {
   const lines = String(content)
     .split("\n")
     .map((line) => line.trim())
@@ -21,7 +21,7 @@ function hasMeaningfulContent(content) {
   });
 }
 
-export function collectPersonaValidationIssues({ discoveryContent, planContent }) {
+export function collectPersonaValidationIssues({ discoveryContent, planContent, specContent }) {
   const issues = [];
 
   if (discoveryContent) {
@@ -67,6 +67,23 @@ export function collectPersonaValidationIssues({ discoveryContent, planContent }
       if (!hasMeaningfulContent(keyDecisions)) issues.push("Persona gate: Architect `Key decisions` is unresolved.");
       if (!hasMeaningfulContent(risks)) issues.push("Persona gate: Architect `Risks & mitigations` is unresolved.");
       if (!hasMeaningfulContent(observability)) issues.push("Persona gate: Architect `Observability` is unresolved.");
+    }
+
+    const security = extractSection(planContent, "## 6. Security (Security Persona)");
+    if (security) {
+      const threats = extractSubsection(security, "### Threats");
+      const controls = extractSubsection(security, "### Required controls");
+      if (!hasMeaningfulContent(threats)) issues.push("Persona gate: Security `Threats` is unresolved.");
+      if (!hasMeaningfulContent(controls)) issues.push("Persona gate: Security `Required controls` is unresolved.");
+    }
+
+    if (specContent && /screen|form|button|page|dashboard|component|layout|view|modal|dialog/i.test(specContent)) {
+      const uxui = extractSection(planContent, "## 7. UX/UI Review (UX/UI Persona, if user-facing)");
+      if (!uxui) {
+        issues.push("Persona gate: Plan is missing `## 7. UX/UI Review` (spec mentions UI elements).");
+      } else if (!hasMeaningfulContent(uxui)) {
+        issues.push("Persona gate: UX/UI Review has no meaningful content.");
+      }
     }
   }
 

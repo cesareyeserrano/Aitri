@@ -132,7 +132,7 @@ STATUS: DRAFT
   assert.equal(handoff.status, 1);
   const handoffPayload = JSON.parse(handoff.stdout);
   assert.equal(handoffPayload.ok, false);
-  assert.equal(handoffPayload.nextStep, "aitri validate");
+  assert.equal(handoffPayload.nextStep, "aitri verify");
 });
 
 test("validate fails in non-interactive mode without --feature", () => {
@@ -469,6 +469,117 @@ test("validate supports --format json", () => {
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.ok, false);
   assert.match(payload.issues[0], /Feature name is required/);
+});
+
+test("validate catches missing security section in plan", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-security-gate-"));
+  const feature = "security-gate";
+
+  fs.mkdirSync(path.join(tempDir, "specs", "approved"), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "backlog", feature), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "tests", feature), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "docs", "discovery"), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "docs", "plan"), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(tempDir, "specs", "approved", `${feature}.md`),
+    `# AF-SPEC: ${feature}
+STATUS: APPROVED
+## 3. Functional Rules (traceable)
+- FR-1: Authenticate the user with valid credentials.
+`,
+    "utf8"
+  );
+
+  fs.writeFileSync(
+    path.join(tempDir, "backlog", feature, "backlog.md"),
+    `# Backlog: ${feature}
+### US-1
+- Trace: FR-1, AC-1
+`,
+    "utf8"
+  );
+
+  fs.writeFileSync(
+    path.join(tempDir, "tests", feature, "tests.md"),
+    `# Test Cases: ${feature}
+### TC-1
+- Trace: US-1, FR-1, AC-1
+`,
+    "utf8"
+  );
+
+  fs.writeFileSync(
+    path.join(tempDir, "docs", "discovery", `${feature}.md`),
+    `# Discovery: ${feature}
+
+## 2. Discovery Interview Summary (Discovery Persona)
+- Primary users:
+- Security team members
+- Current pain:
+- Lack of security validation in planning
+- Success metrics:
+- All plans include security review
+
+## 3. Scope
+### In scope
+- Security gates
+
+## 9. Discovery Confidence
+- Confidence:
+- Medium
+
+- Reason:
+- Sufficient for baseline
+`,
+    "utf8"
+  );
+
+  fs.writeFileSync(
+    path.join(tempDir, "docs", "plan", `${feature}.md`),
+    `# Plan: ${feature}
+
+## 4. Product Review (Product Persona)
+### Business value
+- Enforce security review.
+
+### Success metric
+- Security section present.
+
+### Assumptions to validate
+- Security checks are deterministic.
+
+## 5. Architecture (Architect Persona)
+### Components
+- Auth service
+
+### Data flow
+- Request to auth to response
+
+### Key decisions
+- Use token-based auth
+
+### Risks & mitigations
+- Token expiry handled
+
+### Observability (logs/metrics/tracing)
+- Log auth events
+
+## 6. Security (Security Persona)
+### Threats
+-
+
+### Required controls
+-
+`,
+    "utf8"
+  );
+
+  const result = runNode(["validate", "--feature", feature, "--non-interactive", "--json"], { cwd: tempDir });
+  assert.equal(result.status, 1);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.ok, false);
+  assert.ok(payload.gaps.persona.some((issue) => /Security/.test(issue)), "Should flag empty Security subsections");
 });
 
 test("guided draft non-interactive preserves user input without inferred requirements", () => {

@@ -18,7 +18,7 @@ function parseTraceIds(traceLine, prefix) {
   )];
 }
 
-function parseUserStories(backlogContent) {
+export function parseUserStories(backlogContent) {
   const blocks = [...String(backlogContent || "").matchAll(/###\s*(US-\d+)([\s\S]*?)(?=\n###\s*US-\d+|$)/g)];
   return blocks.map((match) => {
     const id = match[1].trim();
@@ -41,7 +41,7 @@ function parseUserStories(backlogContent) {
   });
 }
 
-function parseTcMapByStory(testsContent) {
+export function parseTcMapByStory(testsContent) {
   const blocks = [...String(testsContent || "").matchAll(/###\s*(TC-\d+)([\s\S]*?)(?=\n###\s*TC-\d+|$)/g)];
   const map = {};
   blocks.forEach((match) => {
@@ -59,14 +59,14 @@ function parseTcMapByStory(testsContent) {
   return map;
 }
 
-function parseResourceStrategy(specContent) {
+export function parseResourceStrategy(specContent) {
   const assetMatch = String(specContent || "").match(/## (?:8\. Asset Strategy|10\. Resource Strategy|Asset Strategy|Resource Strategy)([\s\S]*?)(\n##\s|\s*$)/i);
   if (!assetMatch) return null;
   const lines = assetMatch[1].split("\n").map(l => l.trim()).filter(l => l && l !== "-");
   return lines.length > 0 ? lines : null;
 }
 
-function scanProjectAssets(root) {
+export function scanProjectAssets(root) {
   const assetDirs = ["web/assets", "assets", "public/assets", "src/assets", "static"];
   const found = [];
   for (const dir of assetDirs) {
@@ -100,7 +100,7 @@ function scanDirRecursive(dir, root, maxDepth, depth = 0) {
   return results;
 }
 
-function parseQualityConstraints(planContent) {
+export function parseQualityConstraints(planContent) {
   const architecture = extractSection(planContent, "## 5. Architecture (Architect Persona)");
   const domain = normalizeLine((architecture.match(/-\s*Domain:\s*(.+)/i) || [null, "Not specified"])[1]);
   const stackConstraint = normalizeLine((architecture.match(/-\s*Stack constraint:\s*(.+)/i) || [null, "Not specified"])[1]);
@@ -108,7 +108,7 @@ function parseQualityConstraints(planContent) {
   return { domain, stackConstraint, forbiddenDefaults };
 }
 
-function parseImplementationHints(planContent) {
+export function parseImplementationHints(planContent) {
   const section = extractSection(planContent, "## 10. Implementation Notes (Developer Persona)");
   const sequenceLine = normalizeLine((section.match(/-\s*Suggested sequence:\s*([\s\S]*?)(?=\n-\s*Dependencies:|\n-\s*Rollout|$)/i) || [null, ""])[1]);
   const dependencyLine = normalizeLine((section.match(/-\s*Dependencies:\s*([\s\S]*?)(?=\n-\s*Rollout|$)/i) || [null, ""])[1]);
@@ -131,7 +131,7 @@ function storyNumericId(storyId) {
   return Number.isFinite(value) ? value : Number.MAX_SAFE_INTEGER;
 }
 
-function buildImplementationOrder(stories, tcMapByStory) {
+export function buildImplementationOrder(stories, tcMapByStory) {
   return [...stories]
     .map((story) => ({
       ...story,
@@ -177,7 +177,7 @@ function writeFile(file, content) {
   fs.writeFileSync(file, content, "utf8");
 }
 
-function buildBriefContent({
+export function buildBriefContent({
   feature,
   story,
   parsedSpec,
@@ -383,6 +383,7 @@ export async function runImplementCommand({
 
   const manifestFile = path.join(implementationDir, "implement-manifest.json");
   writeFile(manifestFile, JSON.stringify({
+    schemaVersion: 1,
     feature,
     generatedAt: new Date().toISOString(),
     stories: ordered.map((story, index) => ({

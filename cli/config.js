@@ -219,6 +219,9 @@ export function resolveProjectPaths(root, mappedPaths) {
     },
     verificationFile(feature) {
       return path.join(docsRoot, "verification", `${feature}.json`);
+    },
+    buildManifestFile(feature) {
+      return path.join(docsImplementationDir, feature, "build-manifest.json");
     }
   };
 }

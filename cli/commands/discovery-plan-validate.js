@@ -28,6 +28,85 @@ function replaceSection(content, heading, newBody) {
   return String(content).replace(pattern, `${heading}\n${newBody.trim()}\n`);
 }
 
+async function _writeDiscoveryArtifact({
+  feature, project, approvedSpec, specSnapshot, discoveryInterview,
+  confidence, templatePath, options, runAutoCheckpoint, printCheckpointSummary
+}) {
+  const outDir = project.paths.docsDiscoveryDir;
+  const backlogFile = project.paths.backlogFile(feature);
+  const testsFile = project.paths.testsFile(feature);
+  const outFile = project.paths.discoveryFile(feature);
+
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.mkdirSync(path.dirname(backlogFile), { recursive: true });
+  fs.mkdirSync(path.dirname(testsFile), { recursive: true });
+
+  let discovery = fs.readFileSync(templatePath, "utf8");
+  discovery = discovery.replace("# Discovery: <feature>", `# Discovery: ${feature}`);
+  discovery = discovery.replace(
+    "## 1. Problem Statement\n- What problem are we solving?\n- Why now?",
+    `## 1. Problem Statement
+Derived from approved spec retrieval snapshot:
+- Retrieval mode: ${specSnapshot.mode}
+- Retrieved sections: ${specSnapshot.retrievalEvidence.length > 0 ? specSnapshot.retrievalEvidence.join(", ") : "none"}
+
+### Context snapshot
+${specSnapshot.context}
+
+### Actors snapshot
+${specSnapshot.actors}
+
+### Functional rules snapshot
+${specSnapshot.functionalRules}
+
+### Security snapshot
+${specSnapshot.security}
+
+### Out-of-scope snapshot
+${specSnapshot.outOfScope}
+
+Refined problem framing:
+- What problem are we solving? ${discoveryInterview.currentPain}
+- Why now? ${discoveryInterview.successMetrics}`
+  );
+  discovery = discovery.replace(
+    "## 2. Discovery Interview Summary (Discovery Persona)\n- Primary users:\n-\n- Jobs to be done:\n-\n- Current pain:\n-\n- Constraints (business/technical/compliance):\n-\n- Dependencies:\n-\n- Success metrics:\n-\n- Assumptions:\n-",
+    `## 2. Discovery Interview Summary (Discovery Persona)\n- Primary users:\n- ${discoveryInterview.primaryUsers}\n\n- Jobs to be done:\n- ${discoveryInterview.jtbd}\n\n- Current pain:\n- ${discoveryInterview.currentPain}\n\n- Constraints (business/technical/compliance):\n- ${discoveryInterview.constraints}\n\n- Dependencies:\n- ${discoveryInterview.dependencies}\n\n- Success metrics:\n- ${discoveryInterview.successMetrics}\n\n- Assumptions:\n- ${discoveryInterview.assumptions}\n\n- Interview mode:\n- ${discoveryInterview.interviewMode}`
+  );
+  discovery = discovery.replace(
+    "## 3. Scope\n### In scope\n-\n\n### Out of scope\n-",
+    `## 3. Scope\n### In scope\n- ${discoveryInterview.inScope}\n\n### Out of scope\n- ${discoveryInterview.outOfScope}`
+  );
+  discovery = discovery.replace(
+    "## 4. Actors & User Journeys\nActors:\n-\n\nPrimary journey:\n-",
+    `## 4. Actors & User Journeys\nActors:\n- ${discoveryInterview.primaryUsers}\n\nPrimary journey:\n- ${discoveryInterview.journey}`
+  );
+  discovery = discovery.replace(
+    "## 9. Discovery Confidence\n- Confidence:\n-\n- Reason:\n-\n- Evidence gaps:\n-\n- Handoff decision:\n-",
+    `## 9. Discovery Confidence\n- Confidence:\n- ${confidence.level}\n\n- Reason:\n- ${confidence.reason}\n\n- Evidence gaps:\n- ${discoveryInterview.assumptions}\n\n- Handoff decision:\n- ${confidence.handoff}`
+  );
+
+  fs.writeFileSync(outFile, discovery, "utf8");
+  const parsedSpec = parseApprovedSpec(approvedSpec, { feature });
+  const qualityDomain = detectQualityDomain(approvedSpec, feature);
+  const qualityProfile = getQualityProfile(qualityDomain);
+  const rigor = getDiscoveryRigorProfile(discoveryInterview.interviewMode);
+  const generated = generatePlanArtifacts({ feature, parsedSpec, rigor, qualityProfile });
+
+  fs.writeFileSync(backlogFile, generated.backlog, "utf8");
+  fs.writeFileSync(testsFile, generated.tests, "utf8");
+
+  console.log("Discovery created: " + path.relative(process.cwd(), outFile));
+  if (printCheckpointSummary && runAutoCheckpoint) {
+    printCheckpointSummary(runAutoCheckpoint({
+      enabled: options.autoCheckpoint,
+      phase: "discover",
+      feature
+    }));
+  }
+  return outFile;
+}
+
 export async function runDiscoverCommand({
   options,
   ask,
@@ -38,6 +117,7 @@ export async function runDiscoverCommand({
   exitCodes
 }) {
   const { OK, ERROR, ABORTED } = exitCodes;
+  console.log("DEPRECATION NOTICE: `aitri discover` is deprecated. Use `aitri plan` which runs discovery automatically.");
   const project = getProjectContextOrExit();
   const rawFeatureInput = String(options.feature || options.positional[0] || "").trim();
   let feature = normalizeFeatureName(rawFeatureInput);
@@ -150,73 +230,10 @@ export async function runDiscoverCommand({
   if (discoveryInterview.interviewMode === "quick" && confidence.level !== "Low") {
     confidence.reason = `${confidence.reason} Interview used quick mode; expand to standard/deep if uncertainty remains.`;
   }
-  let discovery = fs.readFileSync(templatePath, "utf8");
-
-  discovery = discovery.replace("# Discovery: <feature>", `# Discovery: ${feature}`);
-  discovery = discovery.replace(
-    "## 1. Problem Statement\n- What problem are we solving?\n- Why now?",
-    `## 1. Problem Statement
-Derived from approved spec retrieval snapshot:
-- Retrieval mode: ${specSnapshot.mode}
-- Retrieved sections: ${specSnapshot.retrievalEvidence.length > 0 ? specSnapshot.retrievalEvidence.join(", ") : "none"}
-
-### Context snapshot
-${specSnapshot.context}
-
-### Actors snapshot
-${specSnapshot.actors}
-
-### Functional rules snapshot
-${specSnapshot.functionalRules}
-
-### Security snapshot
-${specSnapshot.security}
-
-### Out-of-scope snapshot
-${specSnapshot.outOfScope}
-
-Refined problem framing:
-- What problem are we solving? ${discoveryInterview.currentPain}
-- Why now? ${discoveryInterview.successMetrics}`
-  );
-  discovery = discovery.replace(
-    "## 2. Discovery Interview Summary (Discovery Persona)\n- Primary users:\n-\n- Jobs to be done:\n-\n- Current pain:\n-\n- Constraints (business/technical/compliance):\n-\n- Dependencies:\n-\n- Success metrics:\n-\n- Assumptions:\n-",
-    `## 2. Discovery Interview Summary (Discovery Persona)\n- Primary users:\n- ${discoveryInterview.primaryUsers}\n\n- Jobs to be done:\n- ${discoveryInterview.jtbd}\n\n- Current pain:\n- ${discoveryInterview.currentPain}\n\n- Constraints (business/technical/compliance):\n- ${discoveryInterview.constraints}\n\n- Dependencies:\n- ${discoveryInterview.dependencies}\n\n- Success metrics:\n- ${discoveryInterview.successMetrics}\n\n- Assumptions:\n- ${discoveryInterview.assumptions}\n\n- Interview mode:\n- ${discoveryInterview.interviewMode}`
-  );
-  discovery = discovery.replace(
-    "## 3. Scope\n### In scope\n-\n\n### Out of scope\n-",
-    `## 3. Scope\n### In scope\n- ${discoveryInterview.inScope}\n\n### Out of scope\n- ${discoveryInterview.outOfScope}`
-  );
-  discovery = discovery.replace(
-    "## 4. Actors & User Journeys\nActors:\n-\n\nPrimary journey:\n-",
-    `## 4. Actors & User Journeys\nActors:\n- ${discoveryInterview.primaryUsers}\n\nPrimary journey:\n- ${discoveryInterview.journey}`
-  );
-  discovery = discovery.replace(
-    "## 9. Discovery Confidence\n- Confidence:\n-\n- Reason:\n-\n- Evidence gaps:\n-\n- Handoff decision:\n-",
-    `## 9. Discovery Confidence\n- Confidence:\n- ${confidence.level}\n\n- Reason:\n- ${confidence.reason}\n\n- Evidence gaps:\n- ${discoveryInterview.assumptions}\n\n- Handoff decision:\n- ${confidence.handoff}`
-  );
-
-  fs.writeFileSync(outFile, discovery, "utf8");
-  const parsedSpec = parseApprovedSpec(approvedSpec, { feature });
-  const qualityDomain = detectQualityDomain(approvedSpec, feature);
-  const qualityProfile = getQualityProfile(qualityDomain);
-  const rigor = getDiscoveryRigorProfile(discoveryInterview.interviewMode);
-  const generated = generatePlanArtifacts({
-    feature,
-    parsedSpec,
-    rigor,
-    qualityProfile
+  await _writeDiscoveryArtifact({
+    feature, project, approvedSpec, specSnapshot, discoveryInterview,
+    confidence, templatePath, options, runAutoCheckpoint, printCheckpointSummary
   });
-
-  fs.writeFileSync(backlogFile, generated.backlog, "utf8");
-  fs.writeFileSync(testsFile, generated.tests, "utf8");
-
-  console.log("Discovery created: " + path.relative(process.cwd(), outFile));
-  printCheckpointSummary(runAutoCheckpoint({
-    enabled: options.autoCheckpoint,
-    phase: "discover",
-    feature
-  }));
   return OK;
 }
 
@@ -265,9 +282,47 @@ export async function runPlanCommand({
     return ERROR;
   }
   if (!fs.existsSync(discoveryFile)) {
-    console.log(`Discovery artifact not found: ${path.relative(process.cwd(), discoveryFile)}`);
-    console.log("Run discovery first: aitri discover --feature <name>");
-    return ERROR;
+    console.log("No discovery found. Running discovery inline...");
+    const cliDirDisc = path.dirname(fileURLToPath(import.meta.url));
+    const discTemplatePath = path.resolve(cliDirDisc, "..", "..", "core", "templates", "discovery", "discovery_template.md");
+    if (!fs.existsSync(discTemplatePath)) {
+      console.log(`Discovery template not found at: ${discTemplatePath}`);
+      return ERROR;
+    }
+    const discRetrievalMode = requestedRetrievalMode || "section-level";
+    const discApprovedSpec = fs.readFileSync(approvedFile, "utf8");
+    const discSpecSnapshot = buildSpecSnapshot(discApprovedSpec, discRetrievalMode);
+    let discInterview;
+    try {
+      discInterview = await collectDiscoveryInterview(options, ask);
+    } catch (error) {
+      console.log(error instanceof Error ? error.message : "Discovery interview failed.");
+      return ERROR;
+    }
+    const discConfidence = (() => {
+      if (
+        [discInterview.primaryUsers, discInterview.currentPain, discInterview.successMetrics]
+          .some((v) => /TBD|Not specified|pending/i.test(v))
+      ) {
+        return { level: "Low", reason: "Critical discovery inputs are missing or too generic.", handoff: "Blocked for Clarification" };
+      }
+      if (
+        [discInterview.jtbd, discInterview.constraints, discInterview.dependencies, discInterview.assumptions]
+          .some((v) => /TBD|Not specified|pending/i.test(v))
+      ) {
+        return { level: "Medium", reason: "Discovery is usable but still has notable evidence gaps.", handoff: "Ready for Product/Architecture" };
+      }
+      return { level: "High", reason: "Discovery inputs are specific and decision-ready.", handoff: "Ready for Product/Architecture" };
+    })();
+    if (discInterview.interviewMode === "quick" && discConfidence.level !== "Low") {
+      discConfidence.reason = `${discConfidence.reason} Interview used quick mode; expand to standard/deep if uncertainty remains.`;
+    }
+    await _writeDiscoveryArtifact({
+      feature, project, approvedSpec: discApprovedSpec, specSnapshot: discSpecSnapshot,
+      discoveryInterview: discInterview, confidence: discConfidence,
+      templatePath: discTemplatePath, options,
+      runAutoCheckpoint, printCheckpointSummary
+    });
   }
   const discoveryContent = fs.readFileSync(discoveryFile, "utf8");
   const requiredDiscoverySections = [
@@ -454,6 +509,25 @@ ${specSnapshot.outOfScope}
 ### Asset and placeholder strategy
 - ${qualityProfile.assetStrategy}
 - Avoid default primitive-only output when domain requires visual fidelity.`
+  );
+
+  const securityNotes = specSnapshot.security || "No security considerations specified in approved spec.";
+  const securityThreats = parsedSpec.functionalRules
+    .filter((fr) => /secur|auth|encrypt|sanitiz|inject|xss|csrf|token|session/i.test(fr.text))
+    .map((fr) => `- ${fr.id}: ${fr.text}`)
+    .join("\n") || "- Review spec for domain-specific threat model.";
+  planDoc = replaceSection(
+    planDoc,
+    "## 6. Security (Security Persona)",
+    `### Threats
+${securityThreats}
+- Derived from spec security section: ${String(securityNotes).split("\n")[0].trim()}
+
+### Required controls
+- ${securityNotes}
+
+### Validation rules
+- Security controls must be verified before delivery gate.`
   );
 
   fs.writeFileSync(outPlanFile, planDoc, "utf8");
@@ -711,7 +785,7 @@ export async function runValidateCommand({
 
   const discoveryContent = fs.readFileSync(discoveryFile, "utf8");
   const planContent = fs.readFileSync(planFile, "utf8");
-  const personaIssues = collectPersonaValidationIssues({ discoveryContent, planContent });
+  const personaIssues = collectPersonaValidationIssues({ discoveryContent, planContent, specContent: spec });
   personaIssues.forEach((issue) => addIssue("persona", issue));
 
   result.gapSummary = Object.fromEntries(Object.entries(gapTypes).map(([k, v]) => [k, v.length]));
@@ -736,4 +810,48 @@ export async function runValidateCommand({
     console.log("- Tests: " + path.relative(process.cwd(), testsFile));
   }
   return OK;
+}
+
+export function collectValidationIssues(project, feature, paths) {
+  const approvedFile = paths.approvedSpecFile(feature);
+  const backlogFile = paths.backlogFile(feature);
+  const testsFile = paths.testsFile(feature);
+  const discoveryFile = paths.discoveryFile(feature);
+  const planFile = paths.planFile(feature);
+
+  const issues = [];
+  if (!fs.existsSync(approvedFile)) issues.push(`Missing approved spec: ${path.relative(process.cwd(), approvedFile)}`);
+  if (!fs.existsSync(backlogFile)) issues.push(`Missing backlog: ${path.relative(process.cwd(), backlogFile)}`);
+  if (!fs.existsSync(testsFile)) issues.push(`Missing tests: ${path.relative(process.cwd(), testsFile)}`);
+  if (!fs.existsSync(discoveryFile)) issues.push(`Missing discovery: ${path.relative(process.cwd(), discoveryFile)}`);
+  if (!fs.existsSync(planFile)) issues.push(`Missing plan: ${path.relative(process.cwd(), planFile)}`);
+  if (issues.length > 0) return issues;
+
+  const spec = fs.readFileSync(approvedFile, "utf8");
+  const backlog = fs.readFileSync(backlogFile, "utf8");
+  const tests = fs.readFileSync(testsFile, "utf8");
+
+  if (!/###\s+US-\d+/m.test(backlog)) issues.push("Backlog must include at least one user story with an ID like `### US-1`.");
+  if (backlog.includes("FR-?")) issues.push("Backlog contains placeholder `FR-?`.");
+  if (backlog.includes("AC-?")) issues.push("Backlog contains placeholder `AC-?`.");
+  if (!/###\s+TC-\d+/m.test(tests)) issues.push("Tests must include at least one test case with an ID like `### TC-1`.");
+  if (tests.includes("US-?")) issues.push("Tests contain placeholder `US-?`.");
+  if (tests.includes("FR-?")) issues.push("Tests contain placeholder `FR-?`.");
+  if (tests.includes("AC-?")) issues.push("Tests contain placeholder `AC-?`.");
+
+  const specFRs = [...new Set([...spec.matchAll(/\bFR-\d+\b/g)].map(m => m[0]))];
+  const backlogFRs = new Set([...backlog.matchAll(/\bFR-\d+\b/g)].map(m => m[0]));
+  const testsFRs = new Set([...tests.matchAll(/\bFR-\d+\b/g)].map(m => m[0]));
+  const backlogUS = [...new Set([...backlog.matchAll(/\bUS-\d+\b/g)].map(m => m[0]))];
+  const testsUS = new Set([...tests.matchAll(/\bUS-\d+\b/g)].map(m => m[0]));
+
+  specFRs.filter(fr => !backlogFRs.has(fr)).forEach(fr => issues.push(`Coverage: ${fr} not in backlog.`));
+  specFRs.filter(fr => !testsFRs.has(fr)).forEach(fr => issues.push(`Coverage: ${fr} not in tests.`));
+  backlogUS.filter(us => !testsUS.has(us)).forEach(us => issues.push(`Coverage: ${us} not in tests.`));
+
+  const discoveryContent = fs.readFileSync(discoveryFile, "utf8");
+  const planContent = fs.readFileSync(planFile, "utf8");
+  collectPersonaValidationIssues({ discoveryContent, planContent, specContent: spec }).forEach(i => issues.push(i));
+
+  return issues;
 }

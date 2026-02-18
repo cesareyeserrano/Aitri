@@ -20,6 +20,8 @@ import {
   runResumeCommand,
   runVerifyCommand
 } from "./commands/runtime-flow.js";
+import { runBuildCommand } from "./commands/build.js";
+import { runPreviewCommand } from "./commands/preview.js";
 import { runScaffoldCommand } from "./commands/scaffold.js";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import { normalizeFeatureName } from "./lib.js";
@@ -88,6 +90,9 @@ function parseArgs(argv) {
     idea: null,
     feature: null,
     project: null,
+    story: null,
+    noBuild: false,
+    noVerify: false,
     verifyCmd: null,
     discoveryDepth: null,
     retrievalMode: null,
@@ -137,6 +142,15 @@ function parseArgs(argv) {
       i += 1;
     } else if (arg.startsWith("--project=")) {
       parsed.project = arg.slice("--project=".length).trim();
+    } else if (arg === "--story" || arg === "-s") {
+      parsed.story = (argv[i + 1] || "").trim();
+      i += 1;
+    } else if (arg.startsWith("--story=")) {
+      parsed.story = arg.slice("--story=".length).trim();
+    } else if (arg === "--no-build") {
+      parsed.noBuild = true;
+    } else if (arg === "--no-verify") {
+      parsed.noVerify = true;
     } else if (arg === "--verify-cmd") {
       parsed.verifyCmd = (argv[i + 1] || "").trim();
       i += 1;
@@ -174,7 +188,7 @@ function wantsUi(options, positional = []) {
 
 function toRecommendedCommand(nextStep) {
   if (!nextStep) return null;
-  if (nextStep === "ready_for_human_approval") return "aitri handoff";
+  if (nextStep === "ready_for_human_approval") return "aitri go";
   return nextStep;
 }
 
@@ -264,48 +278,39 @@ if (!cmd || cmd === "help") {
   console.log(`
 Aitri ⚒️  — Spec-driven software factory
 
-Workflow (Aitri guides you through each step):
-  1. aitri init         Set up project structure
-  2. aitri draft        Capture user-provided requirements into a draft spec
-  3. aitri approve      Quality gate — validates your spec is complete
-  4. aitri discover     Generate discovery analysis
-  5. aitri plan         Generate plan, backlog, and test cases
-  6. aitri validate     Check traceability (FR → US → TC)
-  7. aitri verify       Run tests and persist evidence
-  8. aitri policy       Check dependency and security policy
-  9. aitri handoff      Summarize readiness for implementation
-  10. aitri go          Approve implementation start (human decision)
-  11. aitri scaffold    Generate project skeleton and test stubs
-  12. aitri implement   Generate implementation briefs per story
-      [WRITE CODE]     You or your AI agent implements each story
-  13. aitri verify      Confirm all tests pass
-  14. aitri deliver     Final delivery gate
+Workflow:
+  1. aitri init       Initialize project structure
+  2. aitri draft      Capture requirements into a draft spec
+  3. aitri approve    Quality gate — validate spec completeness
+  4. aitri plan       Discovery interview + plan + backlog + tests
+  5. aitri go         Validate + policy + human approval gate
+  6. aitri build      Per-story: scaffold + brief + verify [--story US-N]
+     [WRITE CODE]    You or your AI agent implements each story
+  7. aitri deliver    Release tag + build artifact
 
-Other:
-  aitri status         Show current state and next step
-  aitri resume         Resume from last checkpoint
+Other: preview, status, resume
+Still work (deprecated): discover, validate, handoff, scaffold, implement, verify, policy
 
 Common options:
   --feature, -f <name>   Specify feature name
-  --project <name>       Specify project name (init metadata)
   --yes, -y              Auto-confirm prompts
-  --raw                  Use free-form draft instead of guided wizard
   --json, -j             Machine-readable output`);
 
   if (advanced) {
     console.log(`
 Advanced options:
   --idea <text>          Idea text for non-interactive draft
+  --story, -s <US-N>     Target a single story (build)
+  --no-verify            Skip verification step (build)
+  --no-build             Skip build command (deliver)
   --verify-cmd <cmd>     Explicit runtime verification command
   --discovery-depth <d>  Discovery depth: quick | standard | deep
   --retrieval-mode <m>   Retrieval mode: section | semantic
+  --project <name>       Specify project name (init metadata)
+  --raw                  Use free-form draft instead of guided wizard
   --ui                   Generate status insight page
-  --no-open              Don't auto-open status page
-  --no-auto-advance      Disable auto-advance to next step
-  --strict-policy        Require git for policy checks
   --non-interactive      Suppress all prompts (CI/pipeline mode)
-  --no-checkpoint        Disable auto-checkpoint
-  --format <type>        Output format (json)`);
+  --no-checkpoint        Disable auto-checkpoint`);
   } else {
     console.log(`
 Run \`aitri help --advanced\` for all options.`);
@@ -875,11 +880,10 @@ if (cmd === "verify") {
   await exitWithFlow({ code, command: cmd, options });
 }
 
-if (cmd === "scaffold") {
-  const code = await runScaffoldCommand({
+if (cmd === "build") {
+  const code = await runBuildCommand({
     options,
     getProjectContextOrExit,
-    getStatusReportOrExit,
     confirmProceed,
     printCheckpointSummary,
     runAutoCheckpoint,
@@ -888,14 +892,20 @@ if (cmd === "scaffold") {
   await exitWithFlow({ code, command: cmd, options });
 }
 
-if (cmd === "implement") {
-  const code = await runImplementCommand({
-    options,
-    getProjectContextOrExit,
-    getStatusReportOrExit,
-    confirmProceed,
-    printCheckpointSummary,
-    runAutoCheckpoint,
+if (cmd === "preview") {
+  const code = await runPreviewCommand({
+    options, getProjectContextOrExit,
+    exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR }
+  });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "scaffold" || cmd === "implement") {
+  if (!wantsJson(options, options.positional)) console.log(`DEPRECATION: \`aitri ${cmd}\` is deprecated. Use \`aitri build\` instead.`);
+  const handler = cmd === "scaffold" ? runScaffoldCommand : runImplementCommand;
+  const code = await handler({
+    options, getProjectContextOrExit, getStatusReportOrExit,
+    confirmProceed, printCheckpointSummary, runAutoCheckpoint,
     exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED }
   });
   await exitWithFlow({ code, command: cmd, options });
@@ -903,26 +913,23 @@ if (cmd === "implement") {
 
 if (cmd === "deliver") {
   const code = await runDeliverCommand({
-    options,
-    getProjectContextOrExit,
-    getStatusReportOrExit,
-    confirmProceed,
+    options, getProjectContextOrExit, getStatusReportOrExit, confirmProceed,
     exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED }
   });
   await exitWithFlow({ code, command: cmd, options });
 }
 
 if (cmd === "policy") {
+  if (!wantsJson(options, options.positional)) console.log("DEPRECATION: `aitri policy` is deprecated. Policy checks run inside `aitri go`.");
   const code = runPolicyCommand({
-    options,
-    getProjectContextOrExit,
-    getStatusReportOrExit,
+    options, getProjectContextOrExit, getStatusReportOrExit,
     exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR }
   });
   await exitWithFlow({ code, command: cmd, options });
 }
 
 if (cmd === "validate") {
+  if (!wantsJson(options, options.positional)) console.log("DEPRECATION: `aitri validate` is deprecated. Validation runs inside `aitri go`.");
   const code = await runValidateCommand({
     options,
     ask,

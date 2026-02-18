@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { parseApprovedSpec } from "./spec-parser.js";
 import { escapeRegExp, extractSection, extractSubsection, resolveFeature } from "../lib.js";
 
-function slugify(value) {
+export function slugify(value) {
   return String(value || "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
@@ -20,14 +20,14 @@ function pascalCase(value) {
     .join("");
 }
 
-function renderTemplate(template, variables) {
+export function renderTemplate(template, variables) {
   return Object.entries(variables).reduce(
     (content, [key, value]) => content.replaceAll(`{{${key}}}`, String(value)),
     String(template || "")
   );
 }
 
-function readTemplate(templateName) {
+export function readTemplate(templateName) {
   const cliDir = path.dirname(fileURLToPath(import.meta.url));
   const templatePath = path.resolve(cliDir, "..", "..", "core", "templates", "scaffold", templateName);
   if (!fs.existsSync(templatePath)) {
@@ -36,14 +36,14 @@ function readTemplate(templateName) {
   return fs.readFileSync(templatePath, "utf8");
 }
 
-function detectStackFamily(parsedSpec) {
+export function detectStackFamily(parsedSpec) {
   const stack = parsedSpec.techStack?.id || "node-cli";
   if (stack === "python") return "python";
   if (stack === "go") return "go";
   return "node";
 }
 
-function parseTestCases(testsContent) {
+export function parseTestCases(testsContent) {
   const matches = [...String(testsContent || "").matchAll(/###\s*(TC-\d+)([\s\S]*?)(?=\n###\s*TC-\d+|$)/g)];
   return matches.map((match) => {
     const id = match[1].trim();
@@ -221,7 +221,7 @@ function scaffoldTemplatesByStack(stackFamily) {
   };
 }
 
-function createTestStub({ root, stackFamily, feature, tc, testTemplate, parsedSpec }) {
+export function createTestStub({ root, stackFamily, feature, tc, testTemplate, parsedSpec }) {
   const acVars = buildAcTemplateVars(tc, parsedSpec || {});
   const file = testPathByStack(root, stackFamily, feature, tc.id, tc.title);
   const body = renderTemplate(testTemplate, {
@@ -234,7 +234,7 @@ function createTestStub({ root, stackFamily, feature, tc, testTemplate, parsedSp
   return file;
 }
 
-function createInterfaceStub({ root, stackFamily, fr, ifaceTemplate }) {
+export function createInterfaceStub({ root, stackFamily, fr, ifaceTemplate }) {
   const fnName = slugify(`${fr.id}-${fr.text}`).replace(/-/g, "_");
   const file = interfacePathByStack(root, stackFamily, "", fr.id, fr.text);
   const body = renderTemplate(ifaceTemplate, {
@@ -354,6 +354,7 @@ export async function runScaffoldCommand({
 
   const manifestFile = path.join(project.paths.implementationFeatureDir(feature), "scaffold-manifest.json");
   writeFile(manifestFile, JSON.stringify({
+    schemaVersion: 1,
     feature,
     stackFamily,
     generatedAt: new Date().toISOString(),

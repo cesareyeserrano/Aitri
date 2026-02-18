@@ -3,6 +3,7 @@ import path from "node:path";
 import { CONFIG_FILE } from "../config.js";
 import { evaluatePolicyChecks, resolveVerifyFeature, runVerification } from "./runtime.js";
 import { normalizeFeatureName } from "../lib.js";
+import { collectValidationIssues } from "./discovery-plan-validate.js";
 
 function wantsJson(options, positional = []) {
   if (options.json) return true;
@@ -15,6 +16,7 @@ function writeVerificationEvidence(project, feature, result) {
   const evidenceFile = project.paths.verificationFile(feature);
   fs.mkdirSync(evidenceDir, { recursive: true });
   fs.writeFileSync(evidenceFile, JSON.stringify({
+    schemaVersion: 1,
     ...result,
     evidenceFile: path.relative(process.cwd(), evidenceFile)
   }, null, 2), "utf8");
@@ -347,6 +349,9 @@ export function runHandoffCommand({
   const { OK, ERROR } = exitCodes;
   const report = getStatusReportOrExit(options.feature || null);
   const jsonOutput = wantsJson(options, options.positional);
+  if (!jsonOutput) {
+    console.log("DEPRECATION NOTICE: `aitri handoff` is deprecated. Use `aitri go` which includes validation and handoff.");
+  }
   const recommendedCommand = report.recommendedCommand || toRecommendedCommand(report.nextStep);
   const payload = {
     ok: report.nextStep === "ready_for_human_approval",
@@ -397,6 +402,12 @@ export async function runGoCommand({
   }
 
   const project = getProjectContextOrExit();
+  const validateIssues = collectValidationIssues(project, report.approvedSpec.feature, project.paths);
+  if (validateIssues.length > 0) {
+    console.log("GO BLOCKED: validation failed.");
+    validateIssues.forEach(i => console.log(`  - ${i}`));
+    return ERROR;
+  }
   const policy = evaluatePolicyChecks({
     root: process.cwd(),
     feature: report.approvedSpec.feature,
@@ -449,6 +460,7 @@ export async function runGoCommand({
   const goMarkerFile = project.paths.goMarkerFile(feature);
   fs.mkdirSync(path.dirname(goMarkerFile), { recursive: true });
   fs.writeFileSync(goMarkerFile, JSON.stringify({
+    schemaVersion: 1,
     ok: true,
     feature,
     decidedAt: new Date().toISOString(),

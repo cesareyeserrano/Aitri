@@ -23,7 +23,7 @@ test("help and version are available", () => {
   assert.match(advanced.stdout, /--non-interactive/);
   assert.match(advanced.stdout, /--discovery-depth <d>/);
   assert.match(advanced.stdout, /--retrieval-mode <m>/);
-  assert.match(advanced.stdout, /--strict-policy/);
+  assert.match(advanced.stdout, /--no-verify/);
   assert.match(advanced.stdout, /--no-checkpoint/);
 });
 
