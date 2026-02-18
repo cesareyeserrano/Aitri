@@ -820,6 +820,14 @@ export function collectValidationIssues(project, feature, paths) {
   const planFile = paths.planFile(feature);
 
   const issues = [];
+
+  // Stale marker check: spec was amended, downstream artifacts are out of date
+  if (paths.staleMarkerFile) {
+    const staleFile = paths.staleMarkerFile(feature);
+    if (fs.existsSync(staleFile)) {
+      issues.push("Spec was amended. Re-run discover and plan to update downstream artifacts.");
+    }
+  }
   if (!fs.existsSync(approvedFile)) issues.push(`Missing approved spec: ${path.relative(process.cwd(), approvedFile)}`);
   if (!fs.existsSync(backlogFile)) issues.push(`Missing backlog: ${path.relative(process.cwd(), backlogFile)}`);
   if (!fs.existsSync(testsFile)) issues.push(`Missing tests: ${path.relative(process.cwd(), testsFile)}`);

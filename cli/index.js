@@ -25,6 +25,7 @@ import { runPreviewCommand } from "./commands/preview.js";
 import { runDoctorCommand } from "./commands/doctor.js";
 import { runUpgradeCommand } from "./commands/upgrade.js";
 import { runFeaturesCommand, runNextCommand } from "./commands/features.js";
+import { runAmendCommand } from "./commands/amend.js";
 import { runScaffoldCommand } from "./commands/scaffold.js";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import { normalizeFeatureName } from "./lib.js";
@@ -980,6 +981,11 @@ if (cmd === "features") {
 
 if (cmd === "next") {
   const code = await runNextCommand({ options, ask, getProjectContextOrExit, confirmProceed, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "amend") {
+  const code = await runAmendCommand({ options, ask, getProjectContextOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
