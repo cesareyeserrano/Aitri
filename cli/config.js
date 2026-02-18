@@ -222,6 +222,22 @@ export function resolveProjectPaths(root, mappedPaths) {
     },
     buildManifestFile(feature) {
       return path.join(docsImplementationDir, feature, "build-manifest.json");
-    }
+    },
+    specsVersionsDir: path.join(specsRoot, "versions"),
+    specVersionDir(feature) {
+      return path.join(specsRoot, "versions", feature);
+    },
+    specChangelogFile(feature) {
+      return path.join(specsRoot, "versions", feature, "changelog.json");
+    },
+    staleMarkerDir: path.join(docsRoot, "stale"),
+    staleMarkerFile(feature) {
+      return path.join(docsRoot, "stale", `${feature}.json`);
+    },
+    docsFeedbackDir: path.join(docsRoot, "feedback"),
+    feedbackFile(feature) {
+      return path.join(docsRoot, "feedback", `${feature}.json`);
+    },
+    projectQueueFile: path.join(docsRoot, "project-queue.json")
   };
 }

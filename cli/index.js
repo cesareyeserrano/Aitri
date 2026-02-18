@@ -24,6 +24,7 @@ import { runBuildCommand } from "./commands/build.js";
 import { runPreviewCommand } from "./commands/preview.js";
 import { runDoctorCommand } from "./commands/doctor.js";
 import { runUpgradeCommand } from "./commands/upgrade.js";
+import { runFeaturesCommand, runNextCommand } from "./commands/features.js";
 import { runScaffoldCommand } from "./commands/scaffold.js";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import { normalizeFeatureName } from "./lib.js";
@@ -845,28 +846,12 @@ if (cmd === "approve") {
 }
 
 if (cmd === "discover") {
-  const code = await runDiscoverCommand({
-    options,
-    ask,
-    getProjectContextOrExit,
-    confirmProceed,
-    printCheckpointSummary,
-    runAutoCheckpoint,
-    exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED }
-  });
+  const code = await runDiscoverCommand({ options, ask, getProjectContextOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
 if (cmd === "plan") {
-  const code = await runPlanCommand({
-    options,
-    ask,
-    getProjectContextOrExit,
-    confirmProceed,
-    printCheckpointSummary,
-    runAutoCheckpoint,
-    exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED }
-  });
+  const code = await runPlanCommand({ options, ask, getProjectContextOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
@@ -876,14 +861,7 @@ if (cmd === "verify") {
 }
 
 if (cmd === "build") {
-  const code = await runBuildCommand({
-    options,
-    getProjectContextOrExit,
-    confirmProceed,
-    printCheckpointSummary,
-    runAutoCheckpoint,
-    exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED }
-  });
+  const code = await runBuildCommand({ options, getProjectContextOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
@@ -992,6 +970,16 @@ if (cmd === "doctor") {
 
 if (cmd === "upgrade") {
   const code = await runUpgradeCommand({ options, getProjectContextOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "features") {
+  const code = runFeaturesCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "next") {
+  const code = await runNextCommand({ options, ask, getProjectContextOrExit, confirmProceed, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
