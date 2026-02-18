@@ -26,6 +26,7 @@ import { runDoctorCommand } from "./commands/doctor.js";
 import { runUpgradeCommand } from "./commands/upgrade.js";
 import { runFeaturesCommand, runNextCommand } from "./commands/features.js";
 import { runAmendCommand } from "./commands/amend.js";
+import { runFeedbackCommand } from "./commands/feedback.js";
 import { runScaffoldCommand } from "./commands/scaffold.js";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import { normalizeFeatureName } from "./lib.js";
@@ -95,7 +96,7 @@ function parseArgs(argv) {
     feature: null,
     project: null,
     story: null,
-    noBuild: false, noVerify: false, dryRun: false,
+    noBuild: false, noVerify: false, dryRun: false, note: null,
     verifyCmd: null,
     discoveryDepth: null,
     retrievalMode: null,
@@ -153,6 +154,7 @@ function parseArgs(argv) {
     } else if (arg === "--no-build") { parsed.noBuild = true;
     } else if (arg === "--no-verify") { parsed.noVerify = true;
     } else if (arg === "--dry-run") { parsed.dryRun = true;
+    } else if (arg === "--note") { parsed.note = (argv[i + 1] || "").trim(); i += 1;
     } else if (arg === "--verify-cmd") {
       parsed.verifyCmd = (argv[i + 1] || "").trim();
       i += 1;
@@ -986,6 +988,11 @@ if (cmd === "next") {
 
 if (cmd === "amend") {
   const code = await runAmendCommand({ options, ask, getProjectContextOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "feedback") {
+  const code = await runFeedbackCommand({ options, ask, askRequired, getProjectContextOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
   await exitWithFlow({ code, command: cmd, options });
 }
 

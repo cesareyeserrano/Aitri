@@ -149,3 +149,47 @@ test("validate detects stale artifacts after amend", () => {
   assert.equal(payload.ok, false);
   assert.ok(payload.issues.some((i) => /amended|stale/i.test(i)), "should report stale issue");
 });
+
+test("feedback captures entry and stores in artifact", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-feedback-capture-"));
+  const feature = "fb-test";
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  writeSpec(tempDir, "approved", feature, "APPROVED");
+
+  const result = runNode(
+    ["feedback", "--feature", feature, "--note", "Bug found in pagination", "--non-interactive", "--yes"],
+    { cwd: tempDir }
+  );
+  assert.equal(result.status, 0);
+
+  const fbFile = path.join(tempDir, "docs", "feedback", `${feature}.json`);
+  assert.ok(fs.existsSync(fbFile), "feedback file should exist");
+  const data = JSON.parse(fs.readFileSync(fbFile, "utf8"));
+  assert.equal(data.entries.length, 1);
+  assert.equal(data.entries[0].id, "FB-1");
+  assert.equal(data.entries[0].description, "Bug found in pagination");
+});
+
+test("feedback appends to existing entries", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-feedback-append-"));
+  const feature = "fb-append";
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  writeSpec(tempDir, "approved", feature, "APPROVED");
+
+  runNodeOk(
+    ["feedback", "--feature", feature, "--note", "First issue", "--non-interactive", "--yes"],
+    { cwd: tempDir }
+  );
+
+  const result = runNode(
+    ["feedback", "--feature", feature, "--note", "Second issue", "--non-interactive", "--yes"],
+    { cwd: tempDir }
+  );
+  assert.equal(result.status, 0);
+
+  const fbFile = path.join(tempDir, "docs", "feedback", `${feature}.json`);
+  const data = JSON.parse(fs.readFileSync(fbFile, "utf8"));
+  assert.equal(data.entries.length, 2);
+  assert.equal(data.entries[1].id, "FB-2");
+  assert.equal(data.entries[1].description, "Second issue");
+});
