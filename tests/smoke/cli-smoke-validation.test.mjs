@@ -231,6 +231,27 @@ test("validate catches missing security section in plan", () => {
   assert.ok(payload.gaps.persona.some((issue) => /Security/.test(issue)), "Should flag empty Security subsections");
 });
 
+test("validate catches missing UX/UI section when spec mentions UI elements", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-uxui-gate-"));
+  const feature = "uxui-gate";
+  setupDirs(tempDir, feature, { discovery: true, plan: true });
+  fs.writeFileSync(
+    path.join(tempDir, "specs", "approved", `${feature}.md`),
+    `# AF-SPEC: ${feature}\nSTATUS: APPROVED\n## 3. Functional Rules (traceable)\n- FR-1: Render a dashboard with form and button controls.\n`,
+    "utf8"
+  );
+  writeBacklog(tempDir, feature);
+  writeTests(tempDir, feature);
+  writeDiscovery(tempDir, feature, { users: "End users", job: "View dashboard metrics", metric: "UX review captured" });
+  writePlan(tempDir, feature, { productValue: "Improve UI visibility.", productMetric: "Dashboard loads fast." });
+
+  const result = runNode(["validate", "--feature", feature, "--non-interactive", "--json"], { cwd: tempDir });
+  assert.equal(result.status, 1);
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.ok, false);
+  assert.ok(payload.gaps.persona.some((issue) => /UX\/UI/.test(issue)), "Should flag missing UX/UI section");
+});
+
 test("guided draft non-interactive preserves user input without inferred requirements", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-guided-tech-"));
   const feature = "guided-tech";

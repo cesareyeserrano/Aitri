@@ -41,7 +41,7 @@ function resolveFeatureState(feature, paths) {
   return "unknown";
 }
 
-function scanAllFeatures(paths) {
+export function scanAllFeatures(paths) {
   const seen = new Set();
   const features = [];
 

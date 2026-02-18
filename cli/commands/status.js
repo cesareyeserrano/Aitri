@@ -4,6 +4,7 @@ import { execSync, spawnSync } from "node:child_process";
 import { loadAitriConfig, resolveProjectPaths } from "../config.js";
 import { normalizeFeatureName } from "../lib.js";
 import { collectPersonaValidationIssues, hasMeaningfulContent as hasMeaningfulContentFn } from "./persona-validation.js";
+import { scanAllFeatures } from "./features.js";
 
 function exists(p) {
   return fs.existsSync(p);
@@ -167,7 +168,7 @@ function toRecommendedCommand(nextStep) {
   if (nextStep === "build_pending") return "aitri build";
   if (nextStep === "verify_pending") return "aitri verify";
   if (nextStep === "deliver_pending") return "aitri deliver";
-  if (nextStep === "delivery_complete") return "aitri status --ui";
+  if (nextStep === "delivery_complete") return "aitri feedback";
   return nextStep;
 }
 
@@ -538,6 +539,13 @@ function readJsonSafe(file) {
   }
 }
 
+function readCurrentVersion() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+    return pkg.version || null;
+  } catch { return null; }
+}
+
 function detectVerificationState(root, paths, feature) {
   const verificationFile = paths.verificationFile(feature);
   if (!exists(verificationFile)) {
@@ -709,6 +717,10 @@ export function getStatusReport(options = {}) {
       deliveryReport: null,
       deliveryDecision: null
     },
+    amendment: null,
+    feedback: null,
+    features: null,
+    projectVersion: null,
     nextStep: null,
     recommendedCommand: null,
     nextStepMessage: null,
@@ -806,6 +818,19 @@ export function getStatusReport(options = {}) {
       deliveryDecision: deliveryPayload?.decision || null
     };
 
+    // Amendment state (Phase I.2)
+    const staleFile = paths.staleMarkerFile(feature);
+    report.amendment = exists(staleFile) ? (readJsonSafe(staleFile) || { feature, stale: true }) : null;
+
+    // Feedback summary (Phase I.3)
+    const fbFile = paths.feedbackFile(feature);
+    const fbEntries = readJsonSafe(fbFile)?.entries || [];
+    report.feedback = {
+      total: fbEntries.length,
+      open: fbEntries.filter((e) => e.resolution === null).length,
+      resolved: fbEntries.filter((e) => e.resolution !== null).length
+    };
+
     report.nextStep = computeNextStep({
       missingDirs,
       approvedSpecFound: true,
@@ -864,6 +889,26 @@ export function getStatusReport(options = {}) {
   report.recommendedCommand = report.recommendedCommand || toRecommendedCommand(report.nextStep);
   report.nextStepMessage = report.nextStepMessage || nextStepMessage(report.nextStep);
   report.confidence = buildConfidenceReport(report);
+
+  // Project-wide features summary (Phase I.1)
+  const allFeatures = scanAllFeatures(paths);
+  report.features = {
+    total: allFeatures.length,
+    delivered: allFeatures.filter((f) => f.state === "delivered").length,
+    inProgress: allFeatures.filter((f) => !["delivered", "draft"].includes(f.state)).length,
+    draft: allFeatures.filter((f) => f.state === "draft").length,
+    list: allFeatures.map((f) => ({ name: f.name, state: f.state }))
+  };
+
+  // Project version info (Phase K)
+  const projectJsonFile = path.join(paths.docsRoot, "project.json");
+  const projectData = exists(projectJsonFile) ? readJsonSafe(projectJsonFile) : null;
+  const installedVersion = readCurrentVersion();
+  report.projectVersion = {
+    aitriVersion: installedVersion,
+    currentVersion: projectData?.aitriVersion || null,
+    upgradeAvailable: !!(installedVersion && projectData?.aitriVersion && installedVersion !== projectData.aitriVersion)
+  };
 
   return report;
 }

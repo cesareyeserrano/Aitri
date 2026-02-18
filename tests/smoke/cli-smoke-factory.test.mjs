@@ -221,5 +221,5 @@ test("factory E2E flow completes through deliver gate", () => {
     runNodeOk(["status", "--feature", feature, "--json"], { cwd: tempDir }).stdout
   );
   assert.equal(statusAfterDeliver.nextStep, "delivery_complete");
-  assert.equal(statusAfterDeliver.recommendedCommand, "aitri status --ui");
+  assert.equal(statusAfterDeliver.recommendedCommand, "aitri feedback");
 });
