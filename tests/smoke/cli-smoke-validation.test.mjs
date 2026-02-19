@@ -109,11 +109,13 @@ test("validate and handoff block when persona outputs are unresolved", () => {
   assert.ok(payload.gapSummary.persona >= 2);
   assert.match(payload.gaps.persona[0], /Persona gate:/);
 
+  // New flow: handoff checks plan state only (not verify). Plan exists → ready_for_human_approval.
+  // Persona issues are caught by go command's internal validate check, not by status state machine.
   const handoff = runNode(["handoff", "json"], { cwd: tempDir });
-  assert.equal(handoff.status, 1);
+  assert.equal(handoff.status, 0);
   const handoffPayload = JSON.parse(handoff.stdout);
-  assert.equal(handoffPayload.ok, false);
-  assert.equal(handoffPayload.nextStep, "aitri verify");
+  assert.equal(handoffPayload.ok, true);
+  assert.equal(handoffPayload.nextStep, "ready_for_human_approval");
 });
 
 test("validate fails in non-interactive mode without --feature", () => {

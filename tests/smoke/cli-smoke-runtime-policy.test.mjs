@@ -119,17 +119,16 @@ Users need sign in.
 
   runNodeOk(["validate", "--feature", feature, "--non-interactive", "--json"], { cwd: tempDir });
 
+  // New flow: verify is no longer required before go. Plan exists → handoff is ready.
   const handoff = runNode(["handoff", "json"], { cwd: tempDir });
-  assert.equal(handoff.status, 1);
+  assert.equal(handoff.status, 0);
   const payload = JSON.parse(handoff.stdout);
-  assert.equal(payload.ok, false);
-  assert.equal(payload.nextStep, "aitri verify");
-  assert.equal(payload.recommendedCommand, "aitri verify");
+  assert.equal(payload.ok, true);
+  assert.equal(payload.nextStep, "ready_for_human_approval");
 
   const handoffHuman = runNode(["handoff"], { cwd: tempDir });
-  assert.equal(handoffHuman.status, 1);
-  assert.match(handoffHuman.stdout, /HANDOFF NOT READY/);
-  assert.match(handoffHuman.stdout, /Run next command: aitri verify/);
+  assert.equal(handoffHuman.status, 0);
+  assert.match(handoffHuman.stdout, /HANDOFF READY/);
 });
 
 test("go is blocked when managed-go policy detects dependency drift", () => {
@@ -271,7 +270,8 @@ test("status requires re-verify when verification evidence is stale", () => {
   const status = runNodeOk(["status", "--json"], { cwd: tempDir });
   const payload = JSON.parse(status.stdout);
   assert.equal(payload.verification.status, "stale");
-  assert.equal(payload.nextStep, "aitri verify");
+  // New flow: stale verification does not block go. Plan exists → ready_for_human_approval.
+  assert.equal(payload.nextStep, "ready_for_human_approval");
   assert.equal(payload.confidence.level, "medium");
   assert.equal(payload.confidence.components.runtimeVerification, 55);
   assert.equal(payload.confidence.releaseReady, false);

@@ -279,6 +279,10 @@ export async function runScaffoldCommand({
   exitCodes
 }) {
   const { OK, ERROR, ABORTED } = exitCodes;
+  const _scaffoldJsonOutput = (options.json) || ((options.format||"").toLowerCase()==="json") || (options.positional||[]).some(p=>p.toLowerCase()==="json");
+  if (!_scaffoldJsonOutput) {
+    console.log("DEPRECATION: `aitri scaffold` is deprecated. Use `aitri build` instead.");
+  }
   const project = getProjectContextOrExit();
 
   let feature;

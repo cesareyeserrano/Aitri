@@ -104,7 +104,6 @@ function computeNextStep({
   if (!approvedSpecFound) return "aitri draft";
   if (!discoveryExists) return "aitri plan";
   if (!planExists) return "aitri plan";
-  if (!verifyOk) return "aitri verify";
   return "ready_for_human_approval";
 }
 

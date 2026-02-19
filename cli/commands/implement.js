@@ -272,6 +272,10 @@ export async function runImplementCommand({
   exitCodes
 }) {
   const { OK, ERROR, ABORTED } = exitCodes;
+  const _implementJsonOutput = (options.json) || ((options.format||"").toLowerCase()==="json") || (options.positional||[]).some(p=>p.toLowerCase()==="json");
+  if (!_implementJsonOutput) {
+    console.log("DEPRECATION: `aitri implement` is deprecated. Use `aitri build` instead.");
+  }
   const project = getProjectContextOrExit();
 
   let feature;

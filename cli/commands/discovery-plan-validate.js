@@ -551,6 +551,10 @@ export async function runValidateCommand({
   exitCodes
 }) {
   const { OK, ERROR } = exitCodes;
+  const _validateJsonOutput = (options.json) || ((options.format||"").toLowerCase()==="json") || (options.positional||[]).some(p=>p.toLowerCase()==="json");
+  if (!_validateJsonOutput) {
+    console.log("DEPRECATION: `aitri validate` is deprecated. `aitri go` runs validation automatically.");
+  }
   const project = getProjectContextOrExit();
   const validatePositional = [...options.positional];
   const jsonOutput = wantsJson(options, validatePositional);

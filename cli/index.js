@@ -35,7 +35,6 @@ import { runHooksCommand } from "./commands/hooks.js";
 import { runCiCommand } from "./commands/ci.js";
 import { runSpecImproveCommand } from "./commands/spec-improve.js";
 import { runExecuteCommand } from "./commands/execute.js";
-import { runServeCommand } from "./commands/serve.js";
 import { runScaffoldCommand } from "./commands/scaffold.js";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import { normalizeFeatureName } from "./lib.js";
@@ -105,7 +104,7 @@ function parseArgs(argv) {
     feature: null,
     project: null,
     story: null,
-    noBuild: false, noVerify: false, dryRun: false, note: null, source: null, ref: null,
+    noBuild: false, noVerify: false, dryRun: false, verify: false, note: null, source: null, ref: null,
     verifyCmd: null,
     discoveryDepth: null,
     retrievalMode: null,
@@ -186,6 +185,7 @@ function parseArgs(argv) {
     } else if (arg === "--action") { parsed.action = (argv[i+1]||"").trim(); i+=1;
     } else if (arg === "--port") { parsed.port = parseInt(argv[i+1]||"4173",10); i+=1;
     } else if (arg === "--no-test") { parsed.noTest = true;
+    } else if (arg === "--verify") { parsed.verify = true;
     } else if (arg === "--hook") { parsed.hook = (argv[i+1]||"").trim(); i+=1;
     } else if (arg === "--provider") { parsed.provider = (argv[i+1]||"").trim(); i+=1;
     } else if (arg === "--all") { parsed.all = true;
@@ -711,11 +711,6 @@ if (cmd === "spec-improve") {
 
 if (cmd === "execute") {
   const code = await runExecuteCommand({ options, getProjectContextOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
-  await exitWithFlow({ code, command: cmd, options });
-}
-
-if (cmd === "serve") {
-  const code = runServeCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
