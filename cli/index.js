@@ -37,7 +37,7 @@ import { runSpecImproveCommand } from "./commands/spec-improve.js";
 import { runExecuteCommand } from "./commands/execute.js";
 import { runScaffoldCommand } from "./commands/scaffold.js";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
-import { normalizeFeatureName } from "./lib.js";
+import { normalizeFeatureName, smartExtractSpec } from "./lib.js";
 import {
   confirmProceed as confirmProceedSession,
   confirmResume as confirmResumeSession,
@@ -526,20 +526,54 @@ if (cmd === "draft") {
     parts.push("");
     specContent = parts.join("\n");
   } else {
-    // Raw mode — use template with idea injected into context
+    // Raw mode — smart extraction when idea is detailed, template fallback otherwise
+    const rawIdea = String(options.idea || idea || "");
+    const extracted = smartExtractSpec(rawIdea);
     const cliDir = path.dirname(fileURLToPath(import.meta.url));
-    const templatePath = path.resolve(cliDir, "..", "core", "templates", "af_spec.md");
-    if (!fs.existsSync(templatePath)) {
-      console.log(`Template not found at: ${templatePath}`);
-      console.log("Make sure Aitri repo has core/templates/af_spec.md");
-      process.exit(EXIT_ERROR);
+
+    if (extracted.confidence !== "low") {
+      // Pre-fill sections from the idea — only mark genuinely unknown things
+      const parts = [
+        `# AF-SPEC: ${feature}`, "", "STATUS: DRAFT", "",
+        "## 1. Context",
+        `Summary (provided by user): ${rawIdea}`,
+        "Requirement source: provided explicitly by user via --idea.", "",
+        "## 2. Actors",
+        extracted.actors || "- [CLARIFY: Who are the primary actors/users of this system?]", "",
+        "## 3. Functional Rules (traceable)",
+        extracted.frs || "- FR-1: [CLARIFY: List the functional rules as verifiable statements]", "",
+        "## 4. Edge Cases",
+        "- [CLARIFY: What happens with invalid inputs, empty states, or concurrent requests?]", "",
+        "## 5. Failure Conditions",
+        "- [CLARIFY: How should the system behave when things go wrong?]", "",
+        "## 6. Non-Functional Requirements",
+        extracted.nfrs || "- [CLARIFY: Performance, scalability, or technology constraints]", "",
+        "## 7. Security Considerations",
+        extracted.security || "- [CLARIFY: Authentication, authorization, and input validation requirements]", "",
+        "## 8. Out of Scope",
+        "- [CLARIFY: What is explicitly excluded from this version?]", "",
+        "## 9. Acceptance Criteria (Given/When/Then)",
+        "- AC-1: Given <context>, when <action>, then <expected outcome>.", "",
+        "## 10. Requirement Source Statement",
+        "- Requirements provided explicitly by the user via --idea.",
+        `- Aitri extracted ${extracted.frs ? "functional rules" : "context"} from the brief. Verify and complete placeholders before approve.`,
+        ""
+      ];
+      specContent = parts.join("\n");
+      console.log(`Smart extraction: ${extracted.confidence} confidence — ${extracted.frs ? "FRs pre-filled" : "context captured"}. Complete [CLARIFY] sections before approve.`);
+    } else {
+      const templatePath = path.resolve(cliDir, "..", "core", "templates", "af_spec.md");
+      if (!fs.existsSync(templatePath)) {
+        console.log(`Template not found at: ${templatePath}`);
+        process.exit(EXIT_ERROR);
+      }
+      const template = fs.readFileSync(templatePath, "utf8");
+      specContent = template.replace(
+        "## 1. Context\nDescribe the problem context.",
+        `## 1. Context\n${idea}\n\n---\n\n(Complete all requirement sections with explicit user-provided requirements before approve.)`
+      );
+      specContent = `${specContent}\n## 10. Requirement Source Statement\n- Requirements must be provided explicitly by the user.\n- Aitri does not invent requirements.\n`;
     }
-    const template = fs.readFileSync(templatePath, "utf8");
-    specContent = template.replace(
-      "## 1. Context\nDescribe the problem context.",
-      `## 1. Context\n${idea}\n\n---\n\n(Complete all requirement sections with explicit user-provided requirements before approve.)`
-    );
-    specContent = `${specContent}\n## 10. Requirement Source Statement\n- Requirements must be provided explicitly by the user.\n- Aitri does not invent requirements.\n`;
   }
 
   fs.writeFileSync(outFile, specContent, "utf8");
