@@ -38,6 +38,7 @@ import { runExecuteCommand } from "./commands/execute.js";
 import { runScaffoldCommand } from "./commands/scaffold.js";
 import { runCheckpointCommand, runCheckpointShowCommand } from "./commands/checkpoint.js";
 import { runVerifyIntentCommand } from "./commands/verify-intent.js";
+import { runDiffCommand } from "./commands/diff.js";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import { normalizeFeatureName, smartExtractSpec } from "./lib.js";
 import {
@@ -112,6 +113,7 @@ function parseArgs(argv) {
     retrievalMode: null,
     depth: null, action: null, port: 4173,
     aiBacklog: null, aiTests: null, aiArchitecture: null,
+    proposed: null,
     positional: []
   };
 
@@ -198,6 +200,8 @@ function parseArgs(argv) {
     } else if (arg.startsWith("--ai-tests=")) { parsed.aiTests = arg.slice("--ai-tests=".length).trim();
     } else if (arg === "--ai-architecture") { parsed.aiArchitecture = (argv[i+1]||"").trim(); i+=1;
     } else if (arg.startsWith("--ai-architecture=")) { parsed.aiArchitecture = arg.slice("--ai-architecture=".length).trim();
+    } else if (arg === "--proposed") { parsed.proposed = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--proposed=")) { parsed.proposed = arg.slice("--proposed=".length).trim();
     } else {
       parsed.positional.push(arg);
     }
@@ -320,7 +324,7 @@ Workflow:
      [WRITE CODE]    You or your AI agent implements each story
   7. aitri deliver    Release tag + build artifact
 
-Other: preview, status, resume, checkpoint, verify-intent, spec-improve
+Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff
 Still work (deprecated): discover, validate, handoff, scaffold, implement, verify, policy
 
 Common options:
@@ -759,6 +763,11 @@ if (cmd === "execute") {
 
 if (cmd === "verify-intent") {
   const code = await runVerifyIntentCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  process.exit(code);
+}
+
+if (cmd === "diff") {
+  const code = runDiffCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   process.exit(code);
 }
 

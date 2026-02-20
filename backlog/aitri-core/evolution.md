@@ -14,12 +14,6 @@
     - **Context:** Add `verify-intent` command to check if US satisfies FR intent using LLM.
     - **Acceptance:** Command exists and calls `ai-client` with spec context.
 
-- **[EVO-003] Architecture: State-Aware Context Engine**
-    - **Source:** docs/feedback/ARCHITECTURAL_FEEDBACK.md#1.4
-    - **Priority:** Medium
-    - **Context:** Manage incremental updates (Backlog Delta).
-    - **Acceptance:** Aitri can diff current backlog vs. proposed changes.
-
 - **[EVO-004] Doc: Vision Alignment Update**
     - **Source:** docs/feedback/VISION_ALIGNMENT.md
     - **Priority:** Low
@@ -37,6 +31,9 @@
 _(none)_
 
 ## 🔴 Done
+
+- **[EVO-003] Architecture: State-Aware Context Engine**
+    - **Status:** DONE. `aitri diff --feature <name> --proposed <file>` implemented. 4 regression tests. 137/137 green.
 
 - **[EVO-001] Refactor: Auditor Mode for Content Generator**
     - **Phase 1 DONE:** `auditBacklog()`, `auditTests()`, `auditAgentContent()` exported. 8 unit tests.

@@ -524,3 +524,121 @@ test("plan --ai-backlog fails audit when US references non-existent FR", () => {
     "backlog should not be written when audit fails"
   );
 });
+
+// Phase X: EVO-003 — aitri diff (Backlog Delta)
+
+test("diff requires --feature flag", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-diff-no-feature-"));
+  setupAitriProject(tempDir);
+
+  const result = runNode(["diff", "--non-interactive"], { cwd: tempDir });
+
+  assert.equal(result.status, 1, "should fail without --feature");
+  assert.ok(
+    result.stdout.includes("Feature name is required"),
+    `expected feature-required message, got: ${result.stdout}`
+  );
+});
+
+test("diff requires --proposed flag", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-diff-no-proposed-"));
+  setupAitriProject(tempDir);
+
+  const result = runNode(["diff", "--feature", "user-auth", "--non-interactive"], { cwd: tempDir });
+
+  assert.equal(result.status, 1, "should fail without --proposed");
+  assert.ok(
+    result.stdout.includes("Proposed backlog file is required"),
+    `expected proposed-required message, got: ${result.stdout}`
+  );
+});
+
+test("diff detects added, modified, and removed stories between backlog versions", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-diff-delta-"));
+  const feature = "user-auth";
+  setupPlanReadyProject(tempDir, feature);
+
+  // Write current backlog (as if plan was run)
+  const backlogDir = path.join(tempDir, "backlog", feature);
+  fs.mkdirSync(backlogDir, { recursive: true });
+  const currentBacklog = [
+    `# Backlog: ${feature}`,
+    "",
+    "## User Stories",
+    "",
+    "### US-1",
+    "- As a User, I want to log in with email, so that I can access the system.",
+    "- Trace: FR-1, AC-1",
+    "",
+    "### US-2",
+    "- As a User, I want invalid logins rejected, so that my account is secure.",
+    "- Trace: FR-2, AC-2"
+  ].join("\n");
+  fs.writeFileSync(path.join(backlogDir, "backlog.md"), currentBacklog, "utf8");
+
+  // Proposed backlog: US-1 modified (new trace), US-2 removed, US-3 added
+  const proposedBacklog = [
+    `# Backlog: ${feature}`,
+    "",
+    "## User Stories",
+    "",
+    "### US-1",
+    "- As a User, I want to log in with email, so that I can access the system.",
+    "- Trace: FR-1, FR-2, AC-1",   // modified: added FR-2
+    "",
+    "### US-3",
+    "- As a User, I want to reset my password, so that I can recover my account.",
+    "- Trace: FR-1, AC-2"
+  ].join("\n");
+  const proposedFile = path.join(tempDir, "proposed-backlog.md");
+  fs.writeFileSync(proposedFile, proposedBacklog, "utf8");
+
+  const result = runNode(
+    ["diff", "--feature", feature, "--proposed", "proposed-backlog.md", "--json", "--non-interactive"],
+    { cwd: tempDir }
+  );
+
+  assert.equal(result.status, 0, `diff failed: ${result.stdout}\n${result.stderr}`);
+
+  const parsed = JSON.parse(result.stdout.trim());
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.hasChanges, true);
+  assert.equal(parsed.summary.added, 1, "should detect 1 added story");
+  assert.equal(parsed.summary.modified, 1, "should detect 1 modified story");
+  assert.equal(parsed.summary.removed, 1, "should detect 1 removed story");
+  assert.equal(parsed.summary.unchanged, 0, "should have 0 unchanged stories");
+  assert.equal(parsed.delta.added[0].id, "US-3", "added story should be US-3");
+  assert.equal(parsed.delta.modified[0].id, "US-1", "modified story should be US-1");
+  assert.equal(parsed.delta.removed[0].id, "US-2", "removed story should be US-2");
+});
+
+test("diff reports no changes when backlogs are identical", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-diff-unchanged-"));
+  const feature = "user-auth";
+  setupPlanReadyProject(tempDir, feature);
+
+  const backlogDir = path.join(tempDir, "backlog", feature);
+  fs.mkdirSync(backlogDir, { recursive: true });
+  const backlogContent = [
+    `# Backlog: ${feature}`,
+    "",
+    "## User Stories",
+    "",
+    "### US-1",
+    "- As a User, I want to log in with email, so that I can access the system.",
+    "- Trace: FR-1, AC-1"
+  ].join("\n");
+  fs.writeFileSync(path.join(backlogDir, "backlog.md"), backlogContent, "utf8");
+  fs.writeFileSync(path.join(tempDir, "same-backlog.md"), backlogContent, "utf8");
+
+  const result = runNode(
+    ["diff", "--feature", feature, "--proposed", "same-backlog.md", "--json", "--non-interactive"],
+    { cwd: tempDir }
+  );
+
+  assert.equal(result.status, 0, `diff failed: ${result.stdout}`);
+  const parsed = JSON.parse(result.stdout.trim());
+  assert.equal(parsed.ok, true);
+  assert.equal(parsed.hasChanges, false, "should report no changes");
+  assert.equal(parsed.summary.unchanged, 1, "US-1 should be unchanged");
+});
