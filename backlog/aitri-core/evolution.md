@@ -2,17 +2,14 @@
 
 ## 🟢 Ready for Implementation
 
-- **[EVO-008] Feature: Project Adoption (`aitri adopt`) — Phase 2**
+- **[EVO-008] Feature: Project Adoption (`aitri adopt`) — Phase 3 (Map)**
     - **Source:** User Feedback (Session 2026-02-20)
-    - **Priority:** High
-    - **Phase 1 Status:** DONE. `cli/commands/adopt.js` — stack detection, folder conventions, entry points, adoption-manifest.json, proposed aitri.config.json. 5 regression tests. 147/147 green.
-    - **Remaining work (Phase 2 — LLM inference):**
-        - `--depth standard` activates LLM path; reads manifest + README + bounded entry points
-        - Generates: `specs/drafts/<feature>.md` per inferred feature (DRAFT only)
-        - Generates: `docs/discovery/<feature>.md` retrograde discovery document
-        - Generates: `tests/<feature>/tests.md` mapping existing test names to TC-*
-        - Requires `ai` config in `aitri.config.json`
-    - **Phase 3 (Map):** After `aitri approve`, map existing tests to TC-* in backlog. Generate verified `aitri.config.json`.
+    - **Priority:** Medium
+    - **Phase 1+2 Status:** DONE. See Done section.
+    - **Remaining work (Phase 3 — Map, after human approves adopted specs):**
+        - Map existing test file names → TC-* identifiers in backlog (where detectable)
+        - Generate verified `aitri.config.json` with confirmed path mappings
+        - Activate with: `aitri adopt --depth deep` (post-approval)
 
 ## 🟡 In Progress
 
@@ -23,8 +20,11 @@ _(none)_
 - **[EVO-009] Enhancement: Version-Aware Project Migration (`aitri upgrade` v2)**
     - **Status:** DONE. `semverLt()`, `readProjectVersion()`, `readAppliedMigrations()`, `stampProjectVersion()` added to `upgrade.js`. `sinceVersion` field on migrations. `NOTIFY-NEW-COMMANDS-0.5.0` (atomic, writes `docs/UPGRADE-NOTES-v0.5.0.md`). Idempotent via `migrationsApplied` in `project.json`. 142/142 green.
 
-- **[EVO-008] Feature: Project Adoption (`aitri adopt`) — Phase 1**
-    - **Status:** DONE. `cli/commands/adopt.js` — stack detection (node/python/go/rust/java), folder conventions, entry points, test file count, README detection, gap analysis, `docs/adoption-manifest.json`, proposed `aitri.config.json` for path conflicts. `--dry-run` supported. NEVER modifies source files. 5 regression tests. 147/147 green.
+- **[EVO-008] Feature: Project Adoption (`aitri adopt`) — Phase 1+2**
+    - **Status:** DONE.
+    - Phase 1: stack detection (node/python/go/rust/java), folder conventions, entry points, test file count, README detection, gap analysis, `docs/adoption-manifest.json`, proposed `aitri.config.json`. `--dry-run` supported. NEVER modifies source files.
+    - Phase 2: `--depth standard` activates LLM inference; reads manifest + README + bounded entry points; generates `specs/drafts/<feature>.md` (DRAFT only) + `docs/discovery/<feature>.md`; graceful error on missing AI config or API key; never overwrites approved specs; manifest updated with `phase2` results.
+    - 9 regression tests (5 Phase 1 + 4 Phase 2). 151/151 green.
 
 - **[EVO-004] Doc: Vision Alignment Update**
     - **Status:** DONE. `docs/architecture.md` reframed for agent-centric workflow. `GETTING_STARTED.md` updated with Auditor Mode section. `docs/guides/AGENT_INTEGRATION_GUIDE.md` created.
