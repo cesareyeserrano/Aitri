@@ -6,6 +6,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseApprovedSpec } from "../../cli/commands/spec-parser.js";
 import { generateTestsContent, auditBacklog, auditTests, auditAgentContent } from "../../cli/commands/content-generator.js";
+import { parseTestCases, buildContractImports } from "../../cli/commands/scaffold.js";
 import { runNode, runNodeOk } from "./helpers/cli-test-helpers.mjs";
 
 const SPEC_WITHOUT_UI = `# AF-SPEC: no-ui-feature
@@ -432,6 +433,82 @@ test("auditAgentContent aggregates issues from backlog and tests", () => {
   assert.equal(result.ok, false);
   assert.ok(result.issues.some(i => i.includes("[backlog]") && i.includes("FR-99")));
   assert.ok(result.issues.some(i => i.includes("[tests]") && i.includes("US-99")));
+});
+
+// EVO-006: Contract-Test Linkage unit tests (no filesystem)
+
+test("parseTestCases extracts frIds from TC Trace line", () => {
+  const testsContent = [
+    "### TC-1",
+    "- Title: Validate credentials",
+    "- Trace: US-1, FR-1, AC-1",
+    "",
+    "### TC-2",
+    "- Title: Reject invalid logins",
+    "- Trace: US-2, FR-2, FR-3, AC-2"
+  ].join("\n");
+
+  const cases = parseTestCases(testsContent);
+  assert.equal(cases.length, 2);
+  assert.deepEqual(cases[0].frIds, ["FR-1"]);
+  assert.deepEqual(cases[1].frIds, ["FR-2", "FR-3"]);
+});
+
+test("parseTestCases returns empty frIds when no FR-* in trace", () => {
+  const testsContent = [
+    "### TC-1",
+    "- Trace: US-1, AC-1"
+  ].join("\n");
+
+  const cases = parseTestCases(testsContent);
+  assert.deepEqual(cases[0].frIds, []);
+});
+
+test("buildContractImports generates ESM import for node stack with FR trace", () => {
+  const tc = {
+    id: "TC-1",
+    title: "Validate user credentials",
+    acIds: ["AC-1"],
+    frIds: ["FR-1"]
+  };
+  const parsedSpec = {
+    functionalRules: [{ id: "FR-1", text: "The system must validate user credentials before granting access." }]
+  };
+  const root = "/project";
+  const testFile = "/project/tests/user-auth/generated/tc-1-validate-user.test.mjs";
+
+  const result = buildContractImports({ tc, root, testFile, stackFamily: "node", feature: "user-auth", parsedSpec });
+
+  assert.ok(result.startsWith("import {"), `should start with import, got: ${result}`);
+  assert.ok(result.includes("from"), `should include from clause, got: ${result}`);
+  assert.ok(result.includes("src/contracts"), `should reference src/contracts, got: ${result}`);
+  assert.ok(result.includes("fr-1"), `should reference fr-1 contract, got: ${result}`);
+});
+
+test("buildContractImports emits fallback comment when no FR traces", () => {
+  const tc = { id: "TC-1", title: "Test", acIds: [], frIds: [] };
+
+  const resultNode = buildContractImports({ tc, root: "/p", testFile: "/p/tests/f/generated/tc-1.test.mjs", stackFamily: "node", feature: "f", parsedSpec: {} });
+  assert.ok(resultNode.includes("No contract linked"), `node fallback, got: ${resultNode}`);
+
+  const resultPython = buildContractImports({ tc, root: "/p", testFile: "/p/tests/f/generated/test_tc_1.py", stackFamily: "python", feature: "f", parsedSpec: {} });
+  assert.ok(resultPython.includes("No contract linked"), `python fallback, got: ${resultPython}`);
+});
+
+test("buildContractImports generates Go import block with testing and contracts", () => {
+  const tc = {
+    id: "TC-1",
+    title: "Test",
+    acIds: [],
+    frIds: ["FR-1"]
+  };
+  const parsedSpec = {
+    functionalRules: [{ id: "FR-1", text: "do something" }]
+  };
+
+  const result = buildContractImports({ tc, root: "/p", testFile: "/p/tests/f/generated/tc_1_test.go", stackFamily: "go", feature: "my-feature", parsedSpec });
+  assert.ok(result.includes('"testing"'), `should include testing package, got: ${result}`);
+  assert.ok(result.includes("my-feature/internal/contracts"), `should include contracts package, got: ${result}`);
 });
 
 // Helper

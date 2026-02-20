@@ -1,6 +1,7 @@
 // {{TC_ID}}: {{TC_TITLE}}
 // Acceptance Criteria: {{AC_IDS}}
 // {{AC_DESCRIPTIONS}}
+{{CONTRACT_IMPORT}}
 import test from "node:test";
 import assert from "node:assert/strict";
 

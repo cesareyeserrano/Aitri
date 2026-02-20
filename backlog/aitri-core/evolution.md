@@ -20,17 +20,14 @@
     - **Context:** Update `architecture.md` and guides to reflect "Bolt.new with Discipline" vision.
     - **Acceptance:** Docs reflect agent-centric workflow.
 
-- **[EVO-006] Scaffold: Automated Contract-Test Linkage**
-    - **Source:** docs/feedback/TEST_DRIVE_FEEDBACK.md#1.4
-    - **Priority:** Medium
-    - **Context:** Scaffolded tests should automatically import the relevant contract.
-    - **Acceptance:** Tests are ready to implement logic without manual imports.
-
 ## 🟡 In Progress
 
 _(none)_
 
 ## 🔴 Done
+
+- **[EVO-006] Scaffold: Automated Contract-Test Linkage**
+    - **Status:** DONE. `parseTestCases` extracts FR-* refs; `buildContractImports` generates per-stack import statements. Templates updated with `{{CONTRACT_IMPORT}}`. 5 unit tests. 142/142 green.
 
 - **[EVO-003] Architecture: State-Aware Context Engine**
     - **Status:** DONE. `aitri diff --feature <name> --proposed <file>` implemented. 4 regression tests. 137/137 green.

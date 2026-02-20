@@ -3,7 +3,7 @@
 // {{AC_DESCRIPTIONS}}
 package generated
 
-import "testing"
+{{CONTRACT_IMPORT}}
 
 func Test{{TEST_NAME}}(t *testing.T) {
 	// TODO: Validate these acceptance criteria:

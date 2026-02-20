@@ -2,6 +2,7 @@
 # Acceptance Criteria: {{AC_IDS}}
 # {{AC_DESCRIPTIONS}}
 import pytest
+{{CONTRACT_IMPORT}}
 
 TC_MARKER = "// {{TC_ID}}: {{TC_TITLE}}"
 

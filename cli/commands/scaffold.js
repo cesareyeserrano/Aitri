@@ -56,8 +56,57 @@ export function parseTestCases(testsContent) {
     const acIds = [...new Set(
       [...String(traceLine).matchAll(/\bAC-\d+\b/g)].map((m) => m[0])
     )];
-    return { id, title, acIds };
+    // EVO-006: also capture FR-* refs for contract linkage
+    const frIds = [...new Set(
+      [...String(traceLine).matchAll(/\bFR-\d+\b/g)].map((m) => m[0])
+    )];
+    return { id, title, acIds, frIds };
   });
+}
+
+/**
+ * EVO-006: Build a per-stack contract import statement for a test stub.
+ * Resolves the contract file(s) for each FR-* traced by the TC and returns
+ * a ready-to-use import line so the developer can implement logic immediately.
+ */
+export function buildContractImports({ tc, root, testFile, stackFamily, feature, parsedSpec }) {
+  const frIds = tc.frIds || [];
+  if (frIds.length === 0) {
+    if (stackFamily === "go") return `import "testing"`;
+    return "// No contract linked — add FR-* to the TC Trace line to auto-import.";
+  }
+
+  const rules = parsedSpec.functionalRules || [];
+  const frMap = new Map(rules.map((r) => [r.id, r.text]));
+
+  if (stackFamily === "node") {
+    const lines = frIds.map((frId) => {
+      const frText = frMap.get(frId) || frId.toLowerCase();
+      const contractFile = interfacePathByStack(root, stackFamily, feature, frId, frText);
+      let relPath = path.relative(path.dirname(testFile), contractFile).replace(/\\/g, "/");
+      if (!relPath.startsWith(".")) relPath = "./" + relPath;
+      const fnName = slugify(`${frId}-${frText}`).replace(/-/g, "_").slice(0, 50);
+      return `import { ${fnName} } from "${relPath}";`;
+    });
+    return lines.join("\n");
+  }
+
+  if (stackFamily === "python") {
+    const lines = frIds.map((frId) => {
+      const frText = frMap.get(frId) || frId.toLowerCase();
+      const suffix = slugify(frText).slice(0, 32);
+      const moduleName = `${frId.toLowerCase().replace("-", "_")}_${suffix}`.replace(/-/g, "_");
+      const fnName = slugify(`${frId}-${frText}`).replace(/-/g, "_").slice(0, 50);
+      return `from src.contracts.${moduleName} import ${fnName}`;
+    });
+    return lines.join("\n");
+  }
+
+  if (stackFamily === "go") {
+    return `import (\n\t"testing"\n\t"${feature}/internal/contracts"\n)`;
+  }
+
+  return "";
 }
 
 function buildAcTemplateVars(tc, parsedSpec) {
@@ -247,10 +296,20 @@ function scaffoldTemplatesByStack(stackFamily) {
 export function createTestStub({ root, stackFamily, feature, tc, testTemplate, parsedSpec }) {
   const acVars = buildAcTemplateVars(tc, parsedSpec || {});
   const file = testPathByStack(root, stackFamily, feature, tc.id, tc.title);
+  // EVO-006: resolve contract import before rendering the template
+  const contractImport = buildContractImports({
+    tc,
+    root,
+    testFile: file,
+    stackFamily,
+    feature,
+    parsedSpec: parsedSpec || {}
+  });
   const body = renderTemplate(testTemplate, {
     TC_ID: tc.id,
     TC_TITLE: tc.title,
     TEST_NAME: slugify(`${tc.id}-${tc.title}`).replace(/-/g, "_"),
+    CONTRACT_IMPORT: contractImport,
     ...acVars
   });
   writeFile(file, body);
