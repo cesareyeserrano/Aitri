@@ -228,3 +228,121 @@ test("serve exits cleanly when project context fails", () => {
   // We just verify no unhandled crash (signal null)
   assert.equal(result.signal, null, "should not crash with signal");
 });
+
+// Phase V: verify-intent (EVO-002)
+
+test("verify-intent requires --feature flag", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-vi-no-feature-"));
+  setupAitriProject(tempDir);
+
+  const result = runNode(
+    ["verify-intent", "--non-interactive"],
+    { cwd: tempDir }
+  );
+
+  assert.equal(result.status, 1, "should exit with error when --feature is missing");
+  assert.ok(
+    result.stdout.includes("Feature name is required") ||
+    result.stdout.includes("--feature"),
+    `should mention --feature, got: ${result.stdout}`
+  );
+});
+
+test("verify-intent returns intent-unavailable when AI not configured", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-vi-no-ai-"));
+  setupAitriProject(tempDir);
+
+  // Create a minimal approved spec
+  const approvedDir = path.join(tempDir, "specs", "approved");
+  fs.mkdirSync(approvedDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(approvedDir, "test-feature.md"),
+    [
+      "# AF-SPEC: test-feature",
+      "STATUS: APPROVED",
+      "",
+      "## 3. Functional Rules (traceable)",
+      "- FR-1: The system must authenticate users.",
+      "",
+      "## 9. Acceptance Criteria",
+      "- AC-1: Given valid credentials, when submitted, then access is granted.",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+
+  // Create a minimal backlog with one US
+  const backlogDir = path.join(tempDir, "backlog", "test-feature");
+  fs.mkdirSync(backlogDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(backlogDir, "backlog.md"),
+    [
+      "# Backlog: test-feature",
+      "",
+      "## User Stories",
+      "",
+      "### US-1",
+      "- As a user, I want to log in, so that I can access the system.",
+      "- Trace: FR-1, AC-1",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+
+  const result = runNode(
+    ["verify-intent", "--feature", "test-feature", "--non-interactive"],
+    { cwd: tempDir }
+  );
+
+  assert.equal(result.status, 1, "should exit with error when AI not configured");
+  assert.ok(
+    result.stdout.includes("AI not configured") ||
+    result.stdout.includes("ai") ||
+    result.stdout.includes(".aitri.json") ||
+    result.stdout.includes("intent-unavailable"),
+    `should mention AI configuration, got: ${result.stdout}`
+  );
+});
+
+test("verify-intent blocks when approved spec is missing", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-vi-no-spec-"));
+  setupAitriProject(tempDir);
+
+  const result = runNode(
+    ["verify-intent", "--feature", "missing-feature", "--non-interactive"],
+    { cwd: tempDir }
+  );
+
+  assert.equal(result.status, 1, "should fail without approved spec");
+  assert.ok(
+    result.stdout.includes("Approved spec not found") ||
+    result.stdout.includes("approve"),
+    `should mention approve gate, got: ${result.stdout}`
+  );
+});
+
+test("verify-intent blocks when backlog is missing", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-vi-no-backlog-"));
+  setupAitriProject(tempDir);
+
+  // Create approved spec but no backlog
+  const approvedDir = path.join(tempDir, "specs", "approved");
+  fs.mkdirSync(approvedDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(approvedDir, "no-backlog-feature.md"),
+    "# AF-SPEC: no-backlog-feature\nSTATUS: APPROVED\n\n## 3. Functional Rules (traceable)\n- FR-1: The system must do something.\n",
+    "utf8"
+  );
+
+  const result = runNode(
+    ["verify-intent", "--feature", "no-backlog-feature", "--non-interactive"],
+    { cwd: tempDir }
+  );
+
+  assert.equal(result.status, 1, "should fail without backlog");
+  assert.ok(
+    result.stdout.includes("Backlog not found") ||
+    result.stdout.includes("plan"),
+    `should mention plan command, got: ${result.stdout}`
+  );
+});
