@@ -2,14 +2,7 @@
 
 ## 🟢 Ready for Implementation
 
-- **[EVO-008] Feature: Project Adoption (`aitri adopt`) — Phase 3 (Map)**
-    - **Source:** User Feedback (Session 2026-02-20)
-    - **Priority:** Medium
-    - **Phase 1+2 Status:** DONE. See Done section.
-    - **Remaining work (Phase 3 — Map, after human approves adopted specs):**
-        - Map existing test file names → TC-* identifiers in backlog (where detectable)
-        - Generate verified `aitri.config.json` with confirmed path mappings
-        - Activate with: `aitri adopt --depth deep` (post-approval)
+_(none)_
 
 ## 🟡 In Progress
 
@@ -20,11 +13,13 @@ _(none)_
 - **[EVO-009] Enhancement: Version-Aware Project Migration (`aitri upgrade` v2)**
     - **Status:** DONE. `semverLt()`, `readProjectVersion()`, `readAppliedMigrations()`, `stampProjectVersion()` added to `upgrade.js`. `sinceVersion` field on migrations. `NOTIFY-NEW-COMMANDS-0.5.0` (atomic, writes `docs/UPGRADE-NOTES-v0.5.0.md`). Idempotent via `migrationsApplied` in `project.json`. 142/142 green.
 
-- **[EVO-008] Feature: Project Adoption (`aitri adopt`) — Phase 1+2**
+- **[EVO-008] Feature: Project Adoption (`aitri adopt`) — All Phases DONE**
     - **Status:** DONE.
-    - Phase 1: stack detection (node/python/go/rust/java), folder conventions, entry points, test file count, README detection, gap analysis, `docs/adoption-manifest.json`, proposed `aitri.config.json`. `--dry-run` supported. NEVER modifies source files.
-    - Phase 2: `--depth standard` activates LLM inference; reads manifest + README + bounded entry points; generates `specs/drafts/<feature>.md` (DRAFT only) + `docs/discovery/<feature>.md`; graceful error on missing AI config or API key; never overwrites approved specs; manifest updated with `phase2` results.
-    - 9 regression tests (5 Phase 1 + 4 Phase 2). 151/151 green.
+    - Phase 1 (`quick`): stack detection (node/python/go/rust/java), folder conventions, entry points, test file count, README, gap analysis, `docs/adoption-manifest.json`, proposed `aitri.config.json`. `--dry-run` supported. NEVER modifies source files.
+    - Phase 2 (`standard`): LLM infers top 1–3 features → `specs/drafts/<feature>.md` (DRAFT) + `docs/discovery/<feature>.md`. Bounded context (README + entry point). Never overwrites approved specs. Graceful errors.
+    - Phase 3 (`deep`): Scans existing test files; extracts test names (node/python/go patterns); builds `tests/<feature>/tests.md` with TC-* stubs and Trace placeholders; writes verified `aitri.config.json` if path overrides needed. Requires at least one approved spec.
+    - Exports: `writeDraftSpec`, `writeDiscoveryDoc`, `extractTestNames`, `buildTestsMapping`, `writeTestsMapping`, `buildVerifiedConfig`.
+    - 16 regression tests (5 Phase 1 + 4 Phase 2 + 7 Phase 3). 158/158 green.
 
 - **[EVO-004] Doc: Vision Alignment Update**
     - **Status:** DONE. `docs/architecture.md` reframed for agent-centric workflow. `GETTING_STARTED.md` updated with Auditor Mode section. `docs/guides/AGENT_INTEGRATION_GUIDE.md` created.

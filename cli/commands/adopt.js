@@ -281,6 +281,126 @@ export function writeDiscoveryDoc(paths, featureName, discoveryContent) {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 3: extract test names from existing source test files
+// ---------------------------------------------------------------------------
+
+const TEST_PATTERNS = {
+  // Node/JS/TS: test("name", ...) | it("name", ...) | describe("name", ...)
+  node: /(?:^|\s)(?:test|it|describe)\s*\(\s*["'`]([^"'`]+)["'`]/gm,
+  // Python: def test_name(...) | class TestName
+  python: /(?:^|\s)(?:def\s+(test_\w+)|class\s+(Test\w+))/gm,
+  // Go: func TestName(t
+  go: /func\s+(Test\w+)\s*\(/gm
+};
+
+export function extractTestNames(fileContent, stackFamily) {
+  const pattern = TEST_PATTERNS[stackFamily] || TEST_PATTERNS.node;
+  const names = [];
+  let match;
+  // Reset lastIndex for repeated use
+  pattern.lastIndex = 0;
+  while ((match = pattern.exec(fileContent)) !== null) {
+    const name = match[1] || match[2] || "";
+    if (name) names.push(name.trim());
+  }
+  return [...new Set(names)];
+}
+
+function walkTestFiles(dir) {
+  const files = [];
+  if (!fs.existsSync(dir)) return files;
+  function walk(current) {
+    let entries;
+    try { entries = fs.readdirSync(current, { withFileTypes: true }); } catch { return; }
+    for (const e of entries) {
+      const full = path.join(current, e.name);
+      if (e.isDirectory()) walk(full);
+      else if (/\.(test|spec)\.(js|ts|mjs|cjs)$|_test\.go$|test_.*\.py$/.test(e.name)) {
+        files.push(full);
+      }
+    }
+  }
+  walk(dir);
+  return files;
+}
+
+function inferStackFamily(stacks) {
+  if (stacks.some((s) => s.name === "go")) return "go";
+  if (stacks.some((s) => s.name === "python")) return "python";
+  return "node";
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: build tests.md mapping existing test names → TC-* stubs
+// ---------------------------------------------------------------------------
+
+export function buildTestsMapping(testFiles, testDir, stackFamily, approvedFeatures) {
+  const lines = ["# Tests: Adopted Project (Phase 3 Map)", "", "STATUS: DRAFT", ""];
+
+  if (approvedFeatures.length > 0) {
+    lines.push(`> Features: ${approvedFeatures.join(", ")}`, "");
+  }
+
+  lines.push("<!-- Each TC below maps an existing test to the Aitri TC-* format. -->",
+    "<!-- Add Trace: lines once you have confirmed FR-* and AC-* references. -->", "");
+
+  let tcIndex = 1;
+  for (const file of testFiles) {
+    const relPath = path.relative(testDir, file);
+    let content;
+    try { content = fs.readFileSync(file, "utf8"); } catch { continue; }
+    const names = extractTestNames(content, stackFamily);
+    if (names.length === 0) continue;
+
+    lines.push(`## ${relPath}`, "");
+    for (const name of names) {
+      lines.push(
+        `### TC-${tcIndex}`,
+        `- Title: ${name}`,
+        `- Source: ${relPath}`,
+        `- Trace: (add FR-* and AC-* references after approving spec)`,
+        ""
+      );
+      tcIndex++;
+    }
+  }
+
+  if (tcIndex === 1) {
+    lines.push("No test names detected. Add test files to the existing test directory.");
+  }
+
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: write tests mapping (idempotent — never overwrites existing tests.md)
+// ---------------------------------------------------------------------------
+
+export function writeTestsMapping(paths, featureName, content) {
+  const testsFile = path.join(paths.testsRoot, featureName, "tests.md");
+  if (fs.existsSync(testsFile)) return { skipped: true, reason: "tests.md already exists" };
+  fs.mkdirSync(path.dirname(testsFile), { recursive: true });
+  fs.writeFileSync(testsFile, content, "utf8");
+  return { written: true, file: testsFile };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 3: build verified aitri.config.json (only when paths need overrides)
+// ---------------------------------------------------------------------------
+
+export function buildVerifiedConfig(conventions, root) {
+  const pathOverrides = {};
+  // If existing test path differs from default "tests", map to avoid collision
+  if (conventions.existingTestPath && conventions.existingTestPath !== "tests") {
+    pathOverrides.tests = `aitri/tests`;
+  }
+  if (conventions.existingDocPath && conventions.existingDocPath !== "docs") {
+    pathOverrides.docs = `aitri/docs`;
+  }
+  return Object.keys(pathOverrides).length > 0 ? { paths: pathOverrides } : null;
+}
+
+// ---------------------------------------------------------------------------
 // Public export
 // ---------------------------------------------------------------------------
 
@@ -299,8 +419,12 @@ export async function runAdoptCommand({
   const isDryRun = options.dryRun;
   const depth = (options.depth || "quick").toLowerCase();
   const isPhase2 = depth === "standard" || depth === "deep";
+  const isPhase3 = depth === "deep";
 
-  console.log(`Aitri Adopt — Project Onboarding (Phase 1: Scan${isPhase2 ? " + Phase 2: Infer" : ""})`);
+  const phaseLabel = isPhase3
+    ? "Phase 1: Scan + Phase 2: Infer + Phase 3: Map"
+    : isPhase2 ? "Phase 1: Scan + Phase 2: Infer" : "Phase 1: Scan";
+  console.log(`Aitri Adopt — Project Onboarding (${phaseLabel})`);
   console.log("");
 
   // -- Scan ------------------------------------------------------------------
@@ -429,8 +553,12 @@ export async function runAdoptCommand({
     planLines.push(`- Infer:  DRAFT specs via LLM (specs/drafts/<feature>.md)`);
     planLines.push(`- Infer:  Discovery docs (docs/discovery/<feature>.md)`);
   }
+  if (isPhase3) {
+    planLines.push(`- Map:    Existing tests → TC-* stubs (tests/<feature>/tests.md)`);
+    planLines.push(`- Write:  Verified aitri.config.json (if path overrides needed)`);
+  }
 
-  if (!isPhase2 && planLines.length === 0 && alreadyInitialized && fs.existsSync(manifestFile)) {
+  if (!isPhase2 && !isPhase3 && planLines.length === 0 && alreadyInitialized && fs.existsSync(manifestFile)) {
     console.log("Project already adopted. Manifest up to date.");
     return OK;
   }
@@ -550,11 +678,102 @@ export async function runAdoptCommand({
     console.log("");
     console.log(`Phase 2 complete. ${phase2Results.length} feature(s) inferred.`);
     console.log("All specs are DRAFT — human review required before aitri approve.");
+    if (!isPhase3) {
+      console.log("");
+      console.log("Next steps:");
+      console.log("  1. Review each DRAFT spec in specs/drafts/");
+      console.log("  2. Edit and refine as needed");
+      console.log("  3. Run: aitri approve --feature <name>  (for each feature you accept)");
+      console.log("  4. Run: aitri adopt --depth deep  (Phase 3: map existing tests to TC-*)");
+
+      printCheckpointSummary(runAutoCheckpoint({
+        enabled: options.autoCheckpoint,
+        phase: "adopt",
+        feature: "project"
+      }));
+
+      return OK;
+    }
+  }
+
+  // -- Phase 3: Map existing tests → TC-* stubs -----------------------------
+
+  if (isPhase3) {
+    console.log("");
+    console.log("Phase 3: Mapping existing tests to TC-* stubs...");
+    console.log("");
+
+    // Load manifest to get conventions (may have been updated in Phase 2)
+    const currentManifest = readJsonSafe(manifestFile) || {};
+    const manifestConventions = currentManifest.conventions || conventions;
+    const manifestStacks = currentManifest.stacks || stacks;
+    const stackFamily = inferStackFamily(manifestStacks);
+
+    // Find approved features (specs/approved/*.md)
+    let approvedFeatures = [];
+    if (fs.existsSync(paths.specsApprovedDir)) {
+      approvedFeatures = fs.readdirSync(paths.specsApprovedDir)
+        .filter((f) => f.endsWith(".md"))
+        .map((f) => f.replace(/\.md$/, ""));
+    }
+
+    if (approvedFeatures.length === 0) {
+      console.log("No approved specs found. Phase 3 maps tests to approved features.");
+      console.log("Run aitri approve --feature <name> first, then re-run aitri adopt --depth deep.");
+      return ERROR;
+    }
+
+    // Scan existing test files
+    const existingTestDir = manifestConventions.existingTestPath
+      ? path.join(root, manifestConventions.existingTestPath)
+      : null;
+
+    const testFiles = existingTestDir ? walkTestFiles(existingTestDir) : [];
+
+    if (testFiles.length === 0) {
+      console.log(`No existing test files found in ${manifestConventions.existingTestPath || "(no test path detected)"}.`);
+      console.log("Phase 3 requires existing test files to map to TC-* stubs.");
+    } else {
+      // For each approved feature, write a tests.md with TC-* stubs
+      const phase3Results = [];
+      for (const feature of approvedFeatures) {
+        const testsContent = buildTestsMapping(testFiles, existingTestDir, stackFamily, [feature]);
+        const result = writeTestsMapping(paths, feature, testsContent);
+        if (result.written) {
+          console.log(`  [OK] tests/${feature}/tests.md (${testFiles.length} test file(s) mapped)`);
+          phase3Results.push({ feature, testsWritten: true });
+        } else {
+          console.log(`  [SKIP] tests/${feature}/tests.md — ${result.reason}`);
+          phase3Results.push({ feature, testsWritten: false, reason: result.reason });
+        }
+      }
+
+      // Update manifest
+      const updatedManifest = readJsonSafe(manifestFile) || {};
+      updatedManifest.phase3 = {
+        completedAt: new Date().toISOString(),
+        testFilesMapped: testFiles.length,
+        features: phase3Results
+      };
+      writeJsonFile(manifestFile, updatedManifest);
+    }
+
+    // Verified aitri.config.json (only if path overrides needed and not already present)
+    const verifiedConfig = buildVerifiedConfig(manifestConventions, root);
+    if (verifiedConfig && !existingAitriConfigFile) {
+      writeJsonFile(path.join(root, "aitri.config.json"), verifiedConfig);
+      console.log(`  [OK] aitri.config.json (verified path overrides)`);
+    } else if (verifiedConfig && existingAitriConfigFile) {
+      console.log(`  [INFO] aitri.config.json already exists — review manually for path overrides`);
+    }
+
+    console.log("");
+    console.log("Phase 3 complete.");
     console.log("");
     console.log("Next steps:");
-    console.log("  1. Review each DRAFT spec in specs/drafts/");
-    console.log("  2. Edit and refine as needed");
-    console.log("  3. Run: aitri approve --feature <name>  (for each feature you accept)");
+    console.log("  1. Review tests/<feature>/tests.md — add FR-* and AC-* Trace lines");
+    console.log("  2. Run: aitri plan --feature <name>  (to generate full backlog)");
+    console.log("  3. Run: aitri validate --feature <name>  (traceability gate)");
 
     printCheckpointSummary(runAutoCheckpoint({
       enabled: options.autoCheckpoint,

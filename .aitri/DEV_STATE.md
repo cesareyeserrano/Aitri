@@ -1,5 +1,5 @@
 # Aitri Development Checkpoint
-> LAST UPDATE: 2026-02-20T23:21:06.222Z
+> LAST UPDATE: 2026-02-20T23:25:43.684Z
 > AGENT: Developer/Agent
 
 ## 🎯 Current Objective
@@ -8,7 +8,7 @@
 - We have initialized `backlog/aitri-core/evolution.md` with prioritized feedback.
 
 ## 🧠 Working Memory (Context)
-- EVO-008 Phase 2 DONE: aitri adopt --depth standard — LLM infer DRAFT specs + discovery docs. Bounded context (README + entry point). Never overwrites approved. 9 regression tests. 151/151 green. Next: EVO-008 Phase 3 (map existing tests to TC-*) or package bump to v0.5.0
+- EVO-008 Phase 3 DONE: aitri adopt --depth deep — scan existing tests, extractTestNames (node/py/go), buildTestsMapping → tests/<feature>/tests.md TC-* stubs, buildVerifiedConfig. 16 regression tests. 158/158 green. EVO backlog COMPLETE.
 
 ## 🚧 Active State
 - [x] Docs: `docs/guides/SELF_EVOLUTION.md` created.
