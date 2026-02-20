@@ -14,7 +14,7 @@ import {
   readDiscoveryField
 } from "./discovery-plan-helpers.js";
 import { parseApprovedSpec } from "./spec-parser.js";
-import { generatePlanArtifacts } from "./content-generator.js";
+import { generatePlanArtifacts, auditAgentContent } from "./content-generator.js";
 import { normalizeFeatureName, escapeRegExp } from "../lib.js";
 
 function wantsJson(options, positional = []) {
@@ -441,11 +441,51 @@ ${specSnapshot.outOfScope}
   const discoveryConstraints = readDiscoveryField(discoveryDoc, "Constraints (business/technical/compliance)") || "Constraints to be confirmed.";
   const discoveryInterviewMode = normalizeDiscoveryDepth(readDiscoveryField(discoveryDoc, "Interview mode")) || "quick";
   const rigor = getDiscoveryRigorProfile(discoveryInterviewMode);
+
+  // EVO-001 Phase 2: Auditor Mode — if agent has provided pre-generated artifacts,
+  // validate traceability before writing. Fall back to inference generation otherwise.
+  let agentContent = null;
+  if (options.aiBacklog || options.aiTests) {
+    const readAgentFile = (filePath, label) => {
+      if (!filePath) return "";
+      const resolved = path.resolve(process.cwd(), filePath);
+      if (!fs.existsSync(resolved)) {
+        console.log(`AI override: ${label} file not found: ${filePath}`);
+        return null;
+      }
+      return fs.readFileSync(resolved, "utf8");
+    };
+    const agentBacklog = readAgentFile(options.aiBacklog, "--ai-backlog");
+    const agentTests = readAgentFile(options.aiTests, "--ai-tests");
+    const agentArchitecture = options.aiArchitecture
+      ? readAgentFile(options.aiArchitecture, "--ai-architecture") || ""
+      : "";
+
+    if (agentBacklog === null || agentTests === null) return ERROR;
+
+    console.log("Auditor Mode: validating agent-provided artifacts...");
+    const audit = auditAgentContent({
+      parsedSpec,
+      agentContent: { backlog: agentBacklog, tests: agentTests, architecture: agentArchitecture }
+    });
+
+    if (!audit.ok) {
+      console.log("AUDIT FAILED — traceability issues found:");
+      audit.issues.forEach(issue => console.log("  - " + issue));
+      console.log("\nFix the issues in your agent-generated files and re-run.");
+      return ERROR;
+    }
+
+    console.log(`Audit passed: ${audit.stories.length} story/stories, ${audit.testsAudit.testCases.length} test case(s) validated.`);
+    agentContent = { backlog: agentBacklog, tests: agentTests, architecture: agentArchitecture };
+  }
+
   const generated = generatePlanArtifacts({
     feature,
     parsedSpec,
     rigor,
-    qualityProfile
+    qualityProfile,
+    agentContent
   });
 
   planDoc = replaceSection(

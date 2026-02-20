@@ -111,6 +111,7 @@ function parseArgs(argv) {
     discoveryDepth: null,
     retrievalMode: null,
     depth: null, action: null, port: 4173,
+    aiBacklog: null, aiTests: null, aiArchitecture: null,
     positional: []
   };
 
@@ -191,6 +192,12 @@ function parseArgs(argv) {
     } else if (arg === "--hook") { parsed.hook = (argv[i+1]||"").trim(); i+=1;
     } else if (arg === "--provider") { parsed.provider = (argv[i+1]||"").trim(); i+=1;
     } else if (arg === "--all") { parsed.all = true;
+    } else if (arg === "--ai-backlog") { parsed.aiBacklog = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--ai-backlog=")) { parsed.aiBacklog = arg.slice("--ai-backlog=".length).trim();
+    } else if (arg === "--ai-tests") { parsed.aiTests = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--ai-tests=")) { parsed.aiTests = arg.slice("--ai-tests=".length).trim();
+    } else if (arg === "--ai-architecture") { parsed.aiArchitecture = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--ai-architecture=")) { parsed.aiArchitecture = arg.slice("--ai-architecture=".length).trim();
     } else {
       parsed.positional.push(arg);
     }

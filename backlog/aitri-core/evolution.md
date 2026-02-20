@@ -34,11 +34,10 @@
 
 ## 🟡 In Progress
 
-- **[EVO-001] Refactor: Auditor Mode for Content Generator** — Phase 2 pending
-    - **Phase 1 DONE:** `auditBacklog()`, `auditTests()`, `auditAgentContent()` exported.
-      `generatePlanArtifacts()` accepts optional `agentContent` param. 8 unit tests added.
-    - **Phase 2:** Add `--ai-override` flag to `aitri plan`. Agent provides artifacts, CLI audits.
-    - **Phase 3:** Deprecate `infer*` heuristic functions. Full agent-authored path.
+- **[EVO-001] Refactor: Auditor Mode for Content Generator** — Phase 3 pending
+    - **Phase 1 DONE:** `auditBacklog()`, `auditTests()`, `auditAgentContent()` exported. 8 unit tests.
+    - **Phase 2 DONE:** `--ai-backlog` + `--ai-tests` flags in `aitri plan`. 2 regression tests. 133/133 green.
+    - **Phase 3:** Deprecate `infer*` heuristic functions. Mark as legacy. Full agent-authored path.
 
 ## 🔴 Done
 

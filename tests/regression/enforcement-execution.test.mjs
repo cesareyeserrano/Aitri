@@ -346,3 +346,181 @@ test("verify-intent blocks when backlog is missing", () => {
     `should mention plan command, got: ${result.stdout}`
   );
 });
+
+// Phase W: EVO-001 Phase 2 — aitri plan --ai-backlog / --ai-tests (Auditor Mode)
+
+function setupPlanReadyProject(tempDir, feature) {
+  setupAitriProject(tempDir);
+  // Write a complete approved spec directly (bypass draft/approve for speed)
+  const approvedDir = path.join(tempDir, "specs", "approved");
+  fs.mkdirSync(approvedDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(approvedDir, `${feature}.md`),
+    [
+      `# AF-SPEC: ${feature}`,
+      "STATUS: APPROVED",
+      "",
+      "## 1. Context",
+      "Authenticate users via email and password.",
+      "",
+      "## 2. Actors",
+      "- User",
+      "",
+      "## 3. Functional Rules (traceable)",
+      "- FR-1: The system must validate user credentials before granting access.",
+      "- FR-2: The system must reject invalid login attempts with a clear error.",
+      "",
+      "## 4. Edge Cases",
+      "- User enters wrong password 3 times in a row.",
+      "",
+      "## 7. Security Considerations",
+      "- Sanitize all login inputs to prevent SQL injection.",
+      "",
+      "## 9. Acceptance Criteria",
+      "- AC-1: Given valid credentials, when submitted, then access is granted.",
+      "- AC-2: Given invalid credentials, when submitted, then an error message is shown.",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+  // Write a minimal discovery file so plan can proceed
+  const discoveryDir = path.join(tempDir, "docs", "discovery");
+  fs.mkdirSync(discoveryDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(discoveryDir, `${feature}.md`),
+    [
+      `# Discovery: ${feature}`,
+      "",
+      "## 2. Discovery Interview Summary (Discovery Persona)",
+      "- Summary: User authentication flow.",
+      "",
+      "## 3. Scope",
+      "- In scope: login form, validation.",
+      "",
+      "## 4. Current pain",
+      "- Users cannot authenticate.",
+      "",
+      "## 5. Success metrics",
+      "- Login success rate > 99%.",
+      "",
+      "## 6. Assumptions",
+      "- Email/password auth only.",
+      "",
+      "## 7. Dependencies",
+      "- None.",
+      "",
+      "## 8. Constraints (business/technical/compliance)",
+      "- None.",
+      "",
+      "## 9. Discovery Confidence",
+      "- Confidence: high",
+      "- Interview mode: quick",
+      ""
+    ].join("\n"),
+    "utf8"
+  );
+}
+
+test("plan --ai-backlog accepts agent-generated backlog when traceability is valid", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-plan-ai-override-pass-"));
+  const feature = "user-auth";
+  setupPlanReadyProject(tempDir, feature);
+
+  // Write agent-generated backlog and tests
+  const agentBacklog = [
+    `# Backlog: ${feature}`,
+    "",
+    "## User Stories",
+    "",
+    "### US-1",
+    "- As a User, I want to log in with email, so that I can access the system.",
+    "- Trace: FR-1, AC-1",
+    "",
+    "### US-2",
+    "- As a User, I want invalid logins rejected, so that my account is secure.",
+    "- Trace: FR-2, AC-2"
+  ].join("\n");
+
+  const agentTests = [
+    `# Test Cases: ${feature}`,
+    "",
+    "### TC-1",
+    "- Trace: US-1, FR-1",
+    "",
+    "### TC-2",
+    "- Trace: US-2, FR-2"
+  ].join("\n");
+
+  const backlogFile = path.join(tempDir, "agent-backlog.md");
+  const testsFile = path.join(tempDir, "agent-tests.md");
+  fs.writeFileSync(backlogFile, agentBacklog, "utf8");
+  fs.writeFileSync(testsFile, agentTests, "utf8");
+
+  const result = runNodeOk(
+    ["plan", "--feature", feature, "--non-interactive", "--yes",
+     "--ai-backlog", "agent-backlog.md",
+     "--ai-tests", "agent-tests.md"],
+    { cwd: tempDir }
+  );
+
+  assert.ok(
+    result.stdout.includes("Audit passed") || result.stdout.includes("Plan created"),
+    `expected audit pass + plan created, got: ${result.stdout}`
+  );
+
+  // Verify agent's content was written (not the generated one)
+  const writtenBacklog = fs.readFileSync(
+    path.join(tempDir, "backlog", feature, "backlog.md"), "utf8"
+  );
+  assert.ok(
+    writtenBacklog.includes("I want to log in with email"),
+    "agent backlog content should be written as-is"
+  );
+});
+
+test("plan --ai-backlog fails audit when US references non-existent FR", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-plan-ai-override-fail-"));
+  const feature = "user-auth";
+  setupPlanReadyProject(tempDir, feature);
+
+  // Agent backlog with bad FR reference
+  const badBacklog = [
+    `# Backlog: ${feature}`,
+    "",
+    "## User Stories",
+    "",
+    "### US-1",
+    "- As a User, I want to log in, so that I can access the system.",
+    "- Trace: FR-99, AC-1"   // FR-99 does not exist in spec
+  ].join("\n");
+
+  const agentTests = [
+    `# Test Cases: ${feature}`,
+    "",
+    "### TC-1",
+    "- Trace: US-1, FR-1"
+  ].join("\n");
+
+  fs.writeFileSync(path.join(tempDir, "bad-backlog.md"), badBacklog, "utf8");
+  fs.writeFileSync(path.join(tempDir, "agent-tests.md"), agentTests, "utf8");
+
+  const result = runNode(
+    ["plan", "--feature", feature, "--non-interactive", "--yes",
+     "--ai-backlog", "bad-backlog.md",
+     "--ai-tests", "agent-tests.md"],
+    { cwd: tempDir }
+  );
+
+  assert.equal(result.status, 1, "should fail audit");
+  assert.ok(
+    result.stdout.includes("AUDIT FAILED") || result.stdout.includes("FR-99"),
+    `expected audit failure mentioning FR-99, got: ${result.stdout}`
+  );
+
+  // Verify backlog was NOT written (no partial writes on audit failure)
+  assert.equal(
+    fs.existsSync(path.join(tempDir, "backlog", feature, "backlog.md")),
+    false,
+    "backlog should not be written when audit fails"
+  );
+});
