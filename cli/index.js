@@ -36,6 +36,7 @@ import { runCiCommand } from "./commands/ci.js";
 import { runSpecImproveCommand } from "./commands/spec-improve.js";
 import { runExecuteCommand } from "./commands/execute.js";
 import { runScaffoldCommand } from "./commands/scaffold.js";
+import { runCheckpointCommand, runCheckpointShowCommand } from "./commands/checkpoint.js";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import { normalizeFeatureName, smartExtractSpec } from "./lib.js";
 import {
@@ -311,7 +312,7 @@ Workflow:
      [WRITE CODE]    You or your AI agent implements each story
   7. aitri deliver    Release tag + build artifact
 
-Other: preview, status, resume
+Other: preview, status, resume, checkpoint
 Still work (deprecated): discover, validate, handoff, scaffold, implement, verify, policy
 
 Common options:
@@ -746,6 +747,17 @@ if (cmd === "spec-improve") {
 if (cmd === "execute") {
   const code = await runExecuteCommand({ options, getProjectContextOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
   await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "checkpoint") {
+  const subCmd = options.positional[0];
+  let code;
+  if (subCmd === "show") {
+    code = runCheckpointShowCommand({ exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  } else {
+    code = runCheckpointCommand({ options, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  }
+  process.exit(code);
 }
 
 console.log("Unknown command.");

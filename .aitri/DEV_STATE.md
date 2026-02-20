@@ -1,6 +1,6 @@
 # Aitri Development Checkpoint
-> LAST UPDATE: 2026-02-19T03:54:45.890Z
-> AGENT: Gemini-CLI (Self-Evolution Init)
+> LAST UPDATE: 2026-02-20T21:36:08.126Z
+> AGENT: Developer/Agent
 
 ## 🎯 Current Objective
 [EVO-META] Self-Evolution System Implementation.
@@ -8,7 +8,7 @@
 - We have initialized `backlog/aitri-core/evolution.md` with prioritized feedback.
 
 ## 🧠 Working Memory (Context)
-- Implemented EVO-005: Relaxed TC marker regex in tc-scanner.js. Verified with smoke tests.
+- EVO-META DONE: aitri checkpoint command implemented, wired in CLI, 119/119 tests passing
 
 ## 🚧 Active State
 - [x] Docs: `docs/guides/SELF_EVOLUTION.md` created.
