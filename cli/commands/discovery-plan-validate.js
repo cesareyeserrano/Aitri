@@ -14,7 +14,8 @@ import {
   readDiscoveryField
 } from "./discovery-plan-helpers.js";
 import { parseApprovedSpec } from "./spec-parser.js";
-import { generatePlanArtifacts, auditAgentContent } from "./content-generator.js";
+import { generatePlanArtifacts } from "./content-generator.js";
+import { auditAgentContent } from "./content-auditor.js";
 import { normalizeFeatureName, escapeRegExp } from "../lib.js";
 
 function wantsJson(options, positional = []) {

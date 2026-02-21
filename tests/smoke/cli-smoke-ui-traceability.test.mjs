@@ -5,7 +5,8 @@ import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { parseApprovedSpec } from "../../cli/commands/spec-parser.js";
-import { generateTestsContent, auditBacklog, auditTests, auditAgentContent } from "../../cli/commands/content-generator.js";
+import { generateTestsContent } from "../../cli/commands/content-generator.js";
+import { auditBacklog, auditTests, auditAgentContent } from "../../cli/commands/content-auditor.js";
 import { parseTestCases, buildContractImports } from "../../cli/commands/scaffold.js";
 import { runNode, runNodeOk } from "./helpers/cli-test-helpers.mjs";
 
