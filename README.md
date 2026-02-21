@@ -42,6 +42,7 @@ The agent does the work. Aitri verifies the contract was followed.
    - [Claude Code](#31-claude-code)
    - [Codex CLI](#32-codex-cli)
    - [OpenCode](#33-opencode)
+   - [Gemini CLI](#34-gemini-cli)
 4. [Initialize a Project](#4-initialize-a-project)
 5. [Workflow: Human (Interactive)](#5-workflow-human-interactive)
 6. [Workflow: Agent (Auditor Mode)](#6-workflow-agent-auditor-mode)
@@ -58,7 +59,7 @@ The agent does the work. Aitri verifies the contract was followed.
 
 - **Node.js** `>=18` and `npm`
 - **Git** (required for checkpoint and resume)
-- One or more agent CLIs: [Claude Code](https://docs.claude.com/en/docs/claude-code/getting-started), [Codex CLI](https://github.com/openai/codex), [OpenCode](https://opencode.ai/docs/cli/)
+- One or more agent CLIs: [Claude Code](https://docs.claude.com/en/docs/claude-code/getting-started), [Codex CLI](https://github.com/openai/codex), [OpenCode](https://opencode.ai/docs/cli/), [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 
 ---
 
@@ -141,6 +142,27 @@ cp /path/to/aitri/adapters/opencode/SKILL.md .opencode/skills/aitri/SKILL.md
 ```
 
 Restart OpenCode and request Aitri workflow execution in your target project.
+
+### 3.4 Gemini CLI
+
+Aitri's Gemini adapter is optimized for Gemini's 1M token context window, enabling deep cross-feature traceability and full-project artifact analysis in a single session.
+
+**Personal install:**
+```bash
+mkdir -p ~/.gemini/skills/aitri
+cp /path/to/aitri/adapters/gemini/SKILL.md ~/.gemini/skills/aitri/SKILL.md
+```
+
+**Project install:**
+```bash
+mkdir -p .gemini/skills/aitri
+cp /path/to/aitri/adapters/gemini/SKILL.md .gemini/skills/aitri/SKILL.md
+```
+
+Restart Gemini CLI after installing, then in any project:
+```
+Use the aitri skill and run: aitri resume
+```
 
 > **All adapters require** Aitri to be installed globally (`npm i -g .`) before the skill can execute commands.
 
