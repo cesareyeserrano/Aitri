@@ -6,7 +6,7 @@
 
 <p align="center">
   <strong>A spec-enforcement skill for AI agents.</strong><br/>
-  No artifact ships without a human-approved specification.
+  No artifact ships without a human-approved specification — and no spec ships without proof that code satisfies it.
 </p>
 
 ---
@@ -23,12 +23,12 @@ The agent does the work. Aitri verifies the contract was followed.
 - Validates that agent-generated content traces back to approved spec sections (`FR-*`, `AC-*`)
 - Blocks writes when traceability is missing
 - Generates structured artifacts (test stubs, implementation briefs) from approved specs
-- Tracks delivery gates: `spec → backlog → tests → scaffold → verify → deliver`
+- Runs each TC stub individually and maps results to FR-IDs — producing a `proof-of-compliance.json`
+- Tracks delivery gates: `spec → backlog → tests → scaffold → prove → deliver`
 - Maintains session continuity across agent sessions via checkpoint/resume
 - Maps existing projects into the spec-driven model via `aitri adopt`
 
 **What Aitri does not do:**
-- Execute code or run tests directly
 - Generate requirements — requirements must come from the user
 - Replace human judgment at approval gates
 
@@ -226,6 +226,9 @@ aitri implement --feature user-auth
 # Verify after each story implementation
 aitri verify --feature user-auth
 
+# Prove each FR is satisfied by running TC stubs individually
+aitri prove --feature user-auth
+
 # Final delivery gate
 aitri deliver --feature user-auth
 ```
@@ -276,6 +279,7 @@ aitri scaffold --feature user-auth --yes
 aitri implement --feature user-auth
 # agent implements each US-* brief in order (IMPLEMENTATION_ORDER.md)
 aitri verify --feature user-auth    # after each story
+aitri prove --feature user-auth     # proves each FR is satisfied by passing TC stubs
 aitri deliver --feature user-auth
 ```
 
@@ -336,6 +340,7 @@ Output: `docs/adoption-manifest.json`, `specs/drafts/<feature>.md`, `docs/discov
 |---------|---------|
 | `aitri scaffold` | Generate executable test stubs + contract interfaces |
 | `aitri implement` | Ordered implementation briefs for each user story |
+| `aitri prove` | Run each TC stub, map results to FR-IDs, write proof-of-compliance record |
 | `aitri deliver` | Final delivery gate: all FRs covered, all TCs passing |
 
 ### Session and State
