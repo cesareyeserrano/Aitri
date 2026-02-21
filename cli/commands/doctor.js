@@ -13,6 +13,45 @@ function globMd(dir) {
     .map((f) => path.join(dir, f));
 }
 
+function walkDir(dir, root, results = []) {
+  if (!fs.existsSync(dir)) return results;
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith(".")) continue;
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      walkDir(full, root, results);
+    } else {
+      results.push(path.relative(root, full).replace(/\\/g, "/"));
+    }
+  }
+  return results;
+}
+
+function parsePermittedPatterns(policyContent) {
+  const patterns = [];
+  const re = /\|\s*`(docs\/[^`]+)`/g;
+  let m;
+  while ((m = re.exec(policyContent)) !== null) {
+    patterns.push(m[1]);
+  }
+  return patterns;
+}
+
+function patternToRegex(pattern) {
+  const escaped = pattern
+    .replace(/\./g, "\\.")
+    .replace(/\*\*/g, "\u0000")
+    .replace(/\*/g, "[^/]+")
+    .replace(/\u0000/g, ".*");
+  return new RegExp("^" + escaped + "$");
+}
+
+function matchesAnyPattern(filePath, patterns) {
+  return patterns.some((p) =>
+    p.includes("*") ? patternToRegex(p).test(filePath) : filePath === p
+  );
+}
+
 function readCurrentVersion() {
   try {
     const pkg = JSON.parse(fs.readFileSync(
@@ -94,6 +133,28 @@ const CHECKS = [
             ok: false,
             files: tainted.map((f) => path.relative(ctx.root, f)),
             fix: "Replace inferred markers with explicit user requirements"
+          };
+    }
+  },
+  {
+    id: "DOC-POLICY",
+    since: "0.5.0",
+    description: "docs/ should only contain files listed in docs/DOC_POLICY.md",
+    severity: "medium",
+    check(ctx) {
+      const policyFile = path.join(ctx.paths.docsRoot, "DOC_POLICY.md");
+      if (!fs.existsSync(policyFile)) return { ok: true };
+      const policyContent = fs.readFileSync(policyFile, "utf8");
+      const patterns = parsePermittedPatterns(policyContent);
+      if (patterns.length === 0) return { ok: true };
+      const allFiles = walkDir(ctx.paths.docsRoot, ctx.root);
+      const unlisted = allFiles.filter((f) => !matchesAnyPattern(f, patterns));
+      return unlisted.length === 0
+        ? { ok: true }
+        : {
+            ok: false,
+            files: unlisted,
+            fix: "Remove these files or add them to docs/DOC_POLICY.md"
           };
     }
   },
