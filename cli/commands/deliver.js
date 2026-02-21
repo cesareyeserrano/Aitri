@@ -4,6 +4,7 @@ import { spawnSync } from "node:child_process";
 import { getStatusReport } from "./status.js";
 import { resolveFeature } from "../lib.js";
 import { parseApprovedSpec } from "./spec-parser.js";
+import { checkContractCoverage } from "./verify-coverage.js";
 
 function wantsJson(options, positional = []) {
   if (options.json) return true;
@@ -261,10 +262,17 @@ export async function runDeliverCommand({
     blockers.push(`Confidence score ${Math.round(confidenceScore * 100)}% is below threshold ${Math.round(threshold * 100)}%.`);
   }
 
+  // EVO-012: contract coverage warning (non-blocking)
+  const scaffoldManifestData = readJson(scaffoldManifestFile) || {};
+  const coverageResult = checkContractCoverage({ root: process.cwd(), manifest: scaffoldManifestData });
+  const warnings = coverageResult.ok || coverageResult.total === 0 ? [] : [
+    `Contract coverage: ${coverageResult.covered}/${coverageResult.total} contracts imported. Uncovered: ${coverageResult.uncovered.join(", ")}`
+  ];
+
   const decision = blockers.length === 0 ? "SHIP" : "BLOCKED";
   const generatedAt = new Date().toISOString();
   const goMarker = readJson(goMarkerFile) || {};
-  const scaffoldManifest = readJson(scaffoldManifestFile) || {};
+  const scaffoldManifest = scaffoldManifestData;
   const implementManifest = readJson(implementManifestFile) || {};
   const payload = {
     schemaVersion: 1,
@@ -288,6 +296,7 @@ export async function runDeliverCommand({
     acMatrix,
     uiRefValidation,
     blockers,
+    warnings,
     timeline: {
       go: goMarker.decidedAt || null,
       scaffold: scaffoldManifest.generatedAt || null,

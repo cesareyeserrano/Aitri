@@ -38,6 +38,7 @@ import { runExecuteCommand } from "./commands/execute.js";
 import { runScaffoldCommand } from "./commands/scaffold.js";
 import { runCheckpointCommand, runCheckpointShowCommand } from "./commands/checkpoint.js";
 import { runVerifyIntentCommand } from "./commands/verify-intent.js";
+import { runVerifyCoverageCommand } from "./commands/verify-coverage.js";
 import { runDiffCommand } from "./commands/diff.js";
 import { runAdoptCommand } from "./commands/adopt.js";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
@@ -769,6 +770,11 @@ if (cmd === "execute") {
 
 if (cmd === "verify-intent") {
   const code = await runVerifyIntentCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  process.exit(code);
+}
+
+if (cmd === "verify-coverage") {
+  const code = runVerifyCoverageCommand({ options, getProjectContextOrExit, getStatusReportOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   process.exit(code);
 }
 
