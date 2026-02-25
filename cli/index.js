@@ -43,6 +43,7 @@ import { runAdoptCommand } from "./commands/adopt.js";
 import { runDraftCommand } from "./commands/draft.js";
 import { runProveCommand } from "./commands/prove.js";
 import { runTestgenCommand } from "./commands/testgen.js";
+import { runContractgenCommand } from "./commands/contractgen.js";
 import { fileURLToPath } from "node:url";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import {
@@ -119,6 +120,7 @@ function parseArgs(argv) {
     aiBacklog: null, aiTests: null, aiArchitecture: null,
     proposed: null,
     tc: null,
+    fr: null,
     force: false,
     mutate: false,
     positional: []
@@ -211,6 +213,8 @@ function parseArgs(argv) {
     } else if (arg.startsWith("--proposed=")) { parsed.proposed = arg.slice("--proposed=".length).trim();
     } else if (arg === "--tc") { parsed.tc = (argv[i+1]||"").trim(); i+=1;
     } else if (arg.startsWith("--tc=")) { parsed.tc = arg.slice("--tc=".length).trim();
+    } else if (arg === "--fr") { parsed.fr = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--fr=")) { parsed.fr = arg.slice("--fr=".length).trim();
     } else if (arg === "--force") { parsed.force = true;
     } else if (arg === "--mutate") { parsed.mutate = true;
     } else {
@@ -428,6 +432,11 @@ if (cmd === "prove") {
 
 if (cmd === "testgen") {
   const code = await runTestgenCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "contractgen") {
+  const code = await runContractgenCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 

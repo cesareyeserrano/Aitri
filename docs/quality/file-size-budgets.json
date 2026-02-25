@@ -103,8 +103,8 @@
     },
     {
       "path": "cli/commands/prove.js",
-      "soft": 210,
-      "hard": 300
+      "soft": 350,
+      "hard": 430
     },
     {
       "path": "cli/commands/deliver.js",
@@ -223,8 +223,8 @@
     },
     {
       "path": "tests/regression/prove-compliance.test.mjs",
-      "soft": 235,
-      "hard": 320
+      "soft": 420,
+      "hard": 520
     },
     {
       "path": "cli/commands/testgen.js",
@@ -235,6 +235,26 @@
       "path": "tests/regression/testgen.test.mjs",
       "soft": 140,
       "hard": 200
+    },
+    {
+      "path": "cli/commands/mutate.js",
+      "soft": 90,
+      "hard": 130
+    },
+    {
+      "path": "tests/regression/prove-mutate.test.mjs",
+      "soft": 100,
+      "hard": 140
+    },
+    {
+      "path": "cli/commands/contractgen.js",
+      "soft": 190,
+      "hard": 250
+    },
+    {
+      "path": "tests/regression/contractgen.test.mjs",
+      "soft": 120,
+      "hard": 170
     }
   ]
 }
