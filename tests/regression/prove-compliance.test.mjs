@@ -222,3 +222,113 @@ test("prove proof record includes evidence file paths for proven FRs", () => {
   assert.ok(proof.frProof["FR-1"].evidence.length > 0, "proven FR must have evidence paths");
   assert.match(proof.frProof["FR-1"].evidence[0], /tc-1/i);
 });
+
+// EVO-020: trivial stub detection
+
+function writeTrivialStub(dir, tcId, contractRelPath, contractFnName) {
+  // Stub imports a contract but never calls it — should be flagged as trivial
+  const content = [
+    `// ${tcId}: stub`,
+    `import { ${contractFnName} } from "${contractRelPath}";`,
+    `import test from "node:test";`,
+    `import assert from "node:assert/strict";`,
+    `test("${tcId} trivial", () => { assert.ok(true); });`
+  ].join("\n");
+  fs.writeFileSync(path.join(dir, `${tcId.toLowerCase()}.test.mjs`), content, "utf8");
+}
+
+function writeRealStub(dir, tcId, contractRelPath, contractFnName) {
+  // Stub imports a contract AND invokes it — should be treated as real
+  const content = [
+    `// ${tcId}: stub`,
+    `import { ${contractFnName} } from "${contractRelPath}";`,
+    `import test from "node:test";`,
+    `import assert from "node:assert/strict";`,
+    `test("${tcId} real", () => { const result = ${contractFnName}(); assert.ok(result !== undefined); });`
+  ].join("\n");
+  fs.writeFileSync(path.join(dir, `${tcId.toLowerCase()}.test.mjs`), content, "utf8");
+}
+
+function writeContractFile(dir, fnName) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, `${fnName}.js`), `export function ${fnName}() { return true; }\n`, "utf8");
+}
+
+test("prove marks FR as unproven when its only TC imports a contract but does not invoke it", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-prove-trivial-"));
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  const feature = "trivial-stub";
+  writeApprovedSpec(tempDir, feature, ["- FR-1: Must do the thing."]);
+  writeTestsMd(tempDir, feature, [
+    "### TC-1",
+    "- Trace: US-1, FR-1, AC-1"
+  ]);
+  const generatedDir = path.join(tempDir, "tests", feature, "generated");
+  fs.mkdirSync(generatedDir, { recursive: true });
+  const contractDir = path.join(tempDir, "src", "contracts");
+  writeContractFile(contractDir, "fr1_do_thing");
+  // stub imports contract but never calls fr1_do_thing()
+  writeTrivialStub(generatedDir, "TC-1", "../../../src/contracts/fr1_do_thing.js", "fr1_do_thing");
+
+  const result = runNode(["prove", "--feature", feature, "--non-interactive"], { cwd: tempDir });
+  assert.equal(result.status, 1, "trivial stub must cause exit 1");
+  assert.match(result.stdout, /trivial/i);
+
+  const proof = JSON.parse(
+    fs.readFileSync(path.join(tempDir, "docs", "implementation", feature, "proof-of-compliance.json"), "utf8")
+  );
+  assert.equal(proof.ok, false);
+  assert.equal(proof.frProof["FR-1"].proven, false);
+  assert.ok(proof.summary.trivialTcs.includes("TC-1"), "TC-1 must appear in trivialTcs");
+});
+
+test("prove marks FR as proven when TC imports and invokes its contract", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-prove-real-contract-"));
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  const feature = "real-contract";
+  writeApprovedSpec(tempDir, feature, ["- FR-1: Must do the thing."]);
+  writeTestsMd(tempDir, feature, [
+    "### TC-1",
+    "- Trace: US-1, FR-1, AC-1"
+  ]);
+  const generatedDir = path.join(tempDir, "tests", feature, "generated");
+  fs.mkdirSync(generatedDir, { recursive: true });
+  const contractDir = path.join(tempDir, "src", "contracts");
+  writeContractFile(contractDir, "fr1_do_thing");
+  // stub imports contract AND calls fr1_do_thing()
+  writeRealStub(generatedDir, "TC-1", "../../../src/contracts/fr1_do_thing.js", "fr1_do_thing");
+
+  const result = runNode(["prove", "--feature", feature, "--non-interactive"], { cwd: tempDir });
+  assert.equal(result.status, 0, "real contract invocation must exit 0");
+  assert.match(result.stdout, /FR-1: PROVEN/);
+
+  const proof = JSON.parse(
+    fs.readFileSync(path.join(tempDir, "docs", "implementation", feature, "proof-of-compliance.json"), "utf8")
+  );
+  assert.equal(proof.ok, true);
+  assert.equal(proof.frProof["FR-1"].proven, true);
+  assert.deepEqual(proof.summary.trivialTcs, []);
+});
+
+test("prove does not flag as trivial when stub has no contract import", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-prove-no-contract-import-"));
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  const feature = "no-contract-import";
+  writeApprovedSpec(tempDir, feature, ["- FR-1: Must do the thing."]);
+  writeTestsMd(tempDir, feature, [
+    "### TC-1",
+    "- Trace: US-1, FR-1, AC-1"
+  ]);
+  const generatedDir = path.join(tempDir, "tests", feature, "generated");
+  fs.mkdirSync(generatedDir, { recursive: true });
+  writePassingStub(generatedDir, "TC-1");  // plain assert.ok(true), no contract import
+
+  const result = runNode(["prove", "--feature", feature, "--non-interactive"], { cwd: tempDir });
+  assert.equal(result.status, 0, "stub with no contract import must not be flagged trivial");
+
+  const proof = JSON.parse(
+    fs.readFileSync(path.join(tempDir, "docs", "implementation", feature, "proof-of-compliance.json"), "utf8")
+  );
+  assert.equal(proof.ok, true);
+  assert.deepEqual(proof.summary.trivialTcs, []);
+});

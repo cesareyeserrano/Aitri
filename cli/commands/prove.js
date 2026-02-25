@@ -60,11 +60,24 @@ function runTcStub(absFile) {
   return result.status === 0;
 }
 
+// EVO-020: detect stubs that import a contract but never invoke it
+function analyzeStubQuality(content) {
+  const contractImportRe = /^import\s*\{([^}]+)\}\s*from\s*["'][^"']*\/contracts\/[^"']*["']/gm;
+  const matches = [...String(content).matchAll(contractImportRe)];
+  if (matches.length === 0) return { hasContractImport: false, trivial: false };
+  const importedNames = matches.flatMap((m) =>
+    m[1].split(",").map((s) => s.trim().split(/\s+as\s+/).pop().trim()).filter(Boolean)
+  );
+  const body = String(content).replace(/^import\b[^\n]*\n?/gm, "");
+  const contractInvoked = importedNames.some((name) => new RegExp(`\\b${name}\\s*\\(`).test(body));
+  return { hasContractImport: true, importedNames, contractInvoked, trivial: !contractInvoked };
+}
+
 function buildProofRecord({ feature, frIds, traceMap, tcResults }) {
   const frProof = {};
   frIds.forEach((frId) => {
     const tracingTcs = Object.keys(traceMap).filter((tcId) => (traceMap[tcId]?.frIds || []).includes(frId));
-    const provenTcs = tracingTcs.filter((tcId) => tcResults[tcId]?.passed);
+    const provenTcs = tracingTcs.filter((tcId) => tcResults[tcId]?.passed && !tcResults[tcId]?.trivial);
     const evidence = provenTcs.map((tcId) => tcResults[tcId].file).filter(Boolean);
     frProof[frId] = {
       proven: provenTcs.length > 0,
@@ -74,16 +87,18 @@ function buildProofRecord({ feature, frIds, traceMap, tcResults }) {
     };
   });
 
+  const trivialTcs = Object.entries(tcResults).filter(([, v]) => v.trivial).map(([id]) => id);
   const provenCount = Object.values(frProof).filter((v) => v.proven).length;
   return {
     schemaVersion: 1,
-    ok: provenCount === frIds.length && frIds.length > 0,
+    ok: provenCount === frIds.length && frIds.length > 0 && trivialTcs.length === 0,
     feature,
     provenAt: new Date().toISOString(),
     summary: {
       total: frIds.length,
       proven: provenCount,
-      unproven: frIds.length - provenCount
+      unproven: frIds.length - provenCount,
+      trivialTcs
     },
     frProof,
     tcResults
@@ -99,11 +114,14 @@ function printProofReport(record) {
     const via = proof.via.length > 0 ? ` via ${proof.via.join(", ")}` : " (no passing TCs)";
     console.log(`  ${frId}: ${status}${via}`);
   });
+  if (summary.trivialTcs && summary.trivialTcs.length > 0) {
+    console.log(`\nTRIVIAL stubs (contract imported but not invoked): ${summary.trivialTcs.join(", ")}`);
+    console.log("These tests pass but do not verify behavioral compliance.");
+    console.log("Invoke the contract function inside the test to make it meaningful.");
+  }
   if (!record.ok) {
-    const unproven = Object.entries(frProof)
-      .filter(([, v]) => !v.proven)
-      .map(([frId]) => frId);
-    console.log(`\nUNPROVEN requirements: ${unproven.join(", ")}`);
+    const unproven = Object.entries(frProof).filter(([, v]) => !v.proven).map(([frId]) => frId);
+    if (unproven.length > 0) console.log(`\nUNPROVEN requirements: ${unproven.join(", ")}`);
   } else {
     console.log("\nAll functional requirements proven.");
   }
@@ -211,11 +229,17 @@ export async function runProveCommand({
     const absFile = path.join(root, entry.file);
     if (!jsonOutput) process.stdout.write(`  Running ${tcId}... `);
     const passed = runTcStub(absFile);
-    tcResults[tcId] = { passed, file: entry.file };
-    if (!jsonOutput) console.log(passed ? "PASS" : "FAIL");
+    const stubContent = fs.existsSync(absFile) ? fs.readFileSync(absFile, "utf8") : "";
+    const quality = analyzeStubQuality(stubContent);
+    const trivial = passed && quality.trivial;
+    tcResults[tcId] = { passed, file: entry.file, trivial };
+    if (!jsonOutput) {
+      if (trivial) console.log("PASS (trivial — contract imported but not invoked)");
+      else console.log(passed ? "PASS" : "FAIL");
+    }
   }
   missingTcs.forEach((tcId) => {
-    tcResults[tcId] = { passed: false, file: null };
+    tcResults[tcId] = { passed: false, file: null, trivial: false };
   });
 
   const record = buildProofRecord({ feature, frIds, traceMap, tcResults });
