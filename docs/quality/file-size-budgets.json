@@ -8,8 +8,8 @@
   "files": [
     {
       "path": "cli/index.js",
-      "soft": 570,
-      "hard": 700
+      "soft": 580,
+      "hard": 720
     },
     {
       "path": "cli/commands/draft.js",
@@ -225,6 +225,16 @@
       "path": "tests/regression/prove-compliance.test.mjs",
       "soft": 235,
       "hard": 320
+    },
+    {
+      "path": "cli/commands/testgen.js",
+      "soft": 200,
+      "hard": 260
+    },
+    {
+      "path": "tests/regression/testgen.test.mjs",
+      "soft": 140,
+      "hard": 200
     }
   ]
 }

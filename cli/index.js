@@ -42,6 +42,7 @@ import { runDiffCommand } from "./commands/diff.js";
 import { runAdoptCommand } from "./commands/adopt.js";
 import { runDraftCommand } from "./commands/draft.js";
 import { runProveCommand } from "./commands/prove.js";
+import { runTestgenCommand } from "./commands/testgen.js";
 import { fileURLToPath } from "node:url";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import {
@@ -110,13 +111,15 @@ function parseArgs(argv) {
     feature: null,
     project: null,
     story: null,
-    noBuild: false, noVerify: false, dryRun: false, verify: false, note: null, source: null, ref: null,
+    noBuild: false, noVerify: false, noTest: false, dryRun: false, verify: false, note: null, source: null, ref: null,
     verifyCmd: null,
     discoveryDepth: null,
     retrievalMode: null,
     depth: null, action: null, port: 4173,
     aiBacklog: null, aiTests: null, aiArchitecture: null,
     proposed: null,
+    tc: null,
+    force: false,
     positional: []
   };
 
@@ -205,6 +208,9 @@ function parseArgs(argv) {
     } else if (arg.startsWith("--ai-architecture=")) { parsed.aiArchitecture = arg.slice("--ai-architecture=".length).trim();
     } else if (arg === "--proposed") { parsed.proposed = (argv[i+1]||"").trim(); i+=1;
     } else if (arg.startsWith("--proposed=")) { parsed.proposed = arg.slice("--proposed=".length).trim();
+    } else if (arg === "--tc") { parsed.tc = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--tc=")) { parsed.tc = arg.slice("--tc=".length).trim();
+    } else if (arg === "--force") { parsed.force = true;
     } else {
       parsed.positional.push(arg);
     }
@@ -415,6 +421,11 @@ if (cmd === "deliver") {
 
 if (cmd === "prove") {
   const code = await runProveCommand({ options, getProjectContextOrExit, getStatusReportOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "testgen") {
+  const code = await runTestgenCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
