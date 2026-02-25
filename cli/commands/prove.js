@@ -3,6 +3,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { resolveFeature } from "../lib.js";
 import { scanTcMarkers } from "./tc-scanner.js";
+import { runMutationAnalysis } from "./mutate.js";
 
 function parseTraceIds(traceLine, prefix) {
   return [...new Set(
@@ -114,17 +115,32 @@ function buildProofRecord({ feature, frIds, traceMap, tcResults }) {
       !tcResults[tcId]?.contractUnimplemented
     );
     const evidence = provenTcs.map((tcId) => tcResults[tcId].file).filter(Boolean);
+    // EVO-023: aggregate mutation score across proven TCs
+    const mutations = provenTcs
+      .map((tcId) => tcResults[tcId]?.mutation)
+      .filter(Boolean);
+    const mutationScore = mutations.length > 0
+      ? { detected: mutations.reduce((s, m) => s + m.detected, 0), total: mutations.reduce((s, m) => s + m.total, 0) }
+      : null;
     frProof[frId] = {
       proven: provenTcs.length > 0,
       via: provenTcs,
       tracingTcs,
-      evidence
+      evidence,
+      mutationScore
     };
   });
 
   const trivialTcs = Object.entries(tcResults).filter(([, v]) => v.trivial).map(([id]) => id);
   const unimplementedContractTcs = Object.entries(tcResults).filter(([, v]) => v.contractUnimplemented).map(([id]) => id);
   const provenCount = Object.values(frProof).filter((v) => v.proven).length;
+
+  // Overall mutation summary (advisory — does not affect ok)
+  const allMutations = Object.values(tcResults).map((v) => v.mutation).filter(Boolean);
+  const overallMutation = allMutations.length > 0
+    ? { detected: allMutations.reduce((s, m) => s + m.detected, 0), total: allMutations.reduce((s, m) => s + m.total, 0) }
+    : null;
+
   return {
     schemaVersion: 1,
     ok: provenCount === frIds.length && frIds.length > 0 && trivialTcs.length === 0 && unimplementedContractTcs.length === 0,
@@ -135,7 +151,8 @@ function buildProofRecord({ feature, frIds, traceMap, tcResults }) {
       proven: provenCount,
       unproven: frIds.length - provenCount,
       trivialTcs,
-      unimplementedContractTcs
+      unimplementedContractTcs,
+      mutation: overallMutation
     },
     frProof,
     tcResults
@@ -149,7 +166,10 @@ function printProofReport(record) {
   Object.entries(frProof).forEach(([frId, proof]) => {
     const status = proof.proven ? "PROVEN" : "UNPROVEN";
     const via = proof.via.length > 0 ? ` via ${proof.via.join(", ")}` : " (no passing TCs)";
-    console.log(`  ${frId}: ${status}${via}`);
+    const mut = proof.mutationScore
+      ? ` [mutation: ${proof.mutationScore.detected}/${proof.mutationScore.total} = ${Math.round(proof.mutationScore.detected / proof.mutationScore.total * 100)}%]`
+      : "";
+    console.log(`  ${frId}: ${status}${via}${mut}`);
   });
   if (summary.trivialTcs && summary.trivialTcs.length > 0) {
     console.log(`\nTRIVIAL stubs (contract imported but not invoked): ${summary.trivialTcs.join(", ")}`);
@@ -160,6 +180,11 @@ function printProofReport(record) {
     console.log(`\nUNIMPLEMENTED contracts (stub passes but contract is still a scaffold placeholder): ${summary.unimplementedContractTcs.join(", ")}`);
     console.log("Implement the contract functions before proving compliance.");
     console.log("Run: aitri testgen --feature " + record.feature + "  (then implement the contracts)");
+  }
+  if (summary.mutation) {
+    const pct = Math.round(summary.mutation.detected / summary.mutation.total * 100);
+    console.log(`\nMutation analysis: ${summary.mutation.detected}/${summary.mutation.total} mutations detected (${pct}% confidence)`);
+    if (pct < 50) console.log("  Low mutation score — consider strengthening test assertions.");
   }
   if (!record.ok) {
     const unproven = Object.entries(frProof).filter(([, v]) => !v.proven).map(([frId]) => frId);
@@ -177,6 +202,7 @@ export async function runProveCommand({
 }) {
   const { OK, ERROR } = exitCodes;
   const jsonOutput = !!(options.json || (options.format || "").toLowerCase() === "json");
+  const mutateMode = !!(options.mutate);
   const project = getProjectContextOrExit();
 
   let feature;
@@ -276,11 +302,25 @@ export async function runProveCommand({
     const trivial = passed && quality.trivial;
     const contractIssues = passed && !trivial ? checkContractCompleteness(stubContent, absFile) : [];
     const contractUnimplemented = contractIssues.length > 0;
-    tcResults[tcId] = { passed, file: entry.file, trivial, contractUnimplemented, contractIssues };
+    tcResults[tcId] = { passed, file: entry.file, trivial, contractUnimplemented, contractIssues, mutation: null };
     if (!jsonOutput) {
       if (trivial) console.log("PASS (trivial — contract imported but not invoked)");
       else if (contractUnimplemented) console.log("PASS (blocked — contract is still a placeholder)");
       else console.log(passed ? "PASS" : "FAIL");
+    }
+    // EVO-023: mutation analysis — runs after PASS/FAIL line, only for clean passing TCs
+    if (mutateMode && passed && !trivial && !contractUnimplemented) {
+      if (!jsonOutput) process.stdout.write(`  Mutating ${tcId}... `);
+      const mutation = runMutationAnalysis({ absStubFile: absFile, stubContent });
+      tcResults[tcId].mutation = mutation;
+      if (!jsonOutput) {
+        if (mutation) {
+          const pct = Math.round(mutation.detected / mutation.total * 100);
+          console.log(`${mutation.detected}/${mutation.total} mutations detected (${pct}%)`);
+        } else {
+          console.log("no contract mutations applicable");
+        }
+      }
     }
   }
   missingTcs.forEach((tcId) => {

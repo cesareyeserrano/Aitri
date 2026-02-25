@@ -4,7 +4,7 @@
 
 | ID | Feature | Notes |
 |----|---------|-------|
-| EVO-023 | `aitri prove --mutate` — basic mutation testing: introduce code changes, verify TC stubs catch them, report confidence level | Closes the last gap: tests that pass even when the code is broken |
+_(none)_
 
 ## 🟡 In Progress
 
@@ -37,3 +37,4 @@ _(none)_
 | EVO-020 | Trivial stub detection in `aitri prove` — FR marked UNPROVEN when stub imports contract but never invokes it | v0.7.0 |
 | EVO-021 | `aitri testgen` — LLM generates behavioral test bodies from FR + AC (Given/When/Then) + contract signatures, replacing scaffold placeholders | v0.8.0 |
 | EVO-022 | Contract completeness gate in `aitri prove` — static check: if stub invokes contract but contract still has "Not implemented" placeholder, FR is UNPROVEN | v0.8.0 |
+| EVO-023 | `aitri prove --mutate` — mutation testing engine: applies 9 operator mutations to contract files, re-runs stubs, reports detection rate (advisory confidence score) | v0.8.0 |

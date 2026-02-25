@@ -120,6 +120,7 @@ function parseArgs(argv) {
     proposed: null,
     tc: null,
     force: false,
+    mutate: false,
     positional: []
   };
 
@@ -211,6 +212,7 @@ function parseArgs(argv) {
     } else if (arg === "--tc") { parsed.tc = (argv[i+1]||"").trim(); i+=1;
     } else if (arg.startsWith("--tc=")) { parsed.tc = arg.slice("--tc=".length).trim();
     } else if (arg === "--force") { parsed.force = true;
+    } else if (arg === "--mutate") { parsed.mutate = true;
     } else {
       parsed.positional.push(arg);
     }
