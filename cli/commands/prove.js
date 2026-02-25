@@ -34,11 +34,29 @@ function parseSpecFrIds(specContent) {
   )];
 }
 
+function detectRunner(absFile) {
+  const ext = path.extname(absFile).toLowerCase();
+  if (ext === ".py") return "python";
+  if (ext === ".go") return "go";
+  return "node";
+}
+
 function runTcStub(absFile) {
-  // Strip NODE_TEST_CONTEXT so the stub runs as an independent test process
   const env = { ...process.env };
+  // Strip NODE_TEST_CONTEXT so the stub runs as an independent test process
   delete env.NODE_TEST_CONTEXT;
-  const result = spawnSync(process.execPath, ["--test", absFile], { encoding: "utf8", timeout: 30000, env });
+  const runner = detectRunner(absFile);
+  let result;
+  if (runner === "python") {
+    result = spawnSync("python3", ["-m", "pytest", absFile, "-q", "--tb=no"], { encoding: "utf8", timeout: 30000, env });
+    if (result.error) {
+      result = spawnSync("python", ["-m", "pytest", absFile, "-q", "--tb=no"], { encoding: "utf8", timeout: 30000, env });
+    }
+  } else if (runner === "go") {
+    result = spawnSync("go", ["test", absFile], { encoding: "utf8", timeout: 30000, env });
+  } else {
+    result = spawnSync(process.execPath, ["--test", absFile], { encoding: "utf8", timeout: 30000, env });
+  }
   return result.status === 0;
 }
 
@@ -98,6 +116,7 @@ export async function runProveCommand({
   exitCodes
 }) {
   const { OK, ERROR } = exitCodes;
+  const jsonOutput = !!(options.json || (options.format || "").toLowerCase() === "json");
   const project = getProjectContextOrExit();
 
   let feature;
@@ -116,13 +135,21 @@ export async function runProveCommand({
   const root = process.cwd();
 
   if (!fs.existsSync(specFile)) {
-    console.log(`Approved spec not found: ${path.relative(root, specFile)}`);
-    console.log("Run: aitri approve --feature " + feature);
+    if (jsonOutput) {
+      console.log(JSON.stringify({ ok: false, feature, error: "approved_spec_not_found" }, null, 2));
+    } else {
+      console.log(`Approved spec not found: ${path.relative(root, specFile)}`);
+      console.log("Run: aitri approve --feature " + feature);
+    }
     return ERROR;
   }
   if (!fs.existsSync(testsFile)) {
-    console.log(`Tests file not found: ${path.relative(root, testsFile)}`);
-    console.log("Run: aitri plan --feature " + feature);
+    if (jsonOutput) {
+      console.log(JSON.stringify({ ok: false, feature, error: "tests_file_not_found" }, null, 2));
+    } else {
+      console.log(`Tests file not found: ${path.relative(root, testsFile)}`);
+      console.log("Run: aitri plan --feature " + feature);
+    }
     return ERROR;
   }
 
@@ -132,14 +159,21 @@ export async function runProveCommand({
   const traceMap = parseTcTraceMap(testsContent);
 
   if (frIds.length === 0) {
-    console.log("No FR-N identifiers found in approved spec. Nothing to prove.");
+    if (jsonOutput) {
+      console.log(JSON.stringify({ ok: false, feature, error: "no_fr_ids_in_spec" }, null, 2));
+    } else {
+      console.log("No FR-N identifiers found in approved spec. Nothing to prove.");
+    }
     return ERROR;
   }
 
   const scan = scanTcMarkers({ root, feature, testsFile, generatedDir });
 
   if (!scan.available) {
-    if (scan.mode === "missing_tests_file") {
+    const errCode = scan.mode === "missing_tests_file" ? "tests_file_missing" : "no_tc_stubs";
+    if (jsonOutput) {
+      console.log(JSON.stringify({ ok: false, feature, error: errCode }, null, 2));
+    } else if (scan.mode === "missing_tests_file") {
       console.log(`Tests file missing. Run: aitri plan --feature ${feature}`);
     } else {
       console.log(`No generated test stubs found. Run: aitri scaffold --feature ${feature}`);
@@ -153,26 +187,32 @@ export async function runProveCommand({
   const missingTcs = tcEntries.filter(([, v]) => !v.found).map(([id]) => id);
 
   if (foundTcs.length === 0) {
-    console.log("No TC stub files found in generated directory.");
-    console.log(`Run: aitri scaffold --feature ${feature}`);
+    if (jsonOutput) {
+      console.log(JSON.stringify({ ok: false, feature, error: "no_tc_stubs" }, null, 2));
+    } else {
+      console.log("No TC stub files found in generated directory.");
+      console.log(`Run: aitri scaffold --feature ${feature}`);
+    }
     return ERROR;
   }
 
-  console.log(`Proving compliance for: ${feature}`);
-  console.log(`FRs to prove: ${frIds.join(", ")}`);
-  console.log(`TC stubs found: ${foundTcs.length}/${tcEntries.length}`);
-  if (missingTcs.length > 0) {
-    console.log(`Missing TC stubs: ${missingTcs.join(", ")}`);
+  if (!jsonOutput) {
+    console.log(`Proving compliance for: ${feature}`);
+    console.log(`FRs to prove: ${frIds.join(", ")}`);
+    console.log(`TC stubs found: ${foundTcs.length}/${tcEntries.length}`);
+    if (missingTcs.length > 0) {
+      console.log(`Missing TC stubs: ${missingTcs.join(", ")}`);
+    }
+    console.log("");
   }
-  console.log("");
 
   const tcResults = {};
   for (const [tcId, entry] of foundTcs) {
     const absFile = path.join(root, entry.file);
-    process.stdout.write(`  Running ${tcId}... `);
+    if (!jsonOutput) process.stdout.write(`  Running ${tcId}... `);
     const passed = runTcStub(absFile);
     tcResults[tcId] = { passed, file: entry.file };
-    console.log(passed ? "PASS" : "FAIL");
+    if (!jsonOutput) console.log(passed ? "PASS" : "FAIL");
   }
   missingTcs.forEach((tcId) => {
     tcResults[tcId] = { passed: false, file: null };
@@ -183,13 +223,16 @@ export async function runProveCommand({
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(proofFile, JSON.stringify(record, null, 2), "utf8");
 
-  printProofReport(record);
-  console.log(`\nProof record: ${path.relative(root, proofFile)}`);
-
-  if (record.ok) {
-    console.log("Next recommended command: aitri deliver --feature " + feature);
+  if (jsonOutput) {
+    console.log(JSON.stringify({ ...record, proofFile: path.relative(root, proofFile) }, null, 2));
   } else {
-    console.log("Fix failing tests and re-run: aitri prove --feature " + feature);
+    printProofReport(record);
+    console.log(`\nProof record: ${path.relative(root, proofFile)}`);
+    if (record.ok) {
+      console.log("Next recommended command: aitri deliver --feature " + feature);
+    } else {
+      console.log("Fix failing tests and re-run: aitri prove --feature " + feature);
+    }
   }
 
   return record.ok ? OK : ERROR;

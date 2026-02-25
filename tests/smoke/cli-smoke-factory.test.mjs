@@ -150,8 +150,8 @@ test("status reports post-go factory states deterministically", () => {
 
   runNodeOk(["verify", "--feature", feature, "--non-interactive", "--json"], { cwd: tempDir });
   const afterVerify = JSON.parse(runNodeOk(["status", "--feature", feature, "--json"], { cwd: tempDir }).stdout);
-  assert.equal(afterVerify.nextStep, "deliver_pending");
-  assert.equal(afterVerify.recommendedCommand, "aitri deliver");
+  assert.equal(afterVerify.nextStep, "prove_pending");
+  assert.equal(afterVerify.recommendedCommand, "aitri prove");
 });
 
 test("deliver blocks when FR coverage is incomplete", () => {
@@ -202,6 +202,21 @@ test("factory E2E flow completes through deliver gate", () => {
   prepareImplementedFeature(tempDir, feature);
 
   runNodeOk(["verify", "--feature", feature, "--non-interactive", "--json"], { cwd: tempDir });
+  // Write proof fixture directly: real TC stubs have unresolvable contract imports in the test environment.
+  // aitri prove is exercised in the prove-compliance.test.mjs regression suite.
+  const proofDir = path.join(tempDir, "docs", "implementation", feature);
+  fs.writeFileSync(path.join(proofDir, "proof-of-compliance.json"), JSON.stringify({
+    schemaVersion: 1,
+    ok: true,
+    feature,
+    provenAt: new Date().toISOString(),
+    summary: { total: 2, proven: 2, unproven: 0 },
+    frProof: {
+      "FR-1": { proven: true, via: ["TC-1"], tracingTcs: ["TC-1"], evidence: [] },
+      "FR-2": { proven: true, via: ["TC-2"], tracingTcs: ["TC-2"], evidence: [] }
+    },
+    tcResults: {}
+  }, null, 2), "utf8");
   const deliver = runNodeOk(["deliver", "--feature", feature, "--non-interactive", "--yes", "--json"], { cwd: tempDir });
   const payload = JSON.parse(deliver.stdout);
   assert.equal(payload.decision, "SHIP");

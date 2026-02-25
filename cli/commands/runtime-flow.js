@@ -3,7 +3,7 @@ import path from "node:path";
 import { CONFIG_FILE } from "../config.js";
 import { evaluatePolicyChecks, resolveVerifyFeature, runVerification } from "./runtime.js";
 import { normalizeFeatureName } from "../lib.js";
-import { collectValidationIssues } from "./discovery-plan-validate.js";
+import { collectValidationIssues } from "./validate.js";
 
 function wantsJson(options, positional = []) {
   if (options.json) return true;

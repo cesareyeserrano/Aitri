@@ -42,8 +42,7 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 - `aitri go`
 
 ### Post-Go (Factory Execution)
-- `aitri scaffold` — generate project skeleton, executable test stubs, interface contracts
-- `aitri implement` — generate ordered implementation briefs for AI agents
+- `aitri build` — scaffold project skeleton, stubs, interface contracts, and generate ordered implementation briefs (unified)
 - `aitri verify` — (enhanced) map test results to TC-*, report FR/US coverage
 - `aitri prove` — run each TC stub, map results to FR-IDs, write proof-of-compliance record
 - `aitri deliver` — final delivery gate: all FRs covered, all TCs passing
@@ -81,13 +80,12 @@ Only use these flags in CI pipelines or when the user explicitly requests unatte
 14. `aitri go`
 
 ### Post-Go Phase (Factory Execution)
-15. `aitri scaffold` — generate project skeleton
-16. `aitri implement` — receive implementation briefs
-17. Implement each US-* brief in order from IMPLEMENTATION_ORDER.md
-18. After each US-*: `aitri verify` to confirm TC-* pass
-19. Repeat 17-18 until all stories pass
-20. `aitri prove` — run TC stubs, prove each FR is satisfied
-21. `aitri deliver` — final delivery gate
+15. `aitri build` — scaffold stubs, contracts, and generate implementation briefs
+16. Implement each US-* brief in order from IMPLEMENTATION_ORDER.md
+17. After each US-*: `aitri verify` to confirm TC-* pass
+18. Repeat 16-17 until all stories pass
+19. `aitri prove` — run TC stubs, prove each FR is satisfied
+20. `aitri deliver` — final delivery gate
 
 ## Persona Alignment
 Use these lenses while refining artifacts:

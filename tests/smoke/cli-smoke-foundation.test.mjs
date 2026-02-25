@@ -244,6 +244,15 @@ test("resume marks workflow complete when delivery is already finished", () => {
   fs.writeFileSync(path.join(tempDir, "docs", "delivery", `${feature}.json`), JSON.stringify({
     decision: "SHIP"
   }, null, 2), "utf8");
+  fs.writeFileSync(path.join(tempDir, "docs", "implementation", feature, "proof-of-compliance.json"), JSON.stringify({
+    schemaVersion: 1,
+    ok: true,
+    feature,
+    provenAt: "2099-01-01T00:00:00.000Z",
+    summary: { total: 1, proven: 1, unproven: 0 },
+    frProof: { "FR-1": { proven: true, via: ["TC-1"], tracingTcs: ["TC-1"], evidence: [] } },
+    tcResults: { "TC-1": { passed: true, file: null } }
+  }, null, 2), "utf8");
 
   const result = runNodeOk(["resume", "--non-interactive", "--yes"], { cwd: tempDir });
   assert.match(result.stdout, /Current state: delivery_complete/);

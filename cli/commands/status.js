@@ -90,6 +90,7 @@ function computeNextStep({
   implementReady,
   buildReady,
   deliveryReady,
+  proveOk,
   verification
 }) {
   if (goCompleted) {
@@ -97,6 +98,7 @@ function computeNextStep({
     const hasBuild = buildReady;
     if (!hasLegacy && !hasBuild) return "build_pending";
     if (!hasPostGoVerificationReady(verification)) return "verify_pending";
+    if (!proveOk) return "prove_pending";
     if (!deliveryReady) return "deliver_pending";
     return "delivery_complete";
   }
@@ -166,6 +168,7 @@ function toRecommendedCommand(nextStep) {
   if (nextStep === "implement_pending") return "aitri build";
   if (nextStep === "build_pending") return "aitri build";
   if (nextStep === "verify_pending") return "aitri verify";
+  if (nextStep === "prove_pending") return "aitri prove";
   if (nextStep === "deliver_pending") return "aitri deliver";
   if (nextStep === "delivery_complete") return "aitri feedback";
   return nextStep;
@@ -187,6 +190,9 @@ function nextStepMessage(nextStep) {
   }
   if (nextStep === "verify_pending") {
     return "Implementation artifacts changed. Re-run verify until all TC coverage passes.";
+  }
+  if (nextStep === "prove_pending") {
+    return "All TC coverage is green. Run prove to execute each TC stub and generate proof-of-compliance.json.";
   }
   if (nextStep === "deliver_pending") {
     return "Verification coverage is green. Run deliver gate for final readiness.";
@@ -710,9 +716,11 @@ export function getStatusReport(options = {}) {
       scaffoldReady: false,
       implementReady: false,
       deliveryReady: false,
+      proveOk: false,
       goMarker: null,
       scaffoldManifest: null,
       implementManifest: null,
+      proofFile: null,
       deliveryReport: null,
       deliveryDecision: null
     },
@@ -803,16 +811,20 @@ export function getStatusReport(options = {}) {
     const buildManifestFile = paths.buildManifestFile(feature);
     const deliveryReportFile = paths.deliveryJsonFile(feature);
     const deliveryPayload = exists(deliveryReportFile) ? readJsonSafe(deliveryReportFile) : null;
+    const proofFile = path.join(paths.implementationFeatureDir(feature), "proof-of-compliance.json");
+    const proofRecord = exists(proofFile) ? readJsonSafe(proofFile) : null;
     report.factory = {
       goCompleted: exists(goMarkerFile),
       scaffoldReady: exists(scaffoldManifestFile),
       implementReady: exists(implementManifestFile),
       buildReady: exists(buildManifestFile),
       deliveryReady: deliveryPayload?.decision === "SHIP",
+      proveOk: proofRecord?.ok === true,
       goMarker: exists(goMarkerFile) ? path.relative(root, goMarkerFile) : null,
       scaffoldManifest: exists(scaffoldManifestFile) ? path.relative(root, scaffoldManifestFile) : null,
       implementManifest: exists(implementManifestFile) ? path.relative(root, implementManifestFile) : null,
       buildManifest: exists(buildManifestFile) ? path.relative(root, buildManifestFile) : null,
+      proofFile: exists(proofFile) ? path.relative(root, proofFile) : null,
       deliveryReport: exists(deliveryReportFile) ? path.relative(root, deliveryReportFile) : null,
       deliveryDecision: deliveryPayload?.decision || null
     };
@@ -842,6 +854,7 @@ export function getStatusReport(options = {}) {
       implementReady: report.factory.implementReady,
       buildReady: report.factory.buildReady,
       deliveryReady: report.factory.deliveryReady,
+      proveOk: report.factory.proveOk,
       verification: report.verification
     });
   } else if (selectedContext === "draft" && selectedFeature) {

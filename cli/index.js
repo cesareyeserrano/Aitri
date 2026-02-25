@@ -5,9 +5,9 @@ import readline from "node:readline";
 import { getStatusReport, runStatus } from "./commands/status.js";
 import {
   runDiscoverCommand,
-  runPlanCommand,
-  runValidateCommand
+  runPlanCommand
 } from "./commands/discovery-plan-validate.js";
+import { runValidateCommand } from "./commands/validate.js";
 import { runDeliverCommand } from "./commands/deliver.js";
 import { runImplementCommand } from "./commands/implement.js";
 import { runInitCommand } from "./commands/init.js";

@@ -23,8 +23,13 @@
     },
     {
       "path": "cli/commands/discovery-plan-validate.js",
-      "soft": 800,
-      "hard": 1000
+      "soft": 550,
+      "hard": 650
+    },
+    {
+      "path": "cli/commands/validate.js",
+      "soft": 350,
+      "hard": 450
     },
     {
       "path": "cli/commands/runtime.js",
@@ -183,7 +188,7 @@
     },
     {
       "path": "cli/ai-client.js",
-      "soft": 125,
+      "soft": 170,
       "hard": 200
     },
     {

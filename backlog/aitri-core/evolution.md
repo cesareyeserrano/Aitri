@@ -26,3 +26,9 @@ _(none)_
 | EVO-011 | Structural spec quality gate in `aitri approve` (non-LLM) | v0.5.0 |
 | EVO-012 | Contract import coverage — `aitri verify-coverage` | v0.5.0 |
 | EVO-013 | Proof of Compliance — `aitri prove` (per-TC execution → FR proof record) | v0.6.0 |
+| EVO-014 | `status.js` — `prove_pending` state in state machine (`aitri resume` recommends `aitri prove`) | v0.7.0 |
+| EVO-015 | Split `discovery-plan-validate.js` (910→579 lines) — extracted `validate.js` | v0.7.0 |
+| EVO-016 | `aitri prove` multi-language runner — detect `.py` → pytest, `.go` → go test, `.mjs/.js` → node | v0.7.0 |
+| EVO-017 | SKILL.md adapters — migrate `scaffold + implement` to unified `aitri build` | v0.7.0 |
+| EVO-018 | `aitri prove --json` output mode for CI pipelines | v0.7.0 |
+| EVO-019 | `ai-client.js` soft budget updated (125 → 170) | v0.7.0 |
