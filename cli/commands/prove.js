@@ -60,6 +60,37 @@ function runTcStub(absFile) {
   return result.status === 0;
 }
 
+// EVO-022: detect contract files that are still scaffold placeholders
+function isContractPlaceholder(content) {
+  const s = String(content);
+  // Node: throw new Error("Not implemented: FR-N")
+  if (s.includes('throw new Error("Not implemented:')) return true;
+  // Python: raise NotImplementedError("Not implemented: FR-N")
+  if (s.includes('raise NotImplementedError("Not implemented:')) return true;
+  // Go scaffold template: body is only _ = input + return nil, nil
+  if (s.includes("return nil, nil") && s.includes("_ = input")) return true;
+  return false;
+}
+
+function checkContractCompleteness(stubContent, absFile) {
+  const contractImportRe = /^import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/gm;
+  const issues = [];
+  for (const m of String(stubContent).matchAll(contractImportRe)) {
+    const relPath = m[2];
+    if (!relPath.includes("/contracts/")) continue;
+    const absContract = path.resolve(path.dirname(absFile), relPath);
+    if (!fs.existsSync(absContract)) {
+      issues.push({ file: relPath, reason: "missing" });
+      continue;
+    }
+    const contractContent = fs.readFileSync(absContract, "utf8");
+    if (isContractPlaceholder(contractContent)) {
+      issues.push({ file: relPath, reason: "placeholder" });
+    }
+  }
+  return issues;
+}
+
 // EVO-020: detect stubs that import a contract but never invoke it
 function analyzeStubQuality(content) {
   const contractImportRe = /^import\s*\{([^}]+)\}\s*from\s*["'][^"']*\/contracts\/[^"']*["']/gm;
@@ -77,7 +108,11 @@ function buildProofRecord({ feature, frIds, traceMap, tcResults }) {
   const frProof = {};
   frIds.forEach((frId) => {
     const tracingTcs = Object.keys(traceMap).filter((tcId) => (traceMap[tcId]?.frIds || []).includes(frId));
-    const provenTcs = tracingTcs.filter((tcId) => tcResults[tcId]?.passed && !tcResults[tcId]?.trivial);
+    const provenTcs = tracingTcs.filter((tcId) =>
+      tcResults[tcId]?.passed &&
+      !tcResults[tcId]?.trivial &&
+      !tcResults[tcId]?.contractUnimplemented
+    );
     const evidence = provenTcs.map((tcId) => tcResults[tcId].file).filter(Boolean);
     frProof[frId] = {
       proven: provenTcs.length > 0,
@@ -88,17 +123,19 @@ function buildProofRecord({ feature, frIds, traceMap, tcResults }) {
   });
 
   const trivialTcs = Object.entries(tcResults).filter(([, v]) => v.trivial).map(([id]) => id);
+  const unimplementedContractTcs = Object.entries(tcResults).filter(([, v]) => v.contractUnimplemented).map(([id]) => id);
   const provenCount = Object.values(frProof).filter((v) => v.proven).length;
   return {
     schemaVersion: 1,
-    ok: provenCount === frIds.length && frIds.length > 0 && trivialTcs.length === 0,
+    ok: provenCount === frIds.length && frIds.length > 0 && trivialTcs.length === 0 && unimplementedContractTcs.length === 0,
     feature,
     provenAt: new Date().toISOString(),
     summary: {
       total: frIds.length,
       proven: provenCount,
       unproven: frIds.length - provenCount,
-      trivialTcs
+      trivialTcs,
+      unimplementedContractTcs
     },
     frProof,
     tcResults
@@ -118,6 +155,11 @@ function printProofReport(record) {
     console.log(`\nTRIVIAL stubs (contract imported but not invoked): ${summary.trivialTcs.join(", ")}`);
     console.log("These tests pass but do not verify behavioral compliance.");
     console.log("Invoke the contract function inside the test to make it meaningful.");
+  }
+  if (summary.unimplementedContractTcs && summary.unimplementedContractTcs.length > 0) {
+    console.log(`\nUNIMPLEMENTED contracts (stub passes but contract is still a scaffold placeholder): ${summary.unimplementedContractTcs.join(", ")}`);
+    console.log("Implement the contract functions before proving compliance.");
+    console.log("Run: aitri testgen --feature " + record.feature + "  (then implement the contracts)");
   }
   if (!record.ok) {
     const unproven = Object.entries(frProof).filter(([, v]) => !v.proven).map(([frId]) => frId);
@@ -232,14 +274,17 @@ export async function runProveCommand({
     const stubContent = fs.existsSync(absFile) ? fs.readFileSync(absFile, "utf8") : "";
     const quality = analyzeStubQuality(stubContent);
     const trivial = passed && quality.trivial;
-    tcResults[tcId] = { passed, file: entry.file, trivial };
+    const contractIssues = passed && !trivial ? checkContractCompleteness(stubContent, absFile) : [];
+    const contractUnimplemented = contractIssues.length > 0;
+    tcResults[tcId] = { passed, file: entry.file, trivial, contractUnimplemented, contractIssues };
     if (!jsonOutput) {
       if (trivial) console.log("PASS (trivial — contract imported but not invoked)");
+      else if (contractUnimplemented) console.log("PASS (blocked — contract is still a placeholder)");
       else console.log(passed ? "PASS" : "FAIL");
     }
   }
   missingTcs.forEach((tcId) => {
-    tcResults[tcId] = { passed: false, file: null, trivial: false };
+    tcResults[tcId] = { passed: false, file: null, trivial: false, contractUnimplemented: false, contractIssues: [] };
   });
 
   const record = buildProofRecord({ feature, frIds, traceMap, tcResults });

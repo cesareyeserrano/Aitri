@@ -332,3 +332,88 @@ test("prove does not flag as trivial when stub has no contract import", () => {
   assert.equal(proof.ok, true);
   assert.deepEqual(proof.summary.trivialTcs, []);
 });
+
+// EVO-022: contract completeness gate
+
+function writePlaceholderContract(dir, fnName) {
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, `${fnName}.js`),
+    `export async function ${fnName}(input) {\n  void input;\n  throw new Error("Not implemented: FR-1");\n}\n`,
+    "utf8"
+  );
+}
+
+function writeRealStubInvokingContract(dir, tcId, contractRelPath, contractFnName) {
+  // Stub calls the contract but swallows errors — passes even if contract is a placeholder.
+  // This is the scenario EVO-022 must catch: stub passes but contract is unimplemented.
+  const content = [
+    `// ${tcId}: stub`,
+    `import { ${contractFnName} } from "${contractRelPath}";`,
+    `import test from "node:test";`,
+    `import assert from "node:assert/strict";`,
+    `test("${tcId} real", async () => {`,
+    `  let result;`,
+    `  try { result = await ${contractFnName}({}); } catch { /* error swallowed */ }`,
+    `  assert.ok(true); // contract invoked above`,
+    `});`
+  ].join("\n");
+  fs.writeFileSync(path.join(dir, `${tcId.toLowerCase()}.test.mjs`), content, "utf8");
+}
+
+test("prove marks FR as unproven when TC invokes contract but contract is still a placeholder", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-prove-placeholder-contract-"));
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  const feature = "placeholder-contract";
+  writeApprovedSpec(tempDir, feature, ["- FR-1: Must do the thing."]);
+  writeTestsMd(tempDir, feature, [
+    "### TC-1",
+    "- Trace: US-1, FR-1, AC-1"
+  ]);
+  const generatedDir = path.join(tempDir, "tests", feature, "generated");
+  fs.mkdirSync(generatedDir, { recursive: true });
+  const contractDir = path.join(tempDir, "src", "contracts");
+  // Contract exists but still throws "Not implemented"
+  writePlaceholderContract(contractDir, "fr1_do_thing");
+  // Stub properly invokes the contract
+  writeRealStubInvokingContract(generatedDir, "TC-1", "../../../src/contracts/fr1_do_thing.js", "fr1_do_thing");
+
+  const result = runNode(["prove", "--feature", feature, "--non-interactive"], { cwd: tempDir });
+  assert.equal(result.status, 1, "placeholder contract must cause exit 1");
+  assert.match(result.stdout, /placeholder/i);
+
+  const proof = JSON.parse(
+    fs.readFileSync(path.join(tempDir, "docs", "implementation", feature, "proof-of-compliance.json"), "utf8")
+  );
+  assert.equal(proof.ok, false);
+  assert.equal(proof.frProof["FR-1"].proven, false);
+  assert.ok(proof.summary.unimplementedContractTcs.includes("TC-1"), "TC-1 must appear in unimplementedContractTcs");
+});
+
+test("prove marks FR as proven when TC invokes a fully implemented contract", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-prove-implemented-contract-"));
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  const feature = "implemented-contract";
+  writeApprovedSpec(tempDir, feature, ["- FR-1: Must do the thing."]);
+  writeTestsMd(tempDir, feature, [
+    "### TC-1",
+    "- Trace: US-1, FR-1, AC-1"
+  ]);
+  const generatedDir = path.join(tempDir, "tests", feature, "generated");
+  fs.mkdirSync(generatedDir, { recursive: true });
+  const contractDir = path.join(tempDir, "src", "contracts");
+  // Contract is fully implemented (no "Not implemented" throw)
+  writeContractFile(contractDir, "fr1_do_thing");
+  writeRealStubInvokingContract(generatedDir, "TC-1", "../../../src/contracts/fr1_do_thing.js", "fr1_do_thing");
+
+  const result = runNode(["prove", "--feature", feature, "--non-interactive"], { cwd: tempDir });
+  assert.equal(result.status, 0, "implemented contract must exit 0");
+  assert.match(result.stdout, /FR-1: PROVEN/);
+
+  const proof = JSON.parse(
+    fs.readFileSync(path.join(tempDir, "docs", "implementation", feature, "proof-of-compliance.json"), "utf8")
+  );
+  assert.equal(proof.ok, true);
+  assert.equal(proof.frProof["FR-1"].proven, true);
+  assert.deepEqual(proof.summary.unimplementedContractTcs, []);
+});

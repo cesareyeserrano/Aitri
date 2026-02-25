@@ -2,7 +2,9 @@
 
 ## 🟢 Ready for Implementation
 
-_(none)_
+| ID | Feature | Notes |
+|----|---------|-------|
+| EVO-023 | `aitri prove --mutate` — basic mutation testing: introduce code changes, verify TC stubs catch them, report confidence level | Closes the last gap: tests that pass even when the code is broken |
 
 ## 🟡 In Progress
 
@@ -32,3 +34,6 @@ _(none)_
 | EVO-017 | SKILL.md adapters — migrate `scaffold + implement` to unified `aitri build` | v0.7.0 |
 | EVO-018 | `aitri prove --json` output mode for CI pipelines | v0.7.0 |
 | EVO-019 | `ai-client.js` soft budget updated (125 → 170) | v0.7.0 |
+| EVO-020 | Trivial stub detection in `aitri prove` — FR marked UNPROVEN when stub imports contract but never invokes it | v0.7.0 |
+| EVO-021 | `aitri testgen` — LLM generates behavioral test bodies from FR + AC (Given/When/Then) + contract signatures, replacing scaffold placeholders | v0.8.0 |
+| EVO-022 | Contract completeness gate in `aitri prove` — static check: if stub invokes contract but contract still has "Not implemented" placeholder, FR is UNPROVEN | v0.8.0 |
