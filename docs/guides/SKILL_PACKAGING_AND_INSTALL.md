@@ -55,7 +55,7 @@ Requirements:
 ## Runtime Expectations
 - Start every session with `aitri checkpoint show` + `aitri resume json`
 - Use `--non-interactive --yes` flags only in CI/automation, never in interactive sessions
-- Run `aitri verify` before handoff/go decisions
+- Run `aitri verify-intent` before `aitri go` decisions
 - Respect gate approvals for all write operations
 - Report each step and next action
 

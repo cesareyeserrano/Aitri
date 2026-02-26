@@ -54,7 +54,7 @@ aitri help
 Expected:
 - `which aitri` points to your global npm bin path
 - `aitri --version` prints the installed version
-- `aitri help` shows core workflow commands including `resume/verify/handoff/go`
+- `aitri help` shows core workflow commands
 
 ## 3) Use Aitri in a Specific Project
 
@@ -83,23 +83,23 @@ Expected after init:
 ```bash
 aitri draft --feature user-auth --idea "Email and password login with forgot-password flow"
 aitri approve --feature user-auth
-aitri discover --feature user-auth
 aitri plan --feature user-auth
-aitri validate --feature user-auth --format json
-aitri verify --feature user-auth --format json
-aitri policy --feature user-auth --format json
+aitri go --feature user-auth --yes
+aitri build --feature user-auth --yes
+aitri testgen --feature user-auth
+aitri contractgen --feature user-auth
+aitri prove --feature user-auth --mutate
+aitri deliver --feature user-auth
 ```
 
 Expected:
-- `validate` exits with code `0`
-- JSON output reports no unresolved gaps for the generated baseline
-- `verify` exits with code `0` when a runtime test command exists
-- `policy` exits with code `0` when managed-go checks pass
-- `status json`/`handoff json` expose `recommendedCommand` for the exact next CLI action
-- `status json` exposes `confidence.score` using weighted components (`specIntegrity` 40%, `runtimeVerification` 60%)
-- `status --ui` generates a static insight page at `docs/insight/status.html` and auto-opens it in the browser
-- use `status --ui --no-open` when you only want file generation
-- confidence may be below 100 when runtime evidence is limited (for example smoke-only or manually forced verify commands)
+- `approve` exits with code `0` when spec passes quality gate
+- `plan` generates `backlog.md` and `tests.md` with traceable IDs (FR-*, US-*, TC-*)
+- `build` generates test stubs in `tests/<feature>/generated/` and contract placeholders in `src/contracts/`
+- `testgen` and `contractgen` require AI config in `aitri.config.json`
+- `prove` exits with code `0` when all FRs are covered by passing TC stubs
+- `proof-of-compliance.json` written to `docs/implementation/<feature>/`
+- `status json` exposes `recommendedCommand` for the exact next CLI action
 
 Runtime verification command detection order:
 1. `package.json` script `test:aitri`
@@ -173,10 +173,12 @@ aitri plan --feature user-auth --ai-backlog agent-backlog.md --ai-tests agent-te
 aitri verify-intent --feature user-auth
 
 # 7. Continue standard flow
-aitri validate --feature user-auth
-aitri verify --feature user-auth
 aitri go --feature user-auth --yes
-aitri scaffold --feature user-auth --yes     # test stubs auto-import contracts
+aitri build --feature user-auth --yes
+aitri testgen --feature user-auth
+aitri contractgen --feature user-auth
+aitri prove --feature user-auth --mutate
+aitri deliver --feature user-auth
 ```
 
 Key principle: the agent handles Markdown authoring; Aitri enforces the traceability contract.

@@ -4,21 +4,20 @@
 
 Aitri is a **spec enforcement CLI** for AI-assisted software delivery.
 
-It enforces one rule: no artifact (backlog, test stub, implementation brief, scaffold) can exist without a human-approved specification that precedes it.
+It enforces one rule: no artifact (backlog, test stub, contract, proof) can exist without a human-approved specification that precedes it.
 
 It operates as a **skill consumed by AI agents** (Claude, Codex, OpenCode) as their system of record, and is also available for direct terminal use.
 
 **What Aitri does:**
 - Validates that agent-generated content (backlogs, test cases) traces back to approved spec sections (FR-*, AC-*)
 - Blocks writes when traceability is missing
-- Generates structured artifacts (test stubs, implementation briefs) from approved specs
-- Tracks delivery gates: spec → backlog → tests → scaffold → verify → deliver
+- Generates test stubs, contract placeholders, behavioral tests, and contract implementations from approved specs
+- Tracks delivery gates: spec → backlog → tests → build → testgen → contractgen → prove → deliver
 - Supports existing projects via `aitri adopt` (scan + LLM infer + test map)
 
 **What Aitri does not do:**
-- Execute code or run tests directly
 - Generate requirements — requirements must come from the user
-- Guarantee correctness of agent-generated content, only structural traceability
+- Guarantee correctness of LLM-generated content, only structural traceability
 - Replace human judgment at approval gates
 
 ---
@@ -28,7 +27,7 @@ It operates as a **skill consumed by AI agents** (Claude, Codex, OpenCode) as th
 | Role | Responsibility |
 |------|----------------|
 | **Human** | Provides intent, approves specs, authorizes delivery |
-| **AI agent** | Authors backlog, tests, and code under Aitri's format contracts |
+| **AI agent** | Authors backlog, tests, contracts, and code under Aitri's format contracts |
 | **Aitri** | Validates traceability, enforces gates, generates structured scaffolding |
 
 ---
@@ -51,28 +50,27 @@ It operates as a **skill consumed by AI agents** (Claude, Codex, OpenCode) as th
 2. `aitri draft` — create draft spec from idea
 3. `aitri spec-improve` — AI quality review of spec (identifies ambiguous FRs, missing edge cases)
 4. `aitri approve` — validate and lock spec
-5. `aitri discover` — structured discovery interview artifact
-6. `aitri plan` — generate plan, backlog, and tests from spec
+5. `aitri plan` — structured discovery interview + generate plan, backlog, and tests from spec
    - Default: Aitri infers from spec
    - Auditor Mode: `--ai-backlog <file> --ai-tests <file>` — validate agent-authored content before writing
-7. `aitri verify-intent` — semantic validation: US satisfies FR intent (LLM)
-8. `aitri diff --proposed <file>` — compare current backlog against proposed update
-9. `aitri validate` — traceability gate
-10. `aitri verify` — runtime test execution
-11. `aitri go` — unlock implementation mode
+6. `aitri verify-intent` — semantic validation: US satisfies FR intent (LLM)
+7. `aitri diff --proposed <file>` — compare current backlog against proposed update
+8. `aitri go` — unlock implementation mode
 
 ### Post-Go (Factory)
-12. `aitri scaffold` — executable test stubs with contract imports, interface stubs
-13. `aitri implement` — ordered implementation briefs for AI agents
-14. `aitri deliver` — final gate: all FRs covered, all TCs passing
+9. `aitri build` — scaffold test stubs with contract imports + interface stubs
+10. `aitri testgen` — LLM generates behavioral test bodies from FR + AC + contract signatures
+11. `aitri contractgen` — LLM implements contract functions from FR text + AC + test stubs
+12. `aitri prove` — execute TC stubs, generate proof-of-compliance.json per FR
+    - `--mutate` — mutation testing: 9 operator mutations, advisory confidence score
+13. `aitri deliver` — final gate: all FRs proven, delivery record written
 
 ### Session Continuity
-- `aitri checkpoint [message]` — save state to `.aitri/DEV_STATE.md`
-- `aitri checkpoint show` — read saved state
+- `aitri checkpoint [message]` — save state
 - `aitri resume` — recommend next action
 
 ### Brownfield Onboarding
-- `aitri adopt` — Phase 1: scan stack, conventions, entry points, write `adoption-manifest.json`
+- `aitri adopt` — Phase 1: scan stack, conventions, entry points
 - `aitri adopt --depth standard` — Phase 2: LLM infers DRAFT specs + discovery docs
 - `aitri adopt --depth deep` — Phase 3: map existing tests → TC-* stubs
 - `aitri upgrade` — apply version-aware migrations to projects built with older Aitri versions
@@ -107,18 +105,18 @@ specs/
 docs/
   discovery/<feature>.md
   plan/<feature>.md
-  implementation/<feature>/US-N.md
-  implementation/<feature>/IMPLEMENTATION_ORDER.md
-  verification/<feature>.json
+  implementation/<feature>/proof-of-compliance.json
+  implementation/<feature>/scaffold-manifest.json
+  implementation/<feature>/build-manifest.json
   delivery/<feature>.json
   adoption-manifest.json    # written by aitri adopt
   project.json              # aitriVersion + migrationsApplied
 
 backlog/<feature>/backlog.md
 tests/<feature>/tests.md
-tests/<feature>/generated/  # test stubs from aitri scaffold
+tests/<feature>/generated/  # test stubs from aitri build
 
-src/                        # scaffolded structure (contracts, stubs)
+src/contracts/              # contract stubs (FR-N implementations)
 .aitri/DEV_STATE.md         # current session checkpoint
 ```
 
@@ -128,28 +126,23 @@ src/                        # scaffolded structure (contracts, stubs)
 
 **Session start:**
 ```bash
-aitri checkpoint show
 aitri resume json   # read recommendedCommand
 ```
 
-**Pre-go (Auditor Mode):**
+**Pre-go:**
 ```bash
 aitri draft --feature <name> --idea "<intent>"
 aitri approve --feature <name>
-# agent generates agent-backlog.md + agent-tests.md
-aitri diff --feature <name> --proposed agent-backlog.md
-aitri plan --feature <name> --ai-backlog agent-backlog.md --ai-tests agent-tests.md
-aitri verify-intent --feature <name>
-aitri validate --feature <name>
+aitri plan --feature <name>
 aitri go --feature <name> --yes
 ```
 
-**Post-go:**
+**Post-go (full automated cycle):**
 ```bash
-aitri scaffold --feature <name> --yes
-aitri implement --feature <name>
-# agent implements each US-* brief in order
-aitri verify --feature <name>   # after each story
+aitri build --feature <name> --yes
+aitri testgen --feature <name>
+aitri contractgen --feature <name>
+aitri prove --feature <name> --mutate
 aitri deliver --feature <name>
 ```
 
@@ -167,23 +160,16 @@ Add to `aitri.config.json`:
 {
   "ai": {
     "provider": "claude",
-    "model": "claude-opus-4-6",
+    "model": "claude-sonnet-4-6",
     "apiKeyEnv": "ANTHROPIC_API_KEY"
   }
 }
 ```
 
-Required by: `spec-improve`, `verify-intent`, `aitri adopt --depth standard`.
+Required by: `spec-improve`, `verify-intent`, `aitri adopt --depth standard`,
+`aitri testgen`, `aitri contractgen`.
 
 ---
-
-## Stabilization State (2026-02-20)
-
-- Version: 0.4.0 (pre-release 0.5.0 scope delivered on main)
-- EVO backlog: EVO-001 through EVO-009 — all complete
-- Auditor Mode: ACTIVE
-- Commands delivered: `verify-intent`, `diff`, `spec-improve`, `checkpoint`, `adopt` (3 phases), `upgrade` (v2)
-- Tests: 158/158 green
 
 ## Governance
 

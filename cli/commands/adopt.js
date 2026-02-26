@@ -773,7 +773,7 @@ export async function runAdoptCommand({
     console.log("Next steps:");
     console.log("  1. Review tests/<feature>/tests.md — add FR-* and AC-* Trace lines");
     console.log("  2. Run: aitri plan --feature <name>  (to generate full backlog)");
-    console.log("  3. Run: aitri validate --feature <name>  (traceability gate)");
+    console.log("  3. Run: aitri go --feature <name>  (unlocks factory mode)");
 
     printCheckpointSummary(runAutoCheckpoint({
       enabled: options.autoCheckpoint,

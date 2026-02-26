@@ -32,22 +32,22 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 ### Pre-Go (Governance and Planning)
 - `aitri init`: Initialize project structure.
 - `aitri draft [--guided]`: Create draft spec from idea.
+- `aitri spec-improve`: AI quality review — identifies ambiguous FRs and missing edge cases.
 - `aitri approve`: Validate and approve spec.
 - `aitri discover [--guided]`: Generate discovery artifact.
-- `aitri plan`: Generate plan, backlog (real stories), and tests (real cases) from spec.
-- `aitri validate`: Verify traceability, coverage, and persona gates.
-- `aitri verify`: Execute runtime verification.
-- `aitri policy`: Run managed policy checks.
+- `aitri plan`: Generate backlog and tests from spec (or auditor mode with `--ai-backlog --ai-tests`).
+- `aitri verify-intent`: Semantic validation — US satisfies FR intent.
+- `aitri diff --proposed`: Preview delta before committing a backlog update.
 - `aitri status`: Show project and feature status.
 - `aitri resume`: Resume session from last state.
-- `aitri handoff`: Present handoff status.
 - `aitri go`: Enter implementation mode (after human approval).
 
 ### Post-Go (Factory Execution)
-- `aitri build`: Scaffold project structure, stubs, interface contracts, and generate ordered implementation briefs (unified).
-- `aitri verify` (enhanced): Map test results to `TC-*`, report `FR`/`US` coverage.
+- `aitri build`: Scaffold test stubs and contract placeholders.
+- `aitri testgen`: LLM generates behavioral test bodies from FR + AC.
+- `aitri contractgen`: LLM implements contract functions from FR + test stubs.
 - `aitri prove`: Run each TC stub, map results to `FR-IDs`, write proof-of-compliance record.
-- `aitri deliver`: Final delivery gate: all `FR`s covered, all `TC`s passing.
+- `aitri deliver`: Final delivery gate: all `FR`s proven, all `TC`s passing.
 
 ## Interactive Mode (Default)
 Aitri commands are **interactive by default**. The agent should:
@@ -61,32 +61,28 @@ Only use these flags in CI pipelines or when the user explicitly requests unatte
 - `--non-interactive`: suppress prompts, fail if required args are missing.
 - `--yes`: auto-confirm write operations.
 - `--feature <name>`: pass feature explicitly.
-- `json`, `-j`, or `--format json`: machine-readable output (`status`, `verify`, `policy`, `validate`).
+- `json`, `-j`, or `--format json`: machine-readable output (`status`, `resume`, `diff`).
 
 ## Default Workflow
 
 ### Pre-Go Phase
 1. `aitri resume`
 2. `aitri init` (when needed)
-3. `aitri draft` -> Human review
-4. `aitri approve`
-5. `aitri discover`
-6. `aitri plan`
-7. Refine artifacts with personas (Architect, Developer, QA, etc.)
-8. `aitri validate`
-9. `aitri verify`
-10. `aitri policy`
-11. `aitri handoff`
-12. Human GO/NO-GO decision
-13. `aitri go`
+3. `aitri draft` → Human review
+4. `aitri spec-improve` — AI quality review (optional but recommended)
+5. `aitri approve`
+6. `aitri discover`
+7. `aitri plan` (or auditor mode: `--ai-backlog --ai-tests`)
+8. `aitri verify-intent` — semantic US ↔ FR alignment (optional)
+9. Human GO/NO-GO decision
+10. `aitri go`
 
 ### Post-Go Phase (Factory Execution)
-14. `aitri build`: scaffold stubs, contracts, and generate implementation briefs.
-15. Implement each `US-*` brief in order from `IMPLEMENTATION_ORDER.md`.
-16. After each `US-*`: `aitri verify` to confirm `TC-*` pass.
-17. Repeat until all stories pass.
-18. `aitri prove`: run TC stubs, prove each FR is satisfied.
-19. `aitri deliver`: final delivery gate.
+11. `aitri build --yes`: scaffold test stubs and contract placeholders.
+12. `aitri testgen`: LLM generates behavioral test bodies.
+13. `aitri contractgen`: LLM implements contract functions.
+14. `aitri prove --mutate`: run TC stubs, generate proof-of-compliance.
+15. `aitri deliver`: final delivery gate.
 
 ## Gemini Context Management (1M tokens)
 - **Deep Recall:** Leverage the long context to maintain awareness of all `AF-SPEC` files in `specs/approved/`.

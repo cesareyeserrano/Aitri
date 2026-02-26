@@ -34,11 +34,7 @@ function stripRulePrefix(text) {
     .replace(/^must\s+/i, "");
 }
 
-/**
- * @deprecated Legacy heuristic — replaced by Auditor Mode (EVO-001).
- * Use `generatePlanArtifacts({ agentContent })` with agent-authored backlog instead.
- * Retained for backward compatibility with the inference path.
- */
+// Heuristic fallback used when no agent-authored content is provided (no --ai-backlog/--ai-tests).
 function normalizeActor(actor, qualityProfile) {
   const value = normalizeLine(actor);
   if (!value) return fallbackActor(qualityProfile);
@@ -48,11 +44,6 @@ function normalizeActor(actor, qualityProfile) {
   return value;
 }
 
-/**
- * @deprecated Legacy heuristic — replaced by Auditor Mode (EVO-001).
- * Use `generatePlanArtifacts({ agentContent })` with agent-authored backlog instead.
- * Retained for backward compatibility with the inference path.
- */
 function fallbackActor(qualityProfile) {
   const domain = String(qualityProfile?.id || "general");
   if (domain === "web") return "Support agent";
@@ -70,11 +61,6 @@ function buildUiVocabularyHints(uiStructure) {
   };
 }
 
-/**
- * @deprecated Legacy heuristic — replaced by Auditor Mode (EVO-001).
- * Use `generatePlanArtifacts({ agentContent })` with agent-authored tests instead.
- * Retained for backward compatibility with the inference path.
- */
 function toGherkin(ac, ruleText, uiVocab = null) {
   if (ac?.gherkin?.given && ac?.gherkin?.when && ac?.gherkin?.then) {
     return {
@@ -127,11 +113,6 @@ function selectCriteriaForRule(rule, allCriteria) {
   return [allCriteria[Math.min(rule.index - 1, allCriteria.length - 1)]];
 }
 
-/**
- * @deprecated Legacy heuristic — replaced by Auditor Mode (EVO-001).
- * Use `generatePlanArtifacts({ agentContent })` with agent-authored backlog instead.
- * Retained for backward compatibility with the inference path.
- */
 function inferBenefit(ruleText, actor) {
   const text = stripRulePrefix(ruleText).toLowerCase();
   if (/\bauth|login|credential|session\b/.test(text)) return `${actor.toLowerCase()}s can access the right capabilities safely`;
@@ -141,11 +122,6 @@ function inferBenefit(ruleText, actor) {
   return `the workflow remains reliable and traceable`;
 }
 
-/**
- * @deprecated Legacy heuristic — replaced by Auditor Mode (EVO-001).
- * Use `generatePlanArtifacts({ agentContent })` with agent-authored backlog instead.
- * Retained for backward compatibility with the inference path.
- */
 function inferCapability(ruleText) {
   const summary = stripRulePrefix(ruleText);
   const lowered = summary.charAt(0).toLowerCase() + summary.slice(1);
@@ -335,7 +311,7 @@ export function generateBacklogContent({
   const epicsMarkdown = epicGroups.map((group, index) => {
     const trace = unique(group.flatMap((story) => story.frIds)).join(", ");
     const outcome = inferEpicOutcome(group, index);
-    return `- EP-${index + 1}: ${outcome}
+    return `- ${outcome}
   - Notes: Covers ${group.length} story slice(s) with explicit acceptance traces.
   - Trace: ${trace}`;
   }).join("\n");
@@ -392,10 +368,7 @@ export function generateTestsContent({
     return `### TC-${index + 1}
 - Title: Validate ${story.id.toLowerCase()} primary behavior.
 - Trace: ${story.id}, ${trace}
-- Steps:
-  1) Given ${firstAc.given}
-  2) When ${firstAc.when}
-  3) Then ${firstAc.then}`;
+- AC: Given ${firstAc.given}, when ${firstAc.when}, then ${firstAc.then}.`;
   }).join("\n\n");
 
   let tcCursor = stories.length + 1;
@@ -407,10 +380,7 @@ export function generateTestsContent({
     const tc = `### TC-${tcCursor}
 - Title: Handle edge behavior - ${title}.
 - Trace: ${primaryUs}, ${primaryFr}
-- Steps:
-  1) Given ${title.toLowerCase()}
-  2) When the relevant workflow is executed
-  3) Then the system returns a deterministic failure-safe response`;
+- AC: Given ${title.toLowerCase()}, when the workflow executes, then the system returns a deterministic failure-safe response.`;
     tcCursor += 1;
     return tc;
   }).join("\n\n");
@@ -423,10 +393,7 @@ export function generateTestsContent({
     const tc = `### TC-${tcCursor}
 - Title: Enforce security control - ${title}.
 - Trace: ${primaryUs}, ${primaryFr}
-- Steps:
-  1) Given threat scenario: ${title.toLowerCase()}
-  2) When an invalid or abusive action is attempted
-  3) Then access is blocked and evidence is logged`;
+- AC: Given threat scenario: ${title.toLowerCase()}, when an invalid or abusive action is attempted, then access is blocked and evidence is logged.`;
     tcCursor += 1;
     return tc;
   }).join("\n\n");
@@ -440,10 +407,7 @@ export function generateTestsContent({
       const tc = `### TC-${tcCursor}
 - Title: Validate UI flow - ${flow.from} to ${flow.to}.
 - Trace: ${primaryUs}, ${primaryFr}
-- Steps:
-  1) Given user is on the ${flow.from} screen
-  2) When user completes the ${flow.from} action
-  3) Then user is navigated to the ${flow.to} screen`;
+- AC: Given user is on the ${flow.from} screen, when user completes the action, then user is navigated to ${flow.to}.`;
       tcCursor += 1;
       return tc;
     }).join("\n\n");
@@ -467,11 +431,11 @@ ${functionalCases}
 
 ## Negative / Abuse
 
-${negativeCases || "### TC-" + tcCursor + "\n- Title: Negative coverage pending explicit edge-case input.\n- Trace: US-1, FR-1\n- Steps:\n  1) Given an invalid input condition\n  2) When the workflow executes\n  3) Then the action is rejected with clear error details"}
+${negativeCases || "### TC-" + tcCursor + "\n- Title: Negative coverage pending explicit edge-case input.\n- Trace: US-1, FR-1\n- AC: Given an invalid input condition, when the workflow executes, then the action is rejected with clear error details."}
 
 ## Security
 
-${securityCases || "### TC-" + (tcCursor + 1) + "\n- Title: Security control validation baseline.\n- Trace: US-1, FR-1\n- Steps:\n  1) Given an abuse attempt\n  2) When the control is evaluated\n  3) Then the attempt is blocked and logged"}${uiFlowsSection}
+${securityCases || "### TC-" + (tcCursor + 1) + "\n- Title: Security control validation baseline.\n- Trace: US-1, FR-1\n- AC: Given an abuse attempt, when the control is evaluated, then the attempt is blocked and logged."}${uiFlowsSection}
 
 ## Edge Cases
 

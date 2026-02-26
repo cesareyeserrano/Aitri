@@ -31,30 +31,29 @@ Use Aitri as the CLI guardrail for spec-driven SDLC execution with mandatory hum
 ### Pre-Go (Governance and Planning)
 - `aitri init`
 - `aitri draft [--guided]`
+- `aitri spec-improve`
 - `aitri approve`
 - `aitri discover [--guided]`
 - `aitri plan`
-- `aitri validate`
-- `aitri verify`
-- `aitri policy`
+- `aitri verify-intent`
+- `aitri diff --proposed`
 - `aitri status`
 - `aitri resume`
-- `aitri handoff`
 - `aitri go`
 
 ### Post-Go (Factory Execution)
-- `aitri build` — scaffold project skeleton, stubs, interface contracts, and generate ordered implementation briefs (unified)
-- `aitri verify` — (enhanced) map test results to TC-*, report FR/US coverage
-- `aitri prove` — run each TC stub, map results to FR-IDs, write proof-of-compliance record
-- `aitri deliver` — final delivery gate: all FRs covered, all TCs passing
+- `aitri build` — scaffold test stubs and contract placeholders
+- `aitri testgen` — LLM generates behavioral test bodies from FR + AC
+- `aitri contractgen` — LLM implements contract functions from FR + test stubs
+- `aitri prove` — run TC stubs, map results to FR-IDs, write proof-of-compliance record
+- `aitri deliver` — final delivery gate: all FRs proven, all TCs passing
 
 ## Factory Workflow (Post-Go)
-1. `aitri build` — scaffold stubs, contracts, and generate implementation briefs
-2. Implement each US-* brief in order from IMPLEMENTATION_ORDER.md
-3. After each US-*: `aitri verify` to confirm TC-* pass
-4. Repeat 2-3 until all stories pass
-5. `aitri prove` — run TC stubs, prove each FR is satisfied
-6. `aitri deliver` — final delivery gate
+1. `aitri build --yes` — scaffold test stubs and contract placeholders
+2. `aitri testgen` — LLM generates behavioral test bodies
+3. `aitri contractgen` — LLM implements contract functions
+4. `aitri prove --mutate` — run TC stubs, generate proof-of-compliance
+5. `aitri deliver` — final delivery gate
 
 ## Interactive Mode (Default)
 Aitri commands are **interactive by default**. The agent should:
@@ -68,7 +67,7 @@ Only use these flags in CI pipelines or when the user explicitly requests unatte
 - `--non-interactive` — suppress prompts, fail if required args are missing
 - `--yes` — auto-confirm write operations
 - `--feature <name>` — pass feature explicitly
-- `json`, `-j`, or `--format json` — machine-readable output for `status`, `verify`, `policy`, `validate`
+- `json`, `-j`, or `--format json` — machine-readable output for `status`, `resume`, `diff`
 
 ## Checkpoint Behavior
 Write commands create auto-checkpoints by default in git repositories (retained max: 10).

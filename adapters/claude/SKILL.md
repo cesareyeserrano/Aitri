@@ -30,22 +30,22 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 ### Pre-Go (Governance and Planning)
 - `aitri init`
 - `aitri draft [--guided]`
+- `aitri spec-improve`
 - `aitri approve`
 - `aitri discover [--guided]`
 - `aitri plan`
-- `aitri validate`
-- `aitri verify`
-- `aitri policy`
+- `aitri verify-intent`
+- `aitri diff --proposed`
 - `aitri status`
 - `aitri resume`
-- `aitri handoff`
 - `aitri go`
 
 ### Post-Go (Factory Execution)
-- `aitri build` — scaffold project skeleton, stubs, interface contracts, and generate ordered implementation briefs (unified)
-- `aitri verify` — (enhanced) map test results to TC-*, report FR/US coverage
-- `aitri prove` — run each TC stub, map results to FR-IDs, write proof-of-compliance record
-- `aitri deliver` — final delivery gate: all FRs covered, all TCs passing
+- `aitri build` — scaffold test stubs and contract placeholders
+- `aitri testgen` — LLM generates behavioral test bodies from FR + AC
+- `aitri contractgen` — LLM implements contract functions from FR + test stubs
+- `aitri prove` — run TC stubs, map results to FR-IDs, write proof-of-compliance record
+- `aitri deliver` — final delivery gate: all FRs proven, all TCs passing
 
 ## Interactive Mode (Default)
 Aitri commands are **interactive by default**. The agent should:
@@ -59,7 +59,7 @@ Only use these flags in CI pipelines or when the user explicitly requests unatte
 - `--non-interactive` — suppress prompts, fail if required args are missing
 - `--yes` — auto-confirm write operations
 - `--feature <name>` — pass feature explicitly
-- `json`, `-j`, or `--format json` — machine-readable output (`status`, `verify`, `policy`, `validate`)
+- `json`, `-j`, or `--format json` — machine-readable output (`status`, `resume`, `diff`)
 
 ## Default Workflow
 
@@ -67,25 +67,21 @@ Only use these flags in CI pipelines or when the user explicitly requests unatte
 1. `aitri resume`
 2. `aitri init` when needed
 3. `aitri draft`
-4. Human review and adjustments
-5. `aitri approve`
-6. `aitri discover`
-7. `aitri plan`
-8. Refine artifacts with personas
-9. `aitri validate`
-10. `aitri verify`
-11. `aitri policy`
-12. `aitri handoff`
-13. Human GO/NO-GO decision
-14. `aitri go`
+4. `aitri spec-improve` — AI quality review (optional but recommended)
+5. Human review and adjustments
+6. `aitri approve`
+7. `aitri discover`
+8. `aitri plan` (or auditor mode: `--ai-backlog --ai-tests`)
+9. `aitri verify-intent` — semantic US ↔ FR alignment (optional)
+10. Human GO/NO-GO decision
+11. `aitri go`
 
 ### Post-Go Phase (Factory Execution)
-15. `aitri build` — scaffold stubs, contracts, and generate implementation briefs
-16. Implement each US-* brief in order from IMPLEMENTATION_ORDER.md
-17. After each US-*: `aitri verify` to confirm TC-* pass
-18. Repeat 16-17 until all stories pass
-19. `aitri prove` — run TC stubs, prove each FR is satisfied
-20. `aitri deliver` — final delivery gate
+12. `aitri build --yes` — scaffold test stubs and contract placeholders
+13. `aitri testgen` — LLM generates behavioral test bodies
+14. `aitri contractgen` — LLM implements contract functions
+15. `aitri prove --mutate` — run TC stubs, generate proof-of-compliance
+16. `aitri deliver` — final delivery gate
 
 ## Persona Alignment
 Use these lenses while refining artifacts:

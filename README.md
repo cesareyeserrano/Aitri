@@ -203,31 +203,24 @@ aitri discover --feature user-auth
 # Generate plan, backlog, and test cases from the spec
 aitri plan --feature user-auth
 
-# Validate traceability (spec → backlog → tests)
-aitri validate --feature user-auth
-
-# Runtime verification gate
-aitri verify --feature user-auth
-
 # Human GO/NO-GO decision
-aitri handoff
 aitri go --feature user-auth
 ```
 
 ### Post-Go (Factory)
 
 ```bash
-# Generate executable test stubs with contract imports
-aitri scaffold --feature user-auth --yes
+# Scaffold test stubs and contract placeholders
+aitri build --feature user-auth --yes
 
-# Generate ordered implementation briefs for each user story
-aitri implement --feature user-auth
+# LLM generates behavioral test bodies from FR + AC
+aitri testgen --feature user-auth
 
-# Verify after each story implementation
-aitri verify --feature user-auth
+# LLM implements contract functions from FR + test stubs
+aitri contractgen --feature user-auth
 
-# Prove each FR is satisfied by running TC stubs individually
-aitri prove --feature user-auth
+# Run TC stubs, generate proof-of-compliance
+aitri prove --feature user-auth --mutate
 
 # Final delivery gate
 aitri deliver --feature user-auth
@@ -266,20 +259,17 @@ aitri plan --feature user-auth --ai-backlog agent-backlog.md --ai-tests agent-te
 # Semantic intent validation: do User Stories satisfy FR intent?
 aitri verify-intent --feature user-auth
 
-# Continue standard flow
-aitri validate --feature user-auth
-aitri verify --feature user-auth
+# Human GO/NO-GO decision
 aitri go --feature user-auth --yes
 ```
 
 ### Post-Go
 
 ```bash
-aitri scaffold --feature user-auth --yes
-aitri implement --feature user-auth
-# agent implements each US-* brief in order (IMPLEMENTATION_ORDER.md)
-aitri verify --feature user-auth    # after each story
-aitri prove --feature user-auth     # proves each FR is satisfied by passing TC stubs
+aitri build --feature user-auth --yes
+aitri testgen --feature user-auth
+aitri contractgen --feature user-auth
+aitri prove --feature user-auth --mutate
 aitri deliver --feature user-auth
 ```
 
@@ -328,20 +318,17 @@ Output: `docs/adoption-manifest.json`, `specs/drafts/<feature>.md`, `docs/discov
 | `aitri plan` | Generate plan, backlog, and tests from spec |
 | `aitri diff` | Compare current backlog against proposed update |
 | `aitri verify-intent` | Semantic validation: User Stories satisfy FR intent |
-| `aitri validate` | Traceability gate (spec → backlog → tests) |
-| `aitri verify` | Runtime test execution gate |
-| `aitri policy` | Managed policy checks before handoff |
-| `aitri handoff` | Present handoff status for human GO/NO-GO |
 | `aitri go` | Unlock implementation mode |
 
 ### Post-Go (Factory)
 
 | Command | Purpose |
 |---------|---------|
-| `aitri scaffold` | Generate executable test stubs + contract interfaces |
-| `aitri implement` | Ordered implementation briefs for each user story |
-| `aitri prove` | Run each TC stub, map results to FR-IDs, write proof-of-compliance record |
-| `aitri deliver` | Final delivery gate: all FRs covered, all TCs passing |
+| `aitri build` | Scaffold test stubs and contract placeholders |
+| `aitri testgen` | LLM generates behavioral test bodies from FR + AC |
+| `aitri contractgen` | LLM implements contract functions from FR + test stubs |
+| `aitri prove` | Run TC stubs, map results to FR-IDs, write proof-of-compliance |
+| `aitri deliver` | Final delivery gate: all FRs proven, all TCs passing |
 
 ### Session and State
 

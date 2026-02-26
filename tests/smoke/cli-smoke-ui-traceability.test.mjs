@@ -326,7 +326,7 @@ test("generateTestsContent includes UI Flows section when uiStructure has flows"
   assert.match(result, /Login to Dashboard/);
   assert.match(result, /Dashboard to Settings/);
   assert.match(result, /Given user is on the Login screen/);
-  assert.match(result, /Then user is navigated to the Dashboard screen/);
+  assert.match(result, /then user is navigated to Dashboard/);
 });
 
 // ─── EVO-001: Auditor Mode unit tests ────────────────────────────────────────

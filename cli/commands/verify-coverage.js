@@ -80,7 +80,7 @@ export function runVerifyCoverageCommand({
   );
 
   if (!fs.existsSync(manifestFile)) {
-    const msg = `Scaffold manifest not found: ${path.relative(root, manifestFile)}\nRun: aitri scaffold --feature ${feature}`;
+    const msg = `Scaffold manifest not found: ${path.relative(root, manifestFile)}\nRun: aitri build --feature ${feature}`;
     if (jsonOutput) {
       console.log(JSON.stringify({ ok: false, feature, issues: [msg] }, null, 2));
     } else {

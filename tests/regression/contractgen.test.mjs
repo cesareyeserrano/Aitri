@@ -95,7 +95,7 @@ test("contractgen reports missing contract file when scaffold was not run", () =
   const result = runNode(["contractgen", "--feature", feature, "--non-interactive"], { cwd: tempDir });
   // Exits 0 (0 failed) but reports skipped + message about running scaffold
   assert.equal(result.status, 0);
-  assert.match(result.stdout, /run aitri scaffold/i);
+  assert.match(result.stdout, /run aitri build/i);
 });
 
 test("contractgen --fr filters to a specific FR", () => {

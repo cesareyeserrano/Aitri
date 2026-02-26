@@ -262,7 +262,7 @@ export async function runProveCommand({
     } else if (scan.mode === "missing_tests_file") {
       console.log(`Tests file missing. Run: aitri plan --feature ${feature}`);
     } else {
-      console.log(`No generated test stubs found. Run: aitri scaffold --feature ${feature}`);
+      console.log(`No generated test stubs found. Run: aitri build --feature ${feature}`);
       console.log(`Expected directory: ${path.relative(root, generatedDir)}`);
     }
     return ERROR;
@@ -277,7 +277,7 @@ export async function runProveCommand({
       console.log(JSON.stringify({ ok: false, feature, error: "no_tc_stubs" }, null, 2));
     } else {
       console.log("No TC stub files found in generated directory.");
-      console.log(`Run: aitri scaffold --feature ${feature}`);
+      console.log(`Run: aitri build --feature ${feature}`);
     }
     return ERROR;
   }

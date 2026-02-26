@@ -137,7 +137,7 @@ export async function runContractgenCommand({
     const contractPath = resolveContractPath(root, stackFamily, fr);
 
     if (!fs.existsSync(contractPath)) {
-      console.log(`  ${fr.id}: contract file not found — run aitri scaffold first`);
+      console.log(`  ${fr.id}: contract file not found — run aitri build first`);
       console.log(`    Expected: ${path.relative(root, contractPath)}`);
       skipped++;
       continue;

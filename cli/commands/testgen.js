@@ -101,7 +101,7 @@ export async function runTestgenCommand({
   }
   if (!fs.existsSync(generatedDir)) {
     console.log(`Generated stubs not found: ${path.relative(root, generatedDir)}`);
-    console.log(`Run: aitri scaffold --feature ${feature}`);
+    console.log(`Run: aitri build --feature ${feature}`);
     return ERROR;
   }
 
@@ -132,7 +132,7 @@ export async function runTestgenCommand({
 
   if (stubFiles.length === 0) {
     console.log(`No stub files found in ${path.relative(root, generatedDir)}.`);
-    console.log(`Run: aitri scaffold --feature ${feature}`);
+    console.log(`Run: aitri build --feature ${feature}`);
     return ERROR;
   }
 
