@@ -4,7 +4,6 @@
 
 | ID | Feature | Notes |
 |----|---------|-------|
-| EVO-033 | `aitri serve` — local preview after QA gate: detects stack (Node/Python/Go/static), resolves entry point, starts dev server, opens browser; only available after `aitri prove` passes (QA gate enforced); `--entry` flag for non-conventional projects; pipeline position: `prove → serve → deliver` | Low-medium risk; entry point detection fallible in non-conventional projects |
 
 ## 🗃️ Descartado / Won't Do
 
@@ -54,3 +53,4 @@ _(none)_
 | EVO-035 | **Spec-aware discovery**: `collectDiscoveryInterview()` now receives spec content; if spec has rich fields (real Actors, Context >20 chars, AC-N entries), auto-populates discovery from spec and skips 6–13 question wizard; `--guided` forces full interview; `extractSpecContext()` maps spec sections to discovery fields; applies to both `aitri discover` and inline discover inside `aitri plan` | v1.0.2 |
 | EVO-032 | **Critical bug fix** — `testgen` and `contractgen` invisible to state machine: `computeNextStep()` now adds `testgen_pending` and `contractgen_pending` states between verify and prove; placeholder detection via file scan (`assert.fail(`, `Not implemented`); pipeline display expanded to 9 stages (build→testgen→contractgen→prove); legacy scaffold flow unaffected; 3 test assertions updated; 218 tests green | v1.0.1 |
 | EVO-031 | **`aitri resume` redesign** — replaces raw DEV_STATE.md cat with a structured Step N of M pipeline checklist (✓/○ per stage), Next + Why lines, `--json` mode for CI; `buildResumeStages()` derives 9-stage state from status report; delivery_complete shows "Pipeline complete" message; 2 smoke test assertions updated; 218 tests green | v1.0.3 |
+| EVO-033 | **`aitri serve`** — local dev-server launcher: detects stack (Node/Python/Go/static), resolves entry point, starts server in foreground; soft gate: hard-blocks if build missing, warns (continues) if `prove` not passed; `--entry` overrides auto-detection; `--dry-run` prints command without starting; `--open` opens browser; `--json` for CI; side tool, not a pipeline step; 5 smoke tests; 223 tests green | v1.0.4 |

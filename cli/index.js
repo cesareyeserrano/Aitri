@@ -45,6 +45,7 @@ import { runProveCommand } from "./commands/prove.js";
 import { runTestgenCommand } from "./commands/testgen.js";
 import { runContractgenCommand } from "./commands/contractgen.js";
 import { runAuditCommand } from "./commands/audit.js";
+import { runServeCommand } from "./commands/serve.js";
 import { fileURLToPath } from "node:url";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import {
@@ -126,6 +127,8 @@ function parseArgs(argv) {
     force: false,
     mutate: false,
     noAi: false,
+    entry: null,
+    open: false,
     positional: []
   };
 
@@ -223,6 +226,9 @@ function parseArgs(argv) {
     } else if (arg === "--force") { parsed.force = true;
     } else if (arg === "--mutate") { parsed.mutate = true;
     } else if (arg === "--no-ai") { parsed.noAi = true;
+    } else if (arg === "--entry") { parsed.entry = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--entry=")) { parsed.entry = arg.slice("--entry=".length).trim();
+    } else if (arg === "--open") { parsed.open = true;
     } else {
       parsed.positional.push(arg);
     }
@@ -338,7 +344,7 @@ Workflow:
      [WRITE CODE]    You or your AI agent implements each story
   7. aitri deliver    Release tag + build artifact
 
-Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff, adopt, upgrade, audit
+Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff, adopt, upgrade, audit, serve
 Still work (deprecated): discover, validate, handoff, scaffold, implement, verify, policy
 
 Common options:
@@ -449,6 +455,11 @@ if (cmd === "contractgen") {
 
 if (cmd === "audit") {
   const code = await runAuditCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "serve") {
+  const code = await runServeCommand({ options, getProjectContextOrExit, getStatusReportOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
