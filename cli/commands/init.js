@@ -50,7 +50,6 @@ export async function runInitCommand({
   ask,
   showBanner,
   getProjectContextOrExit,
-  confirmProceed,
   runAutoCheckpoint,
   printCheckpointSummary,
   exitCodes
@@ -118,16 +117,6 @@ export async function runInitCommand({
   initDirs.forEach((dir) => console.log("- Create: " + path.relative(root, dir)));
   console.log("- Write: " + path.relative(root, projectProfileFile));
   if (project.config.loaded) console.log(`- Config: ${project.config.file}`);
-
-  const proceed = await confirmProceed(options);
-  if (proceed === null) {
-    console.log("Non-interactive mode requires --yes for commands that modify files.");
-    return ERROR;
-  }
-  if (!proceed) {
-    console.log("Aborted.");
-    return ABORTED;
-  }
 
   initDirs.forEach((dir) => fs.mkdirSync(dir, { recursive: true }));
 

@@ -182,7 +182,46 @@ export function normalizeRetrievalMode(value) {
   return null;
 }
 
-export async function collectDiscoveryInterview(options, ask) {
+function compactBullets(text, maxChars) {
+  return text.split("\n")
+    .filter((l) => /^\s*[-*]/.test(l))
+    .map((l) => l.replace(/^\s*[-*]\s*/, "").trim())
+    .filter(Boolean)
+    .join("; ")
+    .substring(0, maxChars || 300);
+}
+
+export function extractSpecContext(specContent) {
+  if (!specContent) return null;
+  const actors   = extractSection(specContent, "Actors");
+  const context  = extractSection(specContent, "Context");
+  const ac       = extractSection(specContent, "Acceptance Criteria");
+  const oos      = extractSection(specContent, "Out of Scope");
+  const nfr      = extractSection(specContent, "Non-Functional Requirements");
+  const frs      = extractSection(specContent, "Functional Rules");
+
+  // Spec is "rich" when it has real actors, real context and at least one AC
+  const hasActors  = actors.length > 10 && !/TBD|placeholder/i.test(actors);
+  const hasContext = context.length > 20;
+  const hasAC      = /AC-\d+/i.test(ac);
+  if (!hasActors || !hasContext || !hasAC) return null;
+
+  return {
+    primaryUsers:   compactBullets(actors, 200) || actors.substring(0, 200),
+    jtbd:           context.split("\n").find((l) => l.trim().length > 10)?.trim().substring(0, 200) || context.substring(0, 200),
+    currentPain:    context.substring(0, 200),
+    constraints:    compactBullets(nfr, 200) || "Constraints identified in approved spec",
+    dependencies:   "Dependencies identified in approved spec",
+    successMetrics: compactBullets(ac, 300) || ac.substring(0, 300),
+    assumptions:    "Assumptions embedded in approved spec scope",
+    inScope:        compactBullets(frs, 300) || "Approved spec functional scope",
+    outOfScope:     compactBullets(oos, 200) || oos.substring(0, 200) || "Anything not explicitly stated in approved spec",
+    journey:        context.split("\n").find((l) => l.trim().length > 10)?.trim().substring(0, 150) || "Primary journey derived from approved spec context",
+    interviewMode:  "spec-derived"
+  };
+}
+
+export async function collectDiscoveryInterview(options, ask, specContent) {
   const defaults = {
     primaryUsers: "Users defined in approved spec",
     jtbd: "Deliver capability described in approved spec",
@@ -200,6 +239,15 @@ export async function collectDiscoveryInterview(options, ask) {
   const flaggedDepth = normalizeDiscoveryDepth(options.discoveryDepth);
   if (options.discoveryDepth && !flaggedDepth) {
     throw new Error("Invalid --discovery-depth value. Use quick, standard, or deep.");
+  }
+
+  // Spec-aware: if spec has rich fields and user hasn't forced --guided, skip interview
+  if (!options.guided && specContent) {
+    const fromSpec = extractSpecContext(specContent);
+    if (fromSpec) {
+      console.log("Spec context detected — skipping discovery interview (use --guided to run it manually).");
+      return fromSpec;
+    }
   }
 
   if (options.nonInteractive) {

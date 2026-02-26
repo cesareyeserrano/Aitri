@@ -189,7 +189,7 @@ export async function runDiscoverCommand({
   const specSnapshot = buildSpecSnapshot(approvedSpec, retrievalMode);
   let discoveryInterview;
   try {
-    discoveryInterview = await collectDiscoveryInterview(options, ask);
+    discoveryInterview = await collectDiscoveryInterview(options, ask, approvedSpec);
   } catch (error) {
     console.log(error instanceof Error ? error.message : "Discovery interview failed.");
     return ERROR;
@@ -288,7 +288,7 @@ export async function runPlanCommand({
     const discSpecSnapshot = buildSpecSnapshot(discApprovedSpec, discRetrievalMode);
     let discInterview;
     try {
-      discInterview = await collectDiscoveryInterview(options, ask);
+      discInterview = await collectDiscoveryInterview(options, ask, discApprovedSpec);
     } catch (error) {
       console.log(error instanceof Error ? error.message : "Discovery interview failed.");
       return ERROR;

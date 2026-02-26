@@ -132,10 +132,9 @@ export async function runDeliverCommand({
   options,
   getProjectContextOrExit,
   getStatusReportOrExit,
-  confirmProceed,
   exitCodes
 }) {
-  const { OK, ERROR, ABORTED } = exitCodes;
+  const { OK, ERROR } = exitCodes;
   const jsonOutput = wantsJson(options, options.positional);
   const project = getProjectContextOrExit();
 
@@ -329,16 +328,6 @@ export async function runDeliverCommand({
     console.log("- Read: " + path.relative(process.cwd(), specFile));
     console.log("- Write: " + path.relative(process.cwd(), reportJsonFile));
     console.log("- Write: " + path.relative(process.cwd(), reportMdFile));
-  }
-
-  const proceed = await confirmProceed(options);
-  if (proceed === null) {
-    console.log("Non-interactive mode requires --yes for commands that modify files.");
-    return ERROR;
-  }
-  if (!proceed) {
-    console.log("Aborted.");
-    return ABORTED;
   }
 
   if (decision === "SHIP") {

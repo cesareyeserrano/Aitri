@@ -143,7 +143,6 @@ function verifyForStory({ story, tcMapByStory, root, feature, verifyCmd }) {
 export async function runBuildCommand({
   options,
   getProjectContextOrExit,
-  confirmProceed,
   printCheckpointSummary,
   runAutoCheckpoint,
   exitCodes
@@ -235,16 +234,6 @@ export async function runBuildCommand({
   console.log("- Read: " + path.relative(process.cwd(), testsFile));
   console.log("- Read: " + path.relative(process.cwd(), planFile));
   console.log(`- Build: ${targetStories.length} stories (scaffold + brief${options.noVerify ? "" : " + verify"})`);
-
-  const proceed = await confirmProceed(options);
-  if (proceed === null) {
-    console.log("Non-interactive mode requires --yes for commands that modify files.");
-    return ERROR;
-  }
-  if (!proceed) {
-    console.log("Aborted.");
-    return ABORTED;
-  }
 
   fs.mkdirSync(implementationDir, { recursive: true });
   const existingScaffoldFile = path.join(implementationDir, "scaffold-manifest.json");
