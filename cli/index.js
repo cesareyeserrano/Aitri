@@ -44,6 +44,7 @@ import { runDraftCommand } from "./commands/draft.js";
 import { runProveCommand } from "./commands/prove.js";
 import { runTestgenCommand } from "./commands/testgen.js";
 import { runContractgenCommand } from "./commands/contractgen.js";
+import { runAuditCommand } from "./commands/audit.js";
 import { fileURLToPath } from "node:url";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import {
@@ -124,6 +125,7 @@ function parseArgs(argv) {
     input: null,
     force: false,
     mutate: false,
+    noAi: false,
     positional: []
   };
 
@@ -220,6 +222,7 @@ function parseArgs(argv) {
     } else if (arg.startsWith("--input=")) { parsed.input = arg.slice("--input=".length).trim();
     } else if (arg === "--force") { parsed.force = true;
     } else if (arg === "--mutate") { parsed.mutate = true;
+    } else if (arg === "--no-ai") { parsed.noAi = true;
     } else {
       parsed.positional.push(arg);
     }
@@ -335,7 +338,7 @@ Workflow:
      [WRITE CODE]    You or your AI agent implements each story
   7. aitri deliver    Release tag + build artifact
 
-Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff, adopt, upgrade
+Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff, adopt, upgrade, audit
 Still work (deprecated): discover, validate, handoff, scaffold, implement, verify, policy
 
 Common options:
@@ -441,6 +444,11 @@ if (cmd === "testgen") {
 
 if (cmd === "contractgen") {
   const code = await runContractgenCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "audit") {
+  const code = await runAuditCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
