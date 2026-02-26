@@ -4,6 +4,8 @@
 
 | ID | Feature | Notes |
 |----|---------|-------|
+| EVO-030 | `aitri kickoff` — guided wizard that collapses `init → draft → approve → plan` into one session; pauses at each gate for human review (does NOT auto-approve); detects non-TTY and refuses gracefully | Risk: gate integrity, TTY detection, mid-wizard failure state |
+| EVO-031 | `aitri resume` redesign — replaces raw DEV_STATE.md cat with a structured "Step N of M" checklist (✓/○ per stage), prioritized next action with Why, and `--json` for CI compatibility | Low risk; breaking change only if output is parsed externally |
 
 ## 🟡 In Progress
 
