@@ -5,6 +5,81 @@ import { normalizeFeatureName, smartExtractSpec } from "../lib.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function extractInputSection(content, heading) {
+  const lines = String(content || "").split("\n");
+  let inSection = false;
+  const result = [];
+  for (const line of lines) {
+    if (new RegExp(`^## ${heading}\\s*$`, "i").test(line)) { inSection = true; continue; }
+    if (inSection && /^## /.test(line)) break;
+    if (inSection) result.push(line);
+  }
+  return result.join("\n").replace(/<!--[\s\S]*?-->/g, "").trim();
+}
+
+export function parseFeatureInput(content) {
+  const text = String(content || "");
+  const problem = extractInputSection(text, "Problem");
+  const actorsRaw = extractInputSection(text, "Actors");
+  const rulesRaw = extractInputSection(text, "Business Rules");
+  const examplesRaw = extractInputSection(text, "Examples");
+  const criteriaRaw = extractInputSection(text, "Success Criteria");
+  const outOfScopeRaw = extractInputSection(text, "Out of Scope");
+  const techStackRaw = extractInputSection(text, "Tech Stack");
+  const priorityRaw = extractInputSection(text, "Priority");
+
+  const actors = actorsRaw.split("\n")
+    .filter((l) => /^[-*]/.test(l.trim()))
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const rules = rulesRaw.split("\n")
+    .filter((l) => /^[-*]/.test(l.trim()) && !/^[-*]\s*</.test(l.trim()))
+    .map((l) => l.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean);
+
+  // Parse Input/Output example pairs
+  const examples = [];
+  let pendingInput = null;
+  for (const line of examplesRaw.split("\n")) {
+    const inputM = line.match(/^[-*]?\s*Input:\s*(.+)/i);
+    const outputM = line.match(/^\s+Output:\s*(.+)/i) || line.match(/^[-*]?\s*Output:\s*(.+)/i);
+    if (inputM && !/^[-*]?\s*Input:\s*</.test(line)) {
+      pendingInput = inputM[1].trim();
+    } else if (outputM && pendingInput && !/Output:\s*</.test(line)) {
+      examples.push({ input: pendingInput, output: outputM[1].trim() });
+      pendingInput = null;
+    }
+  }
+
+  const criteria = criteriaRaw.split("\n")
+    .filter((l) => /^[-*]/.test(l.trim()) && !/^[-*]\s*Given\s*</.test(l.trim()))
+    .map((l) => l.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean);
+
+  const outOfScope = outOfScopeRaw.split("\n")
+    .filter((l) => /^[-*]/.test(l.trim()) && !/^[-*]\s*</.test(l.trim()))
+    .map((l) => l.replace(/^[-*]\s*/, "").trim())
+    .filter(Boolean)
+    .join("; ") || "Not specified.";
+
+  const techStack = (techStackRaw.split("\n")[0] || "")
+    .replace(/^optional.*$/i, "").replace(/<[^>]+>/g, "").trim();
+  const priority = (priorityRaw.split("\n")[0] || "").trim();
+
+  return {
+    problem,
+    actors,
+    rules,
+    examples,
+    criteria,
+    outOfScope,
+    techStack: /^P[012]$/.test(techStack) ? "" : techStack,
+    priority: /^P[012]$/.test(priority) ? priority : "",
+    valid: problem.length > 10 && rules.length > 0
+  };
+}
+
 function printGuidedDraftWizard() {
   console.log("\nGuided Draft Wizard (English prompts)");
   console.log("Answer explicitly. Aitri structures your inputs but does not invent requirements.");
@@ -47,7 +122,50 @@ export async function runDraftCommand({
   let idea = options.idea || "";
   let wizardSections = null;
 
-  if (options.guided && !options.nonInteractive) {
+  if (options.input) {
+    // Structured input mode: parse FEATURE_INPUT_TEMPLATE.md
+    const inputFile = path.resolve(process.cwd(), String(options.input));
+    if (!fs.existsSync(inputFile)) {
+      console.log(`Input file not found: ${inputFile}`);
+      return ERROR;
+    }
+    const inputContent = fs.readFileSync(inputFile, "utf8");
+    const parsed = parseFeatureInput(inputContent);
+    if (!parsed.valid) {
+      console.log("Input file is invalid or incomplete.");
+      console.log("Required: ## Problem (10+ chars) and at least one ## Business Rules item.");
+      console.log(`Template: core/templates/FEATURE_INPUT_TEMPLATE.md`);
+      return ERROR;
+    }
+
+    const frLines = parsed.rules.map((rule, i) => {
+      const fr = `- FR-${i + 1}: ${rule}`;
+      const ex = parsed.examples[i];
+      return ex ? `${fr}\n  - Example — Input: ${ex.input} → Output: ${ex.output}` : fr;
+    }).join("\n");
+
+    const acLines = parsed.criteria.length > 0
+      ? parsed.criteria.map((c, i) => `- AC-${i + 1}: ${c}`).join("\n")
+      : "- AC-1: Given <context>, when <action>, then <expected outcome>.";
+
+    const contextLines = [
+      parsed.problem,
+      parsed.priority ? `Priority: ${parsed.priority}` : null,
+      "Requirement source: Provided explicitly by user via --input structured template."
+    ].filter(Boolean).join("\n");
+
+    wizardSections = {
+      context: contextLines,
+      actors: parsed.actors.length > 0 ? parsed.actors.join("\n") : "- [CLARIFY: who uses this feature?]",
+      functionalRules: frLines,
+      edgeCases: "- [CLARIFY: refine during spec review]",
+      security: "- [CLARIFY: authentication and input validation requirements]",
+      acceptanceCriteria: acLines,
+      outOfScope: parsed.outOfScope,
+      techStack: parsed.techStack
+    };
+    idea = contextLines;
+  } else if (options.guided && !options.nonInteractive) {
     // Full guided wizard — produces complete spec sections
     printGuidedDraftWizard();
     const summary = idea || await askRequired("1) What do you want to build?\n   Example: \"A zombie survival game with waves, power-ups, and a scoring system\"\n   > ");
@@ -153,7 +271,12 @@ export async function runDraftCommand({
       `# AF-SPEC: ${feature}`,
       "",
       "STATUS: DRAFT",
-      "",
+      ""
+    ];
+    if (wizardSections.techStack) {
+      parts.push(`Tech Stack: ${wizardSections.techStack}`, "");
+    }
+    parts.push(
       "## 1. Context",
       wizardSections.context,
       "",
@@ -184,7 +307,7 @@ export async function runDraftCommand({
       "## 10. Requirement Source Statement",
       "- All requirements in this draft were provided explicitly by the user.",
       "- Aitri structured the content and did not invent requirements."
-    ];
+    );
     if (wizardSections.resourceStrategy) {
       parts.push("", "## 11. Resource Strategy", `- ${wizardSections.resourceStrategy}`);
     }

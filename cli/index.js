@@ -121,6 +121,7 @@ function parseArgs(argv) {
     proposed: null,
     tc: null,
     fr: null,
+    input: null,
     force: false,
     mutate: false,
     positional: []
@@ -215,6 +216,8 @@ function parseArgs(argv) {
     } else if (arg.startsWith("--tc=")) { parsed.tc = arg.slice("--tc=".length).trim();
     } else if (arg === "--fr") { parsed.fr = (argv[i+1]||"").trim(); i+=1;
     } else if (arg.startsWith("--fr=")) { parsed.fr = arg.slice("--fr=".length).trim();
+    } else if (arg === "--input") { parsed.input = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--input=")) { parsed.input = arg.slice("--input=".length).trim();
     } else if (arg === "--force") { parsed.force = true;
     } else if (arg === "--mutate") { parsed.mutate = true;
     } else {
@@ -344,6 +347,7 @@ Common options:
     console.log(`
 Advanced options:
   --idea <text>          Idea text for non-interactive draft
+  --input <file>         Structured feature input file (FEATURE_INPUT_TEMPLATE.md)
   --story, -s <US-N>     Target a single story (build)
   --no-verify            Skip verification step (build)
   --no-build             Skip build command (deliver)

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { runNode, runNodeOk } from "./helpers/cli-test-helpers.mjs";
+import { parseFeatureInput } from "../../cli/commands/draft.js";
 
 // ── Fixture helpers ──────────────────────────────────────────────────────────
 
@@ -271,4 +272,106 @@ test("guided draft non-interactive preserves user input without inferred require
   assert.match(content, /No inferred requirements were added by Aitri/);
   assert.doesNotMatch(content, /Aitri suggestion \(auto-applied\)/);
   assert.doesNotMatch(content, /Technology source:/);
+});
+
+// ─── EVO-026: parseFeatureInput unit tests ────────────────────────────────────
+
+const VALID_INPUT = `# Feature Input: expense-tracker
+
+## Problem
+Users need to track expense entries across categories with audit logs.
+
+## Actors
+- Finance user: submits and reviews expense entries
+- Auditor: reviews logs for compliance
+
+## Business Rules
+- The system must validate that each expense entry has an amount, category, and date
+- The system must create an immutable audit log entry for every write operation
+
+## Examples
+- Input: POST /expenses { amount: 50, category: "travel", date: "2026-01-15" }
+  Output: 201 Created with entry ID and audit log reference
+- Input: POST /expenses { amount: -10 }
+  Output: 400 Bad Request with validation error
+
+## Success Criteria
+- Given a valid expense payload, when submitted, then a 201 response is returned with entry ID.
+- Given a missing required field, when submitted, then a 400 response with field-level errors is returned.
+
+## Out of Scope
+- PDF export
+- Email notifications
+
+## Tech Stack
+Node.js + Express
+
+## Priority
+P0
+`;
+
+test("parseFeatureInput extracts all structured sections correctly", () => {
+  const parsed = parseFeatureInput(VALID_INPUT);
+  assert.ok(parsed.valid, "should be valid");
+  assert.match(parsed.problem, /track expense entries/);
+  assert.equal(parsed.actors.length, 2);
+  assert.match(parsed.actors[0], /Finance user/);
+  assert.equal(parsed.rules.length, 2);
+  assert.match(parsed.rules[0], /validate that each expense/);
+  assert.equal(parsed.examples.length, 2);
+  assert.match(parsed.examples[0].input, /POST \/expenses/);
+  assert.match(parsed.examples[0].output, /201 Created/);
+  assert.equal(parsed.criteria.length, 2);
+  assert.match(parsed.criteria[0], /Given a valid expense/);
+  assert.match(parsed.outOfScope, /PDF export/);
+  assert.equal(parsed.techStack, "Node.js + Express");
+  assert.equal(parsed.priority, "P0");
+});
+
+test("parseFeatureInput reports invalid for missing problem", () => {
+  const parsed = parseFeatureInput(`# Feature Input: x\n## Business Rules\n- The system must do something\n`);
+  assert.ok(!parsed.valid);
+});
+
+test("parseFeatureInput reports invalid for missing business rules", () => {
+  const parsed = parseFeatureInput(`# Feature Input: x\n## Problem\nThis is a long enough problem description.\n`);
+  assert.ok(!parsed.valid);
+});
+
+test("parseFeatureInput ignores unfilled template placeholders", () => {
+  const parsed = parseFeatureInput(`# Feature Input: x
+## Problem
+Real problem description here.
+## Business Rules
+- The system must do something real
+- <placeholder rule>
+## Success Criteria
+- Given <context>, when <action>, then <expected>.
+`);
+  assert.equal(parsed.rules.length, 1, "should skip placeholder rules");
+  assert.equal(parsed.criteria.length, 0, "should skip placeholder criteria");
+});
+
+test("draft --input produces spec with FR and AC sections", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-input-draft-"));
+  const inputFile = path.join(tempDir, "feature-input.md");
+  fs.writeFileSync(inputFile, VALID_INPUT, "utf8");
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  runNodeOk([
+    "draft", "--feature", "expense-tracker",
+    "--input", inputFile,
+    "--non-interactive", "--yes"
+  ], { cwd: tempDir });
+
+  const draftFile = path.join(tempDir, "specs", "drafts", "expense-tracker.md");
+  const content = fs.readFileSync(draftFile, "utf8");
+  assert.match(content, /## 3\. Functional Rules/);
+  assert.match(content, /FR-1:/);
+  assert.match(content, /FR-2:/);
+  assert.match(content, /## 9\. Acceptance Criteria/);
+  assert.match(content, /AC-1:/);
+  assert.match(content, /AC-2:/);
+  assert.match(content, /Tech Stack: Node\.js \+ Express/);
+  assert.match(content, /Priority: P0/);
+  assert.match(content, /Example — Input:/);
 });
