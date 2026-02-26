@@ -138,7 +138,7 @@ test("status reports post-go factory states deterministically", () => {
 
   const afterScaffold = JSON.parse(runNodeOk(["status", "--feature", feature, "--json"], { cwd: tempDir }).stdout);
   assert.equal(afterScaffold.nextStep, "build_pending");
-  assert.equal(afterScaffold.recommendedCommand, "aitri build");
+  assert.equal(afterScaffold.recommendedCommand, `aitri build --feature ${feature}`);
 
   runNodeOk(["implement", "--feature", feature, "--non-interactive", "--yes"], { cwd: tempDir });
   const afterImplement = JSON.parse(runNodeOk(["status", "--feature", feature, "--json"], { cwd: tempDir }).stdout);
@@ -151,7 +151,7 @@ test("status reports post-go factory states deterministically", () => {
   runNodeOk(["verify", "--feature", feature, "--non-interactive", "--json"], { cwd: tempDir });
   const afterVerify = JSON.parse(runNodeOk(["status", "--feature", feature, "--json"], { cwd: tempDir }).stdout);
   assert.equal(afterVerify.nextStep, "prove_pending");
-  assert.equal(afterVerify.recommendedCommand, "aitri prove");
+  assert.equal(afterVerify.recommendedCommand, `aitri prove --feature ${feature}`);
 });
 
 test("deliver blocks when FR coverage is incomplete", () => {

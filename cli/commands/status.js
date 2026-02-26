@@ -10,6 +10,43 @@ function exists(p) {
   return fs.existsSync(p);
 }
 
+const CODE_EXTENSIONS = new Set([".js", ".mjs", ".ts", ".py", ".go"]);
+
+function scanDirForPlaceholders(dir, patterns) {
+  if (!exists(dir)) return { hasFiles: false, hasPlaceholders: false };
+  const files = fs.readdirSync(dir).filter((f) => CODE_EXTENSIONS.has(path.extname(f)));
+  if (files.length === 0) return { hasFiles: false, hasPlaceholders: false };
+  for (const f of files) {
+    const content = fs.readFileSync(path.join(dir, f), "utf8");
+    if (patterns.some((p) => content.includes(p))) return { hasFiles: true, hasPlaceholders: true };
+  }
+  return { hasFiles: true, hasPlaceholders: false };
+}
+
+function detectTestgenReady(root, paths, feature) {
+  const genDir = paths.generatedTestsDir(feature);
+  const { hasFiles, hasPlaceholders } = scanDirForPlaceholders(genDir, [
+    "assert.fail(",
+    "pytest.fail(",
+    "t.Fatal(",
+    "assert.ok(false"
+  ]);
+  if (!hasFiles) return false;         // build not done or no tests generated
+  return !hasPlaceholders;             // ready when no stubs remain
+}
+
+function detectContractgenReady(root) {
+  const contractsDir = path.join(root, "src", "contracts");
+  const goContractsDir = path.join(root, "internal", "contracts");
+  const dir = exists(contractsDir) ? contractsDir : exists(goContractsDir) ? goContractsDir : null;
+  // No contracts dir means build didn't create any (legacy flow or no FRs) — nothing to implement
+  if (!dir) return true;
+  const { hasFiles, hasPlaceholders } = scanDirForPlaceholders(dir, ["Not implemented"]);
+  // No contract files → build pending or legacy flow — skip this check
+  if (!hasFiles) return true;
+  return !hasPlaceholders;
+}
+
 function listMd(dir) {
   if (!exists(dir)) return [];
   return fs.readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
@@ -91,6 +128,8 @@ function computeNextStep({
   buildReady,
   deliveryReady,
   proveOk,
+  testgenReady,
+  contractgenReady,
   verification
 }) {
   if (goCompleted) {
@@ -98,7 +137,14 @@ function computeNextStep({
     const hasBuild = buildReady;
     if (!hasLegacy && !hasBuild) return "build_pending";
     if (!hasPostGoVerificationReady(verification)) return "verify_pending";
-    if (!proveOk) return "prove_pending";
+    if (!proveOk) {
+      // testgen/contractgen only apply to the new aitri build flow, not legacy scaffold+implement
+      if (hasBuild && !hasLegacy) {
+        if (!testgenReady) return "testgen_pending";
+        if (!contractgenReady) return "contractgen_pending";
+      }
+      return "prove_pending";
+    }
     if (!deliveryReady) return "deliver_pending";
     return "delivery_complete";
   }
@@ -161,14 +207,17 @@ function resolveFeatureSelection({ requestedFeature, hasFeatureFilter, approvedF
   };
 }
 
-function toRecommendedCommand(nextStep) {
+function toRecommendedCommand(nextStep, feature) {
   if (!nextStep) return null;
+  const f = feature ? ` --feature ${feature}` : "";
   if (nextStep === "ready_for_human_approval") return "aitri go";
   if (nextStep === "scaffold_pending") return "aitri build";
   if (nextStep === "implement_pending") return "aitri build";
-  if (nextStep === "build_pending") return "aitri build";
+  if (nextStep === "build_pending") return `aitri build${f}`;
   if (nextStep === "verify_pending") return "aitri verify";
-  if (nextStep === "prove_pending") return "aitri prove";
+  if (nextStep === "testgen_pending") return `aitri testgen${f}`;
+  if (nextStep === "contractgen_pending") return `aitri contractgen${f}`;
+  if (nextStep === "prove_pending") return `aitri prove${f}`;
   if (nextStep === "deliver_pending") return "aitri deliver";
   if (nextStep === "delivery_complete") return "aitri feedback";
   return nextStep;
@@ -180,7 +229,7 @@ function nextStepMessage(nextStep) {
     return "SDLC artifacts are complete. Human go/no-go approval is required.";
   }
   if (nextStep === "build_pending") {
-    return "Post-go execution started. Run build to scaffold and generate briefs per story.";
+    return "Post-go execution started. Run build to scaffold test stubs and contract placeholders per story.";
   }
   if (nextStep === "scaffold_pending") {
     return "Post-go execution started. Generate scaffold artifacts next.";
@@ -191,11 +240,17 @@ function nextStepMessage(nextStep) {
   if (nextStep === "verify_pending") {
     return "Implementation artifacts changed. Re-run verify until all TC coverage passes.";
   }
+  if (nextStep === "testgen_pending") {
+    return "Scaffold is verified. Run testgen so the AI generates real behavioral test bodies from FR/AC.";
+  }
+  if (nextStep === "contractgen_pending") {
+    return "Tests are ready. Run contractgen so the AI implements the contract functions from the spec.";
+  }
   if (nextStep === "prove_pending") {
-    return "All TC coverage is green. Run prove to execute each TC stub and generate proof-of-compliance.json.";
+    return "Contracts implemented. Run prove to execute each TC and generate proof-of-compliance.";
   }
   if (nextStep === "deliver_pending") {
-    return "Verification coverage is green. Run deliver gate for final readiness.";
+    return "Proof of compliance is green. Run deliver gate for final readiness.";
   }
   if (nextStep === "delivery_complete") {
     return "Delivery gate is complete with a SHIP decision. Optional: review local dashboard output.";
@@ -367,13 +422,15 @@ function healthEmoji(level) {
 
 function buildPipelineStages(report) {
   return [
-    { name: "draft",   done: report.draftSpec.found || report.approvedSpec.found },
-    { name: "approve", done: report.approvedSpec.found },
-    { name: "plan",    done: report.artifacts.discovery && report.artifacts.plan },
-    { name: "go",      done: report.factory.goCompleted },
-    { name: "build",   done: report.factory.buildReady },
-    { name: "prove",   done: report.factory.proveOk },
-    { name: "deliver", done: report.factory.deliveryReady }
+    { name: "draft",       done: report.draftSpec.found || report.approvedSpec.found },
+    { name: "approve",     done: report.approvedSpec.found },
+    { name: "plan",        done: report.artifacts.discovery && report.artifacts.plan },
+    { name: "go",          done: report.factory.goCompleted },
+    { name: "build",       done: report.factory.buildReady },
+    { name: "testgen",     done: report.factory.testgenReady },
+    { name: "contractgen", done: report.factory.contractgenReady },
+    { name: "prove",       done: report.factory.proveOk },
+    { name: "deliver",     done: report.factory.deliveryReady }
   ];
 }
 
@@ -832,11 +889,15 @@ export function getStatusReport(options = {}) {
     const deliveryPayload = exists(deliveryReportFile) ? readJsonSafe(deliveryReportFile) : null;
     const proofFile = path.join(paths.implementationFeatureDir(feature), "proof-of-compliance.json");
     const proofRecord = exists(proofFile) ? readJsonSafe(proofFile) : null;
+    const testgenReady = exists(buildManifestFile) ? detectTestgenReady(root, paths, feature) : false;
+    const contractgenReady = exists(buildManifestFile) ? detectContractgenReady(root) : false;
     report.factory = {
       goCompleted: exists(goMarkerFile),
       scaffoldReady: exists(scaffoldManifestFile),
       implementReady: exists(implementManifestFile),
       buildReady: exists(buildManifestFile),
+      testgenReady,
+      contractgenReady,
       deliveryReady: deliveryPayload?.decision === "SHIP",
       proveOk: proofRecord?.ok === true,
       goMarker: exists(goMarkerFile) ? path.relative(root, goMarkerFile) : null,
@@ -872,6 +933,8 @@ export function getStatusReport(options = {}) {
       scaffoldReady: report.factory.scaffoldReady,
       implementReady: report.factory.implementReady,
       buildReady: report.factory.buildReady,
+      testgenReady: report.factory.testgenReady,
+      contractgenReady: report.factory.contractgenReady,
       deliveryReady: report.factory.deliveryReady,
       proveOk: report.factory.proveOk,
       verification: report.verification
@@ -917,7 +980,7 @@ export function getStatusReport(options = {}) {
     };
   }
 
-  report.recommendedCommand = report.recommendedCommand || toRecommendedCommand(report.nextStep);
+  report.recommendedCommand = report.recommendedCommand || toRecommendedCommand(report.nextStep, selectedFeature);
   report.nextStepMessage = report.nextStepMessage || nextStepMessage(report.nextStep);
   report.confidence = buildConfidenceReport(report);
 

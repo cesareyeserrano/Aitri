@@ -128,7 +128,7 @@ test("status shows build_pending after go", () => {
 
   const status = JSON.parse(runNodeOk(["status", "--feature", feature, "--json"], { cwd: tempDir }).stdout);
   assert.equal(status.nextStep, "build_pending");
-  assert.equal(status.recommendedCommand, "aitri build");
+  assert.equal(status.recommendedCommand, `aitri build --feature ${feature}`);
 });
 
 test("preview exits non-zero when no start command detected", () => {
