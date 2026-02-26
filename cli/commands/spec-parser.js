@@ -34,12 +34,39 @@ function extractBullets(sectionText) {
 }
 
 function extractTaggedItems(content, tagPrefix) {
-  const pattern = new RegExp(`^\\s*[-*]\\s*(${tagPrefix}-\\d+)\\s*:\\s*(.+)$`, "gmi");
-  return [...String(content || "").matchAll(pattern)].map((match, index) => ({
-    id: match[1].trim(),
-    text: normalizeLine(match[2]),
-    index: index + 1
-  }));
+  const lines = String(content || "").split("\n");
+  const items = [];
+  const headerRe = new RegExp(`^\\s*[-*]\\s*(${tagPrefix}-\\d+)\\s*:\\s*(.+)$`, "i");
+  let i = 0;
+  let itemIndex = 1;
+  while (i < lines.length) {
+    const hm = headerRe.exec(lines[i]);
+    if (hm) {
+      const id = hm[1].trim();
+      const mainText = normalizeLine(hm[2]);
+      const subTexts = [];
+      let j = i + 1;
+      while (j < lines.length) {
+        const line = lines[j];
+        if (line.trim() === "") break;
+        if (/^[ \t]{2,}/.test(line)) {
+          const trimmed = line.replace(/^[ \t]+[-*]?\s*/, "").trim();
+          if (trimmed) subTexts.push(normalizeLine(trimmed));
+          j++;
+        } else {
+          break;
+        }
+      }
+      const fullText = subTexts.length > 0
+        ? `${mainText} ${subTexts.join(" ")}`
+        : mainText;
+      items.push({ id, text: normalizeLine(fullText), index: itemIndex++ });
+      i = j;
+    } else {
+      i++;
+    }
+  }
+  return items;
 }
 
 function parseGherkinFromText(value) {
@@ -109,6 +136,24 @@ function extractUiRefs(sectionText) {
 }
 
 function detectTechStack(specContent) {
+  // Prefer explicit Tech Stack field when present (e.g. "Tech Stack: Node.js + React")
+  const explicitMatch = String(specContent || "").match(/^Tech Stack:\s*(.+)$/im);
+  if (explicitMatch) {
+    const declared = explicitMatch[1].trim().toLowerCase();
+    if (/python|fastapi|django|flask/.test(declared)) {
+      return { id: "python", label: "Python", framework: "Python service", testFramework: "pytest", confidence: "explicit" };
+    }
+    if (/golang|\bgo\b/.test(declared)) {
+      return { id: "go", label: "Go", framework: "Go service", testFramework: "go test", confidence: "explicit" };
+    }
+    if (/react|next\.?js|frontend|web/.test(declared)) {
+      return { id: "node-web", label: "Node.js + Web", framework: "Node.js service + web UI", testFramework: "node:test", confidence: "explicit" };
+    }
+    if (/node|cli|terminal/.test(declared)) {
+      return { id: "node-cli", label: "Node.js CLI", framework: "Node.js CLI modules", testFramework: "node:test", confidence: "explicit" };
+    }
+  }
+
   const text = String(specContent || "").toLowerCase();
   const checks = [
     {

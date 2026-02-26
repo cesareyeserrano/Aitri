@@ -329,6 +329,40 @@ test("generateTestsContent includes UI Flows section when uiStructure has flows"
   assert.match(result, /then user is navigated to Dashboard/);
 });
 
+// ─── EVO-027: Multi-line FR/AC parsing ────────────────────────────────────────
+
+test("parseApprovedSpec captures sub-bullet detail in FR text", () => {
+  const spec = `# AF-SPEC: multi-line-test
+STATUS: APPROVED
+## 3. Functional Rules (traceable)
+- FR-1: The system must authenticate users.
+  - Supports email/password login.
+  - Supports OAuth via Google.
+- FR-2: The system must reject invalid credentials.
+## 9. Acceptance Criteria (Given/When/Then)
+- AC-1: Given valid credentials, when submitted, then access is granted.
+`;
+  const parsed = parseApprovedSpec(spec);
+  assert.equal(parsed.functionalRules.length, 2);
+  assert.match(parsed.functionalRules[0].text, /Supports email\/password login/);
+  assert.match(parsed.functionalRules[0].text, /Supports OAuth via Google/);
+  assert.equal(parsed.functionalRules[1].text, "The system must reject invalid credentials.");
+});
+
+test("parseApprovedSpec explicit Tech Stack field takes precedence over keyword scan", () => {
+  const spec = `# AF-SPEC: stack-test
+STATUS: APPROVED
+Tech Stack: Python + FastAPI
+## 3. Functional Rules (traceable)
+- FR-1: The system must expose a REST API.
+## 9. Acceptance Criteria (Given/When/Then)
+- AC-1: Given a request, when processed, then a response is returned.
+`;
+  const parsed = parseApprovedSpec(spec);
+  assert.equal(parsed.techStack.id, "python");
+  assert.equal(parsed.techStack.confidence, "explicit");
+});
+
 // ─── EVO-001: Auditor Mode unit tests ────────────────────────────────────────
 
 const AUDIT_SPEC = {

@@ -2,16 +2,20 @@
 
 STATUS: DRAFT
 
+Tech Stack: <optional — e.g., "Node.js + React", "Python + FastAPI", "Go service">
+
 ## 1. Context
 Describe the problem context.
 
 ## 2. Actors
-List system actors.
+- <Actor 1>: <role description>
+- <Actor 2>: <role description>
 
 ## 3. Functional Rules (traceable)
-Use stable IDs so stories/tests can reference them.
+Use stable IDs. Sub-bullets add detail — they are included in the rule text.
 
-- FR-1: <verifiable rule>
+- FR-1: <verifiable rule — must have a clear pass/fail criterion>
+  - <optional: concrete detail or constraint>
 - FR-2: <verifiable rule>
 
 ## 4. Edge Cases
