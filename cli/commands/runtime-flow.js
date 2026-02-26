@@ -287,6 +287,20 @@ export function runPolicyCommand({
   return payload.ok ? OK : ERROR;
 }
 
+function buildResumeStages(report) {
+  return [
+    { name: "draft",       done: !!(report.draftSpec?.found || report.approvedSpec?.found) },
+    { name: "approve",     done: !!report.approvedSpec?.found },
+    { name: "plan",        done: !!(report.artifacts?.discovery && report.artifacts?.plan) },
+    { name: "go",          done: !!report.factory?.goCompleted },
+    { name: "build",       done: !!report.factory?.buildReady },
+    { name: "testgen",     done: !!report.factory?.testgenReady },
+    { name: "contractgen", done: !!report.factory?.contractgenReady },
+    { name: "prove",       done: !!report.factory?.proveOk },
+    { name: "deliver",     done: !!report.factory?.deliveryReady }
+  ];
+}
+
 export async function runResumeCommand({
   options,
   getStatusReportOrExit,
@@ -300,13 +314,24 @@ export async function runResumeCommand({
   const checkpointDetected = report.checkpoint.state.detected;
   const needsResumeDecision = report.checkpoint.state.resumeDecision === "ask_user_resume_from_checkpoint";
   const recommendedCommand = report.recommendedCommand || toRecommendedCommand(report.nextStep);
+  const featureLabel = report.approvedSpec?.feature || report.draftSpec?.feature || "";
+  const stages = buildResumeStages(report);
+  const doneCount = stages.filter((s) => s.done).length;
+  const currentIdx = stages.findIndex((s) => !s.done);
+  const stepLabel = currentIdx >= 0 ? `Step ${currentIdx + 1} of ${stages.length}` : `Complete (${stages.length}/${stages.length})`;
 
   const payload = {
     ok: true,
+    feature: featureLabel,
     checkpointDetected,
     resumeDecision: report.checkpoint.state.resumeDecision,
     nextStep: report.nextStep,
     recommendedCommand,
+    stepLabel,
+    stagesComplete: doneCount,
+    stagesTotal: stages.length,
+    stages: stages.map((s, i) => ({ step: i + 1, name: s.name, done: s.done })),
+    why: report.nextStepMessage || "",
     message: needsResumeDecision
       ? "Checkpoint detected. Explicit user confirmation is required to continue."
       : "No checkpoint decision required. Continue with recommended command."
@@ -329,14 +354,29 @@ export async function runResumeCommand({
     }
   }
 
-  console.log("Resume decision: CONTINUE.");
-  console.log(`Current state: ${report.nextStep}`);
+  const header = featureLabel ? `Aitri Resume  —  ${featureLabel}` : "Aitri Resume";
+  console.log(`\n${header}`);
+  console.log("");
+  stages.forEach((s, i) => {
+    const mark = s.done ? "✓" : "○";
+    const num  = String(i + 1).padStart(2, " ");
+    console.log(`  ${mark}  ${num}. ${s.name}`);
+  });
+  console.log("");
+  console.log(`  ${stepLabel}`);
+  console.log("");
+
   if (report.nextStep === "delivery_complete") {
-    console.log("Workflow complete. No further SDLC execution steps are required.");
-    console.log("Optional local review: aitri status --ui");
+    console.log("  Pipeline complete. No further steps required.");
+    console.log("  Optional: aitri status --ui");
     return OK;
   }
-  console.log(`Recommended next command: ${recommendedCommand}`);
+
+  console.log(`  Next   ${recommendedCommand}`);
+  if (report.nextStepMessage) {
+    console.log(`  Why    ${report.nextStepMessage}`);
+  }
+  console.log("");
   return OK;
 }
 

@@ -255,9 +255,9 @@ test("resume marks workflow complete when delivery is already finished", () => {
   }, null, 2), "utf8");
 
   const result = runNodeOk(["resume", "--non-interactive", "--yes"], { cwd: tempDir });
-  assert.match(result.stdout, /Current state: delivery_complete/);
-  assert.match(result.stdout, /Workflow complete\. No further SDLC execution steps are required\./);
-  assert.match(result.stdout, /Optional local review: aitri status --ui/);
+  assert.match(result.stdout, /Aitri Resume/);
+  assert.match(result.stdout, /Pipeline complete\. No further steps required\./);
+  assert.match(result.stdout, /Optional: aitri status --ui/);
 });
 
 test("status detects git checkpoint commit", () => {
@@ -295,7 +295,7 @@ test("resume requires explicit confirmation in non-interactive mode when checkpo
   assert.match(blocked.stdout, /requires --yes/);
 
   const allowed = runNodeOk(["resume", "--non-interactive", "--yes"], { cwd: tempDir });
-  assert.match(allowed.stdout, /Resume decision: CONTINUE/);
+  assert.match(allowed.stdout, /Aitri Resume/);
 });
 
 test("write command creates auto-checkpoint in git repo", () => {
