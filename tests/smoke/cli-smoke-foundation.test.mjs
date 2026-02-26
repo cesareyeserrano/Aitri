@@ -54,7 +54,7 @@ test("status ui generates static insight file and exposes path in json mode", ()
   const htmlPath = path.join(tempDir, payload.ui.file);
   assert.equal(fs.existsSync(htmlPath), true);
   const html = fs.readFileSync(htmlPath, "utf8");
-  assert.match(html, /Aitri Insight/);
+  assert.match(html, /Aitri Status/);
   assert.match(html, /Confidence/);
 });
 

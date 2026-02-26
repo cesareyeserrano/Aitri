@@ -4,8 +4,6 @@
 
 | ID | Feature | Notes |
 |----|---------|-------|
-| EVO-025 | `aitri status` — redesign CLI + HTML output: visual pipeline timeline (draft→approve→plan→build→testgen→contractgen→prove→deliver), health indicator (🔴/🟡/🟢), prioritized issues, single clear next action; readable by tech and non-tech | Data model stays; only presentation changes |
-| EVO-026 | Feature Input Template — `FEATURE_INPUT_TEMPLATE.md` with structured minimum-viable-input format (problem, actors, business rules, concrete input→output examples, success criteria, priority); adjust `aitri draft` to detect and use structured input, reducing wizard friction and LLM hallucination risk | Highest ROI: improves all downstream artifacts |
 | EVO-028 | `aitri audit` — hybrid static + LLM engine: static layer (contract existence per FR, placeholder detection, proof-of-compliance staleness, mutation score thresholds, TC-to-FR trace gaps, optional ESLint/Semgrep/Bandit); LLM Compliance Auditor persona (spec-to-code semantic drift, `--no-ai` skippable); code-only mode when no spec exists (LLM reverse-engineers intent, flags anti-patterns, recommends `aitri adopt`); prioritized findings (CRITICAL/HIGH/MEDIUM/LOW); outputs CLI report + `--json` for CI | Static layer always runs; LLM layer requires AI config |
 
 ## 🟡 In Progress
@@ -43,3 +41,5 @@ _(none)_
 | EVO-024 | `aitri contractgen` — LLM reads FR text + AC + test stubs → generates real contract implementations, replacing scaffold placeholders; closes full automated spec→code cycle | v0.9.0 |
 | EVO-027 | Spec parser enrichment — `extractTaggedItems` now captures multi-line FR sub-bullets; `detectTechStack` reads explicit `Tech Stack:` field (confidence: explicit); `af_spec.md` template updated with Tech Stack field + FR sub-bullet guidance | v0.9.0 |
 | EVO-029 | Codebase cleanup — remove misleading `@deprecated` annotations (functions are active fallbacks); replace TC Steps with compact `- AC: Given/when/then` format; remove cosmetic EP-N IDs; sync all docs + adapters to v0.9.0 commands (`build/testgen/contractgen`); fix stale CLI messages in 5 commands | v0.9.0 |
+| EVO-026 | Feature Input Template — `FEATURE_INPUT_TEMPLATE.md` structured input form (problem/actors/business rules/examples/success criteria/tech stack/priority); `aitri draft --input <file>` parses directly to FR-*/AC-* spec; `parseFeatureInput()` exported; 5 regression tests | v0.9.0 |
+| EVO-025 | `aitri status` redesign — CLI: pipeline timeline (draft→approve→plan→go→build→prove→deliver with ✓/· per stage), 🔴/🟡/🟢 health indicator, prioritized issues list, single clear Next+Why lines; HTML: pipeline row with color-coded badges, confidence pill, score breakdown, issues list; data model unchanged; 1 test updated | v0.9.0 |

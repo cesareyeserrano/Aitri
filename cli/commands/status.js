@@ -359,80 +359,99 @@ function levelColor(level) {
   return "#b91c1c";
 }
 
+function healthEmoji(level) {
+  if (level === "high") return "🟢";
+  if (level === "medium") return "🟡";
+  return "🔴";
+}
+
+function buildPipelineStages(report) {
+  return [
+    { name: "draft",   done: report.draftSpec.found || report.approvedSpec.found },
+    { name: "approve", done: report.approvedSpec.found },
+    { name: "plan",    done: report.artifacts.discovery && report.artifacts.plan },
+    { name: "go",      done: report.factory.goCompleted },
+    { name: "build",   done: report.factory.buildReady },
+    { name: "prove",   done: report.factory.proveOk },
+    { name: "deliver", done: report.factory.deliveryReady }
+  ];
+}
+
+function renderPipelineCliLine(stages) {
+  return stages.map((s, i) => (i > 0 ? "  \u2192  " : "") + s.name + " " + (s.done ? "\u2713" : "\u00b7")).join("");
+}
+
 function renderStatusInsightHtml(report, generatedAtIso) {
   const issues = report.validation.issues.slice(0, 20);
   const nextRun = report.recommendedCommand || report.nextStep || "aitri status";
   const confidenceColor = levelColor(report.confidence.level);
   const confidenceLabel = `${report.confidence.score}% (${report.confidence.level})`;
-  const structureState = report.structure.ok ? "ok" : `missing: ${report.structure.missingDirs.join(", ")}`;
-  const approved = report.approvedSpec.found ? report.approvedSpec.feature : "none";
-  const verification = report.verification.status || "unknown";
-  const releaseReady = report.confidence.releaseReady ? "yes" : "no";
+  const featureLabel = report.approvedSpec.feature || report.draftSpec.feature || "";
+  const featureSuffix = report.draftSpec.found && !report.approvedSpec.found ? " (draft)" : "";
   const issueRows = issues.length > 0
     ? issues.map((issue) => `<li>${escapeHtml(issue)}</li>`).join("")
     : "<li>No validation issues detected.</li>";
-  const runtimeNotes = (report.confidence.details.runtimeVerification.notes || []);
-  const runtimeNoteRows = runtimeNotes.length > 0
-    ? runtimeNotes.map((note) => `<li>${escapeHtml(note)}</li>`).join("")
-    : "<li>No scope-reduction notes for runtime verification.</li>";
+  const stages = buildPipelineStages(report);
+  const stageHtml = stages.map((s, i) => {
+    const cls = s.done ? "done" : "pending";
+    const mark = s.done ? "✓" : "·";
+    return (i > 0 ? '<span class="arrow">→</span>' : "") + `<span class="stage ${cls}">${escapeHtml(s.name)} ${mark}</span>`;
+  }).join(" ");
 
   return `<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Aitri Insight</title>
+  <title>Aitri Status</title>
   <style>
     :root { color-scheme: light; }
     body { margin: 0; font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: #f3f4f6; color: #0f172a; }
     .wrap { max-width: 980px; margin: 24px auto; padding: 0 16px; }
-    .card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-    .title { font-size: 24px; margin: 0 0 6px 0; }
-    .muted { color: #475569; font-size: 13px; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
-    .metric { border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px; background: #f8fafc; }
-    .metric h3 { margin: 0; font-size: 12px; color: #334155; text-transform: uppercase; letter-spacing: 0.04em; }
-    .metric p { margin: 6px 0 0 0; font-size: 18px; font-weight: 700; }
-    .pill { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; background: #e2e8f0; color: #0f172a; }
-    .next { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #111827; color: #f9fafb; padding: 10px; border-radius: 8px; }
-    ul { margin: 8px 0 0 18px; padding: 0; }
-    code { background: #f1f5f9; border-radius: 6px; padding: 2px 6px; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+    .title { font-size: 22px; font-weight: 700; margin: 0; }
+    .feature { font-size: 15px; color: #475569; }
+    .muted { color: #64748b; font-size: 13px; margin: 4px 0 0 0; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 700; border: 1px solid; }
+    .pipeline { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 4px 0; }
+    .stage { padding: 4px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+    .stage.done { background: #dcfce7; color: #166534; }
+    .stage.pending { background: #f1f5f9; color: #94a3b8; }
+    .arrow { color: #cbd5e1; font-size: 13px; }
+    .next-cmd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; background: #111827; color: #f0fdf4; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-top: 8px; }
+    ul { margin: 8px 0 0 18px; padding: 0; font-size: 14px; }
+    li { margin-bottom: 4px; }
+    .score-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px; font-size: 13px; color: #475569; }
+    .score-item strong { color: #0f172a; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <section class="card">
-      <h1 class="title">Aitri Insight</h1>
-      <p class="muted">Generated: ${escapeHtml(generatedAtIso)} | Root: <code>${escapeHtml(report.root)}</code></p>
-      <p class="pill" style="background:${confidenceColor}20;color:${confidenceColor};border:1px solid ${confidenceColor};">Confidence ${escapeHtml(confidenceLabel)}</p>
+      <div class="header">
+        <h1 class="title">Aitri Status</h1>
+        ${featureLabel ? `<span class="feature">${escapeHtml(featureLabel + featureSuffix)}</span>` : ""}
+        <span class="pill" style="background:${confidenceColor}20;color:${confidenceColor};border-color:${confidenceColor};">
+          ${escapeHtml(report.confidence.level === "high" ? "🟢" : report.confidence.level === "medium" ? "🟡" : "🔴")} Confidence ${escapeHtml(confidenceLabel)}
+        </span>
+      </div>
+      <p class="muted">Generated: ${escapeHtml(generatedAtIso)}</p>
     </section>
     <section class="card">
-      <div class="grid">
-        <div class="metric"><h3>Structure</h3><p>${escapeHtml(structureState)}</p></div>
-        <div class="metric"><h3>Approved Spec</h3><p>${escapeHtml(approved)}</p></div>
-        <div class="metric"><h3>Validation</h3><p>${report.validation.ok ? "passed" : "blocked"}</p></div>
-        <div class="metric"><h3>Verification</h3><p>${escapeHtml(verification)}</p></div>
-        <div class="metric"><h3>Release Ready</h3><p>${escapeHtml(releaseReady)}</p></div>
+      <div class="pipeline">${stageHtml}</div>
+      <div class="score-row">
+        <span><strong>Spec</strong> ${report.confidence.components.specIntegrity}%</span>
+        <span><strong>Runtime</strong> ${report.confidence.components.runtimeVerification}%</span>
       </div>
     </section>
     <section class="card">
-      <h2 class="title" style="font-size:18px;">Next Action</h2>
+      <strong>Next Action</strong>
       <p class="muted">${escapeHtml(report.nextStepMessage || "Follow recommended command.")}</p>
-      <div class="next">${escapeHtml(nextRun)}</div>
+      <div class="next-cmd">${escapeHtml(nextRun)}</div>
     </section>
     <section class="card">
-      <h2 class="title" style="font-size:18px;">Confidence Breakdown</h2>
-      <ul>
-        <li>Spec integrity: ${report.confidence.components.specIntegrity}%</li>
-        <li>Runtime verification: ${report.confidence.components.runtimeVerification}%</li>
-        <li>Weights: spec ${report.confidence.weights.specIntegrity}, runtime ${report.confidence.weights.runtimeVerification}</li>
-      </ul>
-      <p class="muted">Spec reason: ${escapeHtml(report.confidence.reasons.specIntegrity)}</p>
-      <p class="muted">Runtime reason: ${escapeHtml(report.confidence.reasons.runtimeVerification)}</p>
-      <ul>${runtimeNoteRows}</ul>
-    </section>
-    <section class="card">
-      <h2 class="title" style="font-size:18px;">Validation Issues</h2>
+      <strong>Issues (${issues.length})</strong>
       <ul>${issueRows}</ul>
     </section>
   </div>
@@ -968,99 +987,59 @@ export function runStatus(options = {}) {
     return ok;
   }
 
-  console.log("Aitri Project Status ⚒️\n");
-  if (report.config.loaded) {
-    console.log(`✔ Config loaded: ${report.config.file}`);
-    console.log(
-      `  paths specs=${report.config.paths.specs} backlog=${report.config.paths.backlog} tests=${report.config.paths.tests} docs=${report.config.paths.docs}`
-    );
-  }
+  // Compute pipeline stages for display
+  const stages = buildPipelineStages(report);
+  const pipelineLine = renderPipelineCliLine(stages);
 
-  if (report.structure.ok) {
-    console.log("✔ Structure initialized");
-  } else {
-    console.log("✖ Missing structure:", report.structure.missingDirs.join(", "));
-  }
+  // Feature label
+  const featureLabel = report.approvedSpec.feature || report.draftSpec.feature || null;
+  const featureSuffix = report.draftSpec.found && !report.approvedSpec.found ? " (draft)" : "";
+  const headerSuffix = featureLabel ? `  \u2014  ${featureLabel}${featureSuffix}` : "";
 
-  if (!report.approvedSpec.found) {
-    if (report.selection.issue) {
-      console.log(`✖ ${report.selection.message}`);
-      if (report.selection.availableFeatures.length > 0) {
-        console.log(`- Available features: ${report.selection.availableFeatures.join(", ")}`);
-      }
-      if (report.selection.availableDraftFeatures.length > 0) {
-        console.log(`- Available draft features: ${report.selection.availableDraftFeatures.join(", ")}`);
-      }
-      return false;
+  console.log(`Aitri Status${headerSuffix}`);
+  console.log("");
+
+  // Selection error: short message + exit
+  if (report.selection.issue) {
+    console.log(`! ${report.selection.message}`);
+    if (report.selection.availableFeatures.length > 0) {
+      console.log(`  Available features: ${report.selection.availableFeatures.join(", ")}`);
     }
-    if (report.draftSpec.found) {
-      console.log(`⚠ Draft spec found (not approved): ${report.draftSpec.feature}`);
-    } else {
-      console.log("✖ No approved specs found");
+    if (report.selection.availableDraftFeatures.length > 0) {
+      console.log(`  Available draft features: ${report.selection.availableDraftFeatures.join(", ")}`);
     }
-    console.log("\nNext recommended step:");
-    console.log(`- State: ${report.nextStep}`);
-    console.log(`- Run: ${report.recommendedCommand}`);
-    console.log(`- Why: ${report.nextStepMessage}`);
-    return ok;
+    return false;
   }
 
-  console.log(`✔ Approved spec found: ${report.approvedSpec.feature}`);
-  console.log(report.artifacts.discovery ? "✔ Discovery exists" : "✖ Discovery not generated");
-  console.log(report.artifacts.plan ? "✔ Plan exists" : "✖ Plan not generated");
+  // Pipeline
+  console.log(`  Pipeline  ${pipelineLine}`);
+  console.log("");
 
-  if (report.validation.ok) {
-    console.log("✔ Validation likely passed");
-  } else {
-    console.log("✖ Validation not passed");
-  }
+  // Health
+  const healthLine = `${healthEmoji(report.confidence.level)} ${report.confidence.level} (${report.confidence.score}%)  spec: ${report.confidence.components.specIntegrity}%  runtime: ${report.confidence.components.runtimeVerification}%`;
+  console.log(`  Health    ${healthLine}`);
+  console.log("");
 
-  if (report.verification.ok) {
-    console.log("✔ Runtime verification passed");
-  } else if (report.verification.status === "stale") {
-    console.log("✖ Runtime verification is stale");
-  } else if (report.verification.status === "failed") {
-    console.log("✖ Runtime verification failed");
-  } else {
-    console.log("✖ Runtime verification missing");
-  }
-
-  console.log("\nConfidence score:");
-  console.log(`- Score: ${report.confidence.score}% (${report.confidence.level})`);
-  console.log(`- Spec integrity: ${report.confidence.components.specIntegrity}%`);
-  console.log(`- Runtime verification: ${report.confidence.components.runtimeVerification}%`);
-
-  console.log("\nNext recommended step:");
-  if (report.nextStep === "ready_for_human_approval") {
-    console.log("✅ Ready for human approval");
-    console.log(`- Run: ${report.recommendedCommand}`);
-    console.log("- Why: SDLC artifact flow is complete and waiting for explicit human decision.");
-  } else {
-    console.log(`- State: ${report.nextStep}`);
-    console.log(`- Run: ${report.recommendedCommand}`);
-    console.log(`- Why: ${report.nextStepMessage}`);
-  }
-
-  console.log("\nCheckpoint recommendation:");
-  console.log(`- Commit: ${report.checkpoint.command}`);
-  console.log(`- Fallback: ${report.checkpoint.fallback}`);
-  if (report.checkpoint.state.git) {
-    if (report.checkpoint.state.detected) {
-      console.log("- Checkpoint detected:");
-      if (report.checkpoint.state.latestCommit) {
-        console.log(
-          `  commit ${report.checkpoint.state.latestCommit.hash} ${report.checkpoint.state.latestCommit.message}`
-        );
-      }
-      if (report.checkpoint.state.latestStash) {
-        console.log(
-          `  stash ${report.checkpoint.state.latestStash.ref} ${report.checkpoint.state.latestStash.message}`
-        );
-      }
-      console.log("- Resume decision required: ask user to continue from checkpoint (yes/no).");
-    } else {
-      console.log("- No existing checkpoint detected in git history/stash.");
+  // Issues
+  const issues = report.validation.issues;
+  if (issues.length > 0) {
+    console.log(`  Issues (${issues.length})`);
+    for (const issue of issues.slice(0, 10)) {
+      console.log(`    \u00b7 ${issue}`);
     }
+    if (issues.length > 10) {
+      console.log(`    \u00b7 ... and ${issues.length - 10} more`);
+    }
+    console.log("");
+  }
+
+  // Next action
+  const nextCmd = report.recommendedCommand || report.nextStep || "aitri status";
+  const whyOverride = !report.structure.ok ? `Project structure not initialized. Missing: ${report.structure.missingDirs.join(", ")}.` : null;
+  const nextWhy = whyOverride || report.nextStepMessage || "";
+  console.log(`  Next  ${nextCmd}`);
+  if (nextWhy) {
+    console.log(`  Why   ${nextWhy}`);
   }
 
   return ok;
