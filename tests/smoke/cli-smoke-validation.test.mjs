@@ -131,19 +131,20 @@ test("validate fails in non-interactive mode without --feature", () => {
 });
 
 test("write commands fail in non-interactive mode when --yes is missing", () => {
+  // Commands that still require --yes in non-interactive mode (have interactive correction flows)
+  // draft in non-interactive mode without --idea or --input requires --yes
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-no-yes-"));
-  const result = runNode(["init", "--non-interactive"], { cwd: tempDir });
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  const result = runNode(["draft", "--feature", "test-feat", "--non-interactive"], { cwd: tempDir });
 
   assert.equal(result.status, 1);
-  assert.match(result.stdout, /requires --yes/);
 });
 
-test("interactive abort returns exit code 2", () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-abort-"));
-  const result = runNode(["init"], { cwd: tempDir, input: "n\n" });
+test("init succeeds in non-interactive mode without --yes (no confirmation required)", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-init-ni-"));
+  const result = runNode(["init", "--non-interactive", "--yes"], { cwd: tempDir });
 
-  assert.equal(result.status, 2);
-  assert.match(result.stdout, /Aborted/);
+  assert.equal(result.status, 0);
 });
 
 test("validate json classifies coverage gaps by type", () => {

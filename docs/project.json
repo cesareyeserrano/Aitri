@@ -1,0 +1,9 @@
+{
+  "name": "aitri",
+  "initializedAt": "2026-02-26T16:51:30.729Z",
+  "root": "aitri",
+  "detectedStack": [
+    "node"
+  ],
+  "aitriVersion": "1.0.0"
+}

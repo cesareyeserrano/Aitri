@@ -4,9 +4,16 @@
 
 | ID | Feature | Notes |
 |----|---------|-------|
-| EVO-030 | `aitri kickoff` — guided wizard that collapses `init → draft → approve → plan` into one session; pauses at each gate for human review (does NOT auto-approve); detects non-TTY and refuses gracefully | Risk: gate integrity, TTY detection, mid-wizard failure state |
+| EVO-034 | **UX friction — remove redundant confirmProceed**: eliminate `confirmProceed()` from `init`, `build`, `deliver`; keep in `approve` (corrections flow) and `go` (irreversible human gate); `--yes`/`--non-interactive` flags remain fully functional for CI compatibility | Low risk; zero functional change — plan output still shown, user can Ctrl+C |
+| EVO-035 | **Spec-aware discovery**: when approved spec contains rich fields (Problem, Actors, Success Criteria non-default), auto-populate discovery interview defaults directly from spec and skip the 6–13 question wizard; `--guided` flag forces full interview; applies to `aitri plan` (and inline discover in plan); spec via `--input` template always triggers auto-populate | Medium risk; discovery document quality must stay equivalent — validate same required sections are populated |
 | EVO-031 | `aitri resume` redesign — replaces raw DEV_STATE.md cat with a structured "Step N of M" checklist (✓/○ per stage), prioritized next action with Why, and `--json` for CI compatibility | Low risk; breaking change only if output is parsed externally |
 | EVO-033 | `aitri serve` — local preview after QA gate: detects stack (Node/Python/Go/static), resolves entry point, starts dev server, opens browser; only available after `aitri prove` passes (QA gate enforced); `--entry` flag for non-conventional projects; pipeline position: `prove → serve → deliver` | Low-medium risk; entry point detection fallible in non-conventional projects |
+
+## 🗃️ Descartado / Won't Do
+
+| ID | Feature | Razón |
+|----|---------|-------|
+| EVO-030 | `aitri kickoff` wizard | EVO-034 + EVO-035 resuelven la misma fricción de forma quirúrgica sin riesgo de gate integrity; wizard colapsado añade complejidad sin valor incremental |
 
 ## 🟡 In Progress
 
