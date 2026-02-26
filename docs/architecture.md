@@ -35,7 +35,7 @@ It operates as a **skill consumed by AI agents** (Claude, Codex, OpenCode) as th
 ## Non-Negotiable Principles
 
 1. **Spec first.** No downstream artifact without `specs/approved/<feature>.md`.
-2. **Explicit gates.** Write operations require confirmation. Automation requires `--yes`.
+2. **Explicit gates.** Irreversible operations (`approve`, `go`) require confirmation. Automation requires `--yes`. Reversible commands run without prompt.
 3. **Traceability required.** Spec → Backlog → Tests → Implementation. Every item has a traceable ID.
 4. **Human authority.** Final decisions always remain with the human owner.
 5. **Requirement source integrity.** Requirements come from explicit user input. Aitri does not invent them.
@@ -65,9 +65,12 @@ It operates as a **skill consumed by AI agents** (Claude, Codex, OpenCode) as th
     - `--mutate` — mutation testing: 9 operator mutations, advisory confidence score
 13. `aitri deliver` — final gate: all FRs proven, delivery record written
 
+### Local Preview (side tool — not a pipeline step)
+- `aitri serve` — detect stack, resolve entry point, start dev server; warns if `prove` not passed; `--entry`, `--dry-run`, `--open`, `--json`
+
 ### Session Continuity
 - `aitri checkpoint [message]` — save state
-- `aitri resume` — recommend next action
+- `aitri resume` — Step N of M pipeline checklist + Next + Why; `--json` for CI
 
 ### Brownfield Onboarding
 - `aitri adopt` — Phase 1: scan stack, conventions, entry points
@@ -139,10 +142,11 @@ aitri go --feature <name> --yes
 
 **Post-go (full automated cycle):**
 ```bash
-aitri build --feature <name> --yes
+aitri build --feature <name>
 aitri testgen --feature <name>
 aitri contractgen --feature <name>
 aitri prove --feature <name> --mutate
+aitri serve --feature <name> --dry-run   # optional: verify start command
 aitri deliver --feature <name>
 ```
 

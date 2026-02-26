@@ -85,10 +85,11 @@ aitri draft --feature user-auth --idea "Email and password login with forgot-pas
 aitri approve --feature user-auth
 aitri plan --feature user-auth
 aitri go --feature user-auth --yes
-aitri build --feature user-auth --yes
+aitri build --feature user-auth
 aitri testgen --feature user-auth
 aitri contractgen --feature user-auth
 aitri prove --feature user-auth --mutate
+aitri serve --feature user-auth          # optional: preview before delivery
 aitri deliver --feature user-auth
 ```
 
@@ -174,10 +175,11 @@ aitri verify-intent --feature user-auth
 
 # 7. Continue standard flow
 aitri go --feature user-auth --yes
-aitri build --feature user-auth --yes
+aitri build --feature user-auth
 aitri testgen --feature user-auth
 aitri contractgen --feature user-auth
 aitri prove --feature user-auth --mutate
+aitri serve --feature user-auth          # optional: preview before delivery
 aitri deliver --feature user-auth
 ```
 
