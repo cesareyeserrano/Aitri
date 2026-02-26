@@ -4,7 +4,10 @@
 
 | ID | Feature | Notes |
 |----|---------|-------|
-_(none)_
+| EVO-025 | `aitri status` — redesign CLI + HTML output: visual pipeline timeline (draft→approve→plan→build→testgen→contractgen→prove→deliver), health indicator (🔴/🟡/🟢), prioritized issues, single clear next action; readable by tech and non-tech | Data model stays; only presentation changes |
+| EVO-026 | Feature Input Template — `FEATURE_INPUT_TEMPLATE.md` with structured minimum-viable-input format (problem, actors, business rules, concrete input→output examples, success criteria, priority); adjust `aitri draft` to detect and use structured input, reducing wizard friction and LLM hallucination risk | Highest ROI: improves all downstream artifacts |
+| EVO-027 | Enrich `af_spec.md` — add `Examples` block per FR (concrete input→output pairs), optional type hint, priority field (P0/P1/P2), explicit business rules section; update `approve` quality gate to reward richer specs | Directly improves `testgen` and `contractgen` output quality |
+| EVO-028 | `aitri audit` — two-mode auditor: spec-aware (spec-to-code drift, FR coverage gaps, stale proofs, weak mutation scores) + code-only (runs when no spec exists: static analysis, LLM reverse-engineering of intent, anti-patterns); prioritized findings (CRITICAL/HIGH/MEDIUM/LOW) with impact; outputs human report + `--json` for CI | Enables project health check for both greenfield and brownfield |
 
 ## 🟡 In Progress
 
