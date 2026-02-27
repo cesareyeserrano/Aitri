@@ -2,28 +2,7 @@
 
 ## 🟢 Ready for Implementation
 
-| ID | Feature | Notes |
-|----|---------|-------|
-| EVO-041 | Épicas — container de features con progreso agregado | Arquitectónico, scope mayor |
-
----
-
-### EVO-041 — Épicas: container de features con progreso agregado
-
-**Feedback origen:**
-La jerarquía actual es `Feature → FR → US → TC`. En proyectos reales los backlogs se organizan en épicas que agrupan features relacionadas hacia un outcome de negocio. Sin épicas: no hay progreso agregado, `resume` no puede navegar cross-feature, el `dev-roadmap.md` no tiene estructura intermedia.
-
-**Scope propuesto:**
-
-1. **`aitri epic create --name <name> --features <f1,f2,...>`** → `epics/<name>.json`
-2. **`aitri epic status --name <name>`** — progreso de features dentro del epic (delivered/in-progress/not-started)
-3. **`aitri resume`** — si hay épicas, incluir `activeEpic` y `epicProgress` en el output JSON
-4. **`aitri status --epic <name>`** — vista filtrada por epic
-5. Features sin epic: siguen funcionando exactamente igual (backward compatible)
-
-**Epics no requieren pre-planning.** Son contenedores de organización, no una etapa del SDLC.
-
-**Nota:** Este EVO es el más grande y debe implementarse cuando el pipeline base esté estabilizado.
+_(ninguno pendiente)_
 
 ## 🟡 In Progress
 
@@ -31,7 +10,26 @@ La jerarquía actual es `Feature → FR → US → TC`. En proyectos reales los 
 
 ## 🔴 Done
 
-> Historial completo en `git log`. Release actual: **v1.1.0**
+> Historial completo en `git log`. Release actual: **v1.2.0**
+
+### EVO-041 — Épicas: container de features con progreso agregado
+
+**Feedback origen:**
+La jerarquía `Feature → FR → US → TC` no tiene estructura intermedia para agrupar features hacia un outcome de negocio. Sin épicas: no hay progreso agregado, `resume` no puede navegar cross-feature, no existe vista filtrada.
+
+**Scope implementado:**
+
+1. **`aitri epic create --name <name> --features <f1,f2,...>`** → `docs/epics/<name>.json` con `schemaVersion`, `features[]`, `progressSummary`
+2. **`aitri epic status [--name <name>]`** — sin `--name`: lista todas las épicas; con `--name`: tabla feature/state/nextStep + progreso
+3. **`aitri resume --json`** — incluye `activeEpic` y `epicProgress` en el payload
+4. **`aitri status --epic <name>`** — vista filtrada por epic (redirige a `epic status`)
+5. Features sin epic: intactas, backward compatible
+
+Nuevo módulo: `cli/commands/epic.js` (189 líneas). Nuevos flags globales: `--name`, `--features`, `--epic`. Tests: `tests/smoke/cli-smoke-epic.test.mjs` (14 tests).
+
+**Estado:** Implementado — 131 smoke + 122 regression = 253 tests verdes.
+
+---
 
 ### EVO-042 — Semantic context injection tests
 

@@ -53,6 +53,7 @@ import { runArchDesignCommand } from "./commands/arch-design.js";
 import { runSecReviewCommand } from "./commands/sec-review.js";
 import { runQaPlanCommand } from "./commands/qa-plan.js";
 import { runDevRoadmapCommand } from "./commands/dev-roadmap.js";
+import { runEpicCreateCommand, runEpicStatusCommand } from "./commands/epic.js";
 import { fileURLToPath } from "node:url";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import {
@@ -136,6 +137,9 @@ function parseArgs(argv) {
     noAi: false,
     entry: null,
     open: false,
+    name: null,
+    features: null,
+    epic: null,
     positional: []
   };
 
@@ -236,6 +240,12 @@ function parseArgs(argv) {
     } else if (arg === "--entry") { parsed.entry = (argv[i+1]||"").trim(); i+=1;
     } else if (arg.startsWith("--entry=")) { parsed.entry = arg.slice("--entry=".length).trim();
     } else if (arg === "--open") { parsed.open = true;
+    } else if (arg === "--name") { parsed.name = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--name=")) { parsed.name = arg.slice("--name=".length).trim();
+    } else if (arg === "--features") { parsed.features = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--features=")) { parsed.features = arg.slice("--features=".length).trim();
+    } else if (arg === "--epic") { parsed.epic = (argv[i+1]||"").trim(); i+=1;
+    } else if (arg.startsWith("--epic=")) { parsed.epic = arg.slice("--epic=".length).trim();
     } else {
       parsed.positional.push(arg);
     }
@@ -359,6 +369,11 @@ Workflow (per feature):
   6. aitri build      Per-story: scaffold + brief + verify [--story US-N]
      [WRITE CODE]    You or your AI agent implements each story
   7. aitri deliver    Release tag + build artifact
+
+Epics (optional — organize features into outcomes):
+  aitri epic create --name <name> --features <f1,f2,...>
+  aitri epic status [--name <name>]
+  aitri status --epic <name>       Filtered status view for an epic
 
 Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff, adopt, upgrade, audit, serve
 Still work (deprecated): discover, validate, handoff, scaffold, implement, verify, policy
@@ -500,6 +515,11 @@ if (cmd === "validate") {
 }
 
 if (cmd === "status") {
+  if (options.epic) {
+    options.name = options.epic;
+    const code = runEpicStatusCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+    process.exit(code);
+  }
   try {
     const ok = runStatus({
       json: wantsJson(options, options.positional),
@@ -661,6 +681,20 @@ if (cmd === "qa-plan") {
 if (cmd === "dev-roadmap") {
   const code = await runDevRoadmapCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
   await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "epic") {
+  const subCmd = options.positional[0];
+  let code;
+  if (subCmd === "create") {
+    code = runEpicCreateCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  } else if (subCmd === "status" || !subCmd) {
+    code = runEpicStatusCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  } else {
+    console.log(`Unknown epic subcommand: ${subCmd}. Use: create | status`);
+    code = EXIT_ERROR;
+  }
+  process.exit(code);
 }
 
 console.log("Unknown command.");

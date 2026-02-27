@@ -4,6 +4,7 @@ import { CONFIG_FILE } from "../config.js";
 import { evaluatePolicyChecks, resolveVerifyFeature, runVerification } from "./runtime.js";
 import { normalizeFeatureName } from "../lib.js";
 import { collectValidationIssues } from "./validate.js";
+import { readEpicsSummaryFromDocsRoot } from "./epic.js";
 
 function wantsJson(options, positional = []) {
   if (options.json) return true;
@@ -348,6 +349,18 @@ export async function runResumeCommand({
     ? prePlanning.nextCommand
     : (report.recommendedCommand || toRecommendedCommand(report.nextStep));
 
+  const docsRoot = path.join(process.cwd(), report.config?.paths?.docs || "docs");
+  const epics = readEpicsSummaryFromDocsRoot(docsRoot);
+  const activeEpic = featureLabel
+    ? (epics.find(e => e.features?.includes(featureLabel))?.name || null)
+    : null;
+  const epicProgress = activeEpic
+    ? (() => {
+        const e = epics.find(ep => ep.name === activeEpic);
+        return e ? { epicName: activeEpic, ...e.progressSummary } : null;
+      })()
+    : null;
+
   const payload = {
     ok: true,
     feature: featureLabel,
@@ -355,6 +368,8 @@ export async function runResumeCommand({
     resumeDecision: report.checkpoint.state.resumeDecision,
     nextStep: report.nextStep,
     prePlanningStatus: prePlanning.status,
+    activeEpic,
+    epicProgress,
     recommendedCommand: effectiveRecommendedCommand,
     stepLabel,
     stagesComplete: doneCount,
@@ -380,6 +395,9 @@ export async function runResumeCommand({
     console.log(`  Pre-planning: ${label}`);
   } else {
     console.log("  Pre-planning: complete");
+  }
+  if (activeEpic && epicProgress) {
+    console.log(`  Epic:         ${activeEpic}  (${epicProgress.delivered}/${epicProgress.total} delivered)`);
   }
   console.log("");
 
