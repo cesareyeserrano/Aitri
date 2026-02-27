@@ -12,4 +12,4 @@ _(none)_
 
 ## 🔴 Done
 
-> Historial completo en `git log`. Release actual: **v1.0.4**
+> Historial completo en `git log`. Release actual: **v1.0.5**
