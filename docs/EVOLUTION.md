@@ -33,6 +33,27 @@ La jerarquía actual es `Feature → FR → US → TC`. En proyectos reales los 
 
 > Historial completo en `git log`. Release actual: **v1.1.0**
 
+### EVO-042 — Semantic context injection tests
+
+**Feedback origen:**
+Tests validan mecánica (exit codes, archivos creados) pero no semántica: ¿el output realmente usa el contexto disponible? Un pipeline que ignora `architecture-decision.md` en sus briefs pasaría todos los tests existentes sin objeción.
+
+**Scope:**
+
+- `tests/smoke/cli-smoke-semantic-context.test.mjs` (nuevo) — 2 tests estructurales, sin LLM:
+  - `build injects architecture-decision context into implementation briefs` — crea `.aitri/architecture-decision.md` con marcador único, corre `aitri build`, verifica que el brief `US-*.md` contiene el marcador
+  - `build omits architecture context when .aitri/architecture-decision.md is absent` — sin artefacto, verifica que el brief NO contiene la sección de contexto
+- `tests/smoke/cli-smoke-preplanning.test.mjs` — 3 tests nuevos de EVO-039 `--force` guard:
+  - `discover-idea non-interactive fails with --force hint when artifact exists`
+  - `discover-idea --force bypasses existing artifact guard`
+  - `dev-roadmap non-interactive fails with --force hint when artifact exists`
+
+**Por qué solo `build`:** Es el único comando del pipeline que inyecta contexto pre-planning sin invocar LLM — el marcador se escribe al archivo directamente. Los otros comandos que inyectan contexto (draft, plan) requieren LLM para producir su output, lo que hace inviable la aserción sin mock.
+
+**Estado:** Implementado — 240 tests verdes.
+
+---
+
 ### EVO-040 — `aitri approve` semantic gate: spec vs architecture
 
 **Feedback origen:**

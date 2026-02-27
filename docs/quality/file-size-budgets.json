@@ -303,8 +303,13 @@
     },
     {
       "path": "tests/smoke/cli-smoke-preplanning.test.mjs",
+      "soft": 150,
+      "hard": 190
+    },
+    {
+      "path": "tests/smoke/cli-smoke-semantic-context.test.mjs",
       "soft": 100,
-      "hard": 140
+      "hard": 130
     }
   ]
 }

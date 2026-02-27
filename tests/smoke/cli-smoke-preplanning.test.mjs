@@ -103,3 +103,42 @@ test("help output includes pre-planning commands", () => {
   assert.match(result.stdout, /dev-roadmap/);
   assert.match(result.stdout, /Pre-Planning/);
 });
+
+// EVO-039: --force guard tests
+function makeTempProjectWithAI() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-preplanning-force-"));
+  fs.mkdirSync(path.join(dir, ".aitri"), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "aitri.config.json"),
+    JSON.stringify({ project: "test-preplanning-force", ai: { provider: "claude", model: "claude-haiku-4-5-20251001" } }),
+    "utf8"
+  );
+  return dir;
+}
+
+test("discover-idea non-interactive fails with --force hint when artifact exists", () => {
+  const dir = makeTempProjectWithAI();
+  fs.writeFileSync(path.join(dir, ".aitri/discovery.md"), "# Discovery\nexisting content\n", "utf8");
+  const result = runNode(["discover-idea", "--non-interactive", "--idea", "test idea"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /Use --force to regenerate/);
+});
+
+test("discover-idea --force bypasses existing artifact guard", () => {
+  const dir = makeTempProjectWithAI();
+  fs.writeFileSync(path.join(dir, ".aitri/discovery.md"), "# Discovery\nexisting content\n", "utf8");
+  // With --force the guard is bypassed — it will attempt AI call and fail (no real key), not the guard error
+  const result = runNode(["discover-idea", "--non-interactive", "--force", "--idea", "test idea"], { cwd: dir });
+  // Should NOT contain the --force hint (guard bypassed); may fail on AI call
+  assert.doesNotMatch(result.stdout + result.stderr, /Use --force to regenerate/);
+});
+
+test("dev-roadmap non-interactive fails with --force hint when artifact exists", () => {
+  const dir = makeTempProjectWithAI();
+  fs.writeFileSync(path.join(dir, ".aitri/product-spec.md"), "# Product Spec\n", "utf8");
+  fs.writeFileSync(path.join(dir, ".aitri/architecture-decision.md"), "# Arch\n", "utf8");
+  fs.writeFileSync(path.join(dir, ".aitri/dev-roadmap.md"), "# Dev Roadmap\nexisting\n", "utf8");
+  const result = runNode(["dev-roadmap", "--non-interactive"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /Use --force to regenerate/);
+});
