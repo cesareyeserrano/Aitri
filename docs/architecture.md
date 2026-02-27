@@ -19,6 +19,7 @@ It operates as a **skill consumed by AI agents** (Claude, Codex, OpenCode) as th
 - Generate requirements — requirements must come from the user
 - Guarantee correctness of LLM-generated content, only structural traceability
 - Replace human judgment at approval gates
+- Execute changes autonomously in audit mode — `aitri audit` is always advisory: reports findings and recommendations only, never modifies project state
 
 ---
 
