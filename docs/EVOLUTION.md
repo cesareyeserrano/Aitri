@@ -12,46 +12,6 @@ _(ninguno pendiente)_
 
 > _Feedback de prueba real (2026-02-27) — proyecto existente, flujo UX/UI improvement_
 
-### EVO-054 — Agent compliance: el agente no debe improvisar fuera de los comandos Aitri
-
-**Feedback:** En prueba real, el agente hizo una "auditoría" sin invocar ningún comando `aitri`. Ignoró el skill y ejecutó su propio flujo libre. El usuario no se enteró hasta que notó la ausencia de comandos.
-
-**Problema raíz:** El skill `aitri` es opt-in — el agente puede elegir no usarlo. No hay enforcement que le impida hacer trabajo fuera del pipeline definido. Resultado: el agente actúa como un developer normal, saltando todos los gates de calidad.
-
-**Scope:**
-- En el skill prompt: agregar regla explícita — "NUNCA ejecutes pasos del pipeline (audit, review, análisis de código, generación) sin invocar el comando `aitri` correspondiente. Si no hay un comando para la acción, di al usuario que no está soportada en el pipeline actual."
-- Agregar lista de mapeo: acción → comando Aitri (audit → `aitri audit`, review de spec → `aitri approve`, estado → `aitri resume`, etc.)
-- Considerar agregar un pre-flight check: si el agente está a punto de hacer algo que debería ser un comando Aitri, debe detenerse y usar el skill
-- Documentar en el skill qué hacer cuando el usuario pide algo que no tiene comando: "Documenta el gap y sugiere el EVO correspondiente en lugar de improvisar"
-
-**Prioridad:** Crítica — sin esto, Aitri es decorativo. El valor del sistema es que el agente siga el pipeline, no que lo ignore cuando es conveniente.
-
----
-
-### EVO-048 — Gate CTA explícito: ambigüedad en "siguiente paso"
-
-**Feedback:** Al terminar un gate, el agente muestra `Siguiente paso cuando quieras: aitri approve --feature X` sin dejar claro si está preguntando permiso o informando. El usuario no sabe si debe escribir "sí", copiar el comando, o esperar.
-
-**Scope:**
-- En el skill `aitri`: al presentar el siguiente gate, usar lenguaje explícito: "¿Ejecuto `aitri approve` ahora? Responde **sí** para que lo corra, o cópialo para correrlo tú."
-- Nunca dejar un comando flotando sin instrucción de acción
-
-**Prioridad:** Alta — confunde el flujo en cada transición de gate.
-
----
-
-### EVO-049 — `status` y `resume` siempre terminan con `→ Siguiente acción`
-
-**Feedback:** Correr `aitri status --feature X` mostró un reporte completo pero no anunció el siguiente paso. El usuario tuvo que preguntar "¿qué sigue?" explícitamente.
-
-**Scope:**
-- `status` y `resume` deben siempre cerrar con un bloque `→ Siguiente: <comando concreto + descripción de una línea>`
-- Si el feature está cerrado/entregado, decirlo explícitamente
-
-**Prioridad:** Alta — el pipeline se siente estancado sin este cierre proactivo.
-
----
-
 ### EVO-050 — Persona visibility: mostrar qué persona está contribuyendo
 
 **Feedback:** El usuario sabe que existen Arquitecto, UX, Dev, etc. pero no los ve "trabajar". No hay señal visible de cuándo cada persona contribuye ni qué decidió.
@@ -145,7 +105,28 @@ _(ninguno pendiente)_
 
 ## 🔴 Done
 
-> Historial completo en `git log`. Release actual: **v1.2.2**
+> Historial completo en `git log`. Release actual: **v1.2.3**
+
+### EVO-054 — Agent compliance: no improvisar fuera de los comandos Aitri
+
+**Problema:** El agente ignoraba el skill e improvisaba auditorías/reviews sin invocar `aitri`. Todos los gates quedaban bypassed.
+
+**Solución:** Actualizado `~/.claude/skills/aitri/SKILL.md`:
+- Regla 8: prohibición explícita de trabajo fuera del pipeline sin comando `aitri`
+- Regla 9: si no hay comando para algo, decirlo y documentar el gap
+- Command Mapping table: 22 acciones → comando `aitri` correspondiente
+
+---
+
+### EVO-048 + EVO-049 — Gate CTA + Status/Resume closing block
+
+**Problema:** Gates terminaban con comando flotante sin instrucción clara. `status`/`resume` no anunciaban el siguiente paso.
+
+**Solución:** Actualizado `SKILL.md`:
+- Gate CTA: dos patrones explícitos (Pattern A: "¿Lo ejecuto ahora? sí/no" · Pattern B: "Cuando estés listo, corre:")
+- Status/Resume: bloque `→ Siguiente` obligatorio al cierre de cada ejecución
+
+---
 
 ### EVO-044 — Stale context detection: warn cuando pre-planning artifacts son más nuevos que downstream
 
