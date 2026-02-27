@@ -12,9 +12,8 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 1. Run `aitri resume` (or `aitri resume json` for machine-readable output)
 2. If structure is missing (`nextStep: "aitri init"`), run `aitri init`
 3. Re-run `aitri resume`
-4. If checkpoint confirmation is requested, ask: "Checkpoint found. Continue from checkpoint? (yes/no)" and wait for explicit user decision.
-5. Read `docs/README.md` and `docs/EXECUTION_GUARDRAILS.md` if present
-6. Report state and next recommended step
+4. Read `docs/README.md` and `docs/EXECUTION_GUARDRAILS.md` if present
+5. Report state and next recommended step
 
 ## Non-Negotiable Rules
 1. Do not implement code before approved spec exists.
@@ -77,7 +76,7 @@ Only use these flags in CI pipelines or when the user explicitly requests unatte
 11. `aitri go`
 
 ### Post-Go Phase (Factory Execution)
-12. `aitri build --yes` — scaffold test stubs and contract placeholders
+12. `aitri build` — scaffold test stubs and contract placeholders
 13. `aitri testgen` — LLM generates behavioral test bodies
 14. `aitri contractgen` — LLM implements contract functions
 15. `aitri prove --mutate` — run TC stubs, generate proof-of-compliance
@@ -120,9 +119,8 @@ At the end of substantial progress, manual fallback remains:
 - fallback: `git stash push -m "checkpoint: <feature> <phase>"`
 
 When resuming a new session:
-1. Run `aitri resume`
-2. If checkpoint is detected, ask user whether to resume from checkpoint (yes/no)
-3. Follow the recommended command only after user response (or `nextStep` in JSON mode)
+1. Run `aitri resume` — the CLI handles any checkpoint decision natively
+2. Follow the recommended command (`nextStep` in JSON mode)
 
 ## Exit Codes
 - `0`: success
