@@ -281,7 +281,7 @@ test("status detects git checkpoint commit", () => {
 });
 
 
-test("resume requires explicit confirmation in non-interactive mode when checkpoint is detected", () => {
+test("resume shows pipeline checklist when checkpoint is detected", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-smoke-resume-checkpoint-"));
   spawnSync("git", ["init"], { cwd: tempDir, encoding: "utf8" });
   spawnSync("git", ["config", "user.name", "Aitri Test"], { cwd: tempDir, encoding: "utf8" });
@@ -290,12 +290,9 @@ test("resume requires explicit confirmation in non-interactive mode when checkpo
   spawnSync("git", ["add", "README.md"], { cwd: tempDir, encoding: "utf8" });
   spawnSync("git", ["commit", "-m", "checkpoint: seed phase"], { cwd: tempDir, encoding: "utf8" });
 
-  const blocked = runNode(["resume", "--non-interactive"], { cwd: tempDir });
-  assert.equal(blocked.status, 1);
-  assert.match(blocked.stdout, /requires --yes/);
-
-  const allowed = runNodeOk(["resume", "--non-interactive", "--yes"], { cwd: tempDir });
-  assert.match(allowed.stdout, /Aitri Resume/);
+  const result = runNodeOk(["resume", "--non-interactive"], { cwd: tempDir });
+  assert.match(result.stdout, /Aitri Resume/);
+  assert.match(result.stdout, /Step \d+ of \d+/);
 });
 
 test("write command creates auto-checkpoint in git repo", () => {

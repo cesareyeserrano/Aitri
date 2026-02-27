@@ -305,10 +305,9 @@ export async function runResumeCommand({
   options,
   getStatusReportOrExit,
   toRecommendedCommand,
-  confirmResume,
   exitCodes
 }) {
-  const { OK, ERROR, ABORTED } = exitCodes;
+  const { OK } = exitCodes;
   const report = getStatusReportOrExit();
   const jsonOutput = wantsJson(options, options.positional);
   const checkpointDetected = report.checkpoint.state.detected;
@@ -340,18 +339,6 @@ export async function runResumeCommand({
   if (jsonOutput) {
     console.log(JSON.stringify(payload, null, 2));
     return OK;
-  }
-
-  if (needsResumeDecision) {
-    const proceed = await confirmResume(options);
-    if (proceed === null) {
-      console.log("Non-interactive mode requires --yes to confirm resume from checkpoint.");
-      return ERROR;
-    }
-    if (!proceed) {
-      console.log("Resume decision: STOP.");
-      return ABORTED;
-    }
   }
 
   const header = featureLabel ? `Aitri Resume  —  ${featureLabel}` : "Aitri Resume";
