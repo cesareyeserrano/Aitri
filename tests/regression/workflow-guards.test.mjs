@@ -123,15 +123,15 @@ STATUS: APPROVED
   }, null, 2), "utf8");
 }
 
-test("handoff and go respect --feature in multi-feature repositories", () => {
+test("resume and go respect --feature in multi-feature repositories", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-regression-multi-go-"));
   writeFeatureReadyForHandoff(tempDir, "alpha");
   writeFeatureReadyForHandoff(tempDir, "beta");
 
-  const handoff = runNodeOk(["handoff", "--feature", "alpha", "--json"], { cwd: tempDir });
-  const handoffPayload = JSON.parse(handoff.stdout);
-  assert.equal(handoffPayload.feature, "alpha");
-  assert.equal(handoffPayload.ok, true);
+  const resume = runNodeOk(["resume", "--feature", "alpha", "--json"], { cwd: tempDir });
+  const resumePayload = JSON.parse(resume.stdout);
+  assert.equal(resumePayload.feature, "alpha");
+  assert.equal(resumePayload.ok, true);
 
   const go = runNode(["go", "--feature", "alpha", "--non-interactive", "--yes"], { cwd: tempDir });
   assert.equal(go.status, 0);

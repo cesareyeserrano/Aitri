@@ -10,7 +10,22 @@ _(ninguno pendiente)_
 
 ## 🔴 Done
 
-> Historial completo en `git log`. Release actual: **v1.2.0**
+> Historial completo en `git log`. Release actual: **v1.2.1**
+
+### EVO-043 — Cleanup: eliminar `handoff` y limpiar deprecation list
+
+**Feedback origen:**
+El help text decía `Still work (deprecated): discover, validate, handoff, scaffold, implement, verify, policy`. Diagnóstico honesto: `handoff` es el único genuinamente removible (reemplazado por `resume`). `discover`, `verify`, `validate`, `policy`, `scaffold`, `implement` son pasos reales del pipeline con tests dedicados — el label era erróneo.
+
+**Scope:**
+
+- `cli/index.js`: eliminado dispatch de `handoff` + imports de `runHandoffCommand`. `scaffold` e `implement` conservados sin mensaje DEPRECATION. Help text actualizado: "Pipeline helpers" en lugar de "deprecated".
+- `cli/commands/runtime-flow.js`: `runResumeCommand` ahora pasa `options.feature` a `getStatusReportOrExit` (fix latente — `resume --feature X` retornaba feature vacío).
+- Tests actualizados: `handoff json` → `resume --json` en 4 archivos (e2e, validation, runtime-policy, regression). Bonus: test renombrado a "resume and go respect --feature".
+
+**Estado:** Implementado — 253 tests verdes.
+
+---
 
 ### EVO-041 — Épicas: container de features con progreso agregado
 

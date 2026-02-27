@@ -332,7 +332,7 @@ export async function runResumeCommand({
   exitCodes
 }) {
   const { OK } = exitCodes;
-  const report = getStatusReportOrExit();
+  const report = getStatusReportOrExit(options.feature || null);
   const jsonOutput = wantsJson(options, options.positional);
   const checkpointDetected = report.checkpoint.state.detected;
   const needsResumeDecision = report.checkpoint.state.resumeDecision === "ask_user_resume_from_checkpoint";

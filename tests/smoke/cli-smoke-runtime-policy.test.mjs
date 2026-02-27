@@ -119,16 +119,13 @@ Users need sign in.
 
   runNodeOk(["validate", "--feature", feature, "--non-interactive", "--json"], { cwd: tempDir });
 
-  // New flow: verify is no longer required before go. Plan exists → handoff is ready.
-  const handoff = runNode(["handoff", "json"], { cwd: tempDir });
-  assert.equal(handoff.status, 0);
-  const payload = JSON.parse(handoff.stdout);
+  // resume --json verifies pipeline is ready for go
+  const resume = runNode(["resume", "--json"], { cwd: tempDir });
+  assert.equal(resume.status, 0);
+  const payload = JSON.parse(resume.stdout);
   assert.equal(payload.ok, true);
   assert.equal(payload.nextStep, "ready_for_human_approval");
-
-  const handoffHuman = runNode(["handoff"], { cwd: tempDir });
-  assert.equal(handoffHuman.status, 0);
-  assert.match(handoffHuman.stdout, /HANDOFF READY/);
+  assert.equal(payload.recommendedCommand, "aitri go");
 });
 
 test("go is blocked when managed-go policy detects dependency drift", () => {

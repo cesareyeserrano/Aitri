@@ -136,11 +136,11 @@ Users need to authenticate securely with email and password.
   assert.equal(statusPayload.confidence.components.runtimeVerification, 100);
   assert.equal(statusPayload.confidence.releaseReady, true);
 
-  const handoff = runNodeOk(["handoff", "json"], { cwd: tempDir });
-  const handoffPayload = JSON.parse(handoff.stdout);
-  assert.equal(handoffPayload.ok, true);
-  assert.equal(handoffPayload.nextStep, "ready_for_human_approval");
-  assert.equal(handoffPayload.recommendedCommand, "aitri go");
+  const resume = runNodeOk(["resume", "--json"], { cwd: tempDir });
+  const resumePayload = JSON.parse(resume.stdout);
+  assert.equal(resumePayload.ok, true);
+  assert.equal(resumePayload.nextStep, "ready_for_human_approval");
+  assert.equal(resumePayload.recommendedCommand, "aitri go");
 
   const go = runNodeOk(["go", "--non-interactive", "--yes"], { cwd: tempDir });
   assert.match(go.stdout, /Implementation go\/no-go decision: GO/);
@@ -244,6 +244,6 @@ Users need secure login.
   assert.equal(verifyPayload.ok, true);
   assert.match(verifyPayload.evidenceFile, /knowledge\/docs\/verification/);
 
-  const handoff = runNodeOk(["handoff", "json"], { cwd: tempDir });
-  assert.equal(JSON.parse(handoff.stdout).ok, true);
+  const resume = runNodeOk(["resume", "--json"], { cwd: tempDir });
+  assert.equal(JSON.parse(resume.stdout).ok, true);
 });

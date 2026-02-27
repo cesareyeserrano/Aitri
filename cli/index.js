@@ -9,12 +9,10 @@ import {
 } from "./commands/discovery-plan-validate.js";
 import { runValidateCommand } from "./commands/validate.js";
 import { runDeliverCommand } from "./commands/deliver.js";
-import { runImplementCommand } from "./commands/implement.js";
 import { runInitCommand } from "./commands/init.js";
 import { runCompletionGuide } from "./commands/post-delivery.js";
 import {
   runGoCommand,
-  runHandoffCommand,
   runPolicyCommand,
   runResumeCommand,
   runVerifyCommand
@@ -34,12 +32,13 @@ import { runHooksCommand } from "./commands/hooks.js";
 import { runCiCommand } from "./commands/ci.js";
 import { runSpecImproveCommand } from "./commands/spec-improve.js";
 import { runExecuteCommand } from "./commands/execute.js";
-import { runScaffoldCommand } from "./commands/scaffold.js";
 import { runCheckpointCommand, runCheckpointShowCommand } from "./commands/checkpoint.js";
 import { runVerifyIntentCommand } from "./commands/verify-intent.js";
 import { runVerifyCoverageCommand } from "./commands/verify-coverage.js";
 import { runDiffCommand } from "./commands/diff.js";
 import { runAdoptCommand } from "./commands/adopt.js";
+import { runScaffoldCommand } from "./commands/scaffold.js";
+import { runImplementCommand } from "./commands/implement.js";
 import { runDraftCommand } from "./commands/draft.js";
 import { runProveCommand } from "./commands/prove.js";
 import { runTestgenCommand } from "./commands/testgen.js";
@@ -376,7 +375,7 @@ Epics (optional — organize features into outcomes):
   aitri status --epic <name>       Filtered status view for an epic
 
 Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff, adopt, upgrade, audit, serve
-Still work (deprecated): discover, validate, handoff, scaffold, implement, verify, policy
+Pipeline helpers: discover, verify, validate, policy, scaffold, implement
 
 Common options:
   --feature, -f <name>   Specify feature name
@@ -457,10 +456,14 @@ if (cmd === "preview") {
   await exitWithFlow({ code, command: cmd, options });
 }
 
-if (cmd === "scaffold" || cmd === "implement") {
-  if (!wantsJson(options, options.positional)) console.log(`DEPRECATION: \`aitri ${cmd}\` is deprecated. Use \`aitri build\` instead.`);
-  const handler = cmd === "scaffold" ? runScaffoldCommand : runImplementCommand;
-  const code = await handler({ options, getProjectContextOrExit, getStatusReportOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+
+if (cmd === "scaffold") {
+  const code = await runScaffoldCommand({ options, getProjectContextOrExit, getStatusReportOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "implement") {
+  const code = await runImplementCommand({ options, getProjectContextOrExit, getStatusReportOrExit, confirmProceed, printCheckpointSummary, runAutoCheckpoint, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
@@ -542,10 +545,6 @@ if (cmd === "resume") {
   await exitWithFlow({ code, command: cmd, options });
 }
 
-if (cmd === "handoff") {
-  const code = runHandoffCommand({ options, getStatusReportOrExit, toRecommendedCommand, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
-  await exitWithFlow({ code, command: cmd, options });
-}
 
 if (cmd === "go") {
   const code = await runGoCommand({ options, getStatusReportOrExit, toRecommendedCommand, getProjectContextOrExit, confirmProceed, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
