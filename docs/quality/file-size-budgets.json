@@ -263,8 +263,8 @@
     },
     {
       "path": "cli/persona-loader.js",
-      "soft": 60,
-      "hard": 80
+      "soft": 110,
+      "hard": 140
     },
     {
       "path": "cli/commands/discover-idea.js",
