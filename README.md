@@ -306,6 +306,22 @@ Output: `docs/adoption-manifest.json`, `specs/drafts/<feature>.md`, `docs/discov
 
 ## 8. Command Reference
 
+### Pre-Planning (Persona-Driven)
+
+Run once per project before starting feature work. Each command uses a specialized AI persona.
+
+| Command | Persona | Input → Output |
+|---------|---------|----------------|
+| `aitri discover-idea --idea "<text>"` | Discovery Facilitator | raw idea → `.aitri/discovery.md` |
+| `aitri product-spec` | Product Manager | discovery → `.aitri/product-spec.md` |
+| `aitri ux-design` | Experience Designer | product-spec → `.aitri/ux-design.md` |
+| `aitri arch-design` | System Architect | product-spec + ux-design → `.aitri/architecture-decision.md` |
+| `aitri sec-review` | Security Champion | architecture → `.aitri/security-review.md` |
+| `aitri qa-plan` | Quality Engineer | product-spec + arch + security → `.aitri/qa-plan.md` |
+| `aitri dev-roadmap` | Lead Developer | all above → `.aitri/dev-roadmap.md` |
+
+Each command shows a preview and requires human approval before continuing.
+
 ### Pre-Go (Governance)
 
 | Command | Purpose |
@@ -366,7 +382,7 @@ Output: `docs/adoption-manifest.json`, `specs/drafts/<feature>.md`, `docs/discov
 
 ### AI-Powered Commands
 
-`spec-improve`, `verify-intent`, and `adopt --depth standard/deep` require an LLM. Add to `aitri.config.json` at project root:
+All pre-planning commands (`discover-idea`, `product-spec`, `ux-design`, `arch-design`, `sec-review`, `qa-plan`, `dev-roadmap`), plus `spec-improve`, `verify-intent`, and `adopt --depth standard/deep` require an LLM. Add to `aitri.config.json` at project root:
 
 ```json
 {
