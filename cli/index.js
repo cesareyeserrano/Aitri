@@ -46,6 +46,13 @@ import { runTestgenCommand } from "./commands/testgen.js";
 import { runContractgenCommand } from "./commands/contractgen.js";
 import { runAuditCommand } from "./commands/audit.js";
 import { runServeCommand } from "./commands/serve.js";
+import { runDiscoverIdeaCommand } from "./commands/discover-idea.js";
+import { runProductSpecCommand } from "./commands/product-spec.js";
+import { runUxDesignCommand } from "./commands/ux-design.js";
+import { runArchDesignCommand } from "./commands/arch-design.js";
+import { runSecReviewCommand } from "./commands/sec-review.js";
+import { runQaPlanCommand } from "./commands/qa-plan.js";
+import { runDevRoadmapCommand } from "./commands/dev-roadmap.js";
 import { fileURLToPath } from "node:url";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import {
@@ -334,7 +341,16 @@ if (!cmd || cmd === "help") {
   console.log(`
 Aitri ⚒️  — Spec-driven software factory
 
-Workflow:
+Pre-Planning (persona-driven — run once per project):
+  aitri discover-idea   Discovery Facilitator → .aitri/discovery.md
+  aitri product-spec    Product Manager       → .aitri/product-spec.md
+  aitri ux-design       Experience Designer   → .aitri/ux-design.md
+  aitri arch-design     System Architect      → .aitri/architecture-decision.md
+  aitri sec-review      Security Champion     → .aitri/security-review.md
+  aitri qa-plan         Quality Engineer      → .aitri/qa-plan.md
+  aitri dev-roadmap     Lead Developer        → .aitri/dev-roadmap.md
+
+Workflow (per feature):
   1. aitri init       Initialize project structure
   2. aitri draft      Capture requirements into a draft spec
   3. aitri approve    Quality gate — validate spec completeness
@@ -610,6 +626,41 @@ if (cmd === "checkpoint") {
     code = runCheckpointCommand({ options, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   }
   process.exit(code);
+}
+
+if (cmd === "discover-idea") {
+  const code = await runDiscoverIdeaCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "product-spec") {
+  const code = await runProductSpecCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "ux-design") {
+  const code = await runUxDesignCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "arch-design") {
+  const code = await runArchDesignCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "sec-review") {
+  const code = await runSecReviewCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "qa-plan") {
+  const code = await runQaPlanCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "dev-roadmap") {
+  const code = await runDevRoadmapCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
 }
 
 console.log("Unknown command.");

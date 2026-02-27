@@ -26,10 +26,19 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 
 ## Aitri Commands
 
-### Pre-Go (Governance and Planning)
+### Pre-Planning (Persona-Driven — run once per project)
+- `aitri discover-idea [--idea <text>]` — Discovery Facilitator → `.aitri/discovery.md`
+- `aitri product-spec` — Product Manager → `.aitri/product-spec.md`
+- `aitri ux-design` — Experience Designer → `.aitri/ux-design.md` (skip with `--no-ux` for non-UI)
+- `aitri arch-design` — System Architect → `.aitri/architecture-decision.md`
+- `aitri sec-review` — Security Champion → `.aitri/security-review.md`
+- `aitri qa-plan` — Quality Engineer → `.aitri/qa-plan.md`
+- `aitri dev-roadmap` — Lead Developer → `.aitri/dev-roadmap.md`
+
+### Pre-Go (Per-Feature Governance)
 - `aitri init`
-- `aitri draft [--guided]`
-- `aitri spec-improve`
+- `aitri draft [--guided]` — reference `.aitri/dev-roadmap.md` for spec content
+- `aitri spec-improve` — System Architect persona reviews spec
 - `aitri approve`
 - `aitri discover [--guided]`
 - `aitri plan`
@@ -41,8 +50,8 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 
 ### Post-Go (Factory Execution)
 - `aitri build` — scaffold test stubs and contract placeholders
-- `aitri testgen` — LLM generates behavioral test bodies from FR + AC
-- `aitri contractgen` — LLM implements contract functions from FR + test stubs
+- `aitri testgen` — Quality Engineer persona generates behavioral test bodies from FR + AC
+- `aitri contractgen` — Lead Developer persona implements contract functions from FR + test stubs
 - `aitri prove` — run TC stubs, map results to FR-IDs, write proof-of-compliance record
 - `aitri deliver` — final delivery gate: all FRs proven, all TCs passing
 
@@ -62,11 +71,21 @@ Only use these flags in CI pipelines or when the user explicitly requests unatte
 
 ## Default Workflow
 
-### Pre-Go Phase
+### Pre-Planning Phase (once per project/major direction change)
+0a. `aitri discover-idea --idea "<raw idea>"` — Discovery Facilitator activates
+0b. `aitri product-spec` — Product Manager activates
+0c. `aitri ux-design` — Experience Designer activates (skip: `--no-ux`)
+0d. `aitri arch-design` — System Architect activates
+0e. `aitri sec-review` — Security Champion activates
+0f. `aitri qa-plan` — Quality Engineer activates
+0g. `aitri dev-roadmap` — Lead Developer activates, produces implementation roadmap
+Human reviews and approves each artifact before proceeding to next.
+
+### Pre-Go Phase (per feature — reference `.aitri/dev-roadmap.md` for scope)
 1. `aitri resume`
 2. `aitri init` when needed
-3. `aitri draft`
-4. `aitri spec-improve` — AI quality review (optional but recommended)
+3. `aitri draft` — use dev-roadmap as source of truth for requirements
+4. `aitri spec-improve` — System Architect persona reviews spec
 5. Human review and adjustments
 6. `aitri approve`
 7. `aitri discover`
@@ -77,33 +96,28 @@ Only use these flags in CI pipelines or when the user explicitly requests unatte
 
 ### Post-Go Phase (Factory Execution)
 12. `aitri build` — scaffold test stubs and contract placeholders
-13. `aitri testgen` — LLM generates behavioral test bodies
-14. `aitri contractgen` — LLM implements contract functions
+13. `aitri testgen` — Quality Engineer persona generates behavioral test bodies
+14. `aitri contractgen` — Lead Developer persona implements contract functions
 15. `aitri prove --mutate` — run TC stubs, generate proof-of-compliance
 16. `aitri deliver` — final delivery gate
 
-## Persona Alignment
-Use these lenses while refining artifacts:
-- Discovery
-- Product
-- Architect
-- Developer
-- QA
-- Security
-- UX/UI (if user-facing)
+## Persona Activation
+Personas are **active system prompts**, not reference-only documents.
 
-Persona usage is iterative:
-- Re-run relevant personas whenever scope, contracts, architecture, or validation state changes.
-- Do not treat persona output as one-time/final if context has changed.
-
-References:
-- `core/personas/discovery.md`
-- `core/personas/product.md`
-- `core/personas/architect.md`
-- `core/personas/developer.md`
-- `core/personas/qa.md`
-- `core/personas/security.md`
-- `core/personas/ux-ui.md`
+| Stage | Command | Persona |
+|---|---|---|
+| Project discovery | `aitri discover-idea` | `core/personas/discovery.md` |
+| Product spec | `aitri product-spec` | `core/personas/product.md` |
+| UX design | `aitri ux-design` | `core/personas/ux-ui.md` |
+| Architecture | `aitri arch-design` | `core/personas/architect.md` |
+| Security review | `aitri sec-review` | `core/personas/security.md` |
+| QA planning | `aitri qa-plan` | `core/personas/qa.md` |
+| Dev roadmap | `aitri dev-roadmap` | `core/personas/developer.md` |
+| Spec review | `aitri spec-improve` | `core/personas/architect.md` |
+| Test generation | `aitri testgen` | `core/personas/qa.md` |
+| Contract impl | `aitri contractgen` | `core/personas/developer.md` |
+| Audit (technical) | `aitri audit` | `core/personas/architect.md` |
+| Audit (drift) | `aitri audit` | `core/personas/security.md` |
 
 ## Approval Behavior
 If Aitri outputs `PLAN` and requests `Proceed? (y/n)`:

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { resolveFeature } from "../lib.js";
 import { callAI } from "../ai-client.js";
+import { loadPersonaSystemPrompt } from "../persona-loader.js";
 import { parseApprovedSpec } from "./spec-parser.js";
 import { parseTestCases, detectStackFamily, slugify } from "./scaffold.js";
 
@@ -156,7 +157,12 @@ export async function runContractgenCommand({
     process.stdout.write(`  ${fr.id}: generating... `);
 
     const prompt = buildPrompt({ fr, stackFamily, contractContent, testContext });
-    const result = await callAI({ prompt, config: aiConfig });
+    const devPersona = loadPersonaSystemPrompt("developer");
+    const result = await callAI({
+      prompt,
+      systemPrompt: devPersona.ok ? devPersona.systemPrompt : undefined,
+      config: aiConfig
+    });
 
     if (!result.ok) {
       console.log(`FAILED (${result.error})`);

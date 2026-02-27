@@ -2,19 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { normalizeFeatureName } from "../lib.js";
 import { callAI } from "../ai-client.js";
-
-const SYSTEM_PROMPT = `You are a senior software architect reviewing a feature specification.
-Your job is to identify concrete quality issues in the spec.
-Return ONLY a JSON array of suggestion strings (no markdown, no explanation outside the array).
-Each suggestion should be a specific, actionable improvement.
-Focus on:
-1. Ambiguous Functional Requirements that cannot be tested (no pass/fail criterion)
-2. Missing edge cases (what happens when things go wrong)
-3. Security considerations that are vague or missing
-4. Acceptance Criteria that do not follow the Given/When/Then pattern
-5. Out-of-scope items that are too vague
-Return format (JSON only): ["suggestion 1", "suggestion 2", ...]
-If the spec is high quality, return an empty array: []`;
+import { loadPersonaSystemPrompt } from "../persona-loader.js";
 
 export async function runSpecImproveCommand({ options, getProjectContextOrExit, exitCodes }) {
   const { OK, ERROR } = exitCodes;
@@ -83,13 +71,25 @@ export async function runSpecImproveCommand({ options, getProjectContextOrExit, 
     return ERROR;
   }
 
-  const prompt = `Review this feature specification and identify quality issues:\n\n${specContent}`;
+  const personaResult = loadPersonaSystemPrompt("architect");
+  if (!personaResult.ok) {
+    console.log(`Failed to load architect persona: ${personaResult.error}`);
+    return ERROR;
+  }
+
+  const prompt = `Review this feature specification and identify concrete quality issues.
+Return ONLY a JSON array of specific, actionable improvement suggestions.
+Return format (JSON only): ["suggestion 1", "suggestion 2", ...]
+If the spec is high quality, return an empty array: []
+
+## Feature Specification
+${specContent}`;
 
   if (!options.nonInteractive) {
     console.log(`Analyzing spec for feature '${feature}'...`);
   }
 
-  const result = await callAI({ prompt, systemPrompt: SYSTEM_PROMPT, config: aiConfig });
+  const result = await callAI({ prompt, systemPrompt: personaResult.systemPrompt, config: aiConfig });
 
   if (!result.ok) {
     const errOut = { ok: false, feature, error: result.error };

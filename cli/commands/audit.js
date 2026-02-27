@@ -3,6 +3,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { resolveFeature } from "../lib.js";
 import { callAI } from "../ai-client.js";
+import { loadPersonaSystemPrompt } from "../persona-loader.js";
 
 function exists(p) { return fs.existsSync(p); }
 function readJsonSafe(f) { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } }
@@ -165,19 +166,7 @@ export function runDependencyAudit(root) {
 
 // ─── LAYER 4: LLM TECHNICAL AUDIT ────────────────────────────────────────────
 
-const TECHNICAL_AUDITOR_SYSTEM = `You are a senior software architect and security engineer performing a technical audit.
-Your role: identify real, concrete problems in the code — not theoretical or hypothetical ones.
-Focus on: architecture coherence, security vulnerabilities, performance anti-patterns, scalability risks, error handling gaps.
-Be precise and conservative. Do not flag style preferences or minor issues.
-Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <brief, actionable description>
-If no significant issues: output NO_FINDINGS`;
-
-const SPEC_INTEGRITY_SYSTEM = `You are a spec integrity auditor comparing a software specification against its implementation.
-Your role: detect semantic drift — functionality implemented but not in the spec, or spec requirements not implemented.
-Be precise: cite both the spec (FR-N or AC-N) and the code location for each finding.
-Distinguish: (a) spec is outdated — code evolved legitimately; (b) implementation gap — spec requirement missing from code.
-Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] [DRIFT|GAP] <description with spec ref and code ref>
-If no drift detected: output NO_DRIFT`;
+// Personas loaded at runtime via persona-loader.js (architect + security)
 
 function readSourceSample(root, maxChars = 5000) {
   const files = collectSourceFiles(root, [".js", ".mjs", ".ts", ".py", ".go"], 10);
@@ -342,18 +331,37 @@ export async function runAuditCommand({ options, getProjectContextOrExit, ask, e
     if (hasApprovedSpec && feature) {
       const specContent = fs.readFileSync(paths.approvedSpecFile(feature), "utf8");
 
-      // 4a: Technical Auditor
-      const techPrompt = `Analyze this codebase for technical quality issues.\n\n## Source Code Sample\n${sourceSample}\n\n## Contract Implementations\n${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}`;
-      const techResult = await callAI({ prompt: techPrompt, systemPrompt: TECHNICAL_AUDITOR_SYSTEM, config: aiConfig });
+      const architectPersona = loadPersonaSystemPrompt("architect");
+      const securityPersona = loadPersonaSystemPrompt("security");
+
+      // 4a: System Architect persona — technical quality review
+      const techPrompt = `Analyze this codebase for technical quality issues.
+Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <brief, actionable description>
+If no significant issues: output NO_FINDINGS
+
+## Source Code Sample
+${sourceSample}
+
+## Contract Implementations
+${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}`;
+      const techResult = await callAI({ prompt: techPrompt, systemPrompt: architectPersona.ok ? architectPersona.systemPrompt : undefined, config: aiConfig });
       if (techResult.ok) {
         allFindings.push(...parseLlmFindings(techResult.content, "llm"));
       } else {
         allFindings.push(finding("LOW", "llm", `Technical review failed: ${techResult.error}`));
       }
 
-      // 4b: Spec Integrity Auditor
-      const driftPrompt = `Compare this spec against the implementation and identify drift.\n\n## Approved Spec\n${specContent.slice(0, 3000)}\n\n## Contract Implementations\n${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}`;
-      const driftResult = await callAI({ prompt: driftPrompt, systemPrompt: SPEC_INTEGRITY_SYSTEM, config: aiConfig });
+      // 4b: Security Champion persona — spec drift / integrity check
+      const driftPrompt = `Compare this spec against the implementation and identify drift.
+Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] [DRIFT|GAP] <description with spec ref and code ref>
+If no drift detected: output NO_DRIFT
+
+## Approved Spec
+${specContent.slice(0, 3000)}
+
+## Contract Implementations
+${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}`;
+      const driftResult = await callAI({ prompt: driftPrompt, systemPrompt: securityPersona.ok ? securityPersona.systemPrompt : undefined, config: aiConfig });
       if (driftResult.ok && !/NO_DRIFT/i.test(driftResult.content)) {
         allFindings.push(...parseLlmFindings(driftResult.content, "llm-drift"));
       } else if (!driftResult.ok) {
@@ -361,8 +369,9 @@ export async function runAuditCommand({ options, getProjectContextOrExit, ask, e
       }
 
     } else if (codeOnlyMode) {
+      const architectPersona = loadPersonaSystemPrompt("architect");
       const contractSamplesAny = contractSamples.length > 0 ? contractSamples : [{ path: "src/", content: sourceSample }];
-      const result = await callAI({ prompt: buildCodeOnlyPrompt(contractSamplesAny), systemPrompt: TECHNICAL_AUDITOR_SYSTEM, config: aiConfig });
+      const result = await callAI({ prompt: buildCodeOnlyPrompt(contractSamplesAny), systemPrompt: architectPersona.ok ? architectPersona.systemPrompt : undefined, config: aiConfig });
       if (result.ok) {
         allFindings.push(...parseLlmFindings(result.content, "llm"));
         recommendAdopt = /RECOMMEND_ADOPT:\s*true/i.test(result.content);
