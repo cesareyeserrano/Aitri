@@ -29,13 +29,16 @@ _(ninguno pendiente)_
 
 **Feedback:** El resultado de `ux-design` fue pobre. El usuario no vio dónde vive el artefacto UX, no hubo propuesta visible para validar alineación, y el contenido generado no estuvo a la altura del requerimiento real (mejora UX/UI de dashboard).
 
-**Scope:**
-- Mejorar el prompt de `ux-design` para que genere: flujo de usuario, wireframe textual (ASCII o descripción), decisiones de diseño con justificación
-- Al terminar, mostrar path del artefacto y un preview inline de 10-15 líneas del contenido
-- Agregar gate de validación: "¿Esta propuesta UX refleja tu requerimiento? (sí/ajustar)"
-- Considerar separar `ux-design` en dos pasos: `ux-brief` (entender requerimiento) → `ux-proposal` (propuesta concreta)
+**⚠️ Nota de contexto:** El test fue realizado con el adapter Codex **antes del upgrade completo** de SKILL.md (EVO-054/055/056). Parte del output pobre puede ser compliance/SKILL failure, no calidad del prompt de `ux-design`. Antes de cambiar el prompt, re-testear con adapter actualizado para aislar la causa raíz.
 
-**Prioridad:** Alta — es el artefacto con mayor impacto en features de producto y el más débil actualmente.
+**Scope:**
+- Re-testear `ux-design` con adapter actualizado (post EVO-054/055/056) para confirmar si el problema persiste
+- Si persiste: mejorar el prompt para que genere flujo de usuario, wireframe textual (ASCII o descripción), decisiones de diseño con justificación
+- Al terminar, mostrar path del artefacto y preview inline de 10-15 líneas
+- Agregar gate de validación: "¿Esta propuesta UX refleja tu requerimiento? (sí/ajustar)"
+- Si el problema era SKILL compliance: cerrar EVO sin cambio de prompt
+
+**Prioridad:** Alta — pero implementar solo después de re-test con adapter actualizado.
 
 ---
 
@@ -52,6 +55,91 @@ _(ninguno pendiente)_
 
 ---
 
+### EVO-055 — Agent output evidence: stdout obligatorio como prueba de ejecución
+
+**Feedback (Codex UX testing):** El agente puede afirmar que ejecutó un comando sin mostrar su output real. Sin stdout visible, el usuario no puede verificar si el comando realmente corrió ni cuál fue el resultado.
+
+**Scope:**
+- Agregar regla a todos los adapters SKILL.md: "Never claim a command succeeded without showing its stdout output."
+- Aplica a todos los comandos aitri — si el agente corre `aitri plan`, debe mostrar el output completo, no solo decir "plan generado"
+- Agregar nota en la sección de Approval Behavior: el PLAN visible es el stdout real, no un resumen inventado
+- **IDE-specific (OpenCode/Claude Code):** En entornos donde el terminal no es visible en el chat, el agente debe re-stated los puntos clave del PLAN en la conversación antes de pedir y/n (no solo "PLAN detectado")
+
+**Prioridad:** Alta — sin esta regla, el human-in-the-loop gate puede aprobarse sobre output fabricado.
+
+---
+
+### EVO-056 — Mandatory footer en todo turno (no solo status/resume)
+
+**Feedback (Codex UX testing):** El bloque `→ Next` solo está definido para `aitri status` y `aitri resume`. En cualquier otro turno de respuesta el hilo de ejecución se puede perder. Para Codex especialmente, la ambigüedad inter-turno rompe la continuidad del pipeline.
+
+**Scope:**
+- Actualizar todos los adapters SKILL.md: el bloque `→ Next` aplica a **todo turno de respuesta**, no solo status/resume
+- Si el next step no es conocido: `→ Next: run \`aitri resume\` to determine next step`
+- Si el feature fue entregado: `→ Feature closed. No further Aitri pipeline steps.`
+- **IDE variant (OpenCode/Claude Code):** Incluir path del artefacto generado cuando aplique:
+  ```
+  → Next: `aitri <command> --feature <name>`
+  [File]: .aitri/<filename>.md
+  ```
+
+**Prioridad:** Alta — especialmente crítico para Codex y agentes sin memoria inter-sesión.
+
+---
+
+### EVO-057 — Persona minimum output requirements
+
+**Feedback (Codex UX testing):** Las personas están definidas como "active system prompts" pero no tienen criterios de calidad mínimos en el SKILL. Un agente puede invocar `aitri spec-improve` y generar un output vacío o genérico sin violar ninguna regla.
+
+**Scope:**
+- Agregar a todos los adapters SKILL.md sección "Persona Minimum Output":
+  - `spec-improve` (Architect): mínimo 3 hallazgos técnicos concretos; validar contra `.aitri/architecture-decision.md` si existe
+  - `testgen` (QA): debe cubrir Happy Path, Edge Cases y **Security Failures** (los tres explícitamente)
+  - `contractgen` (Developer): cada función implementada debe referenciar su FR-ID; **cero lógica extra no documentada en la spec**
+  - `arch-design` (Architect): debe incluir decisión de stack + justificación técnica
+- Si el output no cumple el mínimo, el agente debe pedir al LLM que lo complete antes de mostrar al usuario
+
+**Prioridad:** Media — mejora la calidad percibida de los artefactos sin cambios en el CLI.
+
+---
+
+### EVO-058 — `@aitri-trace` traceability header en contractgen output
+
+**Feedback (Gemini/PANDA2 analysis):** El código generado por `contractgen` no tiene ningún vínculo explícito con la spec que lo originó. Si alguien revisa el código sin el contexto de Aitri, no puede saber a qué US o FR corresponde.
+
+**Scope:**
+- Instruir a todos los adapters SKILL.md: cuando `contractgen` genere código, cada función debe incluir header de trazabilidad:
+  ```
+  /**
+   * @aitri-trace
+   * US-ID: US-XX
+   * FR-ID: FR-XX
+   * TC-ID: TC-XX
+   */
+  ```
+- Agregar a la persona Developer (`core/personas/developer.md`): output de contractgen debe incluir `@aitri-trace` en todas las funciones implementadas
+- Sin cambios al CLI — es instrucción de output al LLM
+
+**Prioridad:** Media — trazabilidad real entre código y spec, verificable en code review.
+
+---
+
+### EVO-059 — `aitri doctor` orphan scan
+
+**Feedback (Gemini/PANDA2 analysis):** `aitri doctor` reporta salud del proyecto pero no detecta "huérfanos": FRs sin TC asociado, código generado sin spec de origen, TCs sin FR padre.
+
+**Scope:**
+- Extender `cli/commands/doctor.js`: agregar sección "Orphan Check"
+  - FRs en spec aprobada sin ningún TC en el plan (`FR-*` sin `TC-*` referenciándolo)
+  - TCs en plan sin FR padre documentado
+  - Funciones en contratos con `@aitri-trace` con IDs que no existen en la spec
+- Output: lista de huérfanos con path del archivo y línea
+- No bloquear — es informativo como el staleness check
+
+**Prioridad:** Baja — útil pero requiere parsing de múltiples artefactos; no urgente hasta que haya proyectos con specs completas.
+
+---
+
 ### EVO-053 — Formato de US explícito al generar
 
 **Feedback:** Al generar User Stories no quedó claro si seguían el template Aitri (FR-01/AC-01.x) o uno ad-hoc. El usuario no tuvo referencia para validar.
@@ -61,6 +149,31 @@ _(ninguno pendiente)_
 - Si la spec generada tiene IDs, validarlos con `approve` antes de mostrar como "listo"
 
 **Prioridad:** Baja — es cosmético pero afecta confianza en el output.
+
+---
+
+### SKILL-001 — Gemini Bootstrap: re-read `.aitri/` desde disco (anti-shadow-change)
+
+**Feedback (Gemini/PANDA2 analysis):** Gemini retiene en contexto versiones anteriores de archivos. Si el usuario edita manualmente un `.aitri/*.md` fuera del pipeline, Gemini puede seguir razonando con la versión cacheada.
+
+**Scope:**
+- Agregar al Bootstrap de `adapters/gemini/SKILL.md` paso 6 (o antes del paso actual 6):
+  "Before proceeding with any pipeline step, re-read all relevant `.aitri/` artifacts from disk. Never rely on in-context cached versions of these files."
+- No requiere cambios al CLI
+
+**Prioridad:** Baja — edge case, pero fácil de implementar (1 línea en SKILL.md).
+
+---
+
+### SKILL-002 — OpenCode Core Contract: ejecutar desde workspace root
+
+**Feedback (OpenCode/PANDA2 analysis):** OpenCode permite múltiples terminales. Si `aitri` se corre desde un subdirectorio, los paths relativos de `.aitri/` fallan silenciosamente.
+
+**Scope:**
+- Agregar al Core Contract de `adapters/opencode/SKILL.md`: "All `aitri` commands must be executed from the workspace root. Verify with `pwd` if uncertain."
+- No requiere cambios al CLI
+
+**Prioridad:** Baja — 1 línea en SKILL.md, previene errores de ruta difíciles de diagnosticar.
 
 ---
 

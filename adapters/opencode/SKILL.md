@@ -143,6 +143,21 @@ Persona usage is iterative:
 - Re-run relevant personas whenever scope, contracts, architecture, or validation state changes.
 - Do not treat persona output as one-time/final if context has changed.
 
+## Persona Minimum Output
+When a persona-activated command completes, output must meet these minimums before presenting to the user:
+
+- **`spec-improve`** (Architect): minimum 3 concrete technical findings; validate against `.aitri/architecture-decision.md` if it exists
+- **`testgen`** (QA): must explicitly cover Happy Path, Edge Cases, and Security Failures
+- **`contractgen`** (Developer): each implemented function must reference its FR-ID; zero undocumented logic beyond the approved spec
+- **`arch-design`** (Architect): must include stack decision with technical justification
+
+## Output Evidence Rule
+Never claim a command succeeded without showing its actual stdout output. Display the complete CLI output — do not summarize, paraphrase, or invent it.
+
+When Aitri outputs a `PLAN`, what the user sees must be the real stdout. Human-in-the-loop approval is only valid when based on actual output.
+
+In IDE environments where terminal output is not visible in the chat, re-state the key decision points from the PLAN in the conversation before requesting approval.
+
 ## Interactive Mode (Default)
 Aitri commands are **interactive by default**. The agent should:
 - Let Aitri prompt for confirmations naturally
@@ -178,15 +193,23 @@ When a gate completes and there is a next command to run, **never leave the comm
 **Pattern B — deferred:**
 > When ready, run: `aitri approve --feature <name>`
 
-## Status / Resume — Mandatory Closing Block
-Every `aitri status` or `aitri resume` execution **must close** with:
+## Mandatory Closing Block (Every Turn)
+Every response must close with a next-step block — not only after `aitri status` or `aitri resume`:
 
 ```
 → Next: `aitri <command> --feature <name>`
    <one-line description>
 ```
 
+If the next step is unknown: `→ Next: run \`aitri resume\` to determine next step`
+
 If delivered: `→ Feature closed. No further Aitri pipeline steps.`
+
+In IDE environments, also include the path of any artifact generated in the current turn:
+```
+→ Next: `aitri <command> --feature <name>`
+   [File]: .aitri/<filename>.md
+```
 
 ## Exit Codes
 - `0` success
