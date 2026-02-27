@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { normalizeFeatureName } from "../lib.js";
+import { callAI } from "../ai-client.js";
+import { loadPersonaSystemPrompt } from "../persona-loader.js";
 
 export async function runApproveCommand({
   options,
@@ -321,6 +323,50 @@ export async function runApproveCommand({
     console.log(`\nFix: ${path.relative(process.cwd(), draftsFile)}`);
     console.log(`Run: aitri approve --feature ${feature}`);
     return ERROR;
+  }
+
+  // Semantic gate: spec consistency vs architecture-decision (if artifact + AI available)
+  const archDecisionPath = path.join(process.cwd(), ".aitri/architecture-decision.md");
+  const aiConfig = project.config.ai || {};
+  if (fs.existsSync(archDecisionPath) && aiConfig.provider) {
+    const personaResult = loadPersonaSystemPrompt("architect");
+    if (personaResult.ok) {
+      const archSnippet = fs.readFileSync(archDecisionPath, "utf8").slice(0, 2000);
+      const archPrompt = `Review this feature spec for consistency with the architecture decision.
+Report concerns where the spec contradicts or ignores the architecture.
+For each concern output exactly: ARCH_CONCERN: <description>
+If fully consistent output: ARCH_CONCERN: none
+
+## Feature Spec
+${content.slice(0, 2000)}
+
+## Architecture Decision
+${archSnippet}`;
+      if (!options.nonInteractive) console.log("Checking architecture consistency...");
+      const archResult = await callAI({ prompt: archPrompt, systemPrompt: personaResult.systemPrompt, config: aiConfig });
+      if (archResult.ok) {
+        const concerns = archResult.content
+          .split("\n")
+          .filter(l => /^ARCH_CONCERN:\s*/i.test(l) && !/^ARCH_CONCERN:\s*none\s*$/i.test(l))
+          .map(l => l.replace(/^ARCH_CONCERN:\s*/i, "").trim())
+          .filter(Boolean);
+        if (concerns.length > 0) {
+          console.log("\nARCHITECTURE CONCERNS:");
+          concerns.forEach((c, i) => console.log(`  ${i + 1}. ${c}`));
+          if (!options.yes && !options.nonInteractive) {
+            const ans = String(await ask("\nProceed with approval despite architecture concerns? (y/n): ")).trim().toLowerCase();
+            if (ans !== "y" && ans !== "yes") {
+              console.log("Approval blocked. Revise spec to address concerns before approving.");
+              return ABORTED;
+            }
+          } else {
+            console.log("Note: proceeding with --yes despite architecture concerns.");
+          }
+        } else {
+          if (!options.nonInteractive) console.log("Architecture consistency: OK");
+        }
+      }
+    }
   }
 
   const plan = [

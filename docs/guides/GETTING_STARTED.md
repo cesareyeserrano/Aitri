@@ -76,12 +76,34 @@ aitri resume json
 
 Expected after init:
 - `structure.ok: true`
-- `recommendedCommand: "aitri draft"`
+- `recommendedCommand: "aitri draft"` (or `"aitri discover-idea"` if starting fresh)
 
 ## 4a) First Real Workflow (Human — Interactive Default)
 
+### Phase 0: Pre-Planning (once per project — requires AI config)
+
+Before writing the first spec, run the 7 pre-planning commands in order. Each one
+activates a specialized persona and produces a `.aitri/*.md` artifact consumed by the
+downstream pipeline.
+
+```bash
+aitri discover-idea --idea "A task manager for remote engineering teams"
+aitri product-spec
+aitri ux-design             # skip with --no-ux for non-UI projects
+aitri arch-design
+aitri sec-review
+aitri qa-plan
+aitri dev-roadmap
+```
+
+Expected: 7 files written to `.aitri/`. Each command asks for human approval before
+writing. Pre-planning runs once per project or when project direction changes significantly.
+
+### Phase 1: Feature Pipeline (per feature, repeatable)
+
 ```bash
 aitri draft --feature user-auth --idea "Email and password login with forgot-password flow"
+aitri spec-improve --feature user-auth   # System Architect reviews spec quality
 aitri approve --feature user-auth
 aitri plan --feature user-auth
 aitri go --feature user-auth --yes
@@ -92,6 +114,9 @@ aitri prove --feature user-auth --mutate
 aitri serve --feature user-auth          # optional: preview before delivery
 aitri deliver --feature user-auth
 ```
+
+If `.aitri/dev-roadmap.md` exists, `draft` uses it as context automatically.
+If `.aitri/architecture-decision.md` exists, `plan` and `build` use it as context automatically.
 
 Expected:
 - `approve` exits with code `0` when spec passes quality gate
@@ -151,6 +176,15 @@ npm run demo:5min
 In the agent-centric flow, the AI agent generates the backlog and tests, and Aitri acts as the auditor:
 
 ```bash
+# 0. Pre-planning (once per project — agent runs each command, human approves each artifact)
+aitri discover-idea --idea "A task manager for remote engineering teams"
+aitri product-spec
+aitri ux-design
+aitri arch-design
+aitri sec-review
+aitri qa-plan
+aitri dev-roadmap
+
 # 1. Restore session context
 aitri checkpoint show
 
@@ -277,7 +311,7 @@ For reproducible team adoption:
 ## 10) Pause and Resume Safely
 
 Aitri auto-checkpoint behavior:
-- Write commands (`init`, `draft`, `approve`, `discover`, `plan`) create automatic checkpoints when run inside a git repository.
+- Write commands (`init`, `draft`, `approve`, `discover`, `plan`, pre-planning commands) create automatic checkpoints when run inside a git repository.
 - Aitri keeps the latest 10 managed checkpoint tags.
 - Disable for one command with `--no-checkpoint`.
 

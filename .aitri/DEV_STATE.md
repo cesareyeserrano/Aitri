@@ -1,32 +1,33 @@
 # Aitri Development Checkpoint
-> LAST UPDATE: 2026-02-26T03:06:00.000Z
+> LAST UPDATE: 2026-02-27T00:00:00.000Z
 > AGENT: Developer/Agent
 
 ## 🎯 Current Objective
-Backlog v1.0.0 completo. Próximo ciclo: UX friction reduction (EVO-030 / EVO-031).
+EVO-039 y EVO-040 implementados. Siguiente: EVO-041 (Épicas) cuando el pipeline base esté estabilizado.
 
 ## 🧠 Working Memory (Context)
-- v1.0.0 released en npm y GitHub (gh release create v1.0.0)
-- Todos los EVOs hasta EVO-029 entregados
-- Feedback recibido: "el proceso desde init hasta primera línea de código es largo y no guía 100%"
-- EVO-030 y EVO-031 documentados en docs/EVOLUTION.md como Ready (sin implementar)
+- v1.1.0 — EVO-037 + EVO-038 + EVO-039 + EVO-040
+- EVO-037: 7 comandos pre-planning + persona-loader + refactor 4 comandos existentes
+- EVO-038: Artifacts flow — draft/plan/build consumen artefactos pre-planning
+- EVO-039: resume pre-planning awareness + --force en 7 comandos pre-planning
+- EVO-040: approve semantic gate (spec vs architecture-decision via architect persona)
+- 234 tests green
 
 ## 🚧 Active State
-- [x] EVO-026: aitri draft --input <file> + FEATURE_INPUT_TEMPLATE.md
-- [x] EVO-025: aitri status redesign (pipeline timeline CLI + HTML)
-- [x] EVO-028: aitri audit (static + LLM, --no-ai, --json, 11 regression tests)
-- [x] Version bump 0.9.0 → 1.0.0
-- [x] Commit + GitHub release v1.0.0
-- [x] EVO-030 + EVO-031 agregados al backlog (Ready, no implementados)
+- [x] EVO-037: Persona-Driven SDLC (7 comandos + persona-loader + refactors)
+- [x] EVO-038: Pre-planning artifacts → pipeline (draft, plan, build)
+- [x] EVO-039: resume prePlanningStatus + --force en pre-planning commands
+- [x] EVO-040: approve architecture consistency gate
+- [ ] EVO-041: Épicas (pendiente — scope mayor, requiere pipeline estable)
 
 ## 🛑 Blockers / Errors
 Ninguno.
 
 ## ⏭️ Next Immediate Action
-Decidir si implementar EVO-031 (bajo riesgo) o EVO-030 (riesgo medio, redefinir scope primero).
-Ver análisis de riesgo técnico en el historial de sesión antes de arrancar EVO-030.
+EVO-041: `aitri epic` — container de features con progreso agregado.
+O: consolidar quality gates semánticos (test que validen semántica no solo mecánica).
 
 ## 📦 Estado del Repositorio
-- Branch: main (up to date with origin/main)
-- Último commit: 52ddb89 — docs(backlog): add EVO-030 and EVO-031 to Ready queue
-- npm global: ejecutar `npm install -g .` desde el directorio del proyecto para actualizar
+- Branch: main
+- Version: v1.1.0
+- 234 tests verdes

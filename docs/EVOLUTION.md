@@ -4,8 +4,71 @@
 
 | ID | Feature | Notes |
 |----|---------|-------|
+| EVO-041 | Épicas — container de features con progreso agregado | Arquitectónico, scope mayor |
+
+---
+
+### EVO-041 — Épicas: container de features con progreso agregado
+
+**Feedback origen:**
+La jerarquía actual es `Feature → FR → US → TC`. En proyectos reales los backlogs se organizan en épicas que agrupan features relacionadas hacia un outcome de negocio. Sin épicas: no hay progreso agregado, `resume` no puede navegar cross-feature, el `dev-roadmap.md` no tiene estructura intermedia.
+
+**Scope propuesto:**
+
+1. **`aitri epic create --name <name> --features <f1,f2,...>`** → `epics/<name>.json`
+2. **`aitri epic status --name <name>`** — progreso de features dentro del epic (delivered/in-progress/not-started)
+3. **`aitri resume`** — si hay épicas, incluir `activeEpic` y `epicProgress` en el output JSON
+4. **`aitri status --epic <name>`** — vista filtrada por epic
+5. Features sin epic: siguen funcionando exactamente igual (backward compatible)
+
+**Epics no requieren pre-planning.** Son contenedores de organización, no una etapa del SDLC.
+
+**Nota:** Este EVO es el más grande y debe implementarse cuando el pipeline base esté estabilizado.
 
 ## 🟡 In Progress
+
+---
+
+## 🔴 Done
+
+> Historial completo en `git log`. Release actual: **v1.1.0**
+
+### EVO-040 — `aitri approve` semantic gate: spec vs architecture
+
+**Feedback origen:**
+`aitri approve` valida estructura del spec (secciones presentes, FRs formateados, ACs numerados) pero no verifica si el spec es coherente con `architecture-decision.md`. Un spec que contradice la arquitectura aprobada pasa el gate sin alerta. El audit lo detecta retroactivamente — post-daño.
+
+**Scope:**
+
+- Si existe `.aitri/architecture-decision.md`: agregar Layer 2 semántico al `approve` gate
+- Invocar `architect.md` persona con: spec completo + architecture-decision
+- Persona evalúa: ¿El spec contradice alguna decisión arquitectónica? ¿Hay tecnologías no previstas? ¿Hay gaps de seguridad evidentes?
+- Output: `ARCH_CONCERN: <descripción>` lines (igual que `FINDING:` en audit)
+- Si hay concerns: mostrarlos y pedir confirmación antes de aprobar (`Proceed anyway? (y/n)`)
+- Con `--yes`: concerns se muestran pero no bloquean (CI-friendly)
+- Sin AI config: el gate semántico se omite silenciosamente (no rompe proyectos sin AI)
+
+**Estado:** Implementado — 234 tests verdes.
+
+---
+
+### EVO-039 — Resume pre-planning awareness + `--force` para pre-planning
+
+**Feedback origen:**
+Post-mortem de EVO-037/038: `aitri resume json` no detecta si el pre-planning existe. En un proyecto nuevo devuelve `recommendedCommand: "aitri draft"` aunque `.aitri/discovery.md` no exista. Un agente que siga ciegamente `resume` omite todo el pre-planning. Segundo gap: no hay forma de regenerar un artefacto de pre-planning sin borrar el archivo manualmente.
+
+**Scope:**
+
+1. **`aitri resume`** — detectar estado de pre-planning:
+   - Si ningún artefacto `.aitri/*.md` existe (excepto `DEV_STATE.md`): `recommendedCommand: "aitri discover-idea"`, nuevo campo `prePlanningStatus: "not-started"`
+   - Si pre-planning parcial (algunos artefactos existen): `prePlanningStatus: "in-progress"`, `recommendedCommand` apunta al siguiente en secuencia
+   - Si pre-planning completo (`dev-roadmap.md` existe): `prePlanningStatus: "complete"`, comportamiento actual
+
+2. **`--force` en los 7 comandos de pre-planning** — permite sobreescribir el artefacto existente sin borrar el archivo manualmente. Sin `--force`, si el artefacto ya existe, el comando pregunta si regenerar (interactivo) o falla limpio (no-interactivo).
+
+**Estado:** Implementado — 234 tests verdes.
+
+---
 
 ### EVO-038 — Cerrar gaps de integración: pre-planning alimenta el pipeline real
 
@@ -23,16 +86,6 @@ Post-mortem de EVO-037: los artefactos de pre-planning (`.aitri/dev-roadmap.md`,
 | No hay gate UX antes del código | Medio — solo se verifica retroactivamente en audit | — |
 | Las personas no se re-invocan cuando el contexto cambia | Bajo — depende del agente | SKILL.md |
 
-**Scope:**
-
-1. **`aitri draft`** — si existe `.aitri/dev-roadmap.md`, inyectarlo como contexto en el prompt de generación de spec (no lo fuerza, lo usa como referencia)
-
-2. **`aitri plan`** — si existen artefactos de pre-planning, pasarlos como contexto adicional al LLM que genera backlog y tests: architecture-decision informa decisiones técnicas del backlog, security-review informa casos de test de seguridad, qa-plan informa estructura del test suite
-
-3. **`aitri build`** — si existe `architecture-decision.md`, incluirlo como contexto en los implementation briefs generados por story
-
-4. **Documentación oficial** — reescribir `docs/architecture.md` y actualizar `docs/guides/` para reflejar el pipeline completo con pre-planning. El README principal también requiere actualización.
-
 **Causa raíz documentada:**
 Aitri creció como herramienta de guardarraíles estructurales (gates, validación de formato). El valor semántico — que el conocimiento fluya entre etapas — se asumió implícito. Los tests validan mecánica (exit codes, archivos creados) pero no semántica (¿el output usa el contexto disponible?).
 
@@ -45,7 +98,7 @@ Aitri creció como herramienta de guardarraíles estructurales (gates, validaci�
 - `aitri build` — inyecta `architecture-decision.md` y `security-review.md` como secciones adicionales en cada implementation brief
 - `docs/architecture.md` — reescrito para reflejar el pipeline completo con personas activas, artifact topology actualizada, agent integration contract actualizado
 
-**Estado:** Implementado — 234 tests verdes.
+**Estado:** Implementado — 234 tests verdes. Docs actualizados: `docs/architecture.md`, `docs/guides/GETTING_STARTED.md`, `docs/guides/AGENT_INTEGRATION_GUIDE.md`, `adapters/claude/SKILL.md`.
 
 ---
 
@@ -74,7 +127,7 @@ Que cada etapa del SDLC sea ejecutada **por** su persona correspondiente. La per
    - `spec-improve` → usa `architect.md` en lugar de prompt inline
    - `testgen` → agrega `qa.md` como system prompt
    - `contractgen` → agrega `developer.md` como system prompt
-   - `audit` layer 4 → usa `architect.md` + `security.md` en lugar de prompts inline
+   - `audit` layer 4 → usa `architect.md` + `security.md` + `developer.md` + `ux-ui.md` (condicional)
 
 **Pipeline resultante:**
 
@@ -84,28 +137,15 @@ Pre-planning (proyecto, 1 sola vez)
   → sec-review → qa-plan → dev-roadmap
 
 Pre-Go (por feature)
-  draft → spec-improve[architect] → approve → go
+  draft → spec-improve[architect] → approve[architect gate] → go
 
 Post-Go (factory)
   build → testgen[qa] → contractgen[developer] → prove → deliver
 
 Post-delivery
-  audit[architect + security]
+  audit[architect + security + developer + ux-ui]
 ```
-
-**Escenarios cubiertos:**
-- Proyecto nuevo: correr pre-planning completo, luego pipeline normal por feature
-- Feature nueva en proyecto existente: los artefactos `.aitri/*.md` ya existen, ir directo a draft
-- Backlog/mejoras menores: draft directo sin tocar pre-planning
-- Cambio de dirección: regenerar los artefactos `.aitri/` afectados
-- Proyecto importado: `aitri audit` + `aitri discover-idea` para documentar lo existente
-
-**Sin breaking changes.** Todos los comandos existentes mantienen su interface. Los refactors solo mejoran la calidad del output LLM.
 
 **Estado:** Implementado — commits `6cebaee`, `e046663`. Audit extendido a 4 personas (architect + security + developer + ux-ui condicional).
 
 ---
-
-## 🔴 Done
-
-> Historial completo en `git log`. Release actual: **v1.0.6**

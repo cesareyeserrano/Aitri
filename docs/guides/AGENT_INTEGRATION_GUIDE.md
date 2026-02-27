@@ -39,9 +39,37 @@ this file first. See `docs/guides/SELF_EVOLUTION.md` for the full Relay Protocol
 
 ---
 
-## 2. Pre-Go Phase: Agent as Content Author
+## 2. Pre-Planning Phase: Project-Level Context (run once per project)
 
-### 2.1. Spec Phase
+Before feature work begins, activate the 7 specialized personas in order to build
+project-level context. Each command reads the previous artifact as input, calls the
+corresponding persona LLM, and writes a `.aitri/*.md` artifact. Human approves each one.
+
+```bash
+aitri discover-idea --idea "<raw product idea>"   # Discovery Facilitator → .aitri/discovery.md
+aitri product-spec                                 # Product Manager → .aitri/product-spec.md
+aitri ux-design                                    # Experience Designer → .aitri/ux-design.md
+aitri arch-design                                  # System Architect → .aitri/architecture-decision.md
+aitri sec-review                                   # Security Champion → .aitri/security-review.md
+aitri qa-plan                                      # Quality Engineer → .aitri/qa-plan.md
+aitri dev-roadmap                                  # Lead Developer → .aitri/dev-roadmap.md
+```
+
+Skip `ux-design` with `--no-ux` for non-UI projects. `arch-design` handles the absence gracefully.
+
+**These artifacts are automatically consumed by the feature pipeline:**
+- `aitri draft` — injects `dev-roadmap.md` as spec context
+- `aitri plan` — injects `architecture-decision.md`, `security-review.md`, `ux-design.md` into plan and tests
+- `aitri build` — injects `architecture-decision.md` and `security-review.md` into implementation briefs
+
+Re-run the affected pre-planning commands if project direction changes. The artifacts are
+idempotent — re-running overwrites with an updated version.
+
+---
+
+## 3. Pre-Go Phase: Agent as Content Author
+
+### 3.1. Spec Phase
 
 ```bash
 aitri draft --feature <name> --idea "<intent>"     # create draft spec
@@ -51,8 +79,9 @@ aitri discover --feature <name>                    # structured discovery interv
 ```
 
 The agent can use `spec-improve` output to refine the spec before approval.
+If `.aitri/dev-roadmap.md` exists, `draft` uses it automatically as context.
 
-### 2.2. Auditor Mode (preferred over default plan)
+### 3.2. Auditor Mode (preferred over default plan)
 
 Instead of letting Aitri infer backlog/tests from heuristics, the agent generates them:
 
@@ -116,7 +145,7 @@ aitri plan --feature <name> --ai-backlog agent-backlog.md --ai-tests agent-tests
 Aitri validates all traces. If audit passes, backlog and tests are written atomically.
 If audit fails, nothing is written — fix the reported issues and retry.
 
-### 2.3. Semantic Validation
+### 3.3. Semantic Validation
 
 After plan succeeds, validate that User Stories satisfy FR intent:
 ```bash
@@ -138,7 +167,7 @@ Requires `ai` section in `.aitri.json`:
 
 ---
 
-## 3. Post-Go Phase: Agent as Implementer
+## 4. Post-Go Phase: Agent as Implementer
 
 ```bash
 aitri go --feature <name> --yes                     # unlock factory mode
@@ -161,7 +190,7 @@ import assert from "node:assert/strict";
 
 ---
 
-## 4. Handling Brownfield Backlogs (Incremental Updates)
+## 5. Handling Brownfield Backlogs (Incremental Updates)
 
 When updating an existing feature, use `aitri diff` before submitting:
 
@@ -178,7 +207,7 @@ This prevents silent overwrites and gives the human a clear change summary befor
 
 ---
 
-## 5. Error Recovery
+## 6. Error Recovery
 
 | Error | Cause | Fix |
 |-------|-------|-----|
@@ -189,7 +218,7 @@ This prevents silent overwrites and gives the human a clear change summary befor
 
 ---
 
-## 6. JSON Pipeline Mode
+## 7. JSON Pipeline Mode
 
 All Aitri commands support `--json` or `--non-interactive` for machine-readable output:
 
@@ -204,21 +233,29 @@ The agent should read `recommendedCommand` from `aitri resume json` to determine
 
 ---
 
-## 7. Quick Reference
+## 8. Quick Reference
 
 | Phase | Command | Agent action |
 |-------|---------|--------------|
 | Start session | `aitri checkpoint show` | Read saved state |
+| Pre-planning | `aitri discover-idea` | Activate Discovery Facilitator persona |
+| Pre-planning | `aitri product-spec` | Activate Product Manager persona |
+| Pre-planning | `aitri ux-design` | Activate Experience Designer persona |
+| Pre-planning | `aitri arch-design` | Activate System Architect persona |
+| Pre-planning | `aitri sec-review` | Activate Security Champion persona |
+| Pre-planning | `aitri qa-plan` | Activate Quality Engineer persona |
+| Pre-planning | `aitri dev-roadmap` | Activate Lead Developer persona |
 | Spec | `aitri draft / approve` | Provide idea, approve output |
-| Spec quality | `aitri spec-improve` | Use suggestions to improve spec |
-| Discovery | `aitri discover` | Generate discovery artifact |
+| Spec quality | `aitri spec-improve` | System Architect reviews spec |
+| Discovery | `aitri discover` | Generate feature discovery artifact |
 | Plan (Auditor) | `aitri plan --ai-backlog --ai-tests` | Generate files, submit for audit |
 | Validate intent | `aitri verify-intent` | Confirm US ↔ FR alignment |
 | Diff | `aitri diff --proposed` | Preview backlog changes |
 | Go | `aitri go` | Unlock factory |
 | Build | `aitri build` | Scaffold test stubs + contract placeholders |
-| Test gen | `aitri testgen` | LLM generates behavioral test bodies |
-| Contract gen | `aitri contractgen` | LLM implements contract functions |
+| Test gen | `aitri testgen` | Quality Engineer generates behavioral test bodies |
+| Contract gen | `aitri contractgen` | Lead Developer implements contract functions |
 | Prove | `aitri prove --mutate` | Run TC stubs, write proof-of-compliance |
 | Deliver | `aitri deliver` | Final gate |
+| Post-delivery | `aitri audit` | 4-persona technical audit |
 | End session | `aitri checkpoint "<summary>"` | Save state for next session |

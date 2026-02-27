@@ -43,8 +43,8 @@
     },
     {
       "path": "cli/commands/runtime-flow.js",
-      "soft": 460,
-      "hard": 650
+      "soft": 540,
+      "hard": 700
     },
     {
       "path": "tests/smoke/cli-smoke-foundation.test.mjs",
@@ -178,8 +178,8 @@
     },
     {
       "path": "cli/commands/approve.js",
-      "soft": 360,
-      "hard": 450
+      "soft": 410,
+      "hard": 500
     },
     {
       "path": "cli/commands/hooks.js",
@@ -268,38 +268,38 @@
     },
     {
       "path": "cli/commands/discover-idea.js",
-      "soft": 90,
-      "hard": 130
+      "soft": 100,
+      "hard": 140
     },
     {
       "path": "cli/commands/product-spec.js",
-      "soft": 90,
-      "hard": 130
+      "soft": 100,
+      "hard": 140
     },
     {
       "path": "cli/commands/ux-design.js",
-      "soft": 90,
-      "hard": 130
+      "soft": 100,
+      "hard": 140
     },
     {
       "path": "cli/commands/arch-design.js",
-      "soft": 110,
-      "hard": 150
+      "soft": 120,
+      "hard": 160
     },
     {
       "path": "cli/commands/sec-review.js",
-      "soft": 90,
-      "hard": 130
+      "soft": 100,
+      "hard": 140
     },
     {
       "path": "cli/commands/qa-plan.js",
-      "soft": 115,
-      "hard": 155
+      "soft": 125,
+      "hard": 165
     },
     {
       "path": "cli/commands/dev-roadmap.js",
-      "soft": 120,
-      "hard": 160
+      "soft": 130,
+      "hard": 170
     },
     {
       "path": "tests/smoke/cli-smoke-preplanning.test.mjs",

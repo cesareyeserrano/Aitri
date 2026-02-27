@@ -49,6 +49,16 @@ export async function runDiscoverIdeaCommand({ options, getProjectContextOrExit,
     return ERROR;
   }
 
+  const outPath = path.join(root, ARTIFACT);
+  if (fs.existsSync(outPath) && !options.force) {
+    if (options.nonInteractive) {
+      console.log(`${ARTIFACT} already exists. Use --force to regenerate.`);
+      return ERROR;
+    }
+    const ans = String(await ask(`${ARTIFACT} already exists. Regenerate? (y/n): `)).trim().toLowerCase();
+    if (ans !== "y" && ans !== "yes") { console.log("Skipped. Existing artifact retained."); return OK; }
+  }
+
   const personaResult = loadPersonaSystemPrompt("discovery");
   if (!personaResult.ok) {
     console.log(`Failed to load discovery persona: ${personaResult.error}`);
@@ -70,7 +80,6 @@ export async function runDiscoverIdeaCommand({ options, getProjectContextOrExit,
 
   const ts = new Date().toISOString();
   const artifact = `<!-- Aitri Discovery Artifact — ${ts} -->\n\n${result.content}\n`;
-  const outPath = path.join(root, ARTIFACT);
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, artifact, "utf8");
 

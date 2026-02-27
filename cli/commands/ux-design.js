@@ -43,6 +43,16 @@ export async function runUxDesignCommand({ options, getProjectContextOrExit, ask
     return ERROR;
   }
 
+  const outPath = path.join(root, ARTIFACT);
+  if (fs.existsSync(outPath) && !options.force) {
+    if (options.nonInteractive) {
+      console.log(`${ARTIFACT} already exists. Use --force to regenerate.`);
+      return ERROR;
+    }
+    const ans = String(await ask(`${ARTIFACT} already exists. Regenerate? (y/n): `)).trim().toLowerCase();
+    if (ans !== "y" && ans !== "yes") { console.log("Skipped. Existing artifact retained."); return OK; }
+  }
+
   const personaResult = loadPersonaSystemPrompt("ux-ui");
   if (!personaResult.ok) {
     console.log(`Failed to load ux-ui persona: ${personaResult.error}`);
@@ -66,7 +76,6 @@ export async function runUxDesignCommand({ options, getProjectContextOrExit, ask
 
   const ts = new Date().toISOString();
   const artifact = `<!-- Aitri UX Design — ${ts} -->\n\n${result.content}\n`;
-  const outPath = path.join(root, ARTIFACT);
   fs.writeFileSync(outPath, artifact, "utf8");
 
   if (!options.nonInteractive && !options.yes) {

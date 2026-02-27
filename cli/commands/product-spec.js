@@ -44,6 +44,16 @@ export async function runProductSpecCommand({ options, getProjectContextOrExit, 
     return ERROR;
   }
 
+  const outPath = path.join(root, ARTIFACT);
+  if (fs.existsSync(outPath) && !options.force) {
+    if (options.nonInteractive) {
+      console.log(`${ARTIFACT} already exists. Use --force to regenerate.`);
+      return ERROR;
+    }
+    const ans = String(await ask(`${ARTIFACT} already exists. Regenerate? (y/n): `)).trim().toLowerCase();
+    if (ans !== "y" && ans !== "yes") { console.log("Skipped. Existing artifact retained."); return OK; }
+  }
+
   const personaResult = loadPersonaSystemPrompt("product");
   if (!personaResult.ok) {
     console.log(`Failed to load product persona: ${personaResult.error}`);
@@ -67,7 +77,6 @@ export async function runProductSpecCommand({ options, getProjectContextOrExit, 
 
   const ts = new Date().toISOString();
   const artifact = `<!-- Aitri Product Spec — ${ts} -->\n\n${result.content}\n`;
-  const outPath = path.join(root, ARTIFACT);
   fs.writeFileSync(outPath, artifact, "utf8");
 
   if (!options.nonInteractive && !options.yes) {

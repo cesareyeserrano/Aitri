@@ -287,6 +287,29 @@ export function runPolicyCommand({
   return payload.ok ? OK : ERROR;
 }
 
+const PRE_PLANNING_SEQUENCE = [
+  { file: "discovery.md",             cmd: "aitri discover-idea" },
+  { file: "product-spec.md",          cmd: "aitri product-spec" },
+  { file: "architecture-decision.md", cmd: "aitri arch-design" },
+  { file: "security-review.md",       cmd: "aitri sec-review" },
+  { file: "qa-plan.md",               cmd: "aitri qa-plan" },
+  { file: "dev-roadmap.md",           cmd: "aitri dev-roadmap" }
+];
+
+function getPrePlanningStatus(root) {
+  const aitrDir = path.join(root, ".aitri");
+  const entries = PRE_PLANNING_SEQUENCE.map(e => ({
+    ...e,
+    exists: fs.existsSync(path.join(aitrDir, e.file))
+  }));
+  const firstMissing = entries.find(e => !e.exists);
+  if (!firstMissing) return { status: "complete", nextCommand: null };
+  return {
+    status: entries[0].exists ? "in-progress" : "not-started",
+    nextCommand: firstMissing.cmd
+  };
+}
+
 function buildResumeStages(report) {
   return [
     { name: "draft",       done: !!(report.draftSpec?.found || report.approvedSpec?.found) },
@@ -312,12 +335,18 @@ export async function runResumeCommand({
   const jsonOutput = wantsJson(options, options.positional);
   const checkpointDetected = report.checkpoint.state.detected;
   const needsResumeDecision = report.checkpoint.state.resumeDecision === "ask_user_resume_from_checkpoint";
-  const recommendedCommand = report.recommendedCommand || toRecommendedCommand(report.nextStep);
   const featureLabel = report.approvedSpec?.feature || report.draftSpec?.feature || "";
   const stages = buildResumeStages(report);
   const doneCount = stages.filter((s) => s.done).length;
   const currentIdx = stages.findIndex((s) => !s.done);
   const stepLabel = currentIdx >= 0 ? `Step ${currentIdx + 1} of ${stages.length}` : `Complete (${stages.length}/${stages.length})`;
+
+  const prePlanning = getPrePlanningStatus(process.cwd());
+  const noFeatureInProgress = doneCount === 0 && !featureLabel;
+  const projectNeedsInit = report.nextStep === "aitri init";
+  const effectiveRecommendedCommand = (prePlanning.status !== "complete" && noFeatureInProgress && !projectNeedsInit)
+    ? prePlanning.nextCommand
+    : (report.recommendedCommand || toRecommendedCommand(report.nextStep));
 
   const payload = {
     ok: true,
@@ -325,7 +354,8 @@ export async function runResumeCommand({
     checkpointDetected,
     resumeDecision: report.checkpoint.state.resumeDecision,
     nextStep: report.nextStep,
-    recommendedCommand,
+    prePlanningStatus: prePlanning.status,
+    recommendedCommand: effectiveRecommendedCommand,
     stepLabel,
     stagesComplete: doneCount,
     stagesTotal: stages.length,
@@ -344,6 +374,15 @@ export async function runResumeCommand({
   const header = featureLabel ? `Aitri Resume  —  ${featureLabel}` : "Aitri Resume";
   console.log(`\n${header}`);
   console.log("");
+
+  if (prePlanning.status !== "complete") {
+    const label = prePlanning.status === "not-started" ? "not started" : "in progress";
+    console.log(`  Pre-planning: ${label}`);
+  } else {
+    console.log("  Pre-planning: complete");
+  }
+  console.log("");
+
   stages.forEach((s, i) => {
     const mark = s.done ? "✓" : "○";
     const num  = String(i + 1).padStart(2, " ");
@@ -359,7 +398,7 @@ export async function runResumeCommand({
     return OK;
   }
 
-  console.log(`  Next   ${recommendedCommand}`);
+  console.log(`  Next   ${effectiveRecommendedCommand}`);
   if (report.nextStepMessage) {
     console.log(`  Why    ${report.nextStepMessage}`);
   }
