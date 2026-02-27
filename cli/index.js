@@ -454,7 +454,7 @@ if (cmd === "contractgen") {
 }
 
 if (cmd === "audit") {
-  const code = await runAuditCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  const code = await runAuditCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
