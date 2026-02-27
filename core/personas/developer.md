@@ -59,6 +59,16 @@ For every task define:
 - Define concrete interfaces and method signatures
 - Include primary payload structures
 - Mark versioning/backward-compatibility assumptions
+- Every implemented function must include a traceability header:
+  ```
+  /**
+   * @aitri-trace
+   * US-ID: US-XX
+   * FR-ID: FR-XX
+   * TC-ID: TC-XX
+   */
+  ```
+  Use the IDs from the approved spec. If an ID is unknown, write `UNKNOWN` and flag it.
 
 ### 3) Testing Strategy
 - Unit: critical pure functions and boundary validators

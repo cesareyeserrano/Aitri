@@ -220,6 +220,16 @@ _(ninguno pendiente)_
 
 > Historial completo en `git log`. Release actual: **v1.2.3**
 
+### EVO-058 — `@aitri-trace` traceability header en contractgen output
+
+**Problema:** El código generado por `contractgen` no tenía ningún vínculo explícito con la spec de origen. Sin el header, un reviewer no puede saber a qué US/FR/TC corresponde cada función.
+
+**Solución:**
+- `core/personas/developer.md`: agregado requerimiento en sección "Interface Contracts" — toda función implementada debe incluir header `@aitri-trace` con US-ID, FR-ID, TC-ID. Si un ID es desconocido, escribir `UNKNOWN` y flagear.
+- Todos los adapters SKILL.md (claude, codex, opencode, gemini): actualizado `contractgen` en Persona Minimum Output para mencionar `@aitri-trace` explícitamente.
+
+---
+
 ### EVO-054 — Agent compliance: no improvisar fuera de los comandos Aitri
 
 **Problema:** El agente ignoraba el skill e improvisaba auditorías/reviews sin invocar `aitri`. Todos los gates quedaban bypassed.

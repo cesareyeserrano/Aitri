@@ -148,7 +148,7 @@ When a persona-activated command completes, output must meet these minimums befo
 
 - **`spec-improve`** (Architect): minimum 3 concrete technical findings; validate against `.aitri/architecture-decision.md` if it exists
 - **`testgen`** (QA): must explicitly cover Happy Path, Edge Cases, and Security Failures
-- **`contractgen`** (Developer): each implemented function must reference its FR-ID; zero undocumented logic beyond the approved spec
+- **`contractgen`** (Developer): each implemented function must include `@aitri-trace` header with US-ID, FR-ID, TC-ID; zero undocumented logic beyond the approved spec
 - **`arch-design`** (Architect): must include stack decision with technical justification
 
 ## Output Evidence Rule
