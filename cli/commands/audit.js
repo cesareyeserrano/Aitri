@@ -368,6 +368,47 @@ ${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}`;
         allFindings.push(finding("LOW", "llm-drift", `Spec drift check failed: ${driftResult.error}`));
       }
 
+      // 4c: Lead Developer persona — implementation quality, tech debt, DoD compliance
+      const developerPersona = loadPersonaSystemPrompt("developer");
+      const devPrompt = `Review this codebase for implementation quality issues.
+Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <brief, actionable description>
+If no significant issues: output NO_FINDINGS
+
+## Approved Spec (requirements context)
+${specContent.slice(0, 1500)}
+
+## Contract Implementations
+${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}
+
+## Source Code Sample
+${sourceSample.slice(0, 2000)}`;
+      const devResult = await callAI({ prompt: devPrompt, systemPrompt: developerPersona.ok ? developerPersona.systemPrompt : undefined, config: aiConfig });
+      if (devResult.ok && !/NO_FINDINGS/i.test(devResult.content)) {
+        allFindings.push(...parseLlmFindings(devResult.content, "llm"));
+      } else if (!devResult.ok) {
+        allFindings.push(finding("LOW", "llm", `Implementation review failed: ${devResult.error}`));
+      }
+
+      // 4d: Experience Designer persona — UX audit (only if ux-design artifact exists)
+      const uxDesignPath = path.join(root, ".aitri/ux-design.md");
+      if (exists(uxDesignPath)) {
+        const uxPersona = loadPersonaSystemPrompt("ux-ui");
+        const uxDesignContent = fs.readFileSync(uxDesignPath, "utf8");
+        const uxPrompt = `Audit the implementation against the approved UX design.
+Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <brief, actionable description>
+If no issues found: output NO_FINDINGS
+
+## Approved UX Design
+${uxDesignContent.slice(0, 2000)}
+
+## Contract Implementations (UI-related)
+${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}`;
+        const uxResult = await callAI({ prompt: uxPrompt, systemPrompt: uxPersona.ok ? uxPersona.systemPrompt : undefined, config: aiConfig });
+        if (uxResult.ok && !/NO_FINDINGS/i.test(uxResult.content)) {
+          allFindings.push(...parseLlmFindings(uxResult.content, "llm"));
+        }
+      }
+
     } else if (codeOnlyMode) {
       const architectPersona = loadPersonaSystemPrompt("architect");
       const contractSamplesAny = contractSamples.length > 0 ? contractSamples : [{ path: "src/", content: sourceSample }];

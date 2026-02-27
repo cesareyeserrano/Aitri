@@ -118,6 +118,8 @@ Personas are **active system prompts**, not reference-only documents.
 | Contract impl | `aitri contractgen` | `core/personas/developer.md` |
 | Audit (technical) | `aitri audit` | `core/personas/architect.md` |
 | Audit (drift) | `aitri audit` | `core/personas/security.md` |
+| Audit (implementation) | `aitri audit` | `core/personas/developer.md` |
+| Audit (UX — if .aitri/ux-design.md exists) | `aitri audit` | `core/personas/ux-ui.md` |
 
 ## Approval Behavior
 If Aitri outputs `PLAN` and requests `Proceed? (y/n)`:
