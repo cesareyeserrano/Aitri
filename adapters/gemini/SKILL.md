@@ -26,6 +26,35 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 6. Do not invent requirements. Requirements/spec content must come from explicit user input.
 7. If requirement details are missing, ask the user and stop advancement until clarified.
 8. **Traceability:** Every code change must be traceable to a `TC-*` ID and a `US-*` ID.
+9. **NEVER perform analysis, audit, code review, code generation, or pipeline work without first invoking the corresponding `aitri` command.** Free-form work bypasses all gates. If you are about to do this — stop. Use the command mapping below.
+10. If no `aitri` command exists for what the user needs, say so explicitly and do not improvise a substitute.
+
+## Command Mapping (action → aitri command)
+
+| User asks for… | Use this command |
+|---|---|
+| Start / orient / where am I | `aitri resume` |
+| Full pipeline status | `aitri status --feature <name>` |
+| New feature spec | `aitri draft` |
+| Improve or refine spec | `aitri spec-improve` |
+| Approve spec | `aitri approve` |
+| Discovery / backlog / stories | `aitri discover` |
+| Technical plan | `aitri plan` |
+| Semantic validation | `aitri verify-intent` |
+| Go/no-go decision | `aitri go` |
+| Architecture review | `aitri arch-design` |
+| Security review | `aitri sec-review` |
+| UX design | `aitri ux-design` |
+| QA plan | `aitri qa-plan` |
+| Dev roadmap | `aitri dev-roadmap` |
+| Code audit / technical audit | `aitri audit --feature <name>` |
+| Scaffold stubs | `aitri build` |
+| Generate tests | `aitri testgen` |
+| Generate contracts | `aitri contractgen` |
+| Run proof of compliance | `aitri prove` |
+| Deliver feature | `aitri deliver` |
+| Epic management | `aitri epic create/status` |
+| Project health check | `aitri doctor` |
 
 ## Aitri Commands
 
@@ -99,6 +128,25 @@ If Aitri outputs `PLAN` and requests `Proceed? (y/n)`:
 1. Summarize the plan.
 2. Ask for explicit approval.
 3. Execute only after approval.
+
+## Gate CTA — Clarity Rule
+When a gate completes and there is a next command to run, **never leave the command floating**. Always close with:
+
+**Pattern A — offer to execute now:**
+> Next step is `aitri approve --feature <name>`. Should I run it now? Reply **yes** to proceed or **no** to review first.
+
+**Pattern B — deferred:**
+> When ready, run: `aitri approve --feature <name>`
+
+## Status / Resume — Mandatory Closing Block
+Every `aitri status` or `aitri resume` execution **must close** with:
+
+```
+→ Next: `aitri <command> --feature <name>`
+   <one-line description>
+```
+
+If delivered: `→ Feature closed. No further Aitri pipeline steps.`
 
 ## Checkpoint Behavior
 Write commands create auto-checkpoints (max: 10).

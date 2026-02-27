@@ -23,6 +23,35 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 5. Keep changes minimal and traceable.
 6. Do not invent requirements. Requirements/spec content must come from explicit user input.
 7. If requirement details are missing, ask the user and stop advancement until clarified.
+8. **NEVER perform analysis, audit, code review, code generation, or pipeline work without first invoking the corresponding `aitri` command.** Free-form work outside the pipeline bypasses all gates and makes Aitri decorative. If you are about to do any of these things without an `aitri` command — stop. Use the command mapping below.
+9. If no `aitri` command exists for what the user needs, say so explicitly and do not improvise a substitute. Document the gap instead.
+
+## Command Mapping (action → aitri command)
+
+| User asks for… | Use this command |
+|---|---|
+| Start / orient / where am I | `aitri resume` |
+| Full pipeline status | `aitri status --feature <name>` |
+| New feature spec | `aitri draft` |
+| Improve or refine spec | `aitri spec-improve` |
+| Approve spec | `aitri approve` |
+| Discovery / backlog / stories | `aitri discover` |
+| Technical plan | `aitri plan` |
+| Semantic validation | `aitri verify-intent` |
+| Go/no-go decision | `aitri go` |
+| Architecture review | `aitri arch-design` |
+| Security review | `aitri sec-review` |
+| UX design | `aitri ux-design` |
+| QA plan | `aitri qa-plan` |
+| Dev roadmap | `aitri dev-roadmap` |
+| Code audit / technical audit | `aitri audit --feature <name>` |
+| Scaffold stubs | `aitri build` |
+| Generate tests | `aitri testgen` |
+| Generate contracts | `aitri contractgen` |
+| Run proof of compliance | `aitri prove` |
+| Deliver feature | `aitri deliver` |
+| Epic management | `aitri epic create/status` |
+| Project health check | `aitri doctor` |
 
 ## Aitri Commands
 
@@ -102,6 +131,7 @@ Human reviews and approves each artifact before proceeding to next.
 16. `aitri deliver` — final delivery gate
 
 ## Persona Activation
+
 Personas are **active system prompts**, not reference-only documents.
 
 | Stage | Command | Persona |
@@ -119,13 +149,43 @@ Personas are **active system prompts**, not reference-only documents.
 | Audit (technical) | `aitri audit` | `core/personas/architect.md` |
 | Audit (drift) | `aitri audit` | `core/personas/security.md` |
 | Audit (implementation) | `aitri audit` | `core/personas/developer.md` |
-| Audit (UX — if .aitri/ux-design.md exists) | `aitri audit` | `core/personas/ux-ui.md` |
+| Audit (UX) | `aitri audit` | `core/personas/ux-ui.md` |
+
+Persona usage is iterative:
+- Re-run relevant personas whenever scope, contracts, architecture, or validation state changes.
+- Do not treat persona output as one-time/final if context has changed.
 
 ## Approval Behavior
 If Aitri outputs `PLAN` and requests `Proceed? (y/n)`:
 1. Summarize the plan
 2. Ask for explicit approval
 3. Execute only after approval
+
+## Gate CTA — Clarity Rule
+When a gate completes and there is a next command to run, **never leave the command floating without instruction**. Always close with one of these two patterns:
+
+**Pattern A — offer to execute now:**
+> El siguiente paso es `aitri approve --feature <name>`. ¿Lo ejecuto ahora? Responde **sí** para que lo corra, o **no** si prefieres revisarlo primero.
+
+**Pattern B — next session or manual:**
+> Cuando estés listo, corre: `aitri approve --feature <name>`
+
+Never say "Siguiente paso cuando quieras:" without making the action explicit.
+
+## Status / Resume — Mandatory Closing Block
+Every execution of `aitri status` or `aitri resume` **must close** with a `→ Siguiente` block:
+
+```
+→ Siguiente: `aitri <command> --feature <name>`
+   <one-line description of what this step does>
+```
+
+If the feature is fully delivered, close with:
+```
+→ Feature cerrado. No hay siguiente paso en el pipeline Aitri.
+```
+
+Never leave the user without a clear next action after status or resume.
 
 ## Checkpoint Behavior
 Write commands create auto-checkpoints by default in git repositories (retained max: 10).
