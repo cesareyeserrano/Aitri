@@ -10,6 +10,84 @@ _(ninguno pendiente)_
 
 ## 📋 Backlog
 
+> _Feedback de prueba real (2026-02-27) — proyecto existente, flujo UX/UI improvement_
+
+### EVO-048 — Gate CTA explícito: ambigüedad en "siguiente paso"
+
+**Feedback:** Al terminar un gate, el agente muestra `Siguiente paso cuando quieras: aitri approve --feature X` sin dejar claro si está preguntando permiso o informando. El usuario no sabe si debe escribir "sí", copiar el comando, o esperar.
+
+**Scope:**
+- En el skill `aitri`: al presentar el siguiente gate, usar lenguaje explícito: "¿Ejecuto `aitri approve` ahora? Responde **sí** para que lo corra, o cópialo para correrlo tú."
+- Nunca dejar un comando flotando sin instrucción de acción
+
+**Prioridad:** Alta — confunde el flujo en cada transición de gate.
+
+---
+
+### EVO-049 — `status` y `resume` siempre terminan con `→ Siguiente acción`
+
+**Feedback:** Correr `aitri status --feature X` mostró un reporte completo pero no anunció el siguiente paso. El usuario tuvo que preguntar "¿qué sigue?" explícitamente.
+
+**Scope:**
+- `status` y `resume` deben siempre cerrar con un bloque `→ Siguiente: <comando concreto + descripción de una línea>`
+- Si el feature está cerrado/entregado, decirlo explícitamente
+
+**Prioridad:** Alta — el pipeline se siente estancado sin este cierre proactivo.
+
+---
+
+### EVO-050 — Persona visibility: mostrar qué persona está contribuyendo
+
+**Feedback:** El usuario sabe que existen Arquitecto, UX, Dev, etc. pero no los ve "trabajar". No hay señal visible de cuándo cada persona contribuye ni qué decidió.
+
+**Scope:**
+- Al invocar un comando de pre-planning (`arch-design`, `ux-design`, `sec-review`, etc.), mostrar badge: `[Arquitecto] Evaluando stack y componentes…`
+- Al terminar, mostrar resumen de 2-3 líneas de qué decidió esa persona
+- En `resume --json`, incluir `lastPersonaContribution: { persona, command, summary }`
+
+**Prioridad:** Alta — las personas son el diferenciador de Aitri; si no se ven, no existen.
+
+---
+
+### EVO-051 — UX output pobre: resultado no alineado al requerimiento
+
+**Feedback:** El resultado de `ux-design` fue pobre. El usuario no vio dónde vive el artefacto UX, no hubo propuesta visible para validar alineación, y el contenido generado no estuvo a la altura del requerimiento real (mejora UX/UI de dashboard).
+
+**Scope:**
+- Mejorar el prompt de `ux-design` para que genere: flujo de usuario, wireframe textual (ASCII o descripción), decisiones de diseño con justificación
+- Al terminar, mostrar path del artefacto y un preview inline de 10-15 líneas del contenido
+- Agregar gate de validación: "¿Esta propuesta UX refleja tu requerimiento? (sí/ajustar)"
+- Considerar separar `ux-design` en dos pasos: `ux-brief` (entender requerimiento) → `ux-proposal` (propuesta concreta)
+
+**Prioridad:** Alta — es el artefacto con mayor impacto en features de producto y el más débil actualmente.
+
+---
+
+### EVO-052 — Stack movido a post-arch (draft solo pregunta override)
+
+**Feedback:** La pregunta de stack aparece en `draft` como opcional antes de que el arquitecto haya revisado. El stack debería ser consecuencia del diseño arquitectónico, no una pregunta inicial.
+
+**Scope:**
+- `draft`: remover la pregunta de stack del wizard (o convertirla en: "¿Tienes restricción de stack? Si no, el arquitecto lo definirá.")
+- `arch-design`: el arquitecto propone el stack como parte de su output
+- `build`: leer stack desde `arch-decision.md` si existe, desde `aitri.config.json` como fallback
+
+**Prioridad:** Media — afecta calidad de las decisiones técnicas.
+
+---
+
+### EVO-053 — Formato de US explícito al generar
+
+**Feedback:** Al generar User Stories no quedó claro si seguían el template Aitri (FR-01/AC-01.x) o uno ad-hoc. El usuario no tuvo referencia para validar.
+
+**Scope:**
+- Al generar spec/draft, mostrar al inicio: "Generando bajo el formato Aitri: `FR-XX` con criterios `AC-XX.x`"
+- Si la spec generada tiene IDs, validarlos con `approve` antes de mostrar como "listo"
+
+**Prioridad:** Baja — es cosmético pero afecta confianza en el output.
+
+---
+
 ### EVO-045 — Integration tests con LLM real
 
 **Motivación:** Todo el test suite es smoke/unit. No hay ningún test que ejecute un flujo completo con AI real (incluso un modelo rápido/barato). Gaps que solo los tests de integración pueden detectar: cambios en prompt format que rompen el parsing, regresiones en la estructura del output de `discover`, `plan`, `spec-improve`.
