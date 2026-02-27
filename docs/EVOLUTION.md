@@ -12,19 +12,6 @@ _(ninguno pendiente)_
 
 > _Feedback de prueba real (2026-02-27) — proyecto existente, flujo UX/UI improvement_
 
-### EVO-050 — Persona visibility: mostrar qué persona está contribuyendo
-
-**Feedback:** El usuario sabe que existen Arquitecto, UX, Dev, etc. pero no los ve "trabajar". No hay señal visible de cuándo cada persona contribuye ni qué decidió.
-
-**Scope:**
-- Al invocar un comando de pre-planning (`arch-design`, `ux-design`, `sec-review`, etc.), mostrar badge: `[Arquitecto] Evaluando stack y componentes…`
-- Al terminar, mostrar resumen de 2-3 líneas de qué decidió esa persona
-- En `resume --json`, incluir `lastPersonaContribution: { persona, command, summary }`
-
-**Prioridad:** Alta — las personas son el diferenciador de Aitri; si no se ven, no existen.
-
----
-
 ### EVO-051 — UX output pobre: resultado no alineado al requerimiento
 
 **Feedback:** El resultado de `ux-design` fue pobre. El usuario no vio dónde vive el artefacto UX, no hubo propuesta visible para validar alineación, y el contenido generado no estuvo a la altura del requerimiento real (mejora UX/UI de dashboard).
@@ -100,6 +87,18 @@ _(ninguno pendiente)_
 - Si el output no cumple el mínimo, el agente debe pedir al LLM que lo complete antes de mostrar al usuario
 
 **Prioridad:** Media — mejora la calidad percibida de los artefactos sin cambios en el CLI.
+
+---
+
+### EVO-050 — Persona visibility: mostrar qué persona está contribuyendo
+
+**Problema:** Las personas no eran visibles durante la ejecución. No había señal de cuándo cada persona contribuía ni qué decidió.
+
+**Solución:**
+- `cli/persona-loader.js`: agregados `extractPersonaSummary()`, `savePersonaContribution()`, `loadPersonaContribution()`, `PERSONA_DISPLAY_NAMES`
+- Los 7 comandos de pre-planning (`discover-idea`, `product-spec`, `ux-design`, `arch-design`, `sec-review`, `qa-plan`, `dev-roadmap`): cada uno muestra badge al inicio `[Persona] Acción...` y resumen de 2-3 líneas al terminar
+- Estado de última contribución persistido en `.aitri/.persona-state.json`
+- `resume --json`: incluye `lastPersonaContribution: { persona, command, summary, timestamp }`
 
 ---
 

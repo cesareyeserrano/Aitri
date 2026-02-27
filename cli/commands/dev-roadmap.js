@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const ARTIFACT = ".aitri/dev-roadmap.md";
 
@@ -93,7 +93,7 @@ export async function runDevRoadmapCommand({ options, getProjectContextOrExit, a
   const secReview = readOptional(root, ".aitri/security-review.md");
   const qaPlan = readOptional(root, ".aitri/qa-plan.md");
 
-  if (!options.nonInteractive) console.log("Running Lead Developer analysis...");
+  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["developer"]}] Producing implementation roadmap...`);
 
   const result = await callAI({
     prompt: buildPrompt(productSpec, arch, uxDesign, secReview, qaPlan),
@@ -109,6 +109,10 @@ export async function runDevRoadmapCommand({ options, getProjectContextOrExit, a
   const ts = new Date().toISOString();
   const artifact = `<!-- Aitri Dev Roadmap — ${ts} -->\n\n${result.content}\n`;
   fs.writeFileSync(outPath, artifact, "utf8");
+
+  const summary = extractPersonaSummary(result.content);
+  savePersonaContribution({ persona: "developer", command: "dev-roadmap", summary, root });
+  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["developer"]}] ${summary}`);
 
   if (!options.nonInteractive && !options.yes) {
     console.log(`\n--- DEV ROADMAP (${ARTIFACT}) ---`);

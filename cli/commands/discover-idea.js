@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const ARTIFACT = ".aitri/discovery.md";
 
@@ -65,7 +65,7 @@ export async function runDiscoverIdeaCommand({ options, getProjectContextOrExit,
     return ERROR;
   }
 
-  if (!options.nonInteractive) console.log("Running Discovery Facilitator analysis...");
+  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["discovery"]}] Analyzing idea and framing problem space...`);
 
   const result = await callAI({
     prompt: buildPrompt(ideaText),
@@ -82,6 +82,10 @@ export async function runDiscoverIdeaCommand({ options, getProjectContextOrExit,
   const artifact = `<!-- Aitri Discovery Artifact — ${ts} -->\n\n${result.content}\n`;
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, artifact, "utf8");
+
+  const summary = extractPersonaSummary(result.content);
+  savePersonaContribution({ persona: "discovery", command: "discover-idea", summary, root });
+  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["discovery"]}] ${summary}`);
 
   if (!options.nonInteractive && !options.yes) {
     console.log(`\n--- DISCOVERY ARTIFACT (${ARTIFACT}) ---`);

@@ -5,6 +5,7 @@ import { evaluatePolicyChecks, resolveVerifyFeature, runVerification } from "./r
 import { normalizeFeatureName } from "../lib.js";
 import { collectValidationIssues } from "./validate.js";
 import { readEpicsSummaryFromDocsRoot } from "./epic.js";
+import { loadPersonaContribution } from "../persona-loader.js";
 
 function wantsJson(options, positional = []) {
   if (options.json) return true;
@@ -361,6 +362,8 @@ export async function runResumeCommand({
       })()
     : null;
 
+  const lastPersonaContribution = loadPersonaContribution(process.cwd());
+
   const payload = {
     ok: true,
     feature: featureLabel,
@@ -370,6 +373,7 @@ export async function runResumeCommand({
     prePlanningStatus: prePlanning.status,
     activeEpic,
     epicProgress,
+    lastPersonaContribution,
     recommendedCommand: effectiveRecommendedCommand,
     stepLabel,
     stagesComplete: doneCount,

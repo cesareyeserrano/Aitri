@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const REQUIRES = ".aitri/product-spec.md";
 const ARTIFACT = ".aitri/ux-design.md";
@@ -61,7 +61,7 @@ export async function runUxDesignCommand({ options, getProjectContextOrExit, ask
 
   const productSpecContent = fs.readFileSync(requiresPath, "utf8");
 
-  if (!options.nonInteractive) console.log("Running Experience Designer analysis...");
+  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["ux-ui"]}] Designing user experience and flows...`);
 
   const result = await callAI({
     prompt: buildPrompt(productSpecContent),
@@ -77,6 +77,10 @@ export async function runUxDesignCommand({ options, getProjectContextOrExit, ask
   const ts = new Date().toISOString();
   const artifact = `<!-- Aitri UX Design — ${ts} -->\n\n${result.content}\n`;
   fs.writeFileSync(outPath, artifact, "utf8");
+
+  const summary = extractPersonaSummary(result.content);
+  savePersonaContribution({ persona: "ux-ui", command: "ux-design", summary, root });
+  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["ux-ui"]}] ${summary}`);
 
   if (!options.nonInteractive && !options.yes) {
     console.log(`\n--- UX DESIGN (${ARTIFACT}) ---`);

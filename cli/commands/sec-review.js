@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const REQUIRES = ".aitri/architecture-decision.md";
 const ARTIFACT = ".aitri/security-review.md";
@@ -62,7 +62,7 @@ export async function runSecReviewCommand({ options, getProjectContextOrExit, as
 
   const archContent = fs.readFileSync(requiresPath, "utf8");
 
-  if (!options.nonInteractive) console.log("Running Security Champion review...");
+  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["security"]}] Reviewing security threats and controls...`);
 
   const result = await callAI({
     prompt: buildPrompt(archContent),
@@ -78,6 +78,10 @@ export async function runSecReviewCommand({ options, getProjectContextOrExit, as
   const ts = new Date().toISOString();
   const artifact = `<!-- Aitri Security Review — ${ts} -->\n\n${result.content}\n`;
   fs.writeFileSync(outPath, artifact, "utf8");
+
+  const summary = extractPersonaSummary(result.content);
+  savePersonaContribution({ persona: "security", command: "sec-review", summary, root });
+  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["security"]}] ${summary}`);
 
   if (!options.nonInteractive && !options.yes) {
     console.log(`\n--- SECURITY REVIEW (${ARTIFACT}) ---`);

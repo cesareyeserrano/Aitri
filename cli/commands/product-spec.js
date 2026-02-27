@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const REQUIRES = ".aitri/discovery.md";
 const ARTIFACT = ".aitri/product-spec.md";
@@ -62,7 +62,7 @@ export async function runProductSpecCommand({ options, getProjectContextOrExit, 
 
   const discoveryContent = fs.readFileSync(requiresPath, "utf8");
 
-  if (!options.nonInteractive) console.log("Running Product Manager analysis...");
+  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["product"]}] Defining product scope and success metrics...`);
 
   const result = await callAI({
     prompt: buildPrompt(discoveryContent),
@@ -78,6 +78,10 @@ export async function runProductSpecCommand({ options, getProjectContextOrExit, 
   const ts = new Date().toISOString();
   const artifact = `<!-- Aitri Product Spec — ${ts} -->\n\n${result.content}\n`;
   fs.writeFileSync(outPath, artifact, "utf8");
+
+  const summary = extractPersonaSummary(result.content);
+  savePersonaContribution({ persona: "product", command: "product-spec", summary, root });
+  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["product"]}] ${summary}`);
 
   if (!options.nonInteractive && !options.yes) {
     console.log(`\n--- PRODUCT SPEC (${ARTIFACT}) ---`);

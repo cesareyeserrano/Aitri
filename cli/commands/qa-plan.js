@@ -3,7 +3,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const ARTIFACT = ".aitri/qa-plan.md";
 
@@ -86,7 +86,7 @@ export async function runQaPlanCommand({ options, getProjectContextOrExit, ask, 
   const archContent = fs.readFileSync(archPath, "utf8");
   const secContent = readOptional(root, ".aitri/security-review.md");
 
-  if (!options.nonInteractive) console.log("Running Quality Engineer analysis...");
+  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["qa"]}] Planning quality assurance and test coverage...`);
 
   const result = await callAI({
     prompt: buildPrompt(productSpecContent, archContent, secContent),
@@ -102,6 +102,10 @@ export async function runQaPlanCommand({ options, getProjectContextOrExit, ask, 
   const ts = new Date().toISOString();
   const artifact = `<!-- Aitri QA Plan — ${ts} -->\n\n${result.content}\n`;
   fs.writeFileSync(outPath, artifact, "utf8");
+
+  const summary = extractPersonaSummary(result.content);
+  savePersonaContribution({ persona: "qa", command: "qa-plan", summary, root });
+  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["qa"]}] ${summary}`);
 
   if (!options.nonInteractive && !options.yes) {
     console.log(`\n--- QA PLAN (${ARTIFACT}) ---`);
