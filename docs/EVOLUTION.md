@@ -12,6 +12,22 @@ _(ninguno pendiente)_
 
 > _Feedback de prueba real (2026-02-27) — proyecto existente, flujo UX/UI improvement_
 
+### EVO-054 — Agent compliance: el agente no debe improvisar fuera de los comandos Aitri
+
+**Feedback:** En prueba real, el agente hizo una "auditoría" sin invocar ningún comando `aitri`. Ignoró el skill y ejecutó su propio flujo libre. El usuario no se enteró hasta que notó la ausencia de comandos.
+
+**Problema raíz:** El skill `aitri` es opt-in — el agente puede elegir no usarlo. No hay enforcement que le impida hacer trabajo fuera del pipeline definido. Resultado: el agente actúa como un developer normal, saltando todos los gates de calidad.
+
+**Scope:**
+- En el skill prompt: agregar regla explícita — "NUNCA ejecutes pasos del pipeline (audit, review, análisis de código, generación) sin invocar el comando `aitri` correspondiente. Si no hay un comando para la acción, di al usuario que no está soportada en el pipeline actual."
+- Agregar lista de mapeo: acción → comando Aitri (audit → `aitri audit`, review de spec → `aitri approve`, estado → `aitri resume`, etc.)
+- Considerar agregar un pre-flight check: si el agente está a punto de hacer algo que debería ser un comando Aitri, debe detenerse y usar el skill
+- Documentar en el skill qué hacer cuando el usuario pide algo que no tiene comando: "Documenta el gap y sugiere el EVO correspondiente en lugar de improvisar"
+
+**Prioridad:** Crítica — sin esto, Aitri es decorativo. El valor del sistema es que el agente siga el pipeline, no que lo ignore cuando es conveniente.
+
+---
+
 ### EVO-048 — Gate CTA explícito: ambigüedad en "siguiente paso"
 
 **Feedback:** Al terminar un gate, el agente muestra `Siguiente paso cuando quieras: aitri approve --feature X` sin dejar claro si está preguntando permiso o informando. El usuario no sabe si debe escribir "sí", copiar el comando, o esperar.
