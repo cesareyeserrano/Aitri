@@ -12,6 +12,7 @@
     "cli",
     "core",
     "adapters",
+    "scripts/install-skills.mjs",
     "docs/architecture.md",
     "docs/guides",
     "README.md",
@@ -29,6 +30,8 @@
     "url": "https://github.com/cesareyeserrano/aitri/issues"
   },
   "scripts": {
+    "postinstall": "node scripts/install-skills.mjs",
+    "install-skill": "node scripts/install-skills.mjs",
     "test:smoke": "node --test tests/smoke/cli-smoke-*.test.mjs",
     "test:regression": "node --test tests/regression/*.test.mjs",
     "test:all": "npm run test:smoke && npm run test:regression",
