@@ -310,6 +310,26 @@
       "path": "tests/smoke/cli-smoke-semantic-context.test.mjs",
       "soft": 100,
       "hard": 130
+    },
+    {
+      "path": "cli/commands/epic.js",
+      "soft": 200,
+      "hard": 260
+    },
+    {
+      "path": "tests/smoke/cli-smoke-epic.test.mjs",
+      "soft": 160,
+      "hard": 210
+    },
+    {
+      "path": "cli/lib/staleness.js",
+      "soft": 40,
+      "hard": 60
+    },
+    {
+      "path": "tests/smoke/cli-smoke-staleness.test.mjs",
+      "soft": 110,
+      "hard": 140
     }
   ]
 }

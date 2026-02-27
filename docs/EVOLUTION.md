@@ -8,9 +8,64 @@ _(ninguno pendiente)_
 
 ---
 
+## 📋 Backlog
+
+### EVO-045 — Integration tests con LLM real
+
+**Motivación:** Todo el test suite es smoke/unit. No hay ningún test que ejecute un flujo completo con AI real (incluso un modelo rápido/barato). Gaps que solo los tests de integración pueden detectar: cambios en prompt format que rompen el parsing, regresiones en la estructura del output de `discover`, `plan`, `spec-improve`.
+
+**Scope:**
+- `tests/integration/` — nuevos tests marcados `@slow` / requieren `ANTHROPIC_API_KEY`
+- `npm run test:integration` — script separado que no corre en CI básico
+- Cobertura mínima: `draft → approve → discover → plan` con un feature real pequeño
+
+**Prioridad:** Media — los smoke tests cubren la lógica de orquestación, los integration tests cubrirían el contrato con el LLM.
+
+---
+
+### EVO-046 — `resume --feature` cross-epic awareness
+
+**Motivación:** `resume --json` incluye `activeEpic` pero `resume --feature X` no consulta qué épica contiene el feature. Si hay 2 épicas con features entrelazados, el contexto de progreso relativo (cuántas features del epic están done) no se puede computar en `resume` sin este fix.
+
+**Scope:**
+- En `runResumeCommand`: cuando `options.feature` está presente, buscar qué épica lo contiene
+- Usar `readEpicsSummaryFromDocsRoot` ya disponible en `epic.js`
+- Añadir `epicContext: { epicName, position, total, delivered }` al JSON output
+
+**Prioridad:** Baja — `activeEpic` ya funciona para el caso común (feature en curso).
+
+---
+
+### EVO-047 — Reducir `draft.js` por debajo del hard limit
+
+**Motivación:** `cli/commands/draft.js` tiene 384 líneas (hard: 350). Deuda técnica acumulada.
+
+**Scope:**
+- Extraer validación de idea a helper `validateIdea(idea)` en `cli/lib/`
+- Extraer construcción del prompt a función pura `buildDraftPrompt(options)`
+- Sin cambio de comportamiento ni interface
+
+**Prioridad:** Baja — deuda técnica, no urgente.
+
+---
+
 ## 🔴 Done
 
-> Historial completo en `git log`. Release actual: **v1.2.1**
+> Historial completo en `git log`. Release actual: **v1.2.2**
+
+### EVO-044 — Stale context detection: warn cuando pre-planning artifacts son más nuevos que downstream
+
+**Motivación:** Post-mortem de EVO-038/042: los artefactos de pre-planning (`.aitri/architecture-decision.md`, `security-review.md`, `dev-roadmap.md`, `ux-design.md`, `qa-plan.md`) se generan y se consumen por `plan` y `build`. Pero si el usuario regenera un artefacto de pre-planning DESPUÉS de haber corrido `plan`, el plan queda obsoleto sin ningún aviso.
+
+**Scope:**
+- `cli/lib/staleness.js` — nuevo utilitario con `checkStaleness(sourceFiles, downstreamFile)` y `warnIfStale({...})`
+- `cli/commands/build.js` — inyectar staleness check vs `planFile` (arch-decision, sec-review, dev-roadmap)
+- `cli/commands/discovery-plan-validate.js` — inyectar staleness check antes de regenerar plan (arch-decision, sec-review, ux-design, qa-plan)
+- `tests/smoke/cli-smoke-staleness.test.mjs` — 4 tests: warn cuando stale, no warn cuando clean, no warn cuando artifacts son más viejos, plan re-run avisa cuando stale
+
+**Resultado:** 4 tests nuevos, 257 totales green. Warning es informativo, no bloqueante. `--force` en plan siempre regenera independientemente de staleness.
+
+---
 
 ### EVO-043 — Cleanup: eliminar `handoff` y limpiar deprecation list
 

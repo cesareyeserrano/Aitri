@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { warnIfStale } from "../lib/staleness.js";
 import { parseApprovedSpec } from "./spec-parser.js";
 import { extractSection } from "../lib.js";
 import {
@@ -216,8 +217,18 @@ export async function runBuildCommand({
   const prePlanRoot = process.cwd();
   const archDecisionPath = path.join(prePlanRoot, ".aitri/architecture-decision.md");
   const secReviewPath = path.join(prePlanRoot, ".aitri/security-review.md");
+  const devRoadmapPath = path.join(prePlanRoot, ".aitri/dev-roadmap.md");
   const archContext = fs.existsSync(archDecisionPath) ? fs.readFileSync(archDecisionPath, "utf8").slice(0, 800) : null;
   const secContext = fs.existsSync(secReviewPath) ? fs.readFileSync(secReviewPath, "utf8").slice(0, 400) : null;
+
+  // EVO-044: Warn if pre-planning artifacts changed since the plan was last generated
+  warnIfStale({
+    sourceFiles: [archDecisionPath, secReviewPath, devRoadmapPath],
+    downstreamFile: planFile,
+    downstreamLabel: `docs/plan/${feature}.md`,
+    forceFlag: `Run: aitri plan --feature ${feature} --force  to regenerate with latest context.`,
+    cwd: prePlanRoot
+  });
   const ordered = buildImplementationOrder(stories, tcMapByStory);
   const templates = scaffoldTemplatesByStack(stackFamily);
 

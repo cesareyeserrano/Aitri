@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { warnIfStale } from "../lib/staleness.js";
 import {
   buildSpecSnapshot,
   collectDiscoveryInterview,
@@ -357,6 +358,21 @@ export async function runPlanCommand({
   const outPlanFile = project.paths.planFile(feature);
   const backlogFile = project.paths.backlogFile(feature);
   const testsFile = project.paths.testsFile(feature);
+
+  // EVO-044: If re-running plan and pre-planning artifacts changed, inform user
+  const prePlanRoot = process.cwd();
+  warnIfStale({
+    sourceFiles: [
+      path.join(prePlanRoot, ".aitri/architecture-decision.md"),
+      path.join(prePlanRoot, ".aitri/security-review.md"),
+      path.join(prePlanRoot, ".aitri/ux-design.md"),
+      path.join(prePlanRoot, ".aitri/qa-plan.md")
+    ],
+    downstreamFile: outPlanFile,
+    downstreamLabel: `docs/plan/${feature}.md`,
+    forceFlag: "Regenerating plan with latest pre-planning context.",
+    cwd: prePlanRoot
+  });
 
   console.log("PLAN:");
   console.log("- Read: " + path.relative(process.cwd(), approvedFile));
