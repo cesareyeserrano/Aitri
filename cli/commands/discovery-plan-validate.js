@@ -564,10 +564,35 @@ ${securityThreats}
 - Security controls must be verified before delivery gate.`
   );
 
-  fs.writeFileSync(outPlanFile, planDoc, "utf8");
+  // Inject pre-planning artifacts into the plan doc if they exist
+  const root = process.cwd();
+  const prePlanningArtifacts = [
+    { key: "architecture-decision", file: ".aitri/architecture-decision.md", section: "## 5. Architecture (Architect Persona)" },
+    { key: "security-review", file: ".aitri/security-review.md", section: "## 6. Security (Security Persona)" },
+    { key: "ux-design", file: ".aitri/ux-design.md", section: "## 7. UX/UI Review (UX/UI Persona, if user-facing)" },
+  ];
+  for (const { file, section } of prePlanningArtifacts) {
+    const artifactPath = path.join(root, file);
+    if (fs.existsSync(artifactPath)) {
+      const snippet = fs.readFileSync(artifactPath, "utf8").slice(0, 1500);
+      planDoc = replaceSection(planDoc, section,
+        `<!-- Pre-planning artifact injected from ${file} -->\n${snippet}\n<!-- End artifact -->`
+      );
+    }
+  }
+  // Inject QA plan into tests file context note if it exists
+  const qaPlanPath = path.join(root, ".aitri/qa-plan.md");
+  if (fs.existsSync(qaPlanPath)) {
+    const qaSnippet = fs.readFileSync(qaPlanPath, "utf8").slice(0, 800);
+    const qaNote = `\n<!-- QA Plan context (from aitri qa-plan) -->\n${qaSnippet}\n<!-- End QA Plan context -->\n`;
+    fs.writeFileSync(testsFile, generated.tests + qaNote, "utf8");
+  } else {
+    fs.writeFileSync(testsFile, generated.tests, "utf8");
+  }
 
+  fs.writeFileSync(outPlanFile, planDoc, "utf8");
+  if (!fs.existsSync(testsFile)) fs.writeFileSync(testsFile, generated.tests, "utf8");
   fs.writeFileSync(backlogFile, generated.backlog, "utf8");
-  fs.writeFileSync(testsFile, generated.tests, "utf8");
 
   console.log("Plan created: " + path.relative(process.cwd(), outPlanFile));
   printCheckpointSummary(runAutoCheckpoint({

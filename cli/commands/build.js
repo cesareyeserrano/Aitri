@@ -211,6 +211,13 @@ export async function runBuildCommand({
   const hints = parseImplementationHints(planContent);
   const resourceStrategy = parseResourceStrategy(approvedSpec);
   const projectAssets = scanProjectAssets(process.cwd());
+
+  // Load pre-planning artifacts for brief context enrichment
+  const prePlanRoot = process.cwd();
+  const archDecisionPath = path.join(prePlanRoot, ".aitri/architecture-decision.md");
+  const secReviewPath = path.join(prePlanRoot, ".aitri/security-review.md");
+  const archContext = fs.existsSync(archDecisionPath) ? fs.readFileSync(archDecisionPath, "utf8").slice(0, 800) : null;
+  const secContext = fs.existsSync(secReviewPath) ? fs.readFileSync(secReviewPath, "utf8").slice(0, 400) : null;
   const ordered = buildImplementationOrder(stories, tcMapByStory);
   const templates = scaffoldTemplatesByStack(stackFamily);
 
@@ -257,12 +264,15 @@ export async function runBuildCommand({
     const dependencyNotes = previous.length > 0 ? `Implement after ${previous.join(", ")}` : "No previous story dependency";
     const linkedTc = tcMapByStory[story.id] || [];
 
-    const brief = buildBriefContent({
+    let brief = buildBriefContent({
       feature, story, parsedSpec, quality, hints,
       linkedTc, references,
       dependencies: dependencyNotes,
       resourceStrategy, projectAssets
     });
+    // Append pre-planning context to brief if available
+    if (archContext) brief += `\n## Architecture Decision Context\n<!-- From .aitri/architecture-decision.md -->\n${archContext}\n`;
+    if (secContext) brief += `\n## Security Requirements Context\n<!-- From .aitri/security-review.md -->\n${secContext}\n`;
     const briefFile = path.join(implementationDir, `${story.id}.md`);
     writeFile(briefFile, brief);
     console.log(`${story.id} scaffolded + brief generated`);

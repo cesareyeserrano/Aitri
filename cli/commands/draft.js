@@ -363,6 +363,14 @@ export async function runDraftCommand({
     }
   }
 
+  // Inject pre-planning context if dev-roadmap exists
+  const roadmapPath = path.join(process.cwd(), ".aitri/dev-roadmap.md");
+  if (fs.existsSync(roadmapPath)) {
+    const roadmapSnippet = fs.readFileSync(roadmapPath, "utf8").slice(0, 1200);
+    const prePlanningNote = `\n## Pre-Planning Context (from dev-roadmap)\n<!-- Auto-injected by aitri draft — do not edit this section manually -->\n${roadmapSnippet}\n<!-- End pre-planning context -->\n`;
+    specContent = specContent + prePlanningNote;
+  }
+
   fs.writeFileSync(outFile, specContent, "utf8");
 
   console.log(`Draft spec created: ${path.relative(process.cwd(), outFile)}`);
