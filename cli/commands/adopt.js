@@ -53,6 +53,18 @@ function detectStack(root) {
   if (fs.existsSync(path.join(root, "pom.xml")) || fs.existsSync(path.join(root, "build.gradle"))) {
     stacks.push({ name: "java" });
   }
+  if (fs.existsSync(path.join(root, "deno.json")) || fs.existsSync(path.join(root, "deno.jsonc"))) {
+    stacks.push({ name: "deno" });
+  }
+  if (fs.existsSync(path.join(root, "bun.lockb")) || fs.existsSync(path.join(root, "bunfig.toml"))) {
+    stacks.push({ name: "bun" });
+  }
+  try {
+    const entries = fs.readdirSync(root);
+    if (entries.some(f => f.endsWith(".csproj") || f.endsWith(".fsproj") || f.endsWith(".sln"))) {
+      stacks.push({ name: "dotnet" });
+    }
+  } catch { /* skip */ }
   return stacks;
 }
 
@@ -246,7 +258,7 @@ Rules for discoveryNotes:
 // Phase 2: bounded entry point reader
 // ---------------------------------------------------------------------------
 
-function readBoundedEntryPoint(root, entryPoints, maxBytes = 3000) {
+function readBoundedEntryPoint(root, entryPoints, maxBytes = 8000) {
   for (const ep of entryPoints) {
     const fullPath = path.join(root, ep);
     if (!fs.existsSync(fullPath)) continue;
@@ -285,12 +297,12 @@ export function writeDiscoveryDoc(paths, featureName, discoveryContent) {
 // ---------------------------------------------------------------------------
 
 const TEST_PATTERNS = {
-  // Node/JS/TS: test("name", ...) | it("name", ...) | describe("name", ...)
-  node: /(?:^|\s)(?:test|it|describe)\s*\(\s*["'`]([^"'`]+)["'`]/gm,
+  // Node/JS/TS: test("name") | it("name") | describe("name") | test.only/skip/todo("name")
+  node: /(?:^|\s)(?:test|it|describe)(?:\.(?:only|skip|todo))?\s*\(\s*["'`]([^"'`]+)["'`]/gm,
   // Python: def test_name(...) | class TestName
   python: /(?:^|\s)(?:def\s+(test_\w+)|class\s+(Test\w+))/gm,
-  // Go: func TestName(t
-  go: /func\s+(Test\w+)\s*\(/gm
+  // Go: func TestName(t | t.Run("subtest name", ...)
+  go: /(?:func\s+(Test\w+)\s*\(|t\.Run\s*\(\s*["'`]([^"'`]+)["'`])/gm
 };
 
 export function extractTestNames(fileContent, stackFamily) {

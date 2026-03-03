@@ -271,6 +271,35 @@ func TestInvalidToken(t *testing.T) {}
   assert.ok(names.includes("TestInvalidToken"), "should extract func Test name");
 });
 
+test("extractTestNames extracts Node test.only and test.skip variants", () => {
+  const content = `
+test.only("validates admin credentials", () => {});
+it.skip("rejects expired token", () => {});
+test.todo("handles concurrent logins");
+`;
+  const names = extractTestNames(content, "node");
+  assert.ok(names.includes("validates admin credentials"), "should extract test.only() name");
+  assert.ok(names.includes("rejects expired token"), "should extract it.skip() name");
+  assert.ok(names.includes("handles concurrent logins"), "should extract test.todo() name");
+});
+
+test("extractTestNames extracts Go t.Run subtest names", () => {
+  const content = `
+package auth
+
+import "testing"
+
+func TestLogin(t *testing.T) {
+  t.Run("valid credentials", func(t *testing.T) {})
+  t.Run("empty password", func(t *testing.T) {})
+}
+`;
+  const names = extractTestNames(content, "go");
+  assert.ok(names.includes("TestLogin"), "should extract func Test name");
+  assert.ok(names.includes("valid credentials"), "should extract t.Run subtest name");
+  assert.ok(names.includes("empty password"), "should extract t.Run subtest name");
+});
+
 test("buildTestsMapping produces TC-* stubs for each test name", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-adopt-build-tests-"));
   const testsDir = path.join(tempDir, "tests");
