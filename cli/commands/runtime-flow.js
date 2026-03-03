@@ -292,6 +292,7 @@ export function runPolicyCommand({
 const PRE_PLANNING_SEQUENCE = [
   { file: "discovery.md",             cmd: "aitri discover-idea" },
   { file: "product-spec.md",          cmd: "aitri product-spec" },
+  { file: "ux-design.md",             cmd: "aitri ux-design" },
   { file: "architecture-decision.md", cmd: "aitri arch-design" },
   { file: "security-review.md",       cmd: "aitri sec-review" },
   { file: "qa-plan.md",               cmd: "aitri qa-plan" },
