@@ -774,6 +774,11 @@ export async function runAdoptCommand({
     console.log("  1. Review tests/<feature>/tests.md — add FR-* and AC-* Trace lines");
     console.log("  2. Run: aitri plan --feature <name>  (to generate full backlog)");
     console.log("  3. Run: aitri go --feature <name>  (unlocks factory mode)");
+    console.log("");
+    console.log("Pre-planning commands (discover-idea → dev-roadmap) require AI config in aitri.config.json.");
+    if (!hasAiConfig) {
+      console.log("AI is not configured — add an \"ai\" section before running them. See: aitri help");
+    }
 
     printCheckpointSummary(runAutoCheckpoint({
       enabled: options.autoCheckpoint,
@@ -796,6 +801,11 @@ export async function runAdoptCommand({
     console.log(`  ${proposedConfig ? "3" : "2"}. Add ai config to aitri.config.json, then run: aitri adopt --depth standard`);
   } else {
     console.log(`  ${proposedConfig ? "3" : "2"}. Run: aitri adopt --depth standard  (Phase 2: LLM DRAFT spec generation)`);
+  }
+  console.log("");
+  console.log("Pre-planning commands (discover-idea → dev-roadmap) are also available and require AI config.");
+  if (!hasAiConfig) {
+    console.log("Add an \"ai\" section to aitri.config.json before running them. See: aitri help");
   }
 
   printCheckpointSummary(runAutoCheckpoint({

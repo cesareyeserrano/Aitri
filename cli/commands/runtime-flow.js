@@ -420,6 +420,12 @@ export async function runResumeCommand({
     return OK;
   }
 
+  const isPrePlanningCmd = PRE_PLANNING_SEQUENCE.some(e => effectiveRecommendedCommand === e.cmd);
+  if (isPrePlanningCmd && !report.config?.ai?.provider) {
+    console.log("  ⚠  AI not configured — add an \"ai\" section to aitri.config.json before running pre-planning commands.");
+    console.log("     See: https://github.com/cesareyeserrano/aitri#9-configuration");
+    console.log("");
+  }
   console.log(`  Next   ${effectiveRecommendedCommand}`);
   if (report.nextStepMessage) {
     console.log(`  Why    ${report.nextStepMessage}`);
