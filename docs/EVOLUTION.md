@@ -121,7 +121,7 @@ _(vacío)_
 
 ## 🔴 Done
 
-> Historial completo en `git log`. Release actual: **v1.2.3**
+> Historial completo en `git log`. Release actual: **v1.3.0**
 
 ### EVO-063 — pre-planning → draft: conexión automática (DONE 2026-03-03)
 
