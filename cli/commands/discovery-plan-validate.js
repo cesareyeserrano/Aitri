@@ -616,5 +616,17 @@ ${securityThreats}
     phase: "plan",
     feature
   }));
+
+  // EVO-079: emit agent task to fill empty sections 8/9/10 of the plan doc
+  const relPlanPath = path.relative(process.cwd(), outPlanFile);
+  const relSpecPath = path.relative(process.cwd(), approvedFile);
+  console.log(`\n--- AGENT TASK: plan-fill ---`);
+  console.log(`Fill the placeholder sections in ${relPlanPath} using the approved spec (${relSpecPath}):`);
+  console.log(`  ## 8. Backlog — write Epics and User Stories with Given/When/Then ACs for each FR`);
+  console.log(`  ## 9. Test Cases — write Functional, Negative, Security, and Edge case TCs`);
+  console.log(`  ## 10. Implementation Notes — write suggested build sequence, dependencies, rollout`);
+  console.log(`Replace placeholder bullets ("-") with real content. Do not remove section headings.`);
+  console.log(`--- END TASK ---`);
+
   return OK;
 }

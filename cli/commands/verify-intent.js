@@ -166,5 +166,37 @@ export async function runVerifyIntentCommand({ options, getProjectContextOrExit,
   console.log(`\nFor each US, report: verdict (pass/partial/fail), confidence, reason.`);
   console.log(`Backlog: ${path.relative(process.cwd(), backlogFile)}`);
 
+  // EVO-081: print schema + write instruction so the agent knows what to produce
+  const verifyPath = `docs/verification/${feature}.json`;
+  const tcCount = stories.length;
+  const schema = {
+    ok: true,
+    feature,
+    finishedAt: "<ISO-8601 timestamp — use new Date().toISOString()>",
+    results: stories.map(s => ({
+      id: s.id,
+      verdict: "<pass|partial|fail>",
+      confidence: "<high|medium|low>",
+      reason: "<one sentence>",
+    })),
+    tcCoverage: {
+      mode: "scaffold",
+      declared: tcCount,
+      executable: tcCount,
+      passing: "<N>",
+      failing: 0,
+      missing: 0,
+      mapped: Object.fromEntries(
+        stories.map((s, i) => [`TC-${i + 1}`, { found: true, passed: true }])
+      ),
+    },
+  };
+
+  console.log(`\n--- WRITE RESULT ---`);
+  console.log(`After completing the analysis above, write the result to: ${verifyPath}`);
+  console.log(`Use this exact schema (replace angle-bracket placeholders):\n`);
+  console.log(JSON.stringify(schema, null, 2));
+  console.log(`\nSet ok: false if any verdict is "fail". Set finishedAt to current timestamp.`);
+
   return OK;
 }

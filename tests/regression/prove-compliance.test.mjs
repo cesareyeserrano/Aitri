@@ -417,3 +417,36 @@ test("prove marks FR as proven when TC invokes a fully implemented contract", ()
   assert.equal(proof.frProof["FR-1"].proven, true);
   assert.deepEqual(proof.summary.unimplementedContractTcs, []);
 });
+
+// EVO-080: optional chaining (input?.prop) must not be flagged as trivial contract
+
+test("prove does not flag contract as trivial when it uses optional chaining (input?.prop)", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-prove-optional-chain-"));
+  runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
+  const feature = "optional-chain";
+  writeApprovedSpec(tempDir, feature, ["- FR-1: Must do the thing."]);
+  writeTestsMd(tempDir, feature, [
+    "### TC-1",
+    "- Trace: US-1, FR-1, AC-1"
+  ]);
+  const contractDir = path.join(tempDir, "src", "contracts");
+  fs.mkdirSync(contractDir, { recursive: true });
+  // Contract uses optional chaining: input?.id — must NOT be flagged trivial
+  fs.writeFileSync(
+    path.join(contractDir, "fr1_do_thing.js"),
+    `export function fr1_do_thing(input) {\n  const id = input?.id;\n  return { ok: true, id };\n}\n`,
+    "utf8"
+  );
+  const generatedDir = path.join(tempDir, "tests", feature, "generated");
+  fs.mkdirSync(generatedDir, { recursive: true });
+  writeRealStub(generatedDir, "TC-1", "../../../src/contracts/fr1_do_thing.js", "fr1_do_thing");
+
+  const result = runNode(["prove", "--feature", feature, "--non-interactive"], { cwd: tempDir });
+  assert.equal(result.status, 0, "optional chaining contract must not be flagged trivial");
+
+  const proof = JSON.parse(
+    fs.readFileSync(path.join(tempDir, "docs", "implementation", feature, "proof-of-compliance.json"), "utf8")
+  );
+  assert.equal(proof.ok, true);
+  assert.deepEqual(proof.summary.trivialTcs, [], "TC-1 must not appear in trivialTcs");
+});

@@ -62,19 +62,19 @@ export function collectPersonaValidationIssues({ discoveryContent, planContent, 
       const keyDecisions = extractSubsection(architecture, "### Key decisions");
       const risks = extractSubsection(architecture, "### Risks & mitigations");
       const observability = extractSubsection(architecture, "### Observability (logs/metrics/tracing)");
-      if (!hasMeaningfulContent(components)) issues.push("Persona gate: Architect `Components` is unresolved.");
-      if (!hasMeaningfulContent(dataFlow)) issues.push("Persona gate: Architect `Data flow` is unresolved.");
-      if (!hasMeaningfulContent(keyDecisions)) issues.push("Persona gate: Architect `Key decisions` is unresolved.");
-      if (!hasMeaningfulContent(risks)) issues.push("Persona gate: Architect `Risks & mitigations` is unresolved.");
-      if (!hasMeaningfulContent(observability)) issues.push("Persona gate: Architect `Observability` is unresolved.");
+      if (!hasMeaningfulContent(components)) issues.push("Persona gate: Architect `Components` is unresolved. Add under `### Components`:\n    - <component>: <role/responsibility>");
+      if (!hasMeaningfulContent(dataFlow)) issues.push("Persona gate: Architect `Data flow` is unresolved. Add under `### Data flow`:\n    - <step> → <next step>");
+      if (!hasMeaningfulContent(keyDecisions)) issues.push("Persona gate: Architect `Key decisions` is unresolved. Add under `### Key decisions`:\n    - Decision: <what and why>");
+      if (!hasMeaningfulContent(risks)) issues.push("Persona gate: Architect `Risks & mitigations` is unresolved. Add under `### Risks & mitigations`:\n    - Risk: <description> → Mitigation: <approach>");
+      if (!hasMeaningfulContent(observability)) issues.push("Persona gate: Architect `Observability` is unresolved. Add under `### Observability (logs/metrics/tracing)`:\n    - Logs: <what is logged>; Metrics: <key metrics>; Tracing: <strategy>");
     }
 
     const security = extractSection(planContent, "## 6. Security (Security Persona)");
     if (security) {
       const threats = extractSubsection(security, "### Threats");
       const controls = extractSubsection(security, "### Required controls");
-      if (!hasMeaningfulContent(threats)) issues.push("Persona gate: Security `Threats` is unresolved.");
-      if (!hasMeaningfulContent(controls)) issues.push("Persona gate: Security `Required controls` is unresolved.");
+      if (!hasMeaningfulContent(threats)) issues.push("Persona gate: Security `Threats` is unresolved. Add under `### Threats`:\n    - <attack scenario>: <attacker goal> → <impact>");
+      if (!hasMeaningfulContent(controls)) issues.push("Persona gate: Security `Required controls` is unresolved. Add under `### Required controls`:\n    - <control>: <implementation approach>");
     }
 
     if (specContent && /screen|form|button|page|dashboard|component|layout|view|modal|dialog/i.test(specContent)) {

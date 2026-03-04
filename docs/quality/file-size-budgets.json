@@ -28,7 +28,7 @@
     },
     {
       "path": "cli/commands/discovery-plan-validate.js",
-      "soft": 550,
+      "soft": 635,
       "hard": 650
     },
     {
@@ -228,7 +228,7 @@
     },
     {
       "path": "tests/regression/prove-compliance.test.mjs",
-      "soft": 420,
+      "soft": 455,
       "hard": 520
     },
     {

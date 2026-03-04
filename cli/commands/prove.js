@@ -74,12 +74,13 @@ function isContractPlaceholder(content) {
 }
 
 // EVO-062: detect contracts that always return ok:true without reading input properties
+// EVO-080: include optional chaining (input?.prop) as a real input read
 function isTrivialContract(content) {
   const s = String(content);
   // Must contain a trivial ok:true return
   if (!s.includes("return { ok: true")) return false;
-  // If it reads any property from input (input.something), it is NOT trivial
-  if (/\binput\s*\./.test(s)) return false;
+  // If it reads any property from input (input.something or input?.something), it is NOT trivial
+  if (/\binput\s*\??\./.test(s)) return false;
   return true;
 }
 

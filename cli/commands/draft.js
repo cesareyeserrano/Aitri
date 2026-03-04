@@ -217,7 +217,7 @@ export async function runDraftCommand({
   } else if (options.guided && options.nonInteractive) {
     // Non-interactive guided — no inferred requirements.
     if (!idea) {
-      console.log("In non-interactive mode, provide --idea \"<summary>\".");
+      console.log("In non-interactive mode, --idea is required.\n  Example: aitri draft --feature <name> --idea \"<summary>\" --non-interactive --yes");
       return ERROR;
     }
     if (idea.trim().length < 15) {
@@ -237,7 +237,7 @@ export async function runDraftCommand({
     }
   }
   if (!idea) {
-    console.log("Idea is required. Provide --idea in non-interactive mode.");
+    console.log("Idea is required. Use --idea \"<summary>\" with --non-interactive.\n  Example: aitri draft --feature <name> --idea \"<summary>\" --non-interactive --yes");
     return ERROR;
   }
 
