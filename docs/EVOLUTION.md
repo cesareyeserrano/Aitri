@@ -15,43 +15,6 @@ _(vacío)_
 ## 📋 Backlog
 
 
-### EVO-085 — `audit` Layer 4 no tiene gate de aprobación ni destino para los hallazgos
-
-**Feedback (TRX test — `aitri audit --feature task-api`):** `audit` Layer 4 outputea dos bloques de agent task (System Architect + Security Champion). El agente ejecuta ambos contra el LLM, recibe hallazgos formateados como `FINDING: [SEVERITY] ...`, y no tiene instrucción sobre qué hacer con ellos: ¿crear issues? ¿escribir un archivo? ¿abortar el release? No hay gate ni destino.
-
-**Scope:**
-- Al final del output de Layer 4: agregar instrucción explícita: "After running both tasks, if any CRITICAL or HIGH findings: report them here and ask the user to approve or block delivery. Write findings summary to `.aitri/audit-findings.md`."
-- Definir comportamiento cuando un finding bloquea: `aitri deliver` lee `.aitri/audit-findings.md` y bloquea si hay CRITICAL/HIGH no resueltos
-
-**Prioridad:** Alta — sin destino, los hallazgos de Layer 4 se pierden en el chat.
-
----
-
-### EVO-084 — `audit` no filtra contratos por feature: analiza todos los contratos del proyecto
-
-**Feedback (TRX test — `aitri audit --feature task-api`):** Con `--feature task-api`, el code sample incluye contratos de `task-ui` (`fr-2-page-must-display-the-current-ta.js`, etc.) porque todos están en `src/contracts/`. El architect y security personas analizan código del feature equivocado.
-
-**Scope:**
-- `audit.js`: al escanear `src/contracts/`, filtrar por prefijo de feature o por lista de contratos referenciados en `docs/verification/<feature>.json`
-- Alternativa: incluir solo los contratos cuyo nombre coincide con los FRs del spec de ese feature
-- Fallback seguro: incluir todos y anotar "scope: project" en el header
-
-**Prioridad:** Media — genera ruido en el análisis LLM, puede producir falsos positivos.
-
----
-
-### EVO-083 — No hay guía de Aitri para contratos de FRs de UI (comportamiento DOM)
-
-**Feedback (TRX test — feature `task-ui`):** FRs de UI como "done button → strikethrough" o "empty state message" son imposibles de testear con contratos de función pura sin un DOM. El workaround (analizar HTML como string) es frágil y no está documentado. Aitri no tiene una estrategia oficial para frontend FRs.
-
-**Scope:**
-- `contractgen.js` prompt: detectar FRs de tipo UI (palabras clave: "page must", "display", "button", "form") y generar contratos de análisis de HTML-string con advertencia
-- Documentar el patrón en `docs/architecture.md`: "UI FRs: contracts test HTML structure as strings. DOM behavior requires integration tests outside Aitri scope."
-- Agregar sección en SKILL.md: "Frontend features: write HTML-string analysis contracts; mark DOM-only behaviors as out-of-scope for pure-function testing"
-
-**Prioridad:** Media — afecta cualquier feature con UI.
-
----
 
 ### EVO-082 — `deliver` reporta "Uncovered ACs" cuando el AC está en spec pero no en `tests.md`
 
@@ -178,18 +141,6 @@ _(vacío)_
 
 ---
 
-### EVO-067 — `checkpoint` fail-safe
-
-**Feedback:** Si `aitri checkpoint` falla (index.lock, permisos), el error se suprime y el agente continúa sin estado guardado. Pérdida de estado silenciosa entre sesiones.
-
-**Scope:**
-- `cli/commands/checkpoint.js`: capturar errores de escritura en `DEV_STATE.md`
-- Si falla: salir con exit code no-zero + mensaje descriptivo con causa (`EACCES`, `ELOCKED`, etc.)
-- Eliminar cualquier "continue anyway" path en el flujo de checkpoint
-
-**Prioridad:** Alta — fallo silencioso en una operación de safety es inaceptable.
-
----
 
 ### EVO-068 — `deliver` workspace hygiene gate
 
@@ -311,18 +262,6 @@ _(vacío)_
 
 ---
 
-### EVO-047 — Reducir `draft.js` por debajo del hard limit
-
-**Motivación:** `draft.js` supera el hard limit (350 líneas). Deuda técnica. Implementar después de EVO-071 (que añade inyección de `ux-design.md`).
-
-**Scope:**
-- Extraer validación de idea a `validateIdea(idea)` en `cli/lib/`
-- Extraer construcción del prompt a función pura `buildDraftPrompt(options)`
-- Sin cambio de comportamiento ni interface
-
-**Prioridad:** Baja — deuda técnica, depende de EVO-071.
-
----
 
 ## 🔴 Done
 
@@ -356,6 +295,26 @@ Al final de `runPlanCommand`, se emite `--- AGENT TASK: plan-fill ---` instruyen
 ### EVO-078 — `aitri go` exige subsecciones sin documentar el formato (DONE 2026-03-04)
 
 Los mensajes de error en `persona-validation.js` ahora incluyen el formato exacto esperado. Ejemplo: "Add under `### Components`:\n- component: role". Igual para `Data flow`, `Key decisions`, `Risks & mitigations`, `Observability`, `Threats`, `Required controls`.
+
+### EVO-083 — Guía para contratos de FRs de UI (HTML-string pattern) (DONE 2026-03-04)
+
+`contractgen.js`: detecta FRs de UI con regex (`page must`, `display`, `render`, `button`, etc.) y emite guía explícita: aceptar `input.html` como string, usar regex/string checks, retornar `{ ok, reason }`.
+
+### EVO-084 — `audit` filtra contratos por feature (DONE 2026-03-04)
+
+Layer 4 usa `scaffoldManifest.interfaceFiles` cuando existe; sin manifest, filtra `discoverContractFiles` por prefijo de FR-ID extraído del spec. Elimina ruido cross-feature en el análisis LLM.
+
+### EVO-085 — `audit` Layer 4: destino de hallazgos + gate (DONE 2026-03-04)
+
+Al final del output de Layer 4, instrucción explícita: escribir todos los hallazgos a `.aitri/audit-findings.md`; `aitri deliver` bloqueará en CRITICAL/HIGH.
+
+### EVO-067 — `checkpoint` fail-safe (DONE 2026-03-04)
+
+`checkpoint.js`: errores de escritura en `DEV_STATE.md` ahora retornan ERROR con mensaje descriptivo (código `EACCES`, `ELOCKED`, etc.). No más pérdida silenciosa de estado.
+
+### EVO-047 — Reducir `draft.js` por debajo del hard limit (DONE 2026-03-04)
+
+`parseFeatureInput` + `extractInputSection` extraídos a `cli/lib/draft-utils.js`; re-exportados desde `draft.js` para compat. `draft.js`: 384 → 312 líneas (hard limit: 350).
 
 ### EVO-037 — Persona-Driven SDLC: activar personas como cerebros del pipeline (DONE 2026-03-04)
 
