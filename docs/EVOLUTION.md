@@ -14,63 +14,6 @@ _(vacío)_
 
 ## 📋 Backlog
 
-### EVO-068 — `deliver` workspace hygiene gate
-
-**Feedback:** `aitri deliver` puede completarse con cambios dirty no relacionados al feature mezclados en el repo.
-
-**Scope:**
-- En `deliver.js`: correr `git status --porcelain` antes de los gates finales
-- Clasificar archivos dirty: `.aitri/` → evidence (ok), `src/contracts/<feature>/` y `tests/<feature>/` → feature-owned (ok), resto → unrelated (warn o block)
-- Si hay unrelated: mostrar lista agrupada + "Stage feature-only changes and stash the rest before delivery."
-- Con `--yes`: advertencia visible pero no bloquea (CI-friendly)
-- Sin `--yes`: confirmación explícita requerida
-
-**Prioridad:** Alta — `deliver` es el gate final; entregar con workspace sucio contradice el propósito del guardarraíl.
-
----
-
-### EVO-071 — UX persona: FR explícitos + `draft` inyecta `ux-design.md` + guía SKILL
-
-**Feedback:** `ux-design` produce un documento de visión en prosa. El agente lo trata como spec directa y escribe código sin pasar por `draft → approve → plan → build`.
-
-**Scope:**
-1. `core/personas/ux-ui.md` — agregar sección 7: **"Implementable Requirements"** con `FR-XX` + `AC-XX.x` en formato Aitri. Nota explícita: "These FRs are input for `aitri draft`, not implementation instructions."
-2. `cli/commands/draft.js` — inyectar `.aitri/ux-design.md` como sección "UX Context" si existe (igual a `dev-roadmap.md`).
-3. SKILL.md (4 adapters) — agregar en Command Mapping: "UX improvements that touch code → `aitri ux-design --force`, then `aitri draft --feature ui-<name>` using the FR list from section 7."
-
-**Nota:** Implementar antes de EVO-047. EVO-071 añade líneas a `draft.js`; EVO-047 debe refactorizar después.
-
-**Prioridad:** Alta — sin esto, UX improvements bypasean el pipeline completo.
-
----
-
-
-### EVO-069 — Pre-planning: verificar que el artefacto fue escrito
-
-**Feedback:** Los comandos de pre-planning outputan el prompt y terminan con exit 0 aunque el agente no haya escrito el archivo. El siguiente comando falla sin explicación clara.
-
-**Scope:**
-- Al final de cada comando de pre-planning: verificar si `.aitri/<artifact>.md` existe
-- Si no existe: exit no-zero + `"Artifact not found: .aitri/<artifact>.md — did the agent write the file? Re-run when ready."`
-- Si `--non-interactive`: error inmediato
-
-**Prioridad:** Media — mejora fiabilidad del pipeline sin cambio de arquitectura.
-
----
-
-### EVO-052 — Stack movido a post-arch (`draft` solo pregunta override)
-
-**Feedback:** La pregunta de stack aparece en `draft` antes de que el arquitecto haya definido la arquitectura. El stack debería ser consecuencia del diseño, no una pregunta inicial.
-
-**Scope:**
-- `draft`: convertir la pregunta de stack en "¿Tienes restricción de stack? Si no, el arquitecto lo definirá."
-- `arch-design`: el arquitecto propone el stack como parte de su output
-- `build`: leer stack desde `arch-decision.md` si existe, desde `aitri.config.json` como fallback
-
-**Prioridad:** Media.
-
----
-
 ### EVO-045 — Integration tests con LLM real
 
 **Motivación:** Todo el test suite es smoke/unit. Gaps que solo tests de integración detectan: cambios en prompt format que rompen el parsing, regresiones en el output de `discover`, `plan`, `spec-improve`.
@@ -94,19 +37,6 @@ _(vacío)_
 - Informativo, no bloqueante
 
 **Prioridad:** Baja — no urgente hasta que haya proyectos con specs completas.
-
----
-
-### EVO-053 — Formato de US explícito al generar
-
-**Feedback:** Al generar User Stories no quedó claro si seguían el template Aitri (`FR-01`/`AC-01.x`) o uno ad-hoc.
-
-**Nota:** EVO-071 cubre el caso de UX (la persona ya outputa `FR-XX`). Este EVO aplica al resto del pipeline (`draft`, `plan`).
-
-**Scope:**
-- Al generar spec/draft, mostrar al inicio: "Generating spec in Aitri format: `FR-XX` with criteria `AC-XX.x`"
-
-**Prioridad:** Baja — cosmético pero afecta confianza en el output.
 
 ---
 
@@ -182,6 +112,26 @@ Al final del output de Layer 4, instrucción explícita: escribir todos los hall
 ### EVO-067 — `checkpoint` fail-safe (DONE 2026-03-04)
 
 `checkpoint.js`: errores de escritura en `DEV_STATE.md` ahora retornan ERROR con mensaje descriptivo (código `EACCES`, `ELOCKED`, etc.). No más pérdida silenciosa de estado.
+
+### EVO-068 — `deliver` workspace hygiene gate (DONE 2026-03-04)
+
+`deliver.js`: `checkWorkspaceHygiene()` runs `git status --porcelain`, classifies files as feature-owned (`.aitri/`, `src/contracts/`, `tests/<feature>/`, etc.) or unrelated. Without `--yes`: DELIVER BLOCKED. With `--yes`/`--non-interactive`: visible warn, continues.
+
+### EVO-071 — UX persona section 7 + draft injects ux-design + SKILL.md (DONE 2026-03-04)
+
+`ux-ui.md` section 7 "Implementable Requirements": FR-XX / AC-XX.x with note "input for `aitri draft`, not implementation instructions." `draft.js` injects `.aitri/ux-design.md` as "## UX Context" when present. All 4 SKILL.md adapters: new row "UX improvements that touch code → ux-design --force, then draft --feature ui-<name>".
+
+### EVO-069 — Pre-planning prerequisite errors now actionable (DONE 2026-03-04)
+
+All 6 follow-up pre-planning commands: "Artifact not found: .aitri/<name>.md — did the agent write the file? Re-run: aitri <cmd>". All 7 commands output "→ WRITE artifact: ... — the next command requires this file."
+
+### EVO-052 — Stack moved to post-arch (DONE 2026-03-04)
+
+`draft.js` guided wizard question 6: "Stack constraint (optional — skip if architect should define it)". `scaffold.js detectStackFamily`: reads `.aitri/architecture-decision.md` for language hint when spec has no stack. `architect.md` Output Schema: adds section 2 "Tech Stack Recommendation".
+
+### EVO-053 — Aitri format reminder on draft + plan creation (DONE 2026-03-04)
+
+`draft.js`: prints "Spec format: FR-XX with criteria AC-XX.x" before writing file. `discovery-plan-validate.js`: prints "Plan format: FR-XX · TC-XX · AC-XX.x · US-XX" after plan is created.
 
 ### EVO-070 — `aitri close --feature X`: closure report (DONE 2026-03-04)
 
