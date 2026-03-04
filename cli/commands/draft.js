@@ -291,6 +291,13 @@ export async function runDraftCommand({
     }
   }
 
+  // EVO-071: Inject UX context if ux-design.md exists
+  const uxDesignPath = path.join(process.cwd(), ".aitri/ux-design.md");
+  if (fs.existsSync(uxDesignPath)) {
+    const uxSnippet = fs.readFileSync(uxDesignPath, "utf8").slice(0, 1200);
+    specContent = specContent + `\n## UX Context (from ux-design)\n<!-- Auto-injected by aitri draft — do not edit manually -->\n${uxSnippet}\n<!-- End UX context -->\n`;
+  }
+
   // Inject pre-planning context if dev-roadmap exists
   const roadmapPath = path.join(process.cwd(), ".aitri/dev-roadmap.md");
   if (fs.existsSync(roadmapPath)) {

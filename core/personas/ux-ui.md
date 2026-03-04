@@ -40,6 +40,7 @@ For each feature evaluate:
 4. Accessibility and Inclusivity Audit
 5. Aesthetic Identity and Consistency
 6. UX Success Metrics
+7. Implementable Requirements
 
 ## Section Requirements
 ### 1) Hero Flow
@@ -71,6 +72,16 @@ For each feature evaluate:
   - time on task
   - user error/misclick rate
   - accessibility conformance baseline
+
+### 7) Implementable Requirements
+<!-- EVO-071: These FRs/ACs are the bridge to the Aitri development pipeline. -->
+- List each behavior that requires code as a numbered functional rule in Aitri format:
+  - `FR-XX: <The system must …>`
+  - `AC-XX.1: Given <context>, when <action>, then <expected outcome>.`
+- Keep each FR atomic and testable (single behavior per rule).
+- IMPORTANT NOTE: These FRs are **input for `aitri draft`**, not implementation instructions.
+  The agent must run `aitri draft --feature <ui-feature>` using these FRs to enter the
+  development pipeline. Do NOT write code directly from this UX design document.
 
 ## Constraints
 - Use contextual copy, never placeholder text.

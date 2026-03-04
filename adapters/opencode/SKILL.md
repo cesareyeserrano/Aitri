@@ -46,6 +46,7 @@ Use Aitri as the CLI guardrail for spec-driven SDLC execution with mandatory hum
 | Architecture review | `aitri arch-design` |
 | Security review | `aitri sec-review` |
 | UX design | `aitri ux-design` |
+| UX improvements that touch code | `aitri ux-design --force`, then `aitri draft --feature ui-<name>` using the FR list from section 7 of the UX design |
 | QA plan | `aitri qa-plan` |
 | Dev roadmap | `aitri dev-roadmap` |
 | Project health audit (full codebase) | `aitri audit` |

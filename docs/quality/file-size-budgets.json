@@ -18,7 +18,7 @@
     },
     {
       "path": "cli/commands/draft.js",
-      "soft": 260,
+      "soft": 325,
       "hard": 350
     },
     {
