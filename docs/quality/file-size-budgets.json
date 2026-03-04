@@ -8,7 +8,7 @@
   "files": [
     {
       "path": "cli/commands/audit.js",
-      "soft": 420,
+      "soft": 440,
       "hard": 550
     },
     {
@@ -43,7 +43,7 @@
     },
     {
       "path": "cli/commands/runtime-flow.js",
-      "soft": 540,
+      "soft": 580,
       "hard": 700
     },
     {

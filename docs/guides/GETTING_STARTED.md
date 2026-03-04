@@ -96,8 +96,10 @@ aitri qa-plan
 aitri dev-roadmap
 ```
 
-Expected: 7 files written to `.aitri/`. Each command asks for human approval before
-writing. Pre-planning runs once per project or when project direction changes significantly.
+Expected: Each command loads a persona and prints a task prompt for your AI agent.
+The agent generates the artifact content and writes it to `.aitri/`. Review each artifact
+before running the next command. Pre-planning runs once per project or when project
+direction changes significantly.
 
 ### Phase 1: Feature Pipeline (per feature, repeatable)
 
@@ -176,7 +178,7 @@ npm run demo:5min
 In the agent-centric flow, the AI agent generates the backlog and tests, and Aitri acts as the auditor:
 
 ```bash
-# 0. Pre-planning (once per project — agent runs each command, human approves each artifact)
+# 0. Pre-planning (once per project — each command prints persona prompt; agent writes artifact; human reviews)
 aitri discover-idea --idea "A task manager for remote engineering teams"
 aitri product-spec
 aitri ux-design

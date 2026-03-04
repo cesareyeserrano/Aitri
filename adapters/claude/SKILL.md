@@ -25,6 +25,7 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 7. If requirement details are missing, ask the user and stop advancement until clarified.
 8. **NEVER perform analysis, audit, code review, code generation, or pipeline work without first invoking the corresponding `aitri` command.** Free-form work outside the pipeline bypasses all gates and makes Aitri decorative. If you are about to do any of these things without an `aitri` command — stop. Use the command mapping below.
 9. If no `aitri` command exists for what the user needs, say so explicitly and do not improvise a substitute. Document the gap instead.
+10. **Before marking any Aitri implementation complete**, verify test coverage per `docs/architecture.md#test-coverage-requirements`: (a) architecture invariants have constraint tests, (b) file-walking functions tested with realistic directory trees, (c) heuristic detection functions exercised via full pipeline — not just unit tests.
 
 ## Command Mapping (action → aitri command)
 
@@ -44,7 +45,8 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 | UX design | `aitri ux-design` |
 | QA plan | `aitri qa-plan` |
 | Dev roadmap | `aitri dev-roadmap` |
-| Code audit / technical audit | `aitri audit --feature <name>` |
+| Project health audit (full codebase) | `aitri audit` |
+| Pipeline compliance audit (feature) | `aitri audit --feature <name>` |
 | Scaffold stubs | `aitri build` |
 | Generate tests | `aitri testgen` |
 | Generate contracts | `aitri contractgen` |

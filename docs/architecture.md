@@ -240,6 +240,41 @@ Required by: all pre-planning commands, `spec-improve`, `verify-intent`, `aitri 
 
 ---
 
+## Test Coverage Requirements
+
+Derived from production failures detected via real-project testing (Ultron, 2026-03-03). These are mandatory — not guidelines.
+
+### Pattern 1 — Architecture Invariants Must Have Constraint Tests
+
+When a command has an architectural constraint ("must not import X", "must not call Y"), a test must verify the constraint directly. Behavior tests that indirectly depend on it are insufficient.
+
+- **Insufficient:** test that `audit` produces correct findings (passes even if `callAI` is imported)
+- **Required:** test that `audit.js` does not import `callAI` at module level
+
+### Pattern 2 — File-Walking Functions Need Realistic Directory Trees
+
+When a function walks the filesystem, test it with a temp project that resembles real heterogeneous structure. An empty or single-file temp dir is not adequate.
+
+- **Insufficient:** `runCodeQualityAudit(emptyTmpDir)` → 0 findings → test passes (Go files in `internal/` would be invisible)
+- **Required:** temp dir with `internal/main.go`, `src/contracts/fr-1.js`; assert both appear in the scan result
+
+### Pattern 3 — Heuristic Detectors Must Be Tested via Pipeline
+
+When a heuristic function (`isTrivialContract`, `isPlaceholder`, etc.) gates a pipeline outcome, test it through the full lifecycle — not just as a unit.
+
+- **Insufficient:** unit test `isTrivialContract(content)` returns true/false (does not verify pipeline impact)
+- **Required:** integration test — create a trivial contract, run `prove`, assert `proof.ok === false` and `trivialContractTcs` present
+
+### Pre-Commit Checklist for Aitri Implementations
+
+Before marking any task complete:
+- [ ] Architecture invariants (forbidden imports, forbidden writes) have dedicated constraint tests
+- [ ] File-walking functions tested with ≥2-level directory trees and mixed file types
+- [ ] Heuristic detection functions exercised end-to-end via a pipeline command, not just unit-level
+- [ ] At least one test per new command runs against a project with real subdirectory structure
+
+---
+
 ## Governance
 
 Documentation changes that affect workflow or scope must update:

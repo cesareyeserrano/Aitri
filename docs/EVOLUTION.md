@@ -2,63 +2,17 @@
 
 ## 🟢 Ready for Implementation
 
-### EVO-061 — `audit` refactor: scope proyecto + output-prompt pattern (P0)
-
-**Feedback origen:** Prueba en Ultron (2026-03-03). `aitri audit --feature <name>` solo audita el pipeline de un feature específico. El código real del proyecto (Go en `internal/`, `cmd/`) nunca es escaneado. Además `audit.js` llama `callAI` directamente — mismo problema arquitectónico que los pre-planning commands.
-
-**Problemas confirmados:**
-1. `collectSourceFiles` inicia walk desde `src/` si existe → en Ultron, `src/` solo tiene contratos JS; `internal/*.go` nunca escaneado
-2. Layer 4 llama `callAI` directamente → falla con "AI API key not found" (viola Aitri-as-skill)
-3. Layer 2 y Layer 3 quedan bloqueados si no hay `codeOnlyMode` ni feature → `aitri audit` sin args no corre nada útil
-4. `--feature` hace sentido para pipeline compliance (Layer 1), pero el resto de las capas deben correr siempre sobre el proyecto completo
-
-**Cambios propuestos:**
-- `aitri audit` (sin args) → Layer 2 + Layer 3 + Layer 4 prompt output — audita todo el proyecto
-- `aitri audit --feature <name>` → Layer 1 (pipeline compliance) + Layer 2 + Layer 3 + Layer 4 con spec como contexto adicional
-- Layer 4: remover `callAI`, outputear prompts con personas cargadas para que el agente ejecute el análisis (igual que pre-planning)
-- `collectSourceFiles`: walk desde root siempre, con exclusiones explícitas (`node_modules`, `dist`, `.git`, `.gocache`); no asumir `src/` como root
-
-### EVO-062 — Contratos triviales: proof-of-compliance estructuralmente inválido (P0)
-
-**Feedback origen:** Prueba en Ultron (2026-03-03). 5 de 14 contratos de `total-stabilization` retornan `return { ok: true, fr: "FR-X", input }` sin ninguna lógica. Los tests les pasan `{}` (objeto vacío). El contrato lee `input.somePath` → undefined → `fs.existsSync(undefined)` → false → pero retorna `ok: true` de todas formas. El proof-of-compliance marca `ok: true, proven: 5/5` — pero no verificó nada real.
-
-**Causa raíz:** `contractgen` no tiene guard contra contratos que siempre retornan true sin condiciones. `prove` no detecta que el contrato ignora completamente el input.
-
-**Cambios propuestos:**
-- `aitri prove`: detectar contratos que retornan `ok: true` sin leer ninguna propiedad del `input` → marcar como `trivial_contract` (similar a `trivial_tc` existente)
-- `aitri audit`: Layer 1 agrega detección de contratos triviales como finding `HIGH`
-- `contractgen` persona output: instrucción explícita en el task prompt — "a contract that returns `ok: true` without reading `input` properties is invalid; every contract must verify at least one property of the input object"
-- Documentar en `docs/guides/` que el contrato es un verificador, no un stub
+_(vacío)_
 
 ---
 
 ## 🟡 In Progress
 
+_(vacío)_
+
 ---
 
 ## 📋 Backlog
-
-> _Feedback de prueba real (2026-03-03) — proyecto Ultron, flujo UX/UI improvement + audit_
-
-### ~~EVO-063~~ — pre-planning → draft: conexión automática (DONE 2026-03-03)
-
-`runtime-flow.js` `resume` ahora detecta cuando todos los 7 artefactos `.aitri/` existen y no hay feature en progreso: muestra "Pre-planning: complete ✓", line "Source: .aitri/dev-roadmap.md → auto-injected into draft", recomienda `aitri draft --feature <your-feature-name>` con mensaje why explícito. `draft.js` ya inyectaba dev-roadmap automáticamente (EVO-038). JSON payload incluye `why` con instrucción completa.
-
-
-### ~~EVO-065~~ — `audit` framing confuso (CLOSED — cubierto por EVO-061)
-
-`aitri audit` sin args ahora corre Layer 2+3+4 sobre todo el proyecto (sin pedir feature). `--feature` es opcional y solo activa Layer 1 (pipeline compliance). El principio "audit responde ¿está sano el proyecto hoy?" está implementado.
-
-### ~~EVO-051~~ — UX output pobre (CLOSED — causa raíz: SKILL compliance pre-EVO-054)
-
-Re-test con adapter actualizado (2026-03-03, Ultron). `aitri ux-design` produce output correcto:
-- Path del artefacto explícito: `→ Artifact: .aitri/ux-design.md`
-- Persona system prompt completo (ux-ui.md) + task con product spec inline
-- Artefacto resultante: 170 líneas, 6 secciones mandatorias, State Matrix tabular, Accessibility audit con severity, Implementation Notes para Architect
-
-La causa raíz era SKILL compliance del adapter Codex previo a EVO-054/055/056. El prompt de `ux-design.js` es correcto. Cerrado sin cambio de prompt.
-
----
 
 ### EVO-052 — Stack movido a post-arch (draft solo pregunta override)
 
@@ -168,6 +122,36 @@ La causa raíz era SKILL compliance del adapter Codex previo a EVO-054/055/056. 
 ## 🔴 Done
 
 > Historial completo en `git log`. Release actual: **v1.2.3**
+
+### EVO-063 — pre-planning → draft: conexión automática (DONE 2026-03-03)
+
+`runtime-flow.js` `resume` detecta cuando todos los 7 artefactos `.aitri/` existen y no hay feature en progreso: muestra "Pre-planning: complete ✓", línea "Source: .aitri/dev-roadmap.md → auto-injected into draft", recomienda `aitri draft --feature <your-feature-name>` con mensaje why explícito. JSON payload incluye `why` con instrucción completa.
+
+---
+
+### EVO-065 — `audit` framing confuso (CLOSED — cubierto por EVO-061)
+
+`aitri audit` sin args corre Layer 2+3+4 sobre todo el proyecto sin pedir feature. `--feature` es opcional y activa Layer 1 (pipeline compliance). Principio implementado: "audit responde ¿está sano el proyecto hoy?".
+
+---
+
+### EVO-062 — Contratos triviales: proof-of-compliance estructuralmente inválido (DONE 2026-03-03)
+
+Detectado en Ultron: contratos que retornan `ok: true` sin leer `input` → proof-of-compliance marcaba `proven: 5/5` sin verificar nada real. Fixes: `prove.js` detecta `trivial_contract`; `audit.js` Layer 1 lo reporta como finding HIGH; `contractgen` task prompt incluye instrucción explícita de invalidez.
+
+---
+
+### EVO-061 — `audit` refactor: scope proyecto + output-prompt pattern (DONE 2026-03-03)
+
+Detectado en Ultron: `collectSourceFiles` solo escaneaba `src/` → Go en `internal/` nunca escaneado. Layer 4 llamaba `callAI` directamente → violaba Aitri-as-skill. Fixes: walk desde root con SCAN_EXCLUDE; Layer 4 removido de callAI → outputea prompts para agente (mismo patrón que pre-planning); Layers 2+3 siempre corren.
+
+---
+
+### EVO-051 — UX output pobre (CLOSED — causa raíz: SKILL compliance pre-EVO-054)
+
+Re-test con adapter actualizado (2026-03-03, Ultron). `aitri ux-design` produce output correcto: path del artefacto visible, persona system prompt completo, artefacto resultante con 6 secciones mandatorias. Causa raíz era SKILL compliance del adapter Codex antes de EVO-054/055/056. Cerrado sin cambio de prompt.
+
+---
 
 ### EVO-058 — `@aitri-trace` traceability header en contractgen output
 
