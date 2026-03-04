@@ -1,23 +1,18 @@
 import fs from "node:fs";
 import path from "node:path";
 import { normalizeFeatureName } from "../lib.js";
-import { callAI } from "../ai-client.js";
 
-const SYSTEM_PROMPT = `You are a senior QA architect performing semantic traceability validation.
-Given a set of Functional Requirements (FRs) from a spec and a User Story (US) with its trace IDs,
-determine if the User Story semantically satisfies the intent of the FRs it traces to.
+const VERIFICATION_PERSONA = `You are a senior QA architect performing semantic traceability validation.
+For each User Story, determine if it semantically satisfies the intent of its traced Functional Requirements.
 
-Return ONLY a JSON object with this exact shape (no markdown, no explanation outside the object):
-{
-  "verdict": "pass" | "fail" | "partial",
-  "confidence": "high" | "medium" | "low",
-  "reason": "<one concise sentence explaining the verdict>"
-}
+For each US report:
+- verdict: pass | partial | fail
+- confidence: high | medium | low
+- reason: one concise sentence
 
-Verdict guidance:
-- "pass": The US clearly covers the FR intent — behavior, actor, and outcome align.
-- "partial": The US covers part of the FR intent but misses edge cases or constraints.
-- "fail": The US does not satisfy the FR intent or traces to a FR that does not exist.`;
+"pass": US clearly covers the FR intent — behavior, actor, and outcome align.
+"partial": US covers part of the FR intent but misses edge cases or constraints.
+"fail": US does not satisfy the FR intent or traces to a FR that does not exist.`;
 
 /**
  * Extract Functional Rules from spec content.
@@ -44,21 +39,18 @@ function extractFRs(specContent) {
  */
 function extractUserStories(backlogContent) {
   const stories = [];
-  // Split on ### US-N headings
   const chunks = backlogContent.split(/(?=###\s+US-\d+)/);
   for (const chunk of chunks) {
     const idMatch = chunk.match(/###\s+(US-\d+)/i);
     if (!idMatch) continue;
     const id = idMatch[1].toUpperCase();
 
-    // Story text: the "As a..." line
     const textLines = chunk.split("\n")
       .map(l => l.trim())
       .filter(l => l.startsWith("-") && !/^-\s*Trace:/i.test(l))
       .map(l => l.replace(/^-\s*/, "").trim())
       .filter(Boolean);
 
-    // Trace IDs
     const traceMatch = chunk.match(/Trace:\s*([^\n]+)/i);
     const traces = traceMatch
       ? traceMatch[1].split(",").map(t => t.trim().toUpperCase()).filter(Boolean)
@@ -70,10 +62,10 @@ function extractUserStories(backlogContent) {
 }
 
 /**
- * aitri verify-intent --feature <name> [--story US-N] [--json]
+ * aitri verify-intent --feature <name> [--story US-N]
  *
- * Checks if User Stories in the backlog semantically satisfy the FR intent in the spec.
- * Calls ai-client with spec context per US.
+ * Outputs a semantic traceability verification task for the agent.
+ * The agent checks if each User Story satisfies the intent of its traced FRs.
  */
 export async function runVerifyIntentCommand({ options, getProjectContextOrExit, exitCodes }) {
   const { OK, ERROR } = exitCodes;
@@ -92,7 +84,6 @@ export async function runVerifyIntentCommand({ options, getProjectContextOrExit,
   }
 
   const project = getProjectContextOrExit();
-  const aiConfig = project.config.ai || {};
 
   // Require approved spec
   const specFile = project.paths.approvedSpecFile(feature);
@@ -149,104 +140,31 @@ export async function runVerifyIntentCommand({ options, getProjectContextOrExit,
     return ERROR;
   }
 
-  // Graceful degradation when AI is not configured
-  if (!aiConfig.provider) {
-    const hint = [
-      "AI is not configured. To use verify-intent, add an `ai` section to .aitri.json:",
-      "",
-      '  "ai": {',
-      '    "provider": "claude",',
-      '    "model": "claude-opus-4-6",',
-      '    "apiKeyEnv": "ANTHROPIC_API_KEY"',
-      "  }"
-    ].join("\n");
-
-    if (options.json || options.format === "json" || options.nonInteractive) {
-      console.log(JSON.stringify({
-        ok: false,
-        feature,
-        status: "intent-unavailable",
-        error: "AI not configured",
-        hint: "Add an `ai` section to .aitri.json with provider, model, and apiKeyEnv."
-      }));
-    } else {
-      console.log(hint);
-    }
-    return ERROR;
-  }
-
-  if (!options.nonInteractive) {
-    console.log(`Verifying intent for '${feature}' (${stories.length} story/stories)...`);
-  }
-
   const frSummary = Object.entries(frs)
     .map(([id, text]) => `${id}: ${text}`)
     .join("\n") || "(no FRs found in spec)";
 
-  const results = [];
-  let allPass = true;
+  console.log(`--- AGENT TASK: verify-intent — ${feature} ---`);
+  console.log(`## Persona\n${VERIFICATION_PERSONA}\n`);
+  console.log(`## All Functional Requirements\n${frSummary}\n`);
+  console.log(`## User Stories to verify (${stories.length})\n`);
 
   for (const story of stories) {
-    // Build traced FRs for this US
     const tracedFRs = story.traces
       .filter(t => t.startsWith("FR-"))
       .map(id => frs[id] ? `${id}: ${frs[id]}` : `${id}: (not found in spec)`)
       .join("\n") || "(no FR traces — check backlog Trace: line)";
 
-    const prompt = [
-      `Feature: ${feature}`,
-      "",
-      "All Functional Requirements in spec:",
-      frSummary,
-      "",
-      `User Story ${story.id}:`,
-      story.text || "(no story text found)",
-      "",
-      `Traced FRs for this story: ${story.traces.filter(t => t.startsWith("FR-")).join(", ") || "none"}`,
-      tracedFRs,
-      "",
-      "Does this User Story semantically satisfy the intent of its traced FRs?"
-    ].join("\n");
-
-    const aiResult = await callAI({ prompt, systemPrompt: SYSTEM_PROMPT, config: aiConfig });
-
-    if (!aiResult.ok) {
-      results.push({ us: story.id, traces: story.traces, verdict: "error", reason: aiResult.error });
-      allPass = false;
-      continue;
-    }
-
-    let parsed = { verdict: "fail", confidence: "low", reason: aiResult.content.trim() };
-    try {
-      const jsonMatch = aiResult.content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) parsed = JSON.parse(jsonMatch[0]);
-    } catch {
-      // keep defaults above
-    }
-
-    if (parsed.verdict !== "pass") allPass = false;
-    results.push({ us: story.id, traces: story.traces, ...parsed });
+    console.log(`### ${story.id}`);
+    console.log(`Story: ${story.text || "(no story text found)"}`);
+    console.log(`Traced FRs: ${story.traces.filter(t => t.startsWith("FR-")).join(", ") || "none"}`);
+    console.log(tracedFRs);
+    console.log(`→ Does ${story.id} semantically satisfy the intent of its traced FRs?\n`);
   }
 
-  const output = { ok: allPass, feature, results };
+  console.log(`--- END TASK ---`);
+  console.log(`\nFor each US, report: verdict (pass/partial/fail), confidence, reason.`);
+  console.log(`Backlog: ${path.relative(process.cwd(), backlogFile)}`);
 
-  if (options.json || options.format === "json" || options.nonInteractive) {
-    console.log(JSON.stringify(output, null, 2));
-  } else {
-    const icons = { pass: "✓", partial: "~", fail: "✗", error: "!" };
-    console.log(`\nIntent verification — ${feature}\n`);
-    for (const r of results) {
-      const icon = icons[r.verdict] || "?";
-      const traces = r.traces.filter(t => t.startsWith("FR-")).join(", ") || "no FR traces";
-      console.log(`  ${icon} ${r.us} [${traces}] — ${r.verdict.toUpperCase()}`);
-      if (r.reason) console.log(`    ${r.reason}`);
-    }
-    const passCount = results.filter(r => r.verdict === "pass").length;
-    console.log(`\n${passCount}/${results.length} stories pass intent check.`);
-    if (!allPass) {
-      console.log(`Review flagged stories in: ${path.relative(process.cwd(), backlogFile)}`);
-    }
-  }
-
-  return allPass ? OK : ERROR;
+  return OK;
 }

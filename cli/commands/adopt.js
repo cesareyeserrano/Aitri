@@ -1,6 +1,5 @@
 import fs from "node:fs";
 import path from "node:path";
-import { callAI } from "../ai-client.js";
 
 // ---------------------------------------------------------------------------
 // EVO-008: aitri adopt — Phase 1 (Scan) + Phase 2 (LLM Infer)
@@ -519,23 +518,6 @@ export async function runAdoptCommand({
     console.log("");
   }
 
-  // AI config detection (needed for Phase 2 and for hints)
-  const aiConfig = project.config.ai || {};
-  const hasAiConfig = !!(aiConfig.provider);
-
-  if (isPhase2 && !hasAiConfig) {
-    console.log("Phase 2 requires an ai config in aitri.config.json.");
-    console.log("Add: { \"ai\": { \"provider\": \"claude\", \"model\": \"claude-opus-4-6\", \"apiKeyEnv\": \"ANTHROPIC_API_KEY\" } }");
-    console.log("");
-    return ERROR;
-  }
-
-  if (!isPhase2 && !hasAiConfig) {
-    console.log("Phase 2 (LLM inference — DRAFT spec generation) requires an ai config in aitri.config.json.");
-    console.log("Add: { \"ai\": { \"provider\": \"claude\", \"model\": \"claude-opus-4-6\", \"apiKeyEnv\": \"ANTHROPIC_API_KEY\" } }");
-    console.log("Then run: aitri adopt --depth standard");
-    console.log("");
-  }
 
   if (isDryRun) {
     console.log("[dry-run] No files written. Remove --dry-run to initialize Aitri structure.");
@@ -603,7 +585,7 @@ export async function runAdoptCommand({
     existingTestFiles: testFileCount,
     existingAitriStructure: aitriStructure,
     gaps,
-    phase2Ready: hasAiConfig,
+    phase2Ready: true,
     phase2Command: "aitri adopt --depth standard"
   };
 
@@ -620,7 +602,7 @@ export async function runAdoptCommand({
   // -- Phase 2: LLM inference -----------------------------------------------
 
   if (isPhase2) {
-    console.log("Phase 2: LLM inference — generating DRAFT specs...");
+    console.log("Phase 2: Retrograde spec inference — agent task output");
     console.log("");
 
     const readmeContent = readme
@@ -629,83 +611,25 @@ export async function runAdoptCommand({
     const entryContent = readBoundedEntryPoint(root, entryPoints);
 
     const prompt = buildPhase2Prompt(manifest, readmeContent, entryContent);
-    const result = await callAI({ prompt, systemPrompt: PHASE2_SYSTEM_PROMPT, config: aiConfig });
 
-    if (!result.ok) {
-      console.log(`AI error: ${result.error}`);
-      console.log("Phase 1 artifacts were written. Fix the AI config and re-run with --depth standard.");
-      return ERROR;
-    }
-
-    let inferred;
-    try {
-      const text = result.content.trim();
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      inferred = JSON.parse(jsonMatch ? jsonMatch[0] : text);
-    } catch {
-      console.log("Could not parse AI response as JSON. Phase 1 artifacts were written.");
-      console.log("Raw AI output saved to: docs/adoption-manifest.json (phase2RawResponse field)");
-      const existing = readJsonSafe(manifestFile) || manifest;
-      existing.phase2RawResponse = result.content;
-      writeJsonFile(manifestFile, existing);
-      return ERROR;
-    }
-
-    const features = Array.isArray(inferred?.features) ? inferred.features : [];
-    if (features.length === 0) {
-      console.log("AI returned no features. Check README and entry points for more context.");
-      return ERROR;
-    }
-
-    const phase2Results = [];
-    for (const f of features) {
-      const name = String(f.name || "").toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
-      if (!name) continue;
-
-      const specResult = writeDraftSpec(paths, name, f.spec || "");
-      const discovResult = writeDiscoveryDoc(paths, name, f.discoveryNotes || "");
-
-      if (specResult.written) {
-        console.log(`  [OK] specs/drafts/${name}.md`);
-      } else if (specResult.skipped) {
-        console.log(`  [SKIP] specs/drafts/${name}.md — ${specResult.reason}`);
-      }
-      if (discovResult.written) {
-        console.log(`  [OK] docs/discovery/${name}.md`);
-      } else if (discovResult.skipped) {
-        console.log(`  [SKIP] docs/discovery/${name}.md — ${discovResult.reason}`);
-      }
-
-      phase2Results.push({ name, title: f.title, specWritten: !!specResult.written, discoveryWritten: !!discovResult.written });
-    }
-
-    // Update manifest with Phase 2 results
-    const updatedManifest = readJsonSafe(manifestFile) || manifest;
-    updatedManifest.phase2 = {
-      completedAt: new Date().toISOString(),
-      featuresInferred: phase2Results
-    };
-    writeJsonFile(manifestFile, updatedManifest);
-
+    console.log("--- AGENT TASK: adopt phase2 ---");
+    console.log(PHASE2_SYSTEM_PROMPT);
+    console.log("\n" + prompt);
+    console.log("\n--- END TASK ---");
     console.log("");
-    console.log(`Phase 2 complete. ${phase2Results.length} feature(s) inferred.`);
-    console.log("All specs are DRAFT — human review required before aitri approve.");
-    if (!isPhase3) {
-      console.log("");
-      console.log("Next steps:");
-      console.log("  1. Review each DRAFT spec in specs/drafts/");
-      console.log("  2. Edit and refine as needed");
-      console.log("  3. Run: aitri approve --feature <name>  (for each feature you accept)");
-      console.log("  4. Run: aitri adopt --depth deep  (Phase 3: map existing tests to TC-*)");
+    console.log("For each inferred feature, write the spec and discovery docs:");
+    console.log("  specs/drafts/<feature-name>.md   (AF-SPEC format, STATUS: DRAFT)");
+    console.log("  docs/discovery/<feature-name>.md (discovery notes, STATUS: DRAFT)");
+    console.log("");
+    console.log("After writing all files, run: aitri adopt --depth deep  (Phase 3)");
 
-      printCheckpointSummary(runAutoCheckpoint({
-        enabled: options.autoCheckpoint,
-        phase: "adopt",
-        feature: "project"
-      }));
+    printCheckpointSummary(runAutoCheckpoint({
+      enabled: options.autoCheckpoint,
+      phase: "adopt",
+      feature: "project"
+    }));
 
-      return OK;
-    }
+    if (!isPhase3) return OK;
   }
 
   // -- Phase 3: Map existing tests → TC-* stubs -----------------------------
@@ -787,10 +711,7 @@ export async function runAdoptCommand({
     console.log("  2. Run: aitri plan --feature <name>  (to generate full backlog)");
     console.log("  3. Run: aitri go --feature <name>  (unlocks factory mode)");
     console.log("");
-    console.log("Pre-planning commands (discover-idea → dev-roadmap) require AI config in aitri.config.json.");
-    if (!hasAiConfig) {
-      console.log("AI is not configured — add an \"ai\" section before running them. See: aitri help");
-    }
+    console.log("Pre-planning commands (discover-idea → dev-roadmap) are also available.");
 
     printCheckpointSummary(runAutoCheckpoint({
       enabled: options.autoCheckpoint,
@@ -809,16 +730,9 @@ export async function runAdoptCommand({
   if (proposedConfig && !existingAitriConfigFile) {
     console.log(`  2. Review aitri.config.json — adjust paths as needed`);
   }
-  if (!hasAiConfig) {
-    console.log(`  ${proposedConfig ? "3" : "2"}. Add ai config to aitri.config.json, then run: aitri adopt --depth standard`);
-  } else {
-    console.log(`  ${proposedConfig ? "3" : "2"}. Run: aitri adopt --depth standard  (Phase 2: LLM DRAFT spec generation)`);
-  }
+  console.log(`  ${proposedConfig ? "3" : "2"}. Run: aitri adopt --depth standard  (Phase 2: retrograde spec inference)`);
   console.log("");
-  console.log("Pre-planning commands (discover-idea → dev-roadmap) are also available and require AI config.");
-  if (!hasAiConfig) {
-    console.log("Add an \"ai\" section to aitri.config.json before running them. See: aitri help");
-  }
+  console.log("Pre-planning commands (discover-idea → dev-roadmap) are also available.");
 
   printCheckpointSummary(runAutoCheckpoint({
     enabled: options.autoCheckpoint,

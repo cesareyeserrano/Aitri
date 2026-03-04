@@ -22,7 +22,7 @@ test("spec-improve requires --feature flag", () => {
   assert.match(result.stdout, /Feature name is required|--feature/);
 });
 
-test("spec-improve returns suggestions-unavailable when AI not configured", () => {
+test("spec-improve outputs agent task without AI config", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-spec-improve-no-ai-"));
   setupAitriProject(tempDir);
 
@@ -59,13 +59,11 @@ test("spec-improve returns suggestions-unavailable when AI not configured", () =
     { cwd: tempDir }
   );
 
-  // Should fail gracefully (AI not configured) rather than crash
-  assert.equal(result.status, 1, "should exit with error when AI not configured");
+  // Should output agent task and exit 0
+  assert.equal(result.status, 0, "should exit 0 and output agent task");
   assert.ok(
-    result.stdout.includes("AI not configured") ||
-    result.stdout.includes("ai") ||
-    result.stdout.includes(".aitri.json"),
-    `should mention AI configuration, got: ${result.stdout}`
+    result.stdout.includes("AGENT TASK") || result.stdout.includes("spec-improve"),
+    `should output agent task, got: ${result.stdout}`
   );
 });
 
@@ -160,7 +158,7 @@ test("verify-intent requires --feature flag", () => {
   );
 });
 
-test("verify-intent returns intent-unavailable when AI not configured", () => {
+test("verify-intent outputs agent task when AI not configured", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-vi-no-ai-"));
   setupAitriProject(tempDir);
 
@@ -206,13 +204,10 @@ test("verify-intent returns intent-unavailable when AI not configured", () => {
     { cwd: tempDir }
   );
 
-  assert.equal(result.status, 1, "should exit with error when AI not configured");
+  assert.equal(result.status, 0, "should exit 0 and output agent task");
   assert.ok(
-    result.stdout.includes("AI not configured") ||
-    result.stdout.includes("ai") ||
-    result.stdout.includes(".aitri.json") ||
-    result.stdout.includes("intent-unavailable"),
-    `should mention AI configuration, got: ${result.stdout}`
+    result.stdout.includes("AGENT TASK") || result.stdout.includes("verify-intent"),
+    `should output agent task, got: ${result.stdout}`
   );
 });
 

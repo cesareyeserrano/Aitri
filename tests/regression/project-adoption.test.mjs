@@ -126,46 +126,37 @@ test("adopt detects readme and entry points", () => {
 // EVO-008 Phase 2: LLM inference tests
 // ---------------------------------------------------------------------------
 
-test("adopt --depth standard fails with clear error when AI not configured", () => {
+test("adopt --depth standard outputs agent task without AI config", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-adopt-p2-no-ai-"));
   fs.writeFileSync(path.join(tempDir, "package.json"), JSON.stringify({ name: "no-ai-project", version: "1.0.0" }), "utf8");
   fs.writeFileSync(path.join(tempDir, "README.md"), "# No AI Project\n", "utf8");
 
-  // No ai config — should exit error with message
+  // No ai config needed — Phase 2 outputs agent task prompt
   const result = runNode(["adopt", "--depth", "standard", "--non-interactive", "--yes"], { cwd: tempDir });
-  assert.equal(result.status, 1, "should exit with error when AI not configured");
+  assert.equal(result.status, 0, "should exit 0 and output agent task");
   assert.ok(
-    result.stdout.includes("ai config") || result.stdout.includes("requires") || result.stdout.includes("provider"),
-    `should mention ai config requirement, got: ${result.stdout}`
+    result.stdout.includes("AGENT TASK") || result.stdout.includes("retrograde"),
+    `should output agent task, got: ${result.stdout}`
   );
 });
 
-test("adopt --depth standard fails gracefully when API key env var is missing", () => {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-adopt-p2-no-key-"));
-  fs.writeFileSync(path.join(tempDir, "package.json"), JSON.stringify({ name: "no-key-project", version: "1.0.0" }), "utf8");
+test("adopt --depth standard outputs agent task and writes manifest", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-adopt-p2-manifest-"));
+  fs.writeFileSync(path.join(tempDir, "package.json"), JSON.stringify({ name: "auth-service", version: "1.0.0" }), "utf8");
   fs.writeFileSync(path.join(tempDir, "README.md"), "# Auth Service\nHandles user login.\n", "utf8");
 
-  // Write aitri.config.json with ai config but a non-existent env var key
-  fs.writeFileSync(path.join(tempDir, "aitri.config.json"), JSON.stringify({
-    ai: { provider: "claude", model: "claude-opus-4-6", apiKeyEnv: "AITRI_TEST_FAKE_API_KEY_NONEXISTENT" }
-  }), "utf8");
+  const result = runNode(["adopt", "--depth", "standard", "--non-interactive", "--yes"], { cwd: tempDir });
 
-  // Ensure the fake env var is NOT set
-  const result = runNode(["adopt", "--depth", "standard", "--non-interactive", "--yes"], {
-    cwd: tempDir,
-    env: { ...process.env, AITRI_TEST_FAKE_API_KEY_NONEXISTENT: "" }
-  });
-
-  // Phase 1 should have succeeded (manifest written)
+  // Phase 1 manifest should be written
   assert.ok(
     fs.existsSync(path.join(tempDir, "docs", "adoption-manifest.json")),
-    "adoption-manifest.json should be written before AI call"
+    "adoption-manifest.json should be written"
   );
-  // Phase 2 AI call should fail gracefully
-  assert.equal(result.status, 1, "should exit with error on missing API key");
+  // Phase 2 should output agent task and exit 0
+  assert.equal(result.status, 0, "should exit 0");
   assert.ok(
-    result.stdout.includes("API key") || result.stdout.includes("error") || result.stdout.includes("AITRI_TEST_FAKE"),
-    `should mention API key issue, got: ${result.stdout}`
+    result.stdout.includes("AGENT TASK") || result.stdout.includes("retrograde"),
+    `should output agent task, got: ${result.stdout}`
   );
 });
 

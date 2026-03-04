@@ -92,7 +92,7 @@ test("testgen fails fast when no generated stubs directory exists", () => {
   assert.match(result.stdout, /Generated stubs not found/);
 });
 
-test("testgen fails fast when AI is not configured", () => {
+test("testgen outputs agent task without AI config", () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-testgen-no-ai-"));
   runNodeOk(["init", "--non-interactive", "--yes"], { cwd: tempDir });
   const feature = "no-ai";
@@ -102,10 +102,10 @@ test("testgen fails fast when AI is not configured", () => {
   fs.mkdirSync(generatedDir, { recursive: true });
   writeStub(generatedDir, "TC-1");
 
-  // No ai config in aitri.config.json (default init has none)
+  // No ai config needed — testgen outputs agent task prompt
   const result = runNode(["testgen", "--feature", feature, "--non-interactive"], { cwd: tempDir });
-  assert.equal(result.status, 1);
-  assert.match(result.stdout, /AI not configured/);
+  assert.equal(result.status, 0);
+  assert.match(result.stdout, /AGENT TASK/);
 });
 
 test("testgen skips already-implemented stubs", () => {
@@ -126,12 +126,8 @@ test("testgen skips already-implemented stubs", () => {
   ].join("\n");
   fs.writeFileSync(path.join(generatedDir, "tc-1.test.mjs"), implContent, "utf8");
 
-  // Inject a fake AI config so the AI check passes but actual AI call won't be reached
-  const configPath = path.join(tempDir, "aitri.config.json");
-  fs.writeFileSync(configPath, JSON.stringify({ ai: { provider: "claude", apiKeyEnv: "AITRI_TEST_FAKE_KEY" } }, null, 2), "utf8");
-
   const result = runNode(["testgen", "--feature", feature, "--non-interactive"], { cwd: tempDir });
-  // Should exit 0 — no stubs to generate, no AI calls
+  // Should exit 0 — no stubs to generate
   assert.equal(result.status, 0);
   assert.match(result.stdout, /already implemented/i);
 });

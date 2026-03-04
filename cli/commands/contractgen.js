@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { resolveFeature } from "../lib.js";
-import { callAI } from "../ai-client.js";
 import { loadPersonaSystemPrompt } from "../persona-loader.js";
 import { parseApprovedSpec } from "./spec-parser.js";
 import { parseTestCases, detectStackFamily, slugify } from "./scaffold.js";
@@ -15,17 +14,7 @@ function isContractPlaceholder(content) {
   return false;
 }
 
-// Extract code from LLM response: prefer fenced code block, fallback to raw text
-function extractCodeBlock(response) {
-  const fenced = String(response).match(/```(?:[a-z]*)\n([\s\S]*?)```/);
-  if (fenced) return fenced[1].trim() + "\n";
-  const trimmed = String(response).trim();
-  // Accept raw code responses starting with recognisable code tokens
-  if (/^(\/\/|#|\/\*\*|package |export |def |func )/.test(trimmed)) return trimmed + "\n";
-  return null;
-}
-
-// Collect test stub bodies that reference this contract (for LLM context)
+// Collect test stub bodies that reference this contract (for agent context)
 function readTestContext(contractPath, generatedDir) {
   if (!fs.existsSync(generatedDir)) return "";
   const contractBase = path.basename(contractPath);
@@ -34,34 +23,10 @@ function readTestContext(contractPath, generatedDir) {
     if (!/\.(mjs|js|ts|tsx|py|go)$/i.test(f)) continue;
     const abs = path.join(generatedDir, f);
     const content = fs.readFileSync(abs, "utf8");
-    // Only include stubs that import this specific contract
     if (!content.includes(contractBase.replace(/\.[^.]+$/, ""))) continue;
     snippets.push(`// ${f}\n${content.trim()}`);
   }
   return snippets.join("\n\n");
-}
-
-function buildPrompt({ fr, stackFamily, contractContent, testContext }) {
-  return `You are implementing a contract function for a software feature.
-
-Functional Requirement: ${fr.id} — ${fr.text}
-Stack: ${stackFamily}
-
-Current contract placeholder — REPLACE the placeholder body with a real implementation:
-\`\`\`
-${contractContent.trim()}
-\`\`\`
-${testContext ? `\nTest stubs that call this contract (use them to understand expected behavior):\n\`\`\`\n${testContext.trim()}\n\`\`\`` : ""}
-
-Instructions:
-1. Keep the function signature exactly as-is (same name, same parameters).
-2. Replace ONLY the placeholder body with a working implementation that satisfies ${fr.id}.
-3. The implementation must be minimal and correct — no extra methods, no extra imports unless necessary.
-4. Do not add TODOs or comments explaining what the code "should do" — write the actual code.
-5. Return ONLY the complete updated file content — no prose, no extra explanation.
-6. CRITICAL: A contract that returns \`{ ok: true }\` without reading at least one property from the \`input\` object is INVALID and will fail proof-of-compliance. Every contract must verify at least one observable behavior by reading from \`input\`.
-
-Updated contract file:`;
 }
 
 function resolveContractPath(root, stackFamily, fr) {
@@ -101,13 +66,6 @@ export async function runContractgenCommand({
     return ERROR;
   }
 
-  const aiConfig = project.config.ai;
-  if (!aiConfig || !aiConfig.provider) {
-    console.log("AI not configured. Add an `ai` section to aitri.config.json.");
-    console.log('Example: { "ai": { "provider": "claude", "apiKeyEnv": "ANTHROPIC_API_KEY" } }');
-    return ERROR;
-  }
-
   const specContent = fs.readFileSync(specFile, "utf8");
   const parsedSpec = parseApprovedSpec(specContent);
   const stackFamily = detectStackFamily(parsedSpec);
@@ -118,7 +76,6 @@ export async function runContractgenCommand({
     return ERROR;
   }
 
-  // --fr FR-N targets a specific contract
   const targetFr = options.fr ? String(options.fr).toUpperCase().trim() : null;
   const force = !!(options.force || options.yes);
 
@@ -128,12 +85,13 @@ export async function runContractgenCommand({
     return ERROR;
   }
 
-  console.log(`Generating contract implementations for: ${feature}`);
-  console.log(`Stack: ${stackFamily}  FRs: ${targets.length}\n`);
+  const devPersona = loadPersonaSystemPrompt("developer");
+  const personaSection = devPersona.ok ? `## Persona\n${devPersona.systemPrompt}\n\n` : "";
 
-  let generated = 0;
+  let tasksOutput = 0;
   let skipped = 0;
-  let failed = 0;
+
+  console.log(`Contractgen — ${feature} | Stack: ${stackFamily} | FRs: ${targets.length}\n`);
 
   for (const fr of targets) {
     const contractPath = resolveContractPath(root, stackFamily, fr);
@@ -154,41 +112,39 @@ export async function runContractgenCommand({
     }
 
     const testContext = readTestContext(contractPath, generatedDir);
+    const relPath = path.relative(root, contractPath);
 
-    process.stdout.write(`  ${fr.id}: generating... `);
+    console.log(`\n--- AGENT TASK: contractgen ${fr.id} ---`);
+    console.log(personaSection + `Implement the contract function for ${fr.id}.
 
-    const prompt = buildPrompt({ fr, stackFamily, contractContent, testContext });
-    const devPersona = loadPersonaSystemPrompt("developer");
-    const result = await callAI({
-      prompt,
-      systemPrompt: devPersona.ok ? devPersona.systemPrompt : undefined,
-      config: aiConfig
-    });
+Functional Requirement: ${fr.id} — ${fr.text}
+Stack: ${stackFamily}
 
-    if (!result.ok) {
-      console.log(`FAILED (${result.error})`);
-      failed++;
-      continue;
-    }
+Current contract placeholder — REPLACE the placeholder body with a real implementation:
+\`\`\`
+${contractContent.trim()}
+\`\`\`
+${testContext ? `\nTest stubs that call this contract (use to understand expected behavior):\n\`\`\`\n${testContext.trim()}\n\`\`\`` : ""}
 
-    const newContent = extractCodeBlock(result.content);
-    if (!newContent) {
-      console.log("FAILED (could not parse LLM response)");
-      failed++;
-      continue;
-    }
+Instructions:
+1. Keep the function signature exactly as-is (same name, same parameters).
+2. Replace ONLY the placeholder body with a working implementation that satisfies ${fr.id}.
+3. Minimal and correct — no extra methods, no extra imports unless necessary.
+4. Do not add TODOs or comments explaining what the code "should do" — write the actual code.
+5. CRITICAL: A contract that returns \`{ ok: true }\` without reading at least one property from \`input\` is INVALID.
 
-    fs.writeFileSync(contractPath, newContent, "utf8");
-    console.log("OK");
-    generated++;
+Write the complete updated file to: ${relPath}
+--- END TASK ---`);
+
+    tasksOutput++;
   }
 
-  console.log(`\nContractgen: ${generated} generated, ${skipped} skipped, ${failed} failed.`);
-
-  if (generated > 0) {
-    console.log(`\nReview the generated contracts, then run:`);
-    console.log(`  aitri prove --feature ${feature}`);
+  if (tasksOutput > 0) {
+    console.log(`\n${tasksOutput} contract task(s) output. Write each file at the path shown above.`);
+    console.log(`After implementing, run: aitri prove --feature ${feature}`);
+  } else {
+    console.log(`\nNo contracts to generate (${skipped} skipped).`);
   }
 
-  return failed === 0 ? OK : ERROR;
+  return OK;
 }

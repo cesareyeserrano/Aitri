@@ -1,7 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
 import { resolveFeature } from "../lib.js";
-import { callAI } from "../ai-client.js";
 import { loadPersonaSystemPrompt } from "../persona-loader.js";
 import { parseApprovedSpec } from "./spec-parser.js";
 import { parseTestCases, detectStackFamily } from "./scaffold.js";
@@ -17,18 +16,8 @@ function isPlaceholder(content) {
   return /Not implemented:/i.test(content);
 }
 
-// Extract code from LLM response: prefer fenced code block, fallback to raw text
-function extractCodeBlock(response) {
-  const fenced = String(response).match(/```(?:[a-z]*)\n([\s\S]*?)```/);
-  if (fenced) return fenced[1].trim() + "\n";
-  const trimmed = String(response).trim();
-  // Accept raw code responses (start with comment, import, or package keyword)
-  if (/^(\/\/|#|import |package )/.test(trimmed)) return trimmed + "\n";
-  return null;
-}
-
 function buildPrompt({ tcId, title, feature, stackFamily, frContext, acContext, contractContext, stubContent }) {
-  return `You are writing a behavioral test for a software feature. Replace the placeholder with real test logic.
+  return `Write a behavioral test for this feature. Replace the placeholder with real test logic.
 
 Feature: ${feature}
 Test Case: ${tcId}${title ? " — " + title : ""}
@@ -49,10 +38,7 @@ Instructions:
 1. Keep all existing import statements exactly as-is.
 2. Replace only the assert.fail / pytest.fail / t.Fatal placeholder with real assertions.
 3. Import and CALL any listed contract functions; verify their return values against the acceptance criteria.
-4. Use Given/When/Then structure to guide the test body (setup → action → assert).
-5. Return ONLY the complete updated file content — no prose, no extra explanation.
-
-Updated test file:`;
+4. Use Given/When/Then structure to guide the test body (setup → action → assert).`;
 }
 
 function readContractContext(stubContent, stubFile) {
@@ -106,13 +92,6 @@ export async function runTestgenCommand({
     return ERROR;
   }
 
-  const aiConfig = project.config.ai;
-  if (!aiConfig || !aiConfig.provider) {
-    console.log("AI not configured. Add an `ai` section to aitri.config.json.");
-    console.log('Example: { "ai": { "provider": "claude", "apiKeyEnv": "ANTHROPIC_API_KEY" } }');
-    return ERROR;
-  }
-
   const specContent = fs.readFileSync(specFile, "utf8");
   const testsContent = fs.readFileSync(testsFile, "utf8");
   const parsedSpec = parseApprovedSpec(specContent);
@@ -137,12 +116,13 @@ export async function runTestgenCommand({
     return ERROR;
   }
 
-  console.log(`Generating behavioral tests for: ${feature}`);
-  console.log(`Stack: ${stackFamily}  Stubs: ${stubFiles.length}\n`);
+  const qaPersona = loadPersonaSystemPrompt("qa");
+  const personaSection = qaPersona.ok ? `## Persona\n${qaPersona.systemPrompt}\n\n` : "";
 
-  let generated = 0;
+  let tasksOutput = 0;
   let skipped = 0;
-  let failed = 0;
+
+  console.log(`Testgen — ${feature} | Stack: ${stackFamily} | Stubs: ${stubFiles.length}\n`);
 
   for (const stubFile of stubFiles) {
     const content = fs.readFileSync(stubFile, "utf8");
@@ -161,45 +141,27 @@ export async function runTestgenCommand({
     const frContext = (tc.frIds || []).map((id) => `- ${id}: ${frMap.get(id) || "(no text)"}`).join("\n");
     const acContext = (tc.acIds || []).map((id) => `- ${id}: ${acMap.get(id) || "(no text)"}`).join("\n");
     const contractContext = readContractContext(content, stubFile);
-
-    process.stdout.write(`  ${tcId}: generating... `);
+    const relPath = path.relative(root, stubFile);
 
     const prompt = buildPrompt({
       tcId, title: tc.title, feature, stackFamily,
       frContext, acContext, contractContext, stubContent: content
     });
 
-    const qaPersona = loadPersonaSystemPrompt("qa");
-    const result = await callAI({
-      prompt,
-      systemPrompt: qaPersona.ok ? qaPersona.systemPrompt : undefined,
-      config: aiConfig
-    });
+    console.log(`\n--- AGENT TASK: testgen ${tcId} ---`);
+    console.log(personaSection + prompt);
+    console.log(`\nWrite the complete updated file to: ${relPath}`);
+    console.log(`--- END TASK ---`);
 
-    if (!result.ok) {
-      console.log(`FAILED (${result.error})`);
-      failed++;
-      continue;
-    }
-
-    const newContent = extractCodeBlock(result.content);
-    if (!newContent) {
-      console.log("FAILED (could not parse LLM response)");
-      failed++;
-      continue;
-    }
-
-    fs.writeFileSync(stubFile, newContent, "utf8");
-    console.log("OK");
-    generated++;
+    tasksOutput++;
   }
 
-  console.log(`\nTestgen: ${generated} generated, ${skipped} skipped, ${failed} failed.`);
-
-  if (generated > 0) {
-    console.log(`\nReview the generated tests, then run:`);
-    console.log(`  aitri prove --feature ${feature}`);
+  if (tasksOutput > 0) {
+    console.log(`\n${tasksOutput} test task(s) output. Write each file at the path shown above.`);
+    console.log(`After implementing, run: aitri prove --feature ${feature}`);
+  } else {
+    console.log(`\nNo tests to generate (${skipped} skipped).`);
   }
 
-  return failed === 0 ? OK : ERROR;
+  return OK;
 }
