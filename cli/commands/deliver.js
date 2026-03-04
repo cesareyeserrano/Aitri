@@ -67,6 +67,32 @@ function createReleaseTag(feature, root) {
   return { ok: true, tag, reason: null };
 }
 
+// EVO-068: workspace hygiene gate — detect dirty files unrelated to the feature
+function checkWorkspaceHygiene(root, feature) {
+  const result = spawnSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" });
+  if (result.status !== 0) return { ok: true, unrelated: [], featureOwned: [] }; // no git repo — skip
+  const lines = result.stdout.trim().split("\n").filter(Boolean);
+  const featureOwned = [];
+  const unrelated = [];
+  const featurePrefixes = [
+    ".aitri/",
+    `tests/${feature}/`,
+    "src/contracts/",
+    `docs/implementation/${feature}/`,
+    `docs/delivery/`,
+    `specs/approved/${feature}.md`,
+    `docs/plan/${feature}.md`,
+    `docs/verification/${feature}.json`,
+  ];
+  for (const line of lines) {
+    const filePath = line.slice(3).trim().replace(/^"(.*)"$/, "$1"); // strip XY status prefix and quotes
+    const isOwned = featurePrefixes.some((p) => filePath.startsWith(p) || filePath === p.replace(/\/$/, ""));
+    if (isOwned) featureOwned.push(filePath);
+    else unrelated.push(filePath);
+  }
+  return { ok: unrelated.length === 0, unrelated, featureOwned };
+}
+
 function detectBuildCommand(root) {
   const pkgPath = path.join(root, "package.json");
   if (fs.existsSync(pkgPath)) {
@@ -149,6 +175,30 @@ export async function runDeliverCommand({
       console.log(message);
     }
     return ERROR;
+  }
+
+  // EVO-068: workspace hygiene gate
+  const hygiene = checkWorkspaceHygiene(process.cwd(), feature);
+  if (!hygiene.ok) {
+    const canProceed = options.yes || options.nonInteractive;
+    if (!canProceed) {
+      const msg = [
+        `DELIVER BLOCKED: Unrelated dirty files in workspace (${hygiene.unrelated.length}):`,
+        ...hygiene.unrelated.map((f) => `  - ${f}`),
+        "Stage feature-only changes and stash the rest before delivery.",
+      ];
+      if (jsonOutput) {
+        console.log(JSON.stringify({ ok: false, feature, issues: msg }, null, 2));
+      } else {
+        msg.forEach((l) => console.log(l));
+      }
+      return ERROR;
+    }
+    // --yes or --non-interactive: warn and continue
+    if (!jsonOutput) {
+      console.log(`WARN: ${hygiene.unrelated.length} unrelated dirty file(s) in workspace — proceeding (--yes).`);
+      hygiene.unrelated.forEach((f) => console.log(`  - ${f}`));
+    }
   }
 
   const goMarkerFile = project.paths.goMarkerFile(feature);

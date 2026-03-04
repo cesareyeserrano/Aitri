@@ -339,5 +339,9 @@
   "cli/commands/close.js": {
     "soft": 140,
     "hard": 180
+  },
+  "cli/commands/deliver.js": {
+    "soft": 440,
+    "hard": 500
   }
 }
