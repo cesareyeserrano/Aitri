@@ -23,6 +23,10 @@ _(vacío)_
 > Historial completo en `git log`. Para v1.2.x e inferior ver `git log --oneline`.
 > Release actual: **v1.3.0**
 
+### EVO-087 — `aitri qa`: QA independiente AC-driven antes de deliver (DONE 2026-03-04)
+
+Nuevo comando `aitri qa --feature X`: lee ACs del spec aprobado, detecta stack/puerto, genera agent task para que el agente ejecute cada AC contra el sistema corriendo y escriba resultados a `.aitri/qa-report.md`. `deliver` bloquea si qa-report.md falta o tiene entradas FAIL. Step `qa` agregado al pipeline de `resume` entre `prove` y `deliver`. 265 tests, 0 fallos.
+
 ### EVO-086 — `aitri close` muestra `?/?` en Proof (DONE 2026-03-04)
 
 `close.js` leía `proof.passing` y `proof.total` pero el JSON real usa `proof.summary.proven` y `proof.summary.total`. Fix: leer la ruta correcta en human output y JSON output.
