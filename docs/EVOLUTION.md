@@ -2,7 +2,26 @@
 
 ## 🟢 Ready for Implementation
 
-_(vacío)_
+### EVO-089 — `deliver` hygiene: allowlist dinámica + `extraOwnedPaths`
+
+**Problema:** `checkWorkspaceHygiene()` usa prefijos hardcodeados. Archivos reales de la feature (`internal/server/handlers.go`, `web/templates/settings.html`) se clasifican como "unrelated" y bloquean delivery en cualquier proyecto no-JS.
+
+**Fix:**
+1. Leer `scaffold-manifest.json` e `implement-manifest.json` para extraer dirs/archivos generados → agregarlos a la allowlist dinámicamente
+2. Soporte en `aitri.config.json`: `delivery.extraOwnedPaths: ["internal/", "web/"]`
+3. Corregir truncamiento de paths en mensajes de error
+
+### EVO-090 — `deliver` confidence: no bloquear cuando evidencia feature está completa
+
+**Problema:** El confidence score (40% spec + 60% runtime) es global y puede dar 73% aunque FR/AC/TC del feature estén al 100%. Bloquea delivery que debería pasar.
+
+**Fix:** Si `frMatrix.every(r => r.covered)` AND `acMatrix.every(r => r.covered)` AND QA pasó → confidence no bloquea, baja a warning. Mostrar desglose del score en el mensaje cuando sí bloquea.
+
+### EVO-092 — `go` salta discovery gate si pre-planning existe
+
+**Problema:** Si `.aitri/discovery.md` ya existe (de `discover-idea`), el gate de discovery en `go` es redundante — exige el mismo artefacto en otro formato.
+
+**Fix:** En `go.js`, pasar `discoveryContent: null` si `.aitri/discovery.md` existe. La validación en `persona-validation.js` ya salta el gate si `discoveryContent` es falsy.
 
 ---
 
@@ -14,7 +33,58 @@ _(vacío)_
 
 ## 📋 Backlog
 
-_(vacío)_
+### EVO-088 — `go` validator: aceptar contenido de `.aitri/*.md` + diagnóstico exacto
+
+**Problema:** `persona-validation.js` sólo lee `docs/plan/<feature>.md`. Si el agente puso el contenido en `.aitri/architecture-decision.md` (que `plan` inyecta), los subsections `### Components`, `### Data flow`, etc. no están en la posición que espera `extractSubsection` → bloqueo con mensajes vagos.
+
+**Fix:**
+1. Cuando un subsection falla en `## 5. Architecture`, buscar también en `.aitri/architecture-decision.md` como fallback
+2. Mostrar exactamente: qué archivo, qué sección, qué contenido encontró vs qué esperaba
+3. `aitri plan` debe incluir scaffolding explícito de subsections antes del contenido inyectado
+
+### EVO-093 — US implementation completeness: toda US debe tener AC verificada
+
+**Problema:** Un feature puede tener todos los gates verdes (trazabilidad, contracts, prove) sin que exista implementación real para cada User Story. La cobertura es inferida, no verificada por US.
+
+**Fix en `deliver`:**
+1. Parsear US-* del backlog
+2. Mapear cada US a sus ACs (via spec + traceMap)
+3. Requerir que cada US tenga al menos un AC en `qa-report.md` con PASS
+4. BLOCKED si alguna US tiene cero ACs verificadas en QA
+
+### EVO-094 — Production code evidence gate: git diff desde go marker
+
+**Problema:** Todos los gates verifican archivos editables. Un agente puede editar artefactos para desbloquear sin escribir código real de producción. No hay signal de "alguien realmente implementó algo."
+
+**Fix en `deliver`:**
+1. Leer timestamp del `go-marker.json`
+2. Correr `git diff --name-only <go-commit>..HEAD`
+3. Filtrar archivos fuera de rutas aitri-owned
+4. Si cero archivos de producción cambiaron → BLOCKED con mensaje explicativo
+5. Mostrar lista de archivos de producción modificados como evidencia positiva
+
+### EVO-095 — QA report: validación semántica de evidencia (anti-gaming)
+
+**Problema:** `qa-report.md` es un archivo de texto que el agente escribe libremente. Puede escribir `AC-1: PASS — ok` sin haber ejecutado nada. `deliver` solo verifica que no haya `FAIL` y que `Decision: PASS` exista.
+
+**Fix en `deliver`:**
+1. Para cada línea `AC-N: PASS`, verificar que la evidencia (texto después del `—`) tenga contenido sustancial (> 20 chars, no genérico)
+2. Detectar evidencia trivial: `ok`, `passed`, `success`, `done` → WARN con "QA evidence is too thin — add actual command and response"
+3. No bloquear hard por esto (el agente puede haberlo corrido y resumido) pero alertar explícitamente
+
+### EVO-096 — `prove` freshness: re-ejecutar si stale en deliver
+
+**Problema:** `proof-of-compliance.json` se lee estáticamente. Si fue generado hace horas y el código cambió después, deliver lo acepta sin verificar que siga siendo válido.
+
+**Fix:** En `deliver`, si `proof-of-compliance.json` fue generado antes del último commit en `src/contracts/<feature>/` → marcar como stale y re-correr `aitri prove` inline antes de continuar.
+
+### EVO-091 — `prove` per-TC execution: eliminar false PASS binario
+
+**Problema:** `runtime.js:414`: `const passingTc = baseResult.ok ? executableTc : [];` — si `npm test` pasa globalmente, todos los TCs se marcan PASS. Binario. No hay ejecución individual por TC.
+
+**Fix:** En scaffold mode, correr cada `TC-N.test.js` individualmente (`node --test tests/<feature>/TC-N.test.js`) y acumular resultados per-TC. Mostrar qué TCs ejecutaron y pasaron vs cuáles fallaron.
+
+_Nota: EVO-087 (`aitri qa`) mitiga esto a nivel AC contra sistema real. Este EVO mejora la granularidad interna de `prove`._
 
 ---
 
