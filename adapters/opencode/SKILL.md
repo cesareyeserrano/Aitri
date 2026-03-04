@@ -17,6 +17,7 @@ Use Aitri as the CLI guardrail for spec-driven SDLC execution with mandatory hum
 6. Report state and next step
 
 ## Core Contract
+- All `aitri` commands must be executed from the workspace root. Verify with `pwd` if uncertain — running from a subdirectory causes silent path failures.
 - No implementation before approved spec.
 - No gate bypass.
 - One command step at a time.

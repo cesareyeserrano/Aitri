@@ -14,7 +14,8 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 3. Re-run `aitri resume`
 4. If checkpoint confirmation is requested, ask: "Checkpoint found. Continue from checkpoint? (yes/no)" and wait for explicit user decision.
 5. Read `docs/README.md` and `docs/EXECUTION_GUARDRAILS.md` if present.
-6. **Gemini Optimization:** Load and analyze all approved specs (`specs/approved/`) and the current project backlog into context to ensure cross-feature consistency.
+6. **Anti-Shadow-Change:** Before any pipeline step, re-read all relevant `.aitri/` artifacts from disk. Never rely on in-context cached versions — the user may have edited them manually between steps.
+7. **Gemini Optimization:** Load and analyze all approved specs (`specs/approved/`) and the current project backlog into context to ensure cross-feature consistency.
 7. Report state and next recommended step.
 
 ## Non-Negotiable Rules

@@ -729,7 +729,8 @@ export function getStatusReport(options = {}) {
     config: {
       loaded: config.loaded,
       file: config.file,
-      paths: { ...config.paths }
+      paths: { ...config.paths },
+      ai: config.ai || null
     },
     structure: {
       ok: missingDirs.length === 0,
