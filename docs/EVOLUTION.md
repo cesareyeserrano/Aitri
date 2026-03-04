@@ -40,15 +40,9 @@
 
 > _Feedback de prueba real (2026-03-03) — proyecto Ultron, flujo UX/UI improvement + audit_
 
-### EVO-063 — pre-planning → draft: conexión automática no existe (P1)
+### ~~EVO-063~~ — pre-planning → draft: conexión automática (DONE 2026-03-03)
 
-**Feedback origen:** Prueba Ultron 2026-03-03. Los artefactos `.aitri/` (discovery, product-spec, ux-design, etc.) existen como documentos estáticos pero `aitri draft` no los usa automáticamente. El agente debe recordar manualmente pasar el dev-roadmap como contexto. No hay guard que diga "pre-planning completo — úsalo como fuente para draft".
-
-**EVO-038 implementó** que `draft` inyecta dev-roadmap como sección, pero solo si el agente lo invoca correctamente. `aitri resume` no dice "pre-planning completo, próximo paso: `aitri draft --feature <name>`".
-
-**Cambios propuestos:**
-- `runtime-flow.js`: agregar estado `complete` al pre-planning — cuando todos los 7 artefactos existen, `resume` dice "Pre-planning: complete" y recomienda `aitri draft --feature <name> (referencia .aitri/dev-roadmap.md)`
-- `aitri draft`: si `.aitri/dev-roadmap.md` existe y no se está usando como contexto, advertir al agente
+`runtime-flow.js` `resume` ahora detecta cuando todos los 7 artefactos `.aitri/` existen y no hay feature en progreso: muestra "Pre-planning: complete ✓", line "Source: .aitri/dev-roadmap.md → auto-injected into draft", recomienda `aitri draft --feature <your-feature-name>` con mensaje why explícito. `draft.js` ya inyectaba dev-roadmap automáticamente (EVO-038). JSON payload incluye `why` con instrucción completa.
 
 
 ### EVO-065 — `audit --feature` framing confuso para proyectos evolucionados (P1)

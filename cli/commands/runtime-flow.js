@@ -347,9 +347,12 @@ export async function runResumeCommand({
   const prePlanning = getPrePlanningStatus(process.cwd());
   const noFeatureInProgress = doneCount === 0 && !featureLabel;
   const projectNeedsInit = report.nextStep === "aitri init";
+  const prePlanningCompleteNoFeature = prePlanning.status === "complete" && noFeatureInProgress && !projectNeedsInit;
   const effectiveRecommendedCommand = (prePlanning.status !== "complete" && noFeatureInProgress && !projectNeedsInit)
     ? prePlanning.nextCommand
-    : (report.recommendedCommand || toRecommendedCommand(report.nextStep));
+    : prePlanningCompleteNoFeature
+      ? "aitri draft --feature <your-feature-name>"
+      : (report.recommendedCommand || toRecommendedCommand(report.nextStep));
 
   const docsRoot = path.join(process.cwd(), report.config?.paths?.docs || "docs");
   const epics = readEpicsSummaryFromDocsRoot(docsRoot);
@@ -380,7 +383,9 @@ export async function runResumeCommand({
     stagesComplete: doneCount,
     stagesTotal: stages.length,
     stages: stages.map((s, i) => ({ step: i + 1, name: s.name, done: s.done })),
-    why: report.nextStepMessage || "",
+    why: prePlanningCompleteNoFeature
+      ? "All 7 pre-planning artifacts are ready. Run draft to start the feature pipeline; .aitri/dev-roadmap.md will be auto-injected as context."
+      : (report.nextStepMessage || ""),
     message: needsResumeDecision
       ? "Checkpoint detected. Explicit user confirmation is required to continue."
       : "No checkpoint decision required. Continue with recommended command."
@@ -399,7 +404,10 @@ export async function runResumeCommand({
     const label = prePlanning.status === "not-started" ? "not started" : "in progress";
     console.log(`  Pre-planning: ${label}`);
   } else {
-    console.log("  Pre-planning: complete");
+    console.log("  Pre-planning: complete ✓");
+    if (prePlanningCompleteNoFeature) {
+      console.log("  Source:       .aitri/dev-roadmap.md → auto-injected into draft");
+    }
   }
   if (activeEpic && epicProgress) {
     console.log(`  Epic:         ${activeEpic}  (${epicProgress.delivered}/${epicProgress.total} delivered)`);
@@ -428,7 +436,9 @@ export async function runResumeCommand({
     console.log("");
   }
   console.log(`  Next   ${effectiveRecommendedCommand}`);
-  if (report.nextStepMessage) {
+  if (prePlanningCompleteNoFeature) {
+    console.log("  Why    Pre-planning complete. .aitri/dev-roadmap.md will be auto-injected as context into the draft spec.");
+  } else if (report.nextStepMessage) {
     console.log(`  Why    ${report.nextStepMessage}`);
   }
   console.log("");
