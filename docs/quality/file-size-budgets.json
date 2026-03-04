@@ -335,5 +335,9 @@
   "cli/lib/draft-utils.js": {
     "soft": 85,
     "hard": 110
+  },
+  "cli/commands/close.js": {
+    "soft": 140,
+    "hard": 180
   }
 }

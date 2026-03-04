@@ -53,6 +53,7 @@ import { runSecReviewCommand } from "./commands/sec-review.js";
 import { runQaPlanCommand } from "./commands/qa-plan.js";
 import { runDevRoadmapCommand } from "./commands/dev-roadmap.js";
 import { runEpicCreateCommand, runEpicStatusCommand } from "./commands/epic.js";
+import { runCloseCommand } from "./commands/close.js";
 import { fileURLToPath } from "node:url";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import {
@@ -374,7 +375,7 @@ Epics (optional — organize features into outcomes):
   aitri epic status [--name <name>]
   aitri status --epic <name>       Filtered status view for an epic
 
-Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff, adopt, upgrade, audit, serve
+Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff, adopt, upgrade, audit, close, serve
 Pipeline helpers: discover, verify, validate, policy, scaffold, implement
 
 Common options:
@@ -694,6 +695,10 @@ if (cmd === "epic") {
     code = EXIT_ERROR;
   }
   process.exit(code);
+}
+
+if (cmd === "close") {
+  process.exit(runCloseCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } }));
 }
 
 console.log("Unknown command.");
