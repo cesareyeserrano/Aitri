@@ -45,30 +45,18 @@
 `runtime-flow.js` `resume` ahora detecta cuando todos los 7 artefactos `.aitri/` existen y no hay feature en progreso: muestra "Pre-planning: complete ✓", line "Source: .aitri/dev-roadmap.md → auto-injected into draft", recomienda `aitri draft --feature <your-feature-name>` con mensaje why explícito. `draft.js` ya inyectaba dev-roadmap automáticamente (EVO-038). JSON payload incluye `why` con instrucción completa.
 
 
-### EVO-065 — `audit --feature` framing confuso para proyectos evolucionados (P1)
+### ~~EVO-065~~ — `audit` framing confuso (CLOSED — cubierto por EVO-061)
 
-**Feedback origen:** Prueba Ultron 2026-03-03. Con 5 features aprobados y pipeline completo, `aitri audit` pregunta por feature. Pero los features pueden ser viejos (meses), superados por refactors, o la implementación real puede vivir completamente fuera del pipeline Aitri. El framing feature-céntrico da una falsa sensación de salud.
+`aitri audit` sin args ahora corre Layer 2+3+4 sobre todo el proyecto (sin pedir feature). `--feature` es opcional y solo activa Layer 1 (pipeline compliance). El principio "audit responde ¿está sano el proyecto hoy?" está implementado.
 
-**Principio:** El audit debe responder "¿está sano el proyecto hoy?" — no "¿está sano el pipeline del feature X?". La respuesta a la segunda pregunta puede ser "sí" mientras la primera es "no".
+### ~~EVO-051~~ — UX output pobre (CLOSED — causa raíz: SKILL compliance pre-EVO-054)
 
-**Nota:** parcialmente cubierto por EVO-061. Este EVO captura el principio de diseño para que no se pierda al implementar.
+Re-test con adapter actualizado (2026-03-03, Ultron). `aitri ux-design` produce output correcto:
+- Path del artefacto explícito: `→ Artifact: .aitri/ux-design.md`
+- Persona system prompt completo (ux-ui.md) + task con product spec inline
+- Artefacto resultante: 170 líneas, 6 secciones mandatorias, State Matrix tabular, Accessibility audit con severity, Implementation Notes para Architect
 
-> _Feedback de prueba real (2026-02-27) — proyecto existente, flujo UX/UI improvement_
-
-### EVO-051 — UX output pobre: resultado no alineado al requerimiento
-
-**Feedback:** El resultado de `ux-design` fue pobre. El usuario no vio dónde vive el artefacto UX, no hubo propuesta visible para validar alineación, y el contenido generado no estuvo a la altura del requerimiento real (mejora UX/UI de dashboard).
-
-**⚠️ Nota de contexto:** El test fue realizado con el adapter Codex **antes del upgrade completo** de SKILL.md (EVO-054/055/056). Parte del output pobre puede ser compliance/SKILL failure, no calidad del prompt de `ux-design`. Antes de cambiar el prompt, re-testear con adapter actualizado para aislar la causa raíz.
-
-**Scope:**
-- Re-testear `ux-design` con adapter actualizado (post EVO-054/055/056) para confirmar si el problema persiste
-- Si persiste: mejorar el prompt para que genere flujo de usuario, wireframe textual (ASCII o descripción), decisiones de diseño con justificación
-- Al terminar, mostrar path del artefacto y preview inline de 10-15 líneas
-- Agregar gate de validación: "¿Esta propuesta UX refleja tu requerimiento? (sí/ajustar)"
-- Si el problema era SKILL compliance: cerrar EVO sin cambio de prompt
-
-**Prioridad:** Alta — pero implementar solo después de re-test con adapter actualizado.
+La causa raíz era SKILL compliance del adapter Codex previo a EVO-054/055/056. El prompt de `ux-design.js` es correcto. Cerrado sin cambio de prompt.
 
 ---
 
