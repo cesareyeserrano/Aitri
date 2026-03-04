@@ -1,0 +1,23 @@
+{
+  "testFiles": [
+    "tests/audit-refactor/generated/tc-1-validate-us-1-primary-behavior.test.mjs",
+    "tests/audit-refactor/generated/tc-6-handle-edge-behavior-project-has-src.test.mjs",
+    "tests/audit-refactor/generated/tc-7-handle-edge-behavior-project-has-no-.test.mjs",
+    "tests/audit-refactor/generated/tc-8-enforce-security-control-collectsour.test.mjs",
+    "tests/audit-refactor/generated/tc-2-validate-us-2-primary-behavior.test.mjs",
+    "tests/audit-refactor/generated/tc-3-validate-us-3-primary-behavior.test.mjs",
+    "tests/audit-refactor/generated/tc-4-validate-us-4-primary-behavior.test.mjs",
+    "tests/audit-refactor/generated/tc-5-validate-us-5-primary-behavior.test.mjs"
+  ],
+  "interfaceFiles": [
+    "src/contracts/fr-1-layer-2-code-quality-scan-and-la.js",
+    "src/contracts/fr-2-collectsourcefiles-must-always-w.js",
+    "src/contracts/fr-3-layer-4-llm-review-must-be-refac.js",
+    "src/contracts/fr-4-aitri-audit-without-feature-must.js",
+    "src/contracts/fr-5-aitri-audit-feature-name-must-co.js"
+  ],
+  "baseConfigs": [],
+  "feature": "audit-refactor",
+  "stackFamily": "node",
+  "generatedAt": "2026-03-04T01:12:33.872Z"
+}

@@ -1,0 +1,28 @@
+{
+  "ok": true,
+  "limited": false,
+  "feature": "audit-refactor",
+  "evaluatedAt": "2026-03-04T01:11:43.355Z",
+  "policy": {
+    "allowDependencyChanges": false,
+    "blockedImports": [],
+    "blockedPaths": []
+  },
+  "files": {
+    "changed": [],
+    "dependencyChanged": []
+  },
+  "gaps": {
+    "dependency_drift": [],
+    "forbidden_path": [],
+    "forbidden_import": []
+  },
+  "gapSummary": {
+    "dependency_drift": 0,
+    "forbidden_path": 0,
+    "forbidden_import": 0
+  },
+  "issues": [],
+  "warnings": [],
+  "evidenceFile": "docs/policy/audit-refactor.json"
+}

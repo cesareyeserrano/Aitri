@@ -1,0 +1,55 @@
+{
+  "feature": "audit-refactor",
+  "generatedAt": "2026-03-04T01:12:33.873Z",
+  "stories": [
+    {
+      "id": "US-1",
+      "order": 1,
+      "dependencyScore": 2,
+      "brief": "docs/implementation/audit-refactor/US-1.md",
+      "testCases": [
+        "TC-1",
+        "TC-6",
+        "TC-7",
+        "TC-8"
+      ]
+    },
+    {
+      "id": "US-2",
+      "order": 2,
+      "dependencyScore": 2,
+      "brief": "docs/implementation/audit-refactor/US-2.md",
+      "testCases": [
+        "TC-2"
+      ]
+    },
+    {
+      "id": "US-3",
+      "order": 3,
+      "dependencyScore": 2,
+      "brief": "docs/implementation/audit-refactor/US-3.md",
+      "testCases": [
+        "TC-3"
+      ]
+    },
+    {
+      "id": "US-4",
+      "order": 4,
+      "dependencyScore": 2,
+      "brief": "docs/implementation/audit-refactor/US-4.md",
+      "testCases": [
+        "TC-4"
+      ]
+    },
+    {
+      "id": "US-5",
+      "order": 5,
+      "dependencyScore": 2,
+      "brief": "docs/implementation/audit-refactor/US-5.md",
+      "testCases": [
+        "TC-5"
+      ]
+    }
+  ],
+  "orderFile": "docs/implementation/audit-refactor/IMPLEMENTATION_ORDER.md"
+}
