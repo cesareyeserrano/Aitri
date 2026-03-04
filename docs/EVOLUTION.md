@@ -2,13 +2,70 @@
 
 ## 🟢 Ready for Implementation
 
-_(ninguno pendiente)_
+### EVO-061 — `audit` refactor: scope proyecto + output-prompt pattern (P0)
+
+**Feedback origen:** Prueba en Ultron (2026-03-03). `aitri audit --feature <name>` solo audita el pipeline de un feature específico. El código real del proyecto (Go en `internal/`, `cmd/`) nunca es escaneado. Además `audit.js` llama `callAI` directamente — mismo problema arquitectónico que los pre-planning commands.
+
+**Problemas confirmados:**
+1. `collectSourceFiles` inicia walk desde `src/` si existe → en Ultron, `src/` solo tiene contratos JS; `internal/*.go` nunca escaneado
+2. Layer 4 llama `callAI` directamente → falla con "AI API key not found" (viola Aitri-as-skill)
+3. Layer 2 y Layer 3 quedan bloqueados si no hay `codeOnlyMode` ni feature → `aitri audit` sin args no corre nada útil
+4. `--feature` hace sentido para pipeline compliance (Layer 1), pero el resto de las capas deben correr siempre sobre el proyecto completo
+
+**Cambios propuestos:**
+- `aitri audit` (sin args) → Layer 2 + Layer 3 + Layer 4 prompt output — audita todo el proyecto
+- `aitri audit --feature <name>` → Layer 1 (pipeline compliance) + Layer 2 + Layer 3 + Layer 4 con spec como contexto adicional
+- Layer 4: remover `callAI`, outputear prompts con personas cargadas para que el agente ejecute el análisis (igual que pre-planning)
+- `collectSourceFiles`: walk desde root siempre, con exclusiones explícitas (`node_modules`, `dist`, `.git`, `.gocache`); no asumir `src/` como root
+
+### EVO-062 — Contratos triviales: proof-of-compliance estructuralmente inválido (P0)
+
+**Feedback origen:** Prueba en Ultron (2026-03-03). 5 de 14 contratos de `total-stabilization` retornan `return { ok: true, fr: "FR-X", input }` sin ninguna lógica. Los tests les pasan `{}` (objeto vacío). El contrato lee `input.somePath` → undefined → `fs.existsSync(undefined)` → false → pero retorna `ok: true` de todas formas. El proof-of-compliance marca `ok: true, proven: 5/5` — pero no verificó nada real.
+
+**Causa raíz:** `contractgen` no tiene guard contra contratos que siempre retornan true sin condiciones. `prove` no detecta que el contrato ignora completamente el input.
+
+**Cambios propuestos:**
+- `aitri prove`: detectar contratos que retornan `ok: true` sin leer ninguna propiedad del `input` → marcar como `trivial_contract` (similar a `trivial_tc` existente)
+- `aitri audit`: Layer 1 agrega detección de contratos triviales como finding `HIGH`
+- `contractgen` persona output: instrucción explícita en el task prompt — "a contract that returns `ok: true` without reading `input` properties is invalid; every contract must verify at least one property of the input object"
+- Documentar en `docs/guides/` que el contrato es un verificador, no un stub
+
+---
 
 ## 🟡 In Progress
 
 ---
 
 ## 📋 Backlog
+
+> _Feedback de prueba real (2026-03-03) — proyecto Ultron, flujo UX/UI improvement + audit_
+
+### EVO-063 — pre-planning → draft: conexión automática no existe (P1)
+
+**Feedback origen:** Prueba Ultron 2026-03-03. Los artefactos `.aitri/` (discovery, product-spec, ux-design, etc.) existen como documentos estáticos pero `aitri draft` no los usa automáticamente. El agente debe recordar manualmente pasar el dev-roadmap como contexto. No hay guard que diga "pre-planning completo — úsalo como fuente para draft".
+
+**EVO-038 implementó** que `draft` inyecta dev-roadmap como sección, pero solo si el agente lo invoca correctamente. `aitri resume` no dice "pre-planning completo, próximo paso: `aitri draft --feature <name>`".
+
+**Cambios propuestos:**
+- `runtime-flow.js`: agregar estado `complete` al pre-planning — cuando todos los 7 artefactos existen, `resume` dice "Pre-planning: complete" y recomienda `aitri draft --feature <name> (referencia .aitri/dev-roadmap.md)`
+- `aitri draft`: si `.aitri/dev-roadmap.md` existe y no se está usando como contexto, advertir al agente
+
+### EVO-064 — Checkpoint automático absorbe archivos no deseados (P2)
+
+**Feedback origen:** Prueba Ultron 2026-03-03. El checkpoint (`git add -A && git commit`) committeó `.gocache/` — 1111 archivos. Los write commands de Aitri usan `git add -A` sin validación de tamaño ni archivos ignorables.
+
+**Cambios propuestos:**
+- Antes de cada checkpoint automático: verificar que el número de archivos staged sea razonable (threshold: >100 archivos → advertir y listar los top 5 directorios por count)
+- Documentar en SKILL.md: "si el proyecto no tiene `.gitignore` completo, el checkpoint puede absorber build artifacts — verificar antes de confirmar"
+- Considerar usar `git add` selectivo (solo `.aitri/`, `specs/`, `tests/`, `src/`, `docs/`) en lugar de `-A`
+
+### EVO-065 — `audit --feature` framing confuso para proyectos evolucionados (P1)
+
+**Feedback origen:** Prueba Ultron 2026-03-03. Con 5 features aprobados y pipeline completo, `aitri audit` pregunta por feature. Pero los features pueden ser viejos (meses), superados por refactors, o la implementación real puede vivir completamente fuera del pipeline Aitri. El framing feature-céntrico da una falsa sensación de salud.
+
+**Principio:** El audit debe responder "¿está sano el proyecto hoy?" — no "¿está sano el pipeline del feature X?". La respuesta a la segunda pregunta puede ser "sí" mientras la primera es "no".
+
+**Nota:** parcialmente cubierto por EVO-061. Este EVO captura el principio de diseño para que no se pierda al implementar.
 
 > _Feedback de prueba real (2026-02-27) — proyecto existente, flujo UX/UI improvement_
 
