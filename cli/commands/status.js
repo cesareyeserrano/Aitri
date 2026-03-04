@@ -959,6 +959,25 @@ export function getStatusReport(options = {}) {
       deliveryReady: false,
       verification: null
     });
+    // If no spec yet, check whether pre-planning is complete before recommending draft
+    if (report.nextStep === "aitri draft") {
+      const aitrDir = path.join(root, ".aitri");
+      const PRE_PLANNING_STEPS = [
+        { file: path.join(aitrDir, "discovery.md"),             cmd: "aitri discover-idea" },
+        { file: path.join(aitrDir, "product-spec.md"),          cmd: "aitri product-spec" },
+        { file: path.join(aitrDir, "ux-design.md"),             cmd: "aitri ux-design" },
+        { file: path.join(aitrDir, "architecture-decision.md"), cmd: "aitri arch-design" },
+        { file: path.join(aitrDir, "security-review.md"),       cmd: "aitri sec-review" },
+        { file: path.join(aitrDir, "qa-plan.md"),               cmd: "aitri qa-plan" },
+        { file: path.join(aitrDir, "dev-roadmap.md"),           cmd: "aitri dev-roadmap" },
+      ];
+      const firstMissing = PRE_PLANNING_STEPS.find(e => !exists(e.file));
+      if (firstMissing) {
+        report.nextStep = firstMissing.cmd;
+        report.recommendedCommand = firstMissing.cmd;
+        report.nextStepMessage = "Complete pre-planning before creating feature specs.";
+      }
+    }
   }
 
   if (report.nextStep === "ready_for_human_approval") {

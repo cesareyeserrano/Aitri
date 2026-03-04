@@ -14,6 +14,7 @@ _(vacío)_
 
 ## 📋 Backlog
 
+
 ### EVO-067 — `checkpoint` fail-safe
 
 **Feedback:** Si `aitri checkpoint` falla (index.lock, permisos), el error se suprime y el agente continúa sin estado guardado. Pérdida de estado silenciosa entre sesiones.
@@ -164,6 +165,10 @@ _(vacío)_
 
 > Historial completo en `git log`. Para v1.2.x e inferior ver `git log --oneline`.
 > Release actual: **v1.3.0**
+
+### EVO-072 — `init` next-steps: guiar hacia pre-planning, no `draft` directo (DONE 2026-03-04)
+
+`init.js` ahora imprime `→ Next: run \`aitri resume\` to see your next step. For new projects, start with \`aitri discover-idea\`.` `getStatusReport` en `status.js` overrides `recommendedCommand` con el primer artefacto pre-planning faltante cuando `nextStep === "aitri draft"` y `.aitri/discovery.md` no existe.
 
 ### EVO-066 — `audit` report: formato humano + guía post-audit (DONE 2026-03-03)
 

@@ -29,6 +29,7 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 8. **Traceability:** Every code change must be traceable to a `TC-*` ID and a `US-*` ID.
 9. **NEVER perform analysis, audit, code review, code generation, or pipeline work without first invoking the corresponding `aitri` command.** Free-form work bypasses all gates. If you are about to do this — stop. Use the command mapping below.
 10. If no `aitri` command exists for what the user needs, say so explicitly and do not improvise a substitute.
+12. **Never modify `aitri.config.json` or configure an AI provider** without explicit user instruction. Do not use environment variables to infer or set AI config — ask the user which provider and key to use.
 11. **Before marking any Aitri implementation complete**, verify test coverage per `docs/architecture.md#test-coverage-requirements`: (a) architecture invariants have constraint tests, (b) file-walking functions tested with realistic directory trees, (c) heuristic detection functions exercised via full pipeline — not just unit tests.
 
 ## Command Mapping (action → aitri command)

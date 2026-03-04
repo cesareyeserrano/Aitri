@@ -141,6 +141,8 @@ export async function runInitCommand({
 
   console.log("Project initialized by Aitri ⚒️");
   console.log(`Project profile: ${path.relative(root, projectProfileFile)} (${projectName})`);
+  console.log("→ Next: run `aitri resume` to see your next step.");
+  console.log("  For new projects, start with `aitri discover-idea`.");
   printCheckpointSummary(runAutoCheckpoint({
     enabled: options.autoCheckpoint,
     phase: "init",

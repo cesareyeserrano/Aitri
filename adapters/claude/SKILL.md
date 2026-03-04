@@ -25,6 +25,7 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 7. If requirement details are missing, ask the user and stop advancement until clarified.
 8. **NEVER perform analysis, audit, code review, code generation, or pipeline work without first invoking the corresponding `aitri` command.** Free-form work outside the pipeline bypasses all gates and makes Aitri decorative. If you are about to do any of these things without an `aitri` command — stop. Use the command mapping below.
 9. If no `aitri` command exists for what the user needs, say so explicitly and do not improvise a substitute. Document the gap instead.
+11. **Never modify `aitri.config.json` or configure an AI provider** without explicit user instruction. Do not use environment variables to infer or set AI config — ask the user which provider and key to use.
 10. **Before marking any Aitri implementation complete**, verify test coverage per `docs/architecture.md#test-coverage-requirements`: (a) architecture invariants have constraint tests, (b) file-walking functions tested with realistic directory trees, (c) heuristic detection functions exercised via full pipeline — not just unit tests.
 
 ## Command Mapping (action → aitri command)
