@@ -44,18 +44,6 @@ _(vacío)_
 
 ---
 
-### EVO-070 — `aitri close --feature X`: closure report
-
-**Feedback:** No existe un comando que confirme el cierre limpio de un feature. El agente inventa el resumen de cierre sin base verificable.
-
-**Scope:**
-- Nuevo comando `aitri close --feature <name>` (o `--json`)
-- Output: gate status (approve/go/deliver ✓/✗), proof-of-compliance summary, commits del feature (baseline: fecha de aprobación del spec), audit findings pendientes en `docs/audit/audit-findings.json`
-- No destructivo — solo lectura y reporte
-
-**Prioridad:** Media-alta — cierra el loop del pipeline, evita cierres inventados.
-
----
 
 ### EVO-069 — Pre-planning: verificar que el artefacto fue escrito
 
@@ -194,6 +182,10 @@ Al final del output de Layer 4, instrucción explícita: escribir todos los hall
 ### EVO-067 — `checkpoint` fail-safe (DONE 2026-03-04)
 
 `checkpoint.js`: errores de escritura en `DEV_STATE.md` ahora retornan ERROR con mensaje descriptivo (código `EACCES`, `ELOCKED`, etc.). No más pérdida silenciosa de estado.
+
+### EVO-070 — `aitri close --feature X`: closure report (DONE 2026-03-04)
+
+Nuevo comando `cli/commands/close.js` (134 líneas): ✓/✗ de 6 gates (spec, go, build, proof, verification, delivery), stats de proof, open CRITICAL/HIGH audit findings, commits recientes. Soporte `--json`. Registrado en `index.js`.
 
 ### EVO-047 — Reducir `draft.js` por debajo del hard limit (DONE 2026-03-04)
 
