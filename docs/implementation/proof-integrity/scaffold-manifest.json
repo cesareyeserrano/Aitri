@@ -1,0 +1,21 @@
+{
+  "testFiles": [
+    "tests/proof-integrity/generated/tc-1-validate-us-1-primary-behavior.test.mjs",
+    "tests/proof-integrity/generated/tc-5-handle-edge-behavior-contract-reads-.test.mjs",
+    "tests/proof-integrity/generated/tc-6-handle-edge-behavior-contract-condit.test.mjs",
+    "tests/proof-integrity/generated/tc-7-enforce-security-control-contract-fi.test.mjs",
+    "tests/proof-integrity/generated/tc-2-validate-us-2-primary-behavior.test.mjs",
+    "tests/proof-integrity/generated/tc-3-validate-us-3-primary-behavior.test.mjs",
+    "tests/proof-integrity/generated/tc-4-validate-us-4-primary-behavior.test.mjs"
+  ],
+  "interfaceFiles": [
+    "src/contracts/fr-1-aitri-prove-must-detect-contract.js",
+    "src/contracts/fr-2-aitri-audit-layer-1-pipeline-com.js",
+    "src/contracts/fr-3-aitri-contractgen-persona-task-o.js",
+    "src/contracts/fr-4-aitri-prove-must-display-trivial.js"
+  ],
+  "baseConfigs": [],
+  "feature": "proof-integrity",
+  "stackFamily": "node",
+  "generatedAt": "2026-03-04T01:13:10.810Z"
+}
