@@ -331,5 +331,9 @@
       "soft": 110,
       "hard": 140
     }
-  ]
+  ],
+  "cli/lib/draft-utils.js": {
+    "soft": 85,
+    "hard": 110
+  }
 }

@@ -28,8 +28,13 @@ export function runCheckpointCommand({ options, exitCodes }) {
   const blocker = options.blocker || null;
 
   // Ensure .aitri/ dir exists
-  if (!fs.existsSync(checkpointDir)) {
-    fs.mkdirSync(checkpointDir, { recursive: true });
+  try {
+    if (!fs.existsSync(checkpointDir)) {
+      fs.mkdirSync(checkpointDir, { recursive: true });
+    }
+  } catch (err) {
+    console.log(`Checkpoint ERROR: cannot create ${CHECKPOINT_DIR}/ — ${err.code || err.message}`);
+    return exitCodes.ERROR;
   }
 
   const timestamp = new Date().toISOString();
@@ -37,7 +42,12 @@ export function runCheckpointCommand({ options, exitCodes }) {
   if (!fs.existsSync(checkpointPath)) {
     // Bootstrap checkpoint from scratch
     const initial = generateCheckpoint({ timestamp, agent, message, objective, nextAction, blocker });
-    fs.writeFileSync(checkpointPath, initial, "utf8");
+    try {
+      fs.writeFileSync(checkpointPath, initial, "utf8");
+    } catch (err) {
+      console.log(`Checkpoint ERROR: cannot write ${CHECKPOINT_FILE} — ${err.code || err.message}`);
+      return exitCodes.ERROR;
+    }
     console.log(`Checkpoint created: ${CHECKPOINT_FILE}`);
     console.log(`Timestamp: ${timestamp}`);
     if (message) console.log(`Context: ${message}`);
@@ -45,7 +55,13 @@ export function runCheckpointCommand({ options, exitCodes }) {
   }
 
   // Patch existing checkpoint — only update what was explicitly provided
-  let content = fs.readFileSync(checkpointPath, "utf8");
+  let content;
+  try {
+    content = fs.readFileSync(checkpointPath, "utf8");
+  } catch (err) {
+    console.log(`Checkpoint ERROR: cannot read ${CHECKPOINT_FILE} — ${err.code || err.message}`);
+    return exitCodes.ERROR;
+  }
 
   content = content.replace(TIMESTAMP_RE, `> LAST UPDATE: ${timestamp}`);
   content = content.replace(AGENT_RE, `> AGENT: ${agent}`);
@@ -78,7 +94,12 @@ export function runCheckpointCommand({ options, exitCodes }) {
     );
   }
 
-  fs.writeFileSync(checkpointPath, content, "utf8");
+  try {
+    fs.writeFileSync(checkpointPath, content, "utf8");
+  } catch (err) {
+    console.log(`Checkpoint ERROR: cannot write ${CHECKPOINT_FILE} — ${err.code || err.message}`);
+    return exitCodes.ERROR;
+  }
 
   console.log(`Checkpoint saved: ${CHECKPOINT_FILE}`);
   console.log(`Timestamp: ${timestamp}`);

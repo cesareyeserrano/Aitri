@@ -114,12 +114,24 @@ export async function runContractgenCommand({
     const testContext = readTestContext(contractPath, generatedDir);
     const relPath = path.relative(root, contractPath);
 
+    // EVO-083: detect UI/frontend FRs and add HTML-string contract guidance
+    const isUiFr = /\b(page\s+must|display|render|show|button|form|input|click|dom|html|ui|screen)\b/i.test(fr.text);
+    const uiNote = isUiFr
+      ? `\nUI/Frontend FR detected: This FR describes browser behavior (DOM, display, interaction).
+Pure-function contracts cannot test live DOM. Write a contract that analyzes the HTML string structure:
+  - Accept \`input\` with \`input.html\` (the HTML source as a string)
+  - Use regex or string checks to verify the required element/structure is present
+  - Return \`{ ok: boolean, reason: string }\`
+  - Example: \`const ok = /<button[^>]*>Done<\\/button>/i.test(input.html)\`
+  Add a note: // UI contract: tests HTML structure, not live DOM behavior\n`
+      : "";
+
     console.log(`\n--- AGENT TASK: contractgen ${fr.id} ---`);
     console.log(personaSection + `Implement the contract function for ${fr.id}.
 
 Functional Requirement: ${fr.id} — ${fr.text}
 Stack: ${stackFamily}
-
+${uiNote}
 Current contract placeholder — REPLACE the placeholder body with a real implementation:
 \`\`\`
 ${contractContent.trim()}

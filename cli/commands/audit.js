@@ -306,6 +306,10 @@ ${contractSection}`);
 
   console.log(`\n${"─".repeat(60)}`);
   console.log("→ Execute each analysis above and report findings using the FINDING: format.");
+  // EVO-085: Layer 4 gate — instruct agent to write findings file
+  console.log(`\nAfter running all analyses, write ALL findings to: .aitri/audit-findings.md`);
+  console.log(`Format each line as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <description>`);
+  console.log(`Note: aitri deliver will block on any CRITICAL or HIGH findings in that file.`);
   console.log(`${"─".repeat(60)}\n`);
 }
 
@@ -451,10 +455,22 @@ export async function runAuditCommand({ options, getProjectContextOrExit, ask, e
       ? path.join(paths.implementationFeatureDir(feature), "scaffold-manifest.json")
       : null;
     const scaffoldManifest = scaffoldManifestFile && exists(scaffoldManifestFile) ? readJsonSafe(scaffoldManifestFile) : null;
-    const contractFiles = scaffoldManifest?.interfaceFiles || discoverContractFiles(root);
+    const specContent = hasApprovedSpec && feature ? fs.readFileSync(paths.approvedSpecFile(feature), "utf8") : null;
+    // EVO-084: when feature is specified but no manifest, filter discovered contracts by FR IDs in the spec
+    let contractFiles;
+    if (scaffoldManifest?.interfaceFiles) {
+      contractFiles = scaffoldManifest.interfaceFiles;
+    } else if (feature && specContent) {
+      const frIds = [...specContent.matchAll(/^(FR-\d+)/gm)].map(m => m[1].toLowerCase() + "-");
+      const all = discoverContractFiles(root);
+      contractFiles = frIds.length > 0
+        ? all.filter(f => frIds.some(id => path.basename(f).startsWith(id)))
+        : all;
+    } else {
+      contractFiles = discoverContractFiles(root);
+    }
     const contractSamples = readContractSamples(root, contractFiles);
     const sourceSample = readSourceSample(root);
-    const specContent = hasApprovedSpec && feature ? fs.readFileSync(paths.approvedSpecFile(feature), "utf8") : null;
 
     console.log("\n\nAitri Audit — Layer 4: Agent Analysis");
     console.log("Execute the following persona-driven analysis tasks:\n");
