@@ -2,8 +2,7 @@
 // Pre-planning stage 7: Lead Developer persona
 import fs from "node:fs";
 import path from "node:path";
-import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const ARTIFACT = ".aitri/dev-roadmap.md";
 
@@ -47,15 +46,9 @@ ${optionalSection("QA Plan", qaPlan, "aitri qa-plan")}`;
 }
 
 export async function runDevRoadmapCommand({ options, getProjectContextOrExit, ask, exitCodes }) {
-  const { OK, ERROR, ABORTED } = exitCodes;
-  const project = getProjectContextOrExit();
+  const { OK, ERROR } = exitCodes;
+  getProjectContextOrExit();
   const root = process.cwd();
-  const aiConfig = project.config.ai || {};
-
-  if (!aiConfig.provider) {
-    console.log("AI is not configured. Add an `ai` section to aitri.config.json.");
-    return ERROR;
-  }
 
   const productSpecPath = path.join(root, ".aitri/product-spec.md");
   const archPath = path.join(root, ".aitri/architecture-decision.md");
@@ -93,39 +86,14 @@ export async function runDevRoadmapCommand({ options, getProjectContextOrExit, a
   const secReview = readOptional(root, ".aitri/security-review.md");
   const qaPlan = readOptional(root, ".aitri/qa-plan.md");
 
-  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["developer"]}] Producing implementation roadmap...`);
-
-  const result = await callAI({
-    prompt: buildPrompt(productSpec, arch, uxDesign, secReview, qaPlan),
-    systemPrompt: personaResult.systemPrompt,
-    config: aiConfig,
-  });
-
-  if (!result.ok) {
-    console.log(`AI error: ${result.error}`);
-    return ERROR;
-  }
-
-  const ts = new Date().toISOString();
-  const artifact = `<!-- Aitri Dev Roadmap — ${ts} -->\n\n${result.content}\n`;
-  fs.writeFileSync(outPath, artifact, "utf8");
-
-  const summary = extractPersonaSummary(result.content);
-  savePersonaContribution({ persona: "developer", command: "dev-roadmap", summary, root });
-  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["developer"]}] ${summary}`);
-
-  if (!options.nonInteractive && !options.yes) {
-    console.log(`\n--- DEV ROADMAP (${ARTIFACT}) ---`);
-    console.log(result.content.slice(0, 1400) + (result.content.length > 1400 ? "\n...(see file for full content)" : ""));
-    const answer = String(await ask("\nApprove dev roadmap and continue? (y/n): ")).trim().toLowerCase();
-    if (answer !== "y" && answer !== "yes") {
-      console.log(`Dev roadmap not approved. Edit ${ARTIFACT} and re-run.`);
-      return ABORTED;
-    }
-  }
-
-  console.log(`\nDev roadmap complete → ${ARTIFACT}`);
-  console.log("Pre-planning complete. Use the roadmap as reference when running:");
-  console.log("  aitri draft --feature <feature-name>");
+  console.log(`\n[${PERSONA_DISPLAY_NAMES["developer"]}] Loaded. Execute the following task:\n`);
+  console.log("## Persona System Prompt");
+  console.log(personaResult.systemPrompt);
+  console.log("\n## Task");
+  console.log(buildPrompt(productSpec, arch, uxDesign, secReview, qaPlan));
+  console.log("\n---");
+  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ Write the complete dev roadmap to: ${outPath}`);
+  console.log("→ Pre-planning complete. When done, use the roadmap as reference for: aitri draft --feature <name>");
   return OK;
 }

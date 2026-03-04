@@ -2,8 +2,7 @@
 // Pre-planning stage 4: System Architect persona
 import fs from "node:fs";
 import path from "node:path";
-import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const REQUIRES = ".aitri/product-spec.md";
 const ARTIFACT = ".aitri/architecture-decision.md";
@@ -35,15 +34,9 @@ ${uxSection}`;
 }
 
 export async function runArchDesignCommand({ options, getProjectContextOrExit, ask, exitCodes }) {
-  const { OK, ERROR, ABORTED } = exitCodes;
-  const project = getProjectContextOrExit();
+  const { OK, ERROR } = exitCodes;
+  getProjectContextOrExit();
   const root = process.cwd();
-  const aiConfig = project.config.ai || {};
-
-  if (!aiConfig.provider) {
-    console.log("AI is not configured. Add an `ai` section to aitri.config.json.");
-    return ERROR;
-  }
 
   const requiresPath = path.join(root, REQUIRES);
   if (!fs.existsSync(requiresPath)) {
@@ -65,7 +58,7 @@ export async function runArchDesignCommand({ options, getProjectContextOrExit, a
     ? fs.readFileSync(uxPath, "utf8")
     : null;
 
-  if (!uxDesignContent && !options.noUx && !options.nonInteractive) {
+  if (!uxDesignContent && !options.noUx) {
     console.log("Note: No UX design found (.aitri/ux-design.md). Proceeding without it.");
     console.log("      Run `aitri ux-design` first if this is a user-facing project.");
   }
@@ -80,38 +73,14 @@ export async function runArchDesignCommand({ options, getProjectContextOrExit, a
     if (ans !== "y" && ans !== "yes") { console.log("Skipped. Existing artifact retained."); return OK; }
   }
 
-  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["architect"]}] Evaluating architecture and stack...`);
-
-  const result = await callAI({
-    prompt: buildPrompt(productSpecContent, uxDesignContent),
-    systemPrompt: personaResult.systemPrompt,
-    config: aiConfig,
-  });
-
-  if (!result.ok) {
-    console.log(`AI error: ${result.error}`);
-    return ERROR;
-  }
-
-  const ts = new Date().toISOString();
-  const artifact = `<!-- Aitri Architecture Decision — ${ts} -->\n\n${result.content}\n`;
-  fs.writeFileSync(outPath, artifact, "utf8");
-
-  const summary = extractPersonaSummary(result.content);
-  savePersonaContribution({ persona: "architect", command: "arch-design", summary, root });
-  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["architect"]}] ${summary}`);
-
-  if (!options.nonInteractive && !options.yes) {
-    console.log(`\n--- ARCHITECTURE DECISION (${ARTIFACT}) ---`);
-    console.log(result.content.slice(0, 1400) + (result.content.length > 1400 ? "\n...(see file for full content)" : ""));
-    const answer = String(await ask("\nApprove architecture and continue? (y/n): ")).trim().toLowerCase();
-    if (answer !== "y" && answer !== "yes") {
-      console.log(`Architecture not approved. Edit ${ARTIFACT} and re-run.`);
-      return ABORTED;
-    }
-  }
-
-  console.log(`\nArchitecture complete → ${ARTIFACT}`);
-  console.log("Next: aitri sec-review");
+  console.log(`\n[${PERSONA_DISPLAY_NAMES["architect"]}] Loaded. Execute the following task:\n`);
+  console.log("## Persona System Prompt");
+  console.log(personaResult.systemPrompt);
+  console.log("\n## Task");
+  console.log(buildPrompt(productSpecContent, uxDesignContent));
+  console.log("\n---");
+  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ Write the complete architecture document to: ${outPath}`);
+  console.log("→ When done: aitri sec-review");
   return OK;
 }

@@ -2,8 +2,7 @@
 // Pre-planning stage 6: Quality Engineer persona
 import fs from "node:fs";
 import path from "node:path";
-import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const ARTIFACT = ".aitri/qa-plan.md";
 
@@ -42,15 +41,9 @@ ${secSection}`;
 }
 
 export async function runQaPlanCommand({ options, getProjectContextOrExit, ask, exitCodes }) {
-  const { OK, ERROR, ABORTED } = exitCodes;
-  const project = getProjectContextOrExit();
+  const { OK, ERROR } = exitCodes;
+  getProjectContextOrExit();
   const root = process.cwd();
-  const aiConfig = project.config.ai || {};
-
-  if (!aiConfig.provider) {
-    console.log("AI is not configured. Add an `ai` section to aitri.config.json.");
-    return ERROR;
-  }
 
   const productSpecPath = path.join(root, ".aitri/product-spec.md");
   const archPath = path.join(root, ".aitri/architecture-decision.md");
@@ -86,38 +79,14 @@ export async function runQaPlanCommand({ options, getProjectContextOrExit, ask, 
   const archContent = fs.readFileSync(archPath, "utf8");
   const secContent = readOptional(root, ".aitri/security-review.md");
 
-  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["qa"]}] Planning quality assurance and test coverage...`);
-
-  const result = await callAI({
-    prompt: buildPrompt(productSpecContent, archContent, secContent),
-    systemPrompt: personaResult.systemPrompt,
-    config: aiConfig,
-  });
-
-  if (!result.ok) {
-    console.log(`AI error: ${result.error}`);
-    return ERROR;
-  }
-
-  const ts = new Date().toISOString();
-  const artifact = `<!-- Aitri QA Plan — ${ts} -->\n\n${result.content}\n`;
-  fs.writeFileSync(outPath, artifact, "utf8");
-
-  const summary = extractPersonaSummary(result.content);
-  savePersonaContribution({ persona: "qa", command: "qa-plan", summary, root });
-  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["qa"]}] ${summary}`);
-
-  if (!options.nonInteractive && !options.yes) {
-    console.log(`\n--- QA PLAN (${ARTIFACT}) ---`);
-    console.log(result.content.slice(0, 1400) + (result.content.length > 1400 ? "\n...(see file for full content)" : ""));
-    const answer = String(await ask("\nApprove QA plan and continue? (y/n): ")).trim().toLowerCase();
-    if (answer !== "y" && answer !== "yes") {
-      console.log(`QA plan not approved. Edit ${ARTIFACT} and re-run.`);
-      return ABORTED;
-    }
-  }
-
-  console.log(`\nQA plan complete → ${ARTIFACT}`);
-  console.log("Next: aitri dev-roadmap");
+  console.log(`\n[${PERSONA_DISPLAY_NAMES["qa"]}] Loaded. Execute the following task:\n`);
+  console.log("## Persona System Prompt");
+  console.log(personaResult.systemPrompt);
+  console.log("\n## Task");
+  console.log(buildPrompt(productSpecContent, archContent, secContent));
+  console.log("\n---");
+  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ Write the complete QA plan to: ${outPath}`);
+  console.log("→ When done: aitri dev-roadmap");
   return OK;
 }

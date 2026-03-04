@@ -2,8 +2,7 @@
 // Pre-planning stage 1: Discovery Facilitator persona
 import fs from "node:fs";
 import path from "node:path";
-import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const ARTIFACT = ".aitri/discovery.md";
 
@@ -26,15 +25,9 @@ ${ideaText}`;
 }
 
 export async function runDiscoverIdeaCommand({ options, getProjectContextOrExit, ask, exitCodes }) {
-  const { OK, ERROR, ABORTED } = exitCodes;
-  const project = getProjectContextOrExit();
+  const { OK, ERROR } = exitCodes;
+  getProjectContextOrExit();
   const root = process.cwd();
-  const aiConfig = project.config.ai || {};
-
-  if (!aiConfig.provider) {
-    console.log("AI is not configured. Add an `ai` section to aitri.config.json.");
-    return ERROR;
-  }
 
   // Resolve idea text from --idea, --input file, or interactive prompt
   let ideaText = String(options.idea || "").trim();
@@ -65,39 +58,16 @@ export async function runDiscoverIdeaCommand({ options, getProjectContextOrExit,
     return ERROR;
   }
 
-  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["discovery"]}] Analyzing idea and framing problem space...`);
-
-  const result = await callAI({
-    prompt: buildPrompt(ideaText),
-    systemPrompt: personaResult.systemPrompt,
-    config: aiConfig,
-  });
-
-  if (!result.ok) {
-    console.log(`AI error: ${result.error}`);
-    return ERROR;
-  }
-
-  const ts = new Date().toISOString();
-  const artifact = `<!-- Aitri Discovery Artifact — ${ts} -->\n\n${result.content}\n`;
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  fs.writeFileSync(outPath, artifact, "utf8");
 
-  const summary = extractPersonaSummary(result.content);
-  savePersonaContribution({ persona: "discovery", command: "discover-idea", summary, root });
-  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["discovery"]}] ${summary}`);
-
-  if (!options.nonInteractive && !options.yes) {
-    console.log(`\n--- DISCOVERY ARTIFACT (${ARTIFACT}) ---`);
-    console.log(result.content.slice(0, 1400) + (result.content.length > 1400 ? "\n...(see file for full content)" : ""));
-    const answer = String(await ask("\nApprove discovery and continue? (y/n): ")).trim().toLowerCase();
-    if (answer !== "y" && answer !== "yes") {
-      console.log(`Discovery not approved. Edit ${ARTIFACT} and re-run, or adjust your idea.`);
-      return ABORTED;
-    }
-  }
-
-  console.log(`\nDiscovery complete → ${ARTIFACT}`);
-  console.log("Next: aitri product-spec");
+  console.log(`\n[${PERSONA_DISPLAY_NAMES["discovery"]}] Loaded. Execute the following task:\n`);
+  console.log("## Persona System Prompt");
+  console.log(personaResult.systemPrompt);
+  console.log("\n## Task");
+  console.log(buildPrompt(ideaText));
+  console.log("\n---");
+  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ Write the complete discovery document to: ${outPath}`);
+  console.log("→ When done: aitri product-spec");
   return OK;
 }

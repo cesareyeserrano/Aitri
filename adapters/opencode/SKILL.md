@@ -90,14 +90,15 @@ Use Aitri as the CLI guardrail for spec-driven SDLC execution with mandatory hum
 ## Recommended Workflow
 
 ### Pre-Planning Phase (once per project/major direction change)
-0a. `aitri discover-idea --idea "<raw idea>"` — Discovery Facilitator activates
-0b. `aitri product-spec` — Product Manager activates
-0c. `aitri ux-design` — Experience Designer activates (skip: `--no-ux`)
-0d. `aitri arch-design` — System Architect activates
-0e. `aitri sec-review` — Security Champion activates
-0f. `aitri qa-plan` — Quality Engineer activates
-0g. `aitri dev-roadmap` — Lead Developer activates, produces implementation roadmap
-Human reviews and approves each artifact before proceeding to next.
+Each command loads a persona and prints a task prompt. **You are the AI — generate the artifact content yourself using the persona and task, then write it to the specified path.**
+0a. `aitri discover-idea --idea "<raw idea>"` → generate → write `.aitri/discovery.md`
+0b. `aitri product-spec` → generate → write `.aitri/product-spec.md`
+0c. `aitri ux-design` → generate → write `.aitri/ux-design.md` (skip: `--no-ux`)
+0d. `aitri arch-design` → generate → write `.aitri/architecture-decision.md`
+0e. `aitri sec-review` → generate → write `.aitri/security-review.md`
+0f. `aitri qa-plan` → generate → write `.aitri/qa-plan.md`
+0g. `aitri dev-roadmap` → generate → write `.aitri/dev-roadmap.md`
+After each: show a 3-5 line summary and ask human for approval before proceeding to next step.
 
 ### Pre-Go Phase (per feature — reference `.aitri/dev-roadmap.md` for scope)
 1. `aitri resume`

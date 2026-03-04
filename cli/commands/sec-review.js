@@ -2,8 +2,7 @@
 // Pre-planning stage 5: Security Champion persona
 import fs from "node:fs";
 import path from "node:path";
-import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const REQUIRES = ".aitri/architecture-decision.md";
 const ARTIFACT = ".aitri/security-review.md";
@@ -27,15 +26,9 @@ ${archContent}`;
 }
 
 export async function runSecReviewCommand({ options, getProjectContextOrExit, ask, exitCodes }) {
-  const { OK, ERROR, ABORTED } = exitCodes;
-  const project = getProjectContextOrExit();
+  const { OK, ERROR } = exitCodes;
+  getProjectContextOrExit();
   const root = process.cwd();
-  const aiConfig = project.config.ai || {};
-
-  if (!aiConfig.provider) {
-    console.log("AI is not configured. Add an `ai` section to aitri.config.json.");
-    return ERROR;
-  }
 
   const requiresPath = path.join(root, REQUIRES);
   if (!fs.existsSync(requiresPath)) {
@@ -62,38 +55,14 @@ export async function runSecReviewCommand({ options, getProjectContextOrExit, as
 
   const archContent = fs.readFileSync(requiresPath, "utf8");
 
-  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["security"]}] Reviewing security threats and controls...`);
-
-  const result = await callAI({
-    prompt: buildPrompt(archContent),
-    systemPrompt: personaResult.systemPrompt,
-    config: aiConfig,
-  });
-
-  if (!result.ok) {
-    console.log(`AI error: ${result.error}`);
-    return ERROR;
-  }
-
-  const ts = new Date().toISOString();
-  const artifact = `<!-- Aitri Security Review — ${ts} -->\n\n${result.content}\n`;
-  fs.writeFileSync(outPath, artifact, "utf8");
-
-  const summary = extractPersonaSummary(result.content);
-  savePersonaContribution({ persona: "security", command: "sec-review", summary, root });
-  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["security"]}] ${summary}`);
-
-  if (!options.nonInteractive && !options.yes) {
-    console.log(`\n--- SECURITY REVIEW (${ARTIFACT}) ---`);
-    console.log(result.content.slice(0, 1400) + (result.content.length > 1400 ? "\n...(see file for full content)" : ""));
-    const answer = String(await ask("\nApprove security review and continue? (y/n): ")).trim().toLowerCase();
-    if (answer !== "y" && answer !== "yes") {
-      console.log(`Security review not approved. Edit ${ARTIFACT} and re-run.`);
-      return ABORTED;
-    }
-  }
-
-  console.log(`\nSecurity review complete → ${ARTIFACT}`);
-  console.log("Next: aitri qa-plan");
+  console.log(`\n[${PERSONA_DISPLAY_NAMES["security"]}] Loaded. Execute the following task:\n`);
+  console.log("## Persona System Prompt");
+  console.log(personaResult.systemPrompt);
+  console.log("\n## Task");
+  console.log(buildPrompt(archContent));
+  console.log("\n---");
+  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ Write the complete security review to: ${outPath}`);
+  console.log("→ When done: aitri qa-plan");
   return OK;
 }

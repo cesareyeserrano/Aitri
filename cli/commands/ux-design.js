@@ -2,8 +2,7 @@
 // Pre-planning stage 3: Experience Designer persona
 import fs from "node:fs";
 import path from "node:path";
-import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt, savePersonaContribution, extractPersonaSummary, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 const REQUIRES = ".aitri/product-spec.md";
 const ARTIFACT = ".aitri/ux-design.md";
@@ -26,15 +25,9 @@ ${productSpecContent}`;
 }
 
 export async function runUxDesignCommand({ options, getProjectContextOrExit, ask, exitCodes }) {
-  const { OK, ERROR, ABORTED } = exitCodes;
-  const project = getProjectContextOrExit();
+  const { OK, ERROR } = exitCodes;
+  getProjectContextOrExit();
   const root = process.cwd();
-  const aiConfig = project.config.ai || {};
-
-  if (!aiConfig.provider) {
-    console.log("AI is not configured. Add an `ai` section to aitri.config.json.");
-    return ERROR;
-  }
 
   const requiresPath = path.join(root, REQUIRES);
   if (!fs.existsSync(requiresPath)) {
@@ -61,38 +54,14 @@ export async function runUxDesignCommand({ options, getProjectContextOrExit, ask
 
   const productSpecContent = fs.readFileSync(requiresPath, "utf8");
 
-  if (!options.nonInteractive) console.log(`\n[${PERSONA_DISPLAY_NAMES["ux-ui"]}] Designing user experience and flows...`);
-
-  const result = await callAI({
-    prompt: buildPrompt(productSpecContent),
-    systemPrompt: personaResult.systemPrompt,
-    config: aiConfig,
-  });
-
-  if (!result.ok) {
-    console.log(`AI error: ${result.error}`);
-    return ERROR;
-  }
-
-  const ts = new Date().toISOString();
-  const artifact = `<!-- Aitri UX Design — ${ts} -->\n\n${result.content}\n`;
-  fs.writeFileSync(outPath, artifact, "utf8");
-
-  const summary = extractPersonaSummary(result.content);
-  savePersonaContribution({ persona: "ux-ui", command: "ux-design", summary, root });
-  if (!options.nonInteractive) console.log(`[${PERSONA_DISPLAY_NAMES["ux-ui"]}] ${summary}`);
-
-  if (!options.nonInteractive && !options.yes) {
-    console.log(`\n--- UX DESIGN (${ARTIFACT}) ---`);
-    console.log(result.content.slice(0, 1400) + (result.content.length > 1400 ? "\n...(see file for full content)" : ""));
-    const answer = String(await ask("\nApprove UX design and continue? (y/n): ")).trim().toLowerCase();
-    if (answer !== "y" && answer !== "yes") {
-      console.log(`UX design not approved. Edit ${ARTIFACT} and re-run.`);
-      return ABORTED;
-    }
-  }
-
-  console.log(`\nUX design complete → ${ARTIFACT}`);
-  console.log("Next: aitri arch-design");
+  console.log(`\n[${PERSONA_DISPLAY_NAMES["ux-ui"]}] Loaded. Execute the following task:\n`);
+  console.log("## Persona System Prompt");
+  console.log(personaResult.systemPrompt);
+  console.log("\n## Task");
+  console.log(buildPrompt(productSpecContent));
+  console.log("\n---");
+  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ Write the complete UX design document to: ${outPath}`);
+  console.log("→ When done: aitri arch-design");
   return OK;
 }

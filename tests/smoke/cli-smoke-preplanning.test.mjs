@@ -1,5 +1,7 @@
 // tests/smoke/cli-smoke-preplanning.test.mjs
 // Smoke tests for EVO-037 persona-driven pre-planning commands
+// NOTE: After architectural refactor, pre-planning commands do NOT call AI.
+// They output persona system prompt + task for the agent to execute.
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -18,62 +20,55 @@ function makeTempProject() {
   return dir;
 }
 
-test("discover-idea fails fast when AI is not configured", () => {
-  const dir = makeTempProject();
-  const result = runNode(["discover-idea", "--non-interactive", "--idea", "test idea"], { cwd: dir });
-  assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /AI is not configured/);
-});
+// --- Prerequisite guard tests ---
 
 test("discover-idea requires --idea in non-interactive mode", () => {
   const dir = makeTempProject();
-  // Write a config with no AI provider to get the AI check first, but also test no --idea
   const result = runNode(["discover-idea", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  // Either AI not configured OR idea required — both are valid failure modes
-  assert.match(result.stdout + result.stderr, /AI is not configured|Idea input is required/);
+  assert.match(result.stdout + result.stderr, /Idea input is required/);
 });
 
 test("product-spec fails when discovery.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["product-spec", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /AI is not configured|Discovery artifact not found/);
+  assert.match(result.stdout + result.stderr, /Discovery artifact not found/);
 });
 
 test("ux-design fails when product-spec.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["ux-design", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /AI is not configured|Product spec not found/);
+  assert.match(result.stdout + result.stderr, /Product spec not found/);
 });
 
 test("arch-design fails when product-spec.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["arch-design", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /AI is not configured|Product spec not found/);
+  assert.match(result.stdout + result.stderr, /Product spec not found/);
 });
 
 test("sec-review fails when architecture-decision.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["sec-review", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /AI is not configured|Architecture document not found/);
+  assert.match(result.stdout + result.stderr, /Architecture document not found/);
 });
 
 test("qa-plan fails when product-spec.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["qa-plan", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /AI is not configured|Product spec not found/);
+  assert.match(result.stdout + result.stderr, /Product spec not found/);
 });
 
 test("dev-roadmap fails when product-spec.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["dev-roadmap", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /AI is not configured|Product spec not found/);
+  assert.match(result.stdout + result.stderr, /Product spec not found/);
 });
 
 test("qa-plan fails when architecture-decision.md is missing but product-spec.md exists", () => {
@@ -81,7 +76,7 @@ test("qa-plan fails when architecture-decision.md is missing but product-spec.md
   fs.writeFileSync(path.join(dir, ".aitri/product-spec.md"), "# Product Spec\n", "utf8");
   const result = runNode(["qa-plan", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /AI is not configured|Architecture document not found/);
+  assert.match(result.stdout + result.stderr, /Architecture document not found/);
 });
 
 test("dev-roadmap fails when architecture-decision.md is missing but product-spec.md exists", () => {
@@ -89,8 +84,31 @@ test("dev-roadmap fails when architecture-decision.md is missing but product-spe
   fs.writeFileSync(path.join(dir, ".aitri/product-spec.md"), "# Product Spec\n", "utf8");
   const result = runNode(["dev-roadmap", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /AI is not configured|Architecture document not found/);
+  assert.match(result.stdout + result.stderr, /Architecture document not found/);
 });
+
+// --- Agent-prompt output tests ---
+
+test("discover-idea outputs persona system prompt and task for agent", () => {
+  const dir = makeTempProject();
+  const result = runNodeOk(["discover-idea", "--non-interactive", "--idea", "build a task manager"], { cwd: dir });
+  const out = result.stdout + result.stderr;
+  assert.match(out, /Persona System Prompt/);
+  assert.match(out, /Task/);
+  assert.match(out, /discovery\.md/);
+  assert.match(out, /aitri product-spec/);
+});
+
+test("product-spec outputs persona prompt when discovery.md exists", () => {
+  const dir = makeTempProject();
+  fs.writeFileSync(path.join(dir, ".aitri/discovery.md"), "# Discovery\nSome raw idea.\n", "utf8");
+  const result = runNodeOk(["product-spec", "--non-interactive"], { cwd: dir });
+  const out = result.stdout + result.stderr;
+  assert.match(out, /Persona System Prompt/);
+  assert.match(out, /product-spec\.md/);
+});
+
+// --- Help output ---
 
 test("help output includes pre-planning commands", () => {
   const result = runNodeOk(["help"]);
@@ -104,37 +122,28 @@ test("help output includes pre-planning commands", () => {
   assert.match(result.stdout, /Pre-Planning/);
 });
 
-// EVO-039: --force guard tests
-function makeTempProjectWithAI() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-preplanning-force-"));
-  fs.mkdirSync(path.join(dir, ".aitri"), { recursive: true });
-  fs.writeFileSync(
-    path.join(dir, "aitri.config.json"),
-    JSON.stringify({ project: "test-preplanning-force", ai: { provider: "claude", model: "claude-haiku-4-5-20251001" } }),
-    "utf8"
-  );
-  return dir;
-}
+// --- EVO-039: --force guard tests ---
 
 test("discover-idea non-interactive fails with --force hint when artifact exists", () => {
-  const dir = makeTempProjectWithAI();
+  const dir = makeTempProject();
   fs.writeFileSync(path.join(dir, ".aitri/discovery.md"), "# Discovery\nexisting content\n", "utf8");
   const result = runNode(["discover-idea", "--non-interactive", "--idea", "test idea"], { cwd: dir });
   assert.notEqual(result.status, 0);
   assert.match(result.stdout + result.stderr, /Use --force to regenerate/);
 });
 
-test("discover-idea --force bypasses existing artifact guard", () => {
-  const dir = makeTempProjectWithAI();
+test("discover-idea --force bypasses existing artifact guard and outputs prompt", () => {
+  const dir = makeTempProject();
   fs.writeFileSync(path.join(dir, ".aitri/discovery.md"), "# Discovery\nexisting content\n", "utf8");
-  // With --force the guard is bypassed — it will attempt AI call and fail (no real key), not the guard error
-  const result = runNode(["discover-idea", "--non-interactive", "--force", "--idea", "test idea"], { cwd: dir });
-  // Should NOT contain the --force hint (guard bypassed); may fail on AI call
-  assert.doesNotMatch(result.stdout + result.stderr, /Use --force to regenerate/);
+  // With --force, guard is bypassed and command succeeds — outputs persona prompt for agent
+  const result = runNodeOk(["discover-idea", "--non-interactive", "--force", "--idea", "test idea"], { cwd: dir });
+  const out = result.stdout + result.stderr;
+  assert.doesNotMatch(out, /Use --force to regenerate/);
+  assert.match(out, /Persona System Prompt/);
 });
 
 test("dev-roadmap non-interactive fails with --force hint when artifact exists", () => {
-  const dir = makeTempProjectWithAI();
+  const dir = makeTempProject();
   fs.writeFileSync(path.join(dir, ".aitri/product-spec.md"), "# Product Spec\n", "utf8");
   fs.writeFileSync(path.join(dir, ".aitri/architecture-decision.md"), "# Arch\n", "utf8");
   fs.writeFileSync(path.join(dir, ".aitri/dev-roadmap.md"), "# Dev Roadmap\nexisting\n", "utf8");
