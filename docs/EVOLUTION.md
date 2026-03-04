@@ -15,6 +15,19 @@ _(vacío)_
 ## 📋 Backlog
 
 
+### EVO-071 — UX persona: FR explícitos + `draft` inyecta `ux-design.md` + guía SKILL
+
+**Feedback:** `ux-design` produce un documento de visión (prosa), no FRs accionables. El agente lo trata como spec directa y escribe código sin pasar por `draft → approve → plan → build`.
+
+**Scope:**
+1. `core/personas/ux-ui.md` — agregar sección 7: **"Implementable Requirements"** con formato Aitri explícito: `FR-XX: <requisito de UI/UX>` + `AC-XX.x: <criterio verificable>`. La persona extrae de su propio output las cosas implementables en ese formato. Nota: "These FRs are input for `aitri draft`, not implementation instructions."
+2. `cli/commands/draft.js` — inyectar `.aitri/ux-design.md` como sección "UX Context" si existe (igual a como se inyecta `dev-roadmap.md`).
+3. SKILL.md (4 adapters) — agregar en Command Mapping: "UX improvements that touch code → `aitri ux-design --force` to refresh vision, then `aitri draft --feature ui-<name>` using the FR list from section 7."
+
+**Prioridad:** Alta — sin esto, UX improvements bypasean el pipeline completo.
+
+---
+
 ### EVO-052 — Stack movido a post-arch (draft solo pregunta override)
 
 **Feedback:** La pregunta de stack aparece en `draft` como opcional antes de que el arquitecto haya revisado. El stack debería ser consecuencia del diseño arquitectónico, no una pregunta inicial.
