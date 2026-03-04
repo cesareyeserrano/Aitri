@@ -307,6 +307,8 @@ export async function runDraftCommand({
     specContent = specContent + prePlanningNote;
   }
 
+  // EVO-053: show Aitri format reminder so agent knows the expected identifiers
+  console.log("Spec format: FR-XX (functional rules) with criteria AC-XX.x (Given/When/Then).");
   fs.writeFileSync(outFile, specContent, "utf8");
 
   console.log(`Draft spec created: ${path.relative(process.cwd(), outFile)}`);

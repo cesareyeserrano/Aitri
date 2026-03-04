@@ -610,6 +610,8 @@ ${securityThreats}
   if (!fs.existsSync(testsFile)) fs.writeFileSync(testsFile, generated.tests, "utf8");
   fs.writeFileSync(backlogFile, generated.backlog, "utf8");
 
+  // EVO-053: format reminder — agents must use Aitri identifiers, not ad-hoc ones
+  console.log("Plan format: FR-XX (functional rules) · TC-XX (test cases) · AC-XX.x (criteria) · US-XX (user stories).");
   console.log("Plan created: " + path.relative(process.cwd(), outPlanFile));
   printCheckpointSummary(runAutoCheckpoint({
     enabled: options.autoCheckpoint,
