@@ -57,6 +57,60 @@ _(vacío)_
 ---
 
 
+### EVO-070 — `aitri close --feature X`: closure report
+
+**Feedback:** No existe un comando que confirme el cierre limpio de un feature. El agente inventa el resumen de cierre sin base verificable.
+
+**Scope:**
+- Nuevo comando `aitri close --feature <name>` (o `--json`)
+- Output: gate status (approve ✓/✗, go ✓/✗, deliver ✓/✗), test status (proof-of-compliance summary), workspace hygiene (archivos dirty en scope del feature), commits asociados al feature (usando fecha de aprobación del spec como baseline para `git log`), leftovers abiertos (audit findings no resueltos si existe `docs/audit/audit-findings.json`)
+- No destructivo — solo lectura y reporte
+
+**Prioridad:** Media-alta — cierra el loop del pipeline, evita cierres inventados.
+
+---
+
+### EVO-069 — Pre-planning: verificar que el artefacto fue escrito
+
+**Feedback:** Los comandos de pre-planning outputan el prompt y terminan con exit 0 aunque el agente no haya escrito el archivo. Siguiente comando falla sin explicación clara.
+
+**Scope:**
+- Al final de cada comando de pre-planning (`discover-idea`, `product-spec`, etc.): verificar si `.aitri/<artifact>.md` existe
+- Si no existe: salir con exit code no-zero + mensaje: `"Artifact not found: .aitri/<artifact>.md — did the agent write the file? Re-run when ready."`
+- Si `--non-interactive`: error inmediato (no esperar)
+
+**Prioridad:** Media — mejora fiabilidad del pipeline sin cambio de arquitectura.
+
+---
+
+### EVO-068 — `deliver` workspace hygiene gate
+
+**Feedback:** `aitri deliver` no verifica el estado del workspace. Puede completarse exitosamente con cambios sucios no relacionados al feature mezclados en el repo.
+
+**Scope:**
+- En `deliver.js`: correr `git status --porcelain` antes de los gates finales
+- Clasificar archivos dirty: `.aitri/` → evidence (ok), `src/contracts/<feature>/` y `tests/<feature>/` → feature-owned (ok), resto → unrelated (warn o block)
+- Si hay archivos unrelated: mostrar lista agrupada + "Stage feature-only changes and stash the rest before delivery."
+- Con `--yes`: advertencia visible pero no bloquea (CI-friendly)
+- Sin `--yes`: confirmación explícita requerida
+
+**Prioridad:** Alta — `deliver` es el gate final; entregar con workspace sucio contradice el propósito del guardarraíl.
+
+---
+
+### EVO-067 — `checkpoint` fail-safe
+
+**Feedback:** Si `aitri checkpoint` falla (index.lock, permisos), el error se suprime y el agente continúa sin estado guardado. La pérdida de estado entre sesiones es silenciosa.
+
+**Scope:**
+- `cli/commands/checkpoint.js`: capturar errores de escritura en `DEV_STATE.md`
+- Si falla: salir con exit code no-zero + mensaje descriptivo con causa (`EACCES`, `ELOCKED`, etc.)
+- Eliminar cualquier "continue anyway" path en el flujo de checkpoint
+
+**Prioridad:** Alta — fallo silencioso en una operación de safety es inaceptable.
+
+---
+
 ### EVO-045 — Integration tests con LLM real
 
 **Motivación:** Todo el test suite es smoke/unit. No hay ningún test que ejecute un flujo completo con AI real (incluso un modelo rápido/barato). Gaps que solo los tests de integración pueden detectar: cambios en prompt format que rompen el parsing, regresiones en la estructura del output de `discover`, `plan`, `spec-improve`.
