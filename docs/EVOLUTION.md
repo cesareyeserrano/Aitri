@@ -14,134 +14,6 @@ _(vacío)_
 
 ## 📋 Backlog
 
-
-
-### EVO-082 — `deliver` reporta "Uncovered ACs" cuando el AC está en spec pero no en `tests.md`
-
-**Feedback (TRX test — feature `task-ui`):** AC-6 estaba en el spec aprobado pero ningún TC en `tests.md` tenía `Trace: ... AC-6`. `deliver` bloqueó con "Uncovered ACs: AC-6". El agente debe editar `tests.md` manualmente para agregar el trace — no hay instrucción automática ni sugerencia de qué TC agregar.
-
-**Scope:**
-- `deliver.js`: cuando detecta ACs sin trace, imprimir: "Add AC-N to the Trace: line of TC-X in tests/<feature>/tests.md (the TC that covers this behavior)"
-- Bonus: detectar automáticamente el TC más probable basado en la descripción del AC vs. el nombre del TC
-- Ver también EVO-074 (raíz del problema: `deliver` lee `tests.md` no el spec)
-
-**Prioridad:** Media — confunde al agente, requiere edición manual no documentada.
-
----
-
-### EVO-081 — `verify-intent` debe escribir el JSON de verificación (no solo outputar prompt)
-
-**Feedback (TRX test):** `verify-intent` solo imprime un agent task. El agente debe conocer de memoria el schema de `docs/verification/task-api.json` para crearlo manualmente. `aitri deliver` lo bloquea con "Missing required artifact" sin decirle al agente cómo crearlo.
-
-**Scope:**
-- Al final del agent task prompt, imprimir el schema JSON esperado con todos los campos requeridos (`ok`, `finishedAt`, `tcCoverage`, `results`)
-- O: hacer que el agente task instruya explícitamente "Write the result to `docs/verification/<feature>.json` using this schema: ..."
-- Bonus: agregar template vacío en `docs/verification/<feature>.json` al momento de ejecutar `verify-intent`
-
-**Prioridad:** Alta — bloquea `deliver` sin guía de resolución.
-
----
-
-### EVO-080 — `aitri prove` no detecta optional chaining (`input?.prop`) como acceso real
-
-**Feedback (TRX test):** La regex `/\binput\s*\./` no coincide con `input?.id` (optional chaining). Contratos que usan `input?.id` son marcados como "trivial contract" aunque acceden al input. Fix de una línea.
-
-**Scope:**
-- `cli/commands/prove.js` — `isTrivialContract()`: cambiar regex a `/\binput\s*[\?]?\s*\./` o `/\binput[\?]?\s*\./` para incluir optional chaining
-- Test: agregar caso con `input?.id` en `tests/regression/prove.test.mjs`
-
-**Prioridad:** Alta — genera falsos positivos que bloquean `aitri prove`.
-
----
-
-### EVO-079 — `aitri plan` no emite agent task para completar backlog/test cases/impl notes
-
-**Feedback (TRX test):** `aitri plan` crea `docs/plan/<feature>.md` con secciones 8 (Backlog), 9 (Test Cases), 10 (Implementation Notes) vacías — solo placeholders. No outputa ningún agent task para completarlas. El agente debe notarlo y llenarlo manualmente sin instrucción.
-
-**Scope:**
-- Al final de `plan.js`: emitir `--- AGENT TASK: plan-fill ---` con instrucción para completar las secciones vacías usando el dev persona + contexto de spec/arch/security
-- Persona: developer.md o producto de las 3 personas: product, architect, qa
-- El task debe incluir el path del archivo y las secciones faltantes detectadas
-
-**Prioridad:** Alta — sin esto, el plan queda incompleto y `go` puede bloquearse.
-
----
-
-### EVO-078 — `aitri go` exige subsecciones `### Components` / `### Data flow` sin documentarlo
-
-**Feedback (TRX test):** `aitri go` rechaza con "GO BLOCKED: Architect `Components` is unresolved" pero no dice qué formato exacto espera. El pre-planning artifact ya tiene la arquitectura en otro formato. El agente no sabe qué escribir ni dónde.
-
-**Scope:**
-- Mensaje de error de `go`: incluir el formato esperado por subsección (`### Components\n- ...\n### Data flow\n- ...`)
-- O: hacer que `plan.js` pre-rellene las subsecciones del arquitecto con el contenido de `architecture-decision.md` en el formato correcto
-- Actualizar SKILL.md para documentar el formato requerido
-
-**Prioridad:** Alta — bloquea `go` con mensaje críptico, requiere conocimiento implícito del agente.
-
----
-
-### EVO-077 — `aitri draft --non-interactive` sin `--idea` da error poco claro
-
-**Feedback (TRX test):** `aitri draft --non-interactive` falla con "In non-interactive mode, provide --idea" sin indicar el flag correcto ni el siguiente paso. Requiere dos intentos.
-
-**Scope:**
-- Mensaje de error: incluir ejemplo completo: `aitri draft --feature <name> --idea "<summary>" --non-interactive --yes`
-
-**Prioridad:** Baja — UX menor, una línea de cambio.
-
----
-
-### EVO-076 — `aitri discover` deprecado pero sigue en templates de dev-roadmap
-
-**Feedback (TRX test):** El dev-roadmap generado incluye `aitri discover --feature X` como paso 3. Al ejecutarlo, el agente ve "DEPRECATION NOTICE: use `aitri plan`". Confusión evitable.
-
-**Scope:**
-- Template de `dev-roadmap.md` en `core/personas/developer.md` o template file: reemplazar `aitri discover` por `aitri plan`
-- O: hacer que `discover` sea un alias transparente de `plan` sin deprecation noise
-
-**Prioridad:** Media — confunde a agentes que siguen el roadmap generado.
-
----
-
-### EVO-075 — `finishedAt` de verification JSON se vuelve stale si se modifica cualquier artefacto
-
-**Feedback (TRX test):** Si el agente crea `docs/verification/<feature>.json` y luego modifica `tests.md` (para corregir AC coverage), el verification se marca como stale y bloquea `deliver`. El agente debe re-crear el JSON con nuevo timestamp, pero no hay instrucción clara de esto.
-
-**Scope:**
-- En el error "Runtime evidence is stale", mostrar qué archivo tiene mtime más reciente que `finishedAt`
-- Instrucción: "Re-run verify-intent and update verification artifact with current timestamp"
-
-**Prioridad:** Media — confunde al agente sobre qué acción tomar.
-
----
-
-### EVO-074 — AC coverage depende de `tests.md` (auto-generado) no del spec
-
-**Feedback (TRX test):** `aitri deliver` detecta "Uncovered ACs" basándose en las trazas de `tests.md`, no en el spec. Si el agente agrega un AC al spec pero no actualiza `tests.md`, el deliver bloquea aunque el comportamiento esté testeado. El agente no sabe que `tests.md` es editable.
-
-**Scope:**
-- Documentar en SKILL.md que `tests.md` es un artefacto mutable y debe mantenerse sincronizado con el spec
-- O: hacer que `aitri plan --force` regenere las trazas de AC en `tests.md` a partir del spec actual
-- Mensaje de "Uncovered ACs" en deliver: incluir "Update tests.md Trace: lines for TC-* to include AC-X"
-
-**Prioridad:** Media — bloquea deliver sin causa obvia.
-
----
-
-### EVO-073 — Nombres de contratos scaffold son ilegibles (57+ chars)
-
-**Feedback (TRX test):** `aitri build` genera contratos con nombres como `fr_1_system_must_create_a_task_from_a_post_tasks_request_with_a_title_field_assign_a_unique_integer_id_set_done_false_return_201_task_object`. Los agentes escriben funciones limpias con nombres propios, rompiendo las importaciones en los test stubs generados.
-
-**Scope:**
-- `cli/commands/scaffold.js`: limitar el nombre de función a 50 chars max con sufijo `_impl` o `_fn`
-- Alternativa: usar `fr<N>_<verb>` como patrón (`fr1_createTask`, `fr2_listTasks`)
-- Los test stubs deben usar el mismo nombre abreviado
-
-**Prioridad:** Media — la fricción se manifiesta en cada proyecto nuevo.
-
----
-
-
 ### EVO-068 — `deliver` workspace hygiene gate
 
 **Feedback:** `aitri deliver` puede completarse con cambios dirty no relacionados al feature mezclados en el repo.
@@ -262,7 +134,6 @@ _(vacío)_
 
 ---
 
-
 ## 🔴 Done
 
 > Historial completo en `git log`. Para v1.2.x e inferior ver `git log --oneline`.
@@ -295,6 +166,18 @@ Al final de `runPlanCommand`, se emite `--- AGENT TASK: plan-fill ---` instruyen
 ### EVO-078 — `aitri go` exige subsecciones sin documentar el formato (DONE 2026-03-04)
 
 Los mensajes de error en `persona-validation.js` ahora incluyen el formato exacto esperado. Ejemplo: "Add under `### Components`:\n- component: role". Igual para `Data flow`, `Key decisions`, `Risks & mitigations`, `Observability`, `Threats`, `Required controls`.
+
+### EVO-082 — `deliver` reporta "Uncovered ACs" sin guía de resolución (DONE 2026-03-04)
+
+`deliver.js`: cuando detecta ACs sin trace, ahora imprime ruta de `tests.md`, el TC candidato más reciente, y ejemplo de línea `Trace:` a agregar.
+
+### EVO-074 — `tests.md` editable no documentado (DONE 2026-03-04)
+
+SKILL.md (4 adapters): nota explícita después de `aitri deliver` — "`tests.md` es mutable; si `deliver` reporta ACs sin cobertura, agregar el AC al `Trace:` del TC correspondiente".
+
+### EVO-073 — Nombres de contratos scaffold ilegibles (57+ chars) (DONE 2026-03-04)
+
+`scaffold.js`: `createInterfaceStub` limita `fnName` a 50 chars (`.slice(0, 50)`). `contractgen.js`: instrucción explícita "do NOT rename — test stubs import by exact name".
 
 ### EVO-083 — Guía para contratos de FRs de UI (HTML-string pattern) (DONE 2026-03-04)
 
