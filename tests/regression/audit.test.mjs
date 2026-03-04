@@ -214,5 +214,5 @@ test("audit CLI prints pipeline-style report without --json", () => {
   assert.equal(result.status, 1);
   assert.match(result.stdout, /Aitri Audit/);
   assert.match(result.stdout, /CRITICAL/);
-  assert.match(result.stdout, /Summary/);
+  assert.match(result.stdout, /Health/);
 });

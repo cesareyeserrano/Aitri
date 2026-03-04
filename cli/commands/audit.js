@@ -338,26 +338,53 @@ async function runApprovalFlow(findings, ask, options, root) {
 function printReport(feature, allFindings, skipAi, aiSkipReason) {
   const order = ["CRITICAL", "HIGH", "MEDIUM", "LOW"];
   const grouped = Object.fromEntries(order.map((s) => [s, allFindings.filter((f) => f.severity === s)]));
+  const srcLabel = { pipeline: "Pipeline", "code-quality": "Code Quality", dependencies: "Dependencies", llm: "AI Review", "llm-drift": "Spec Integrity" };
+  const sevTitle = {
+    CRITICAL: "CRITICAL — fix immediately",
+    HIGH:     "HIGH — fix before delivery",
+    MEDIUM:   "Medium — address before next release",
+    LOW:      "Low — informational",
+  };
+  const hr = "─".repeat(62);
+  const date = new Date().toISOString().slice(0, 10);
+  const scope = feature ? `feature: ${feature}` : "project-level (code quality + dependencies)";
 
-  const sourceLabels = { pipeline: "Pipeline Compliance", "code-quality": "Code Quality", dependencies: "Dependencies", llm: "Technical Review", "llm-drift": "Spec Integrity" };
+  console.log(`\n${hr}`);
+  console.log(` Aitri Audit  |  ${date}  |  ${scope}`);
+  if (!feature) console.log(`  Tip: add --feature <name> to also check pipeline compliance.`);
+  console.log(hr);
 
-  console.log(`\nAitri Audit  —  ${feature}\n`);
-
-  let printed = 0;
+  let total = 0;
   for (const sev of order) {
-    for (const f of grouped[sev]) {
-      const srcLabel = sourceLabels[f.source] || f.source;
+    if (grouped[sev].length === 0) continue;
+    console.log(`\n  ${sevTitle[sev]}  (${grouped[sev].length})`);
+    grouped[sev].forEach((f, i) => {
       const tag = f.tag ? ` [${f.tag}]` : "";
-      console.log(`  [${sev.padEnd(8)}] [${srcLabel}]${tag}  ${f.message}`);
-      printed++;
-    }
+      console.log(`    ${i + 1}. [${srcLabel[f.source] || f.source}]${tag}  ${f.message}`);
+    });
+    total += grouped[sev].length;
   }
-  if (printed === 0) console.log("  No findings — project looks healthy.");
+  if (total === 0) console.log("\n  No findings — project looks healthy.");
 
-  if (skipAi && aiSkipReason) console.log(`\n  LLM review skipped: ${aiSkipReason}`);
+  if (skipAi && aiSkipReason) console.log(`\n  Agent analysis skipped: ${aiSkipReason}`);
 
   const c = grouped.CRITICAL.length, h = grouped.HIGH.length, m = grouped.MEDIUM.length, l = grouped.LOW.length;
-  console.log(`\n  Summary  ${c} critical  ${h} high  ${m} medium  ${l} low\n`);
+  const health = c > 0 ? "Action required" : h > 0 ? "Attention needed" : m > 0 ? "Minor issues" : "Healthy";
+
+  console.log(`\n${hr}`);
+  console.log(` Health: ${health}  |  ${c} critical  ${h} high  ${m} medium  ${l} low`);
+  console.log(hr);
+
+  const tips = [];
+  if (c > 0 || h > 0) tips.push("Fix critical/high findings — these block safe delivery.");
+  if (m > 0) tips.push("Review medium findings and plan remediation before next release.");
+  if (!feature) tips.push("Run `aitri audit --feature <name>` to check pipeline compliance.");
+  if (total > 0 && process.stdin.isTTY) tips.push("Respond (y) when prompted to save findings to docs/audit/audit-findings.json.");
+  if (tips.length > 0) {
+    console.log(" Next steps:");
+    tips.forEach((t) => console.log(`  • ${t}`));
+  }
+  console.log();
 }
 
 // ─── MAIN COMMAND ─────────────────────────────────────────────────────────────

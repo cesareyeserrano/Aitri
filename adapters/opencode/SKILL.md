@@ -155,6 +155,15 @@ When a persona-activated command completes, output must meet these minimums befo
 - **`contractgen`** (Developer): each implemented function must include `@aitri-trace` header with US-ID, FR-ID, TC-ID; zero undocumented logic beyond the approved spec
 - **`arch-design`** (Architect): must include stack decision with technical justification
 
+## Post-Audit Behavior
+
+After `aitri audit` completes:
+1. Show the full CLI output to the user (do not summarize).
+2. Walk through each finding group (CRITICAL → HIGH → MEDIUM) and briefly explain what it means in the context of the project.
+3. Ask the user which findings they want to act on now vs. track for later.
+4. Do NOT create tasks, open issues, or modify files based on audit findings without explicit user instruction.
+5. If the user wants to save findings, let the approval flow (prompted by the CLI) handle it — respond (y/n) per finding.
+
 ## Output Evidence Rule
 Never claim a command succeeded without showing its actual stdout output. Display the complete CLI output — do not summarize, paraphrase, or invent it.
 

@@ -8,7 +8,7 @@
   "files": [
     {
       "path": "cli/commands/audit.js",
-      "soft": 440,
+      "soft": 460,
       "hard": 550
     },
     {

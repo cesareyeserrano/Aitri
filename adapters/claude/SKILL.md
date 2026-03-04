@@ -173,6 +173,15 @@ When Aitri outputs a `PLAN`, what the user sees must be the real stdout. Human-i
 
 In IDE environments where terminal output is not visible in the chat, re-state the key decision points from the PLAN in the conversation before requesting approval.
 
+## Post-Audit Behavior
+
+After `aitri audit` completes:
+1. Show the full CLI output to the user (do not summarize).
+2. Walk through each finding group (CRITICAL → HIGH → MEDIUM) and briefly explain what it means in the context of the project.
+3. Ask the user which findings they want to act on now vs. track for later.
+4. Do NOT create tasks, open issues, or modify files based on audit findings without explicit user instruction.
+5. If the user wants to save findings, let the approval flow (prompted by the CLI) handle it — respond (y/n) per finding.
+
 ## Approval Behavior
 If Aitri outputs `PLAN` and requests `Proceed? (y/n)`:
 1. Summarize the plan

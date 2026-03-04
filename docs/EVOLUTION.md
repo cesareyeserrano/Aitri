@@ -14,6 +14,7 @@ _(vacío)_
 
 ## 📋 Backlog
 
+
 ### EVO-052 — Stack movido a post-arch (draft solo pregunta override)
 
 **Feedback:** La pregunta de stack aparece en `draft` como opcional antes de que el arquitecto haya revisado. El stack debería ser consecuencia del diseño arquitectónico, no una pregunta inicial.
@@ -98,6 +99,12 @@ _(vacío)_
 ## 🔴 Done
 
 > Historial completo en `git log`. Release actual: **v1.3.0**
+
+### EVO-066 — `audit` report: formato humano + guía post-audit (DONE 2026-03-03)
+
+`printReport` reescrito: header con fecha + scope, secciones por severidad con título narrativo, health score ("Healthy / Minor issues / Attention needed / Action required"), bloque "Next steps" contextual. `Post-Audit Behavior` añadido a los 4 SKILL.md: mostrar hallazgos, preguntar qué abordar, no crear tareas sin instrucción explícita. Test actualizado (`/Summary/` → `/Health/`).
+
+---
 
 ### EVO-063 — pre-planning → draft: conexión automática (DONE 2026-03-03)
 
