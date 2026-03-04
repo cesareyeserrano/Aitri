@@ -50,14 +50,6 @@
 - `runtime-flow.js`: agregar estado `complete` al pre-planning — cuando todos los 7 artefactos existen, `resume` dice "Pre-planning: complete" y recomienda `aitri draft --feature <name> (referencia .aitri/dev-roadmap.md)`
 - `aitri draft`: si `.aitri/dev-roadmap.md` existe y no se está usando como contexto, advertir al agente
 
-### EVO-064 — Checkpoint automático absorbe archivos no deseados (P2)
-
-**Feedback origen:** Prueba Ultron 2026-03-03. El checkpoint (`git add -A && git commit`) committeó `.gocache/` — 1111 archivos. Los write commands de Aitri usan `git add -A` sin validación de tamaño ni archivos ignorables.
-
-**Cambios propuestos:**
-- Antes de cada checkpoint automático: verificar que el número de archivos staged sea razonable (threshold: >100 archivos → advertir y listar los top 5 directorios por count)
-- Documentar en SKILL.md: "si el proyecto no tiene `.gitignore` completo, el checkpoint puede absorber build artifacts — verificar antes de confirmar"
-- Considerar usar `git add` selectivo (solo `.aitri/`, `specs/`, `tests/`, `src/`, `docs/`) en lugar de `-A`
 
 ### EVO-065 — `audit --feature` framing confuso para proyectos evolucionados (P1)
 
