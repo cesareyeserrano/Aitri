@@ -656,18 +656,19 @@ function detectVerificationState(root, paths, feature) {
     };
   }
 
-  const inputs = [
-    paths.approvedSpecFile(feature),
-    paths.discoveryFile(feature),
-    paths.planFile(feature),
-    paths.backlogFile(feature),
-    paths.testsFile(feature)
+  const inputFiles = [
+    { label: "spec", path: paths.approvedSpecFile(feature) },
+    { label: "discovery", path: paths.discoveryFile(feature) },
+    { label: "plan", path: paths.planFile(feature) },
+    { label: "backlog", path: paths.backlogFile(feature) },
+    { label: "tests.md", path: paths.testsFile(feature) },
   ];
-  const latestInputMs = Math.max(0, ...inputs.map((file) => safeStatMs(file)));
   const verifiedAtMs = Number.isFinite(Date.parse(payload.finishedAt || ""))
     ? Date.parse(payload.finishedAt)
     : safeStatMs(verificationFile);
-  const stale = latestInputMs > verifiedAtMs;
+  // EVO-075: track which files caused staleness
+  const staleFiles = inputFiles.filter(f => safeStatMs(f.path) > verifiedAtMs).map(f => f.label);
+  const stale = staleFiles.length > 0;
   const ok = payload.ok === true && !stale;
 
   return {
@@ -675,13 +676,14 @@ function detectVerificationState(root, paths, feature) {
     found: true,
     ok,
     stale,
+    staleFiles: stale ? staleFiles : [],
     status: stale ? "stale" : (payload.ok ? "passed" : "failed"),
     file: path.relative(root, verificationFile),
     command: payload.command || null,
     commandSource: payload.commandSource || null,
     exitCode: typeof payload.exitCode === "number" ? payload.exitCode : null,
     finishedAt: payload.finishedAt || null,
-    reason: stale ? "verification_stale" : (payload.reason || null),
+    reason: stale ? `verification_stale (${staleFiles.join(", ")} changed)` : (payload.reason || null),
     tcCoverage: payload.tcCoverage || null,
     frCoverage: payload.frCoverage || null,
     usCoverage: payload.usCoverage || null,

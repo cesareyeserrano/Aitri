@@ -53,9 +53,18 @@ export function runStaticAudit(project, feature, root) {
   } else {
     const backlogFile = paths.backlogFile(feature);
     const testsFile = paths.testsFile(feature);
-    const latestInput = Math.max(safeStatMs(specFile), safeStatMs(backlogFile), safeStatMs(testsFile));
-    if (latestInput > safeStatMs(proofFile))
-      findings.push(finding("MEDIUM", "pipeline", `Proof is stale — spec or tests changed since last prove run.`));
+    const proofMtime = safeStatMs(proofFile);
+    // EVO-075: identify which file(s) caused staleness
+    const inputFiles = [
+      { label: "spec", path: specFile },
+      { label: "backlog", path: backlogFile },
+      { label: "tests.md", path: testsFile }
+    ];
+    const staleInputs = inputFiles.filter(f => safeStatMs(f.path) > proofMtime);
+    if (staleInputs.length > 0) {
+      const names = staleInputs.map(f => f.label).join(", ");
+      findings.push(finding("MEDIUM", "pipeline", `Proof is stale — ${names} changed since last prove run. Fix: aitri prove --feature ${feature}`));
+    }
     if (proof.ok === false)
       findings.push(finding("CRITICAL", "pipeline", `Proof of compliance failed — not all FRs proven.`));
     if (proof.frProof) {

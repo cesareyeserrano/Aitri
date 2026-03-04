@@ -337,6 +337,14 @@ Regex cambiada en `isTrivialContract()`: `/\binput\s*\./` → `/\binput\s*\??\./
 
 Mensajes de error en `draft.js` actualizados con ejemplo completo: `aitri draft --feature <name> --idea "<summary>" --non-interactive --yes`.
 
+### EVO-076 — `aitri discover` deprecado sigue en SKILL.md workflows (DONE 2026-03-04)
+
+Eliminado de los 4 SKILL.md (claude, gemini, codex, opencode): tabla de comandos, sección Pre-Go, y paso del workflow. `aitri plan` corre discovery automáticamente.
+
+### EVO-075 — `finishedAt` staleness no explica qué cambió (DONE 2026-03-04)
+
+`audit.js`: el finding "Proof is stale" ahora lista los archivos que cambiaron (spec, backlog, tests.md) y sugiere `aitri prove --feature <name>`. `status.js`: devuelve `staleFiles: [...]` en el objeto de status y `reason` incluye los nombres de archivos.
+
 ### EVO-081 — `verify-intent` debe escribir el JSON de verificación (DONE 2026-03-04)
 
 Al final del agent task, `verify-intent.js` ahora imprime `--- WRITE RESULT ---` con el schema JSON completo (`ok`, `feature`, `finishedAt`, `results`, `tcCoverage`) y la ruta exacta `docs/verification/<feature>.json`. El agente ya no necesita conocer el schema de memoria.

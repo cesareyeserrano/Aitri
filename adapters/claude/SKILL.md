@@ -37,8 +37,7 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 | New feature spec | `aitri draft` |
 | Improve or refine spec | `aitri spec-improve` |
 | Approve spec | `aitri approve` |
-| Discovery / backlog / stories | `aitri discover` |
-| Technical plan | `aitri plan` |
+| Discovery / backlog / stories | `aitri plan` |
 | Semantic validation | `aitri verify-intent` |
 | Go/no-go decision | `aitri go` |
 | Architecture review | `aitri arch-design` |
@@ -72,7 +71,6 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 - `aitri draft [--guided]` — reference `.aitri/dev-roadmap.md` for spec content
 - `aitri spec-improve` — System Architect persona reviews spec
 - `aitri approve`
-- `aitri discover [--guided]`
 - `aitri plan`
 - `aitri verify-intent`
 - `aitri diff --proposed`
@@ -121,8 +119,7 @@ After each: show a 3-5 line summary and ask human for approval before proceeding
 4. `aitri spec-improve` — System Architect persona reviews spec
 5. Human review and adjustments
 6. `aitri approve`
-7. `aitri discover`
-8. `aitri plan` (or auditor mode: `--ai-backlog --ai-tests`)
+7. `aitri plan` (or auditor mode: `--ai-backlog --ai-tests`)
 9. `aitri verify-intent` — semantic US ↔ FR alignment (optional)
 10. Human GO/NO-GO decision
 11. `aitri go`

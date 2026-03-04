@@ -41,8 +41,7 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 | New feature spec | `aitri draft` |
 | Improve or refine spec | `aitri spec-improve` |
 | Approve spec | `aitri approve` |
-| Discovery / backlog / stories | `aitri discover` |
-| Technical plan | `aitri plan` |
+| Discovery / backlog / stories | `aitri plan` |
 | Semantic validation | `aitri verify-intent` |
 | Go/no-go decision | `aitri go` |
 | Architecture review | `aitri arch-design` |
@@ -76,7 +75,6 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 - `aitri draft [--guided]`: Create draft spec — reference `.aitri/dev-roadmap.md` for content.
 - `aitri spec-improve`: AI quality review — identifies ambiguous FRs and missing edge cases.
 - `aitri approve`: Validate and approve spec.
-- `aitri discover [--guided]`: Generate discovery artifact.
 - `aitri plan`: Generate backlog and tests from spec (or auditor mode with `--ai-backlog --ai-tests`).
 - `aitri verify-intent`: Semantic validation — US satisfies FR intent.
 - `aitri diff --proposed`: Preview delta before committing a backlog update.
@@ -124,7 +122,7 @@ After each: show a 3-5 line summary and ask human for approval before proceeding
 3. `aitri draft` — use dev-roadmap as source of truth for requirements
 4. `aitri spec-improve` — AI quality review (optional but recommended)
 5. Human review → `aitri approve`
-6. `aitri discover`
+
 7. `aitri plan` (or auditor mode: `--ai-backlog --ai-tests`)
 8. `aitri verify-intent` — semantic US ↔ FR alignment (optional)
 9. Human GO/NO-GO decision
