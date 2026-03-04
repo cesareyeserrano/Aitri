@@ -83,7 +83,7 @@ export function runCloseCommand({ options, getProjectContextOrExit, exitCodes })
       feature,
       closed: allPassed && openFindings.length === 0,
       gates: gates.map(({ label, ok, hint }) => ({ label, ok, hint: ok ? null : hint })),
-      proof: proof ? { passing: proof.passing, failing: proof.failing, total: proof.total } : null,
+      proof: proof ? { passing: proof.summary?.proven, failing: proof.summary?.unproven, total: proof.summary?.total } : null,
       openAuditFindings: openFindings.length,
       recentCommits: commits,
     }, null, 2));
@@ -104,7 +104,7 @@ export function runCloseCommand({ options, getProjectContextOrExit, exitCodes })
   });
 
   if (proof) {
-    console.log(`\n  Proof: ${proof.passing ?? "?"}/${proof.total ?? "?"} passing` +
+    console.log(`\n  Proof: ${proof.summary?.proven ?? "?"}/${proof.summary?.total ?? "?"} passing` +
       (proofStale ? "  ⚠ stale" : ""));
   }
 
