@@ -66,7 +66,7 @@ export async function runDiscoverIdeaCommand({ options, getProjectContextOrExit,
   console.log("\n## Task");
   console.log(buildPrompt(ideaText));
   console.log("\n---");
-  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ WRITE artifact: ${ARTIFACT} — the next command requires this file.`);
   console.log(`→ Write the complete discovery document to: ${outPath}`);
   console.log("→ When done: aitri product-spec");
   return OK;

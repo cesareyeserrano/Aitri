@@ -32,8 +32,7 @@ export async function runProductSpecCommand({ options, getProjectContextOrExit, 
 
   const requiresPath = path.join(root, REQUIRES);
   if (!fs.existsSync(requiresPath)) {
-    console.log(`Discovery artifact not found: ${REQUIRES}`);
-    console.log("Run: aitri discover-idea first.");
+    console.log(`Artifact not found: ${REQUIRES} — did the agent write the file? Re-run: aitri discover-idea`);
     return ERROR;
   }
 
@@ -61,7 +60,7 @@ export async function runProductSpecCommand({ options, getProjectContextOrExit, 
   console.log("\n## Task");
   console.log(buildPrompt(discoveryContent));
   console.log("\n---");
-  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ WRITE artifact: ${ARTIFACT} — the next command requires this file.`);
   console.log(`→ Write the complete product spec to: ${outPath}`);
   console.log("→ When done: aitri ux-design  (or aitri arch-design --no-ux for non-UI projects)");
   return OK;

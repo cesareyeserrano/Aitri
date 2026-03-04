@@ -32,8 +32,7 @@ export async function runSecReviewCommand({ options, getProjectContextOrExit, as
 
   const requiresPath = path.join(root, REQUIRES);
   if (!fs.existsSync(requiresPath)) {
-    console.log(`Architecture document not found: ${REQUIRES}`);
-    console.log("Run: aitri arch-design first.");
+    console.log(`Artifact not found: ${REQUIRES} — did the agent write the file? Re-run: aitri arch-design`);
     return ERROR;
   }
 
@@ -61,7 +60,7 @@ export async function runSecReviewCommand({ options, getProjectContextOrExit, as
   console.log("\n## Task");
   console.log(buildPrompt(archContent));
   console.log("\n---");
-  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ WRITE artifact: ${ARTIFACT} — the next command requires this file.`);
   console.log(`→ Write the complete security review to: ${outPath}`);
   console.log("→ When done: aitri qa-plan");
   return OK;

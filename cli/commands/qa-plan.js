@@ -49,13 +49,11 @@ export async function runQaPlanCommand({ options, getProjectContextOrExit, ask, 
   const archPath = path.join(root, ".aitri/architecture-decision.md");
 
   if (!fs.existsSync(productSpecPath)) {
-    console.log("Product spec not found: .aitri/product-spec.md");
-    console.log("Run: aitri product-spec first.");
+    console.log("Artifact not found: .aitri/product-spec.md — did the agent write the file? Re-run: aitri product-spec");
     return ERROR;
   }
   if (!fs.existsSync(archPath)) {
-    console.log("Architecture document not found: .aitri/architecture-decision.md");
-    console.log("Run: aitri arch-design first.");
+    console.log("Artifact not found: .aitri/architecture-decision.md — did the agent write the file? Re-run: aitri arch-design");
     return ERROR;
   }
 
@@ -85,7 +83,7 @@ export async function runQaPlanCommand({ options, getProjectContextOrExit, ask, 
   console.log("\n## Task");
   console.log(buildPrompt(productSpecContent, archContent, secContent));
   console.log("\n---");
-  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ WRITE artifact: ${ARTIFACT} — the next command requires this file.`);
   console.log(`→ Write the complete QA plan to: ${outPath}`);
   console.log("→ When done: aitri dev-roadmap");
   return OK;

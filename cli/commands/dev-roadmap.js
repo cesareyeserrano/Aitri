@@ -54,13 +54,11 @@ export async function runDevRoadmapCommand({ options, getProjectContextOrExit, a
   const archPath = path.join(root, ".aitri/architecture-decision.md");
 
   if (!fs.existsSync(productSpecPath)) {
-    console.log("Product spec not found: .aitri/product-spec.md");
-    console.log("Run: aitri product-spec first.");
+    console.log("Artifact not found: .aitri/product-spec.md — did the agent write the file? Re-run: aitri product-spec");
     return ERROR;
   }
   if (!fs.existsSync(archPath)) {
-    console.log("Architecture document not found: .aitri/architecture-decision.md");
-    console.log("Run: aitri arch-design first.");
+    console.log("Artifact not found: .aitri/architecture-decision.md — did the agent write the file? Re-run: aitri arch-design");
     return ERROR;
   }
 
@@ -92,7 +90,7 @@ export async function runDevRoadmapCommand({ options, getProjectContextOrExit, a
   console.log("\n## Task");
   console.log(buildPrompt(productSpec, arch, uxDesign, secReview, qaPlan));
   console.log("\n---");
-  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ WRITE artifact: ${ARTIFACT} — the next command requires this file.`);
   console.log(`→ Write the complete dev roadmap to: ${outPath}`);
   console.log("→ Pre-planning complete. When done, use the roadmap as reference for: aitri draft --feature <name>");
   return OK;

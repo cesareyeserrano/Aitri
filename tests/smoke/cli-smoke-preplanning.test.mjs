@@ -33,42 +33,42 @@ test("product-spec fails when discovery.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["product-spec", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /Discovery artifact not found/);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*discovery\.md/);
 });
 
 test("ux-design fails when product-spec.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["ux-design", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /Product spec not found/);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*product-spec\.md/);
 });
 
 test("arch-design fails when product-spec.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["arch-design", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /Product spec not found/);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*product-spec\.md/);
 });
 
 test("sec-review fails when architecture-decision.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["sec-review", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /Architecture document not found/);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*architecture-decision\.md/);
 });
 
 test("qa-plan fails when product-spec.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["qa-plan", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /Product spec not found/);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*product-spec\.md/);
 });
 
 test("dev-roadmap fails when product-spec.md is missing", () => {
   const dir = makeTempProject();
   const result = runNode(["dev-roadmap", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /Product spec not found/);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*product-spec\.md/);
 });
 
 test("qa-plan fails when architecture-decision.md is missing but product-spec.md exists", () => {
@@ -76,7 +76,7 @@ test("qa-plan fails when architecture-decision.md is missing but product-spec.md
   fs.writeFileSync(path.join(dir, ".aitri/product-spec.md"), "# Product Spec\n", "utf8");
   const result = runNode(["qa-plan", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /Architecture document not found/);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*architecture-decision\.md/);
 });
 
 test("dev-roadmap fails when architecture-decision.md is missing but product-spec.md exists", () => {
@@ -84,7 +84,7 @@ test("dev-roadmap fails when architecture-decision.md is missing but product-spe
   fs.writeFileSync(path.join(dir, ".aitri/product-spec.md"), "# Product Spec\n", "utf8");
   const result = runNode(["dev-roadmap", "--non-interactive"], { cwd: dir });
   assert.notEqual(result.status, 0);
-  assert.match(result.stdout + result.stderr, /Architecture document not found/);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*architecture-decision\.md/);
 });
 
 // --- Agent-prompt output tests ---

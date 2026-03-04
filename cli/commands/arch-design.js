@@ -40,8 +40,7 @@ export async function runArchDesignCommand({ options, getProjectContextOrExit, a
 
   const requiresPath = path.join(root, REQUIRES);
   if (!fs.existsSync(requiresPath)) {
-    console.log(`Product spec not found: ${REQUIRES}`);
-    console.log("Run: aitri product-spec first.");
+    console.log(`Artifact not found: ${REQUIRES} — did the agent write the file? Re-run: aitri product-spec`);
     return ERROR;
   }
 
@@ -79,7 +78,7 @@ export async function runArchDesignCommand({ options, getProjectContextOrExit, a
   console.log("\n## Task");
   console.log(buildPrompt(productSpecContent, uxDesignContent));
   console.log("\n---");
-  console.log(`→ Artifact: ${ARTIFACT}`);
+  console.log(`→ WRITE artifact: ${ARTIFACT} — the next command requires this file.`);
   console.log(`→ Write the complete architecture document to: ${outPath}`);
   console.log("→ When done: aitri sec-review");
   return OK;
