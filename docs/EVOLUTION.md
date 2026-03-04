@@ -162,118 +162,21 @@ _(vacío)_
 
 ## 🔴 Done
 
-> Historial completo en `git log`. Release actual: **v1.3.0**
+> Historial completo en `git log`. Para v1.2.x e inferior ver `git log --oneline`.
+> Release actual: **v1.3.0**
 
 ### EVO-066 — `audit` report: formato humano + guía post-audit (DONE 2026-03-03)
 
-`printReport` reescrito: header con fecha + scope, secciones por severidad con título narrativo, health score ("Healthy / Minor issues / Attention needed / Action required"), bloque "Next steps" contextual. `Post-Audit Behavior` añadido a los 4 SKILL.md. Test actualizado (`/Summary/` → `/Health/`).
-
----
+`printReport` reescrito: header fecha/scope, secciones por severidad, health score, bloque "Next steps". `Post-Audit Behavior` en los 4 SKILL.md: mostrar hallazgos, preguntar antes de actuar.
 
 ### EVO-063 — pre-planning → draft: conexión automática (DONE 2026-03-03)
 
-`runtime-flow.js` `resume` detecta cuando todos los 7 artefactos `.aitri/` existen y no hay feature en progreso: muestra "Pre-planning: complete ✓", recomienda `aitri draft --feature <your-feature-name>` con mensaje why explícito.
-
----
-
-### EVO-065 — `audit` framing confuso (CLOSED — cubierto por EVO-061)
-
-`aitri audit` sin args corre Layer 2+3+4 sobre todo el proyecto. `--feature` activa Layer 1 (pipeline compliance). Principio: "audit responde ¿está sano el proyecto hoy?".
-
----
+`resume` detecta pre-planning completo sin feature en progreso → muestra "Pre-planning: complete ✓" y recomienda `aitri draft --feature <name>`.
 
 ### EVO-062 — Contratos triviales: proof-of-compliance inválido (DONE 2026-03-03)
 
-`prove.js` detecta `trivial_contract`; `audit.js` Layer 1 lo reporta como HIGH; `contractgen` task prompt incluye instrucción explícita de invalidez.
-
----
+`prove.js` detecta `trivial_contract`; `audit.js` Layer 1 reporta HIGH; `contractgen` prompt prohíbe contratos que retornan `ok:true` sin leer `input`.
 
 ### EVO-061 — `audit` refactor: scope proyecto + output-prompt pattern (DONE 2026-03-03)
 
-Walk desde root con SCAN_EXCLUDE (no solo `src/`). Layer 4 removido de `callAI` → outputea prompts para agente. Layers 2+3 siempre corren.
-
----
-
-### EVO-051 — UX output pobre (CLOSED — causa raíz: SKILL compliance pre-EVO-054)
-
-Re-test en Ultron con adapter actualizado: output correcto. Causa raíz era SKILL compliance del adapter Codex antes de EVO-054/055/056. Cerrado sin cambio de prompt. (Calidad del contenido → EVO-071.)
-
----
-
-### EVO-058 — `@aitri-trace` traceability header en contractgen (DONE)
-
-`core/personas/developer.md`: toda función debe incluir `@aitri-trace` con US-ID/FR-ID/TC-ID. Todos los adapters SKILL.md actualizados.
-
----
-
-### EVO-054 — Agent compliance: no improvisar fuera de comandos Aitri (DONE)
-
-Regla 8: prohibición explícita de trabajo fuera del pipeline. Regla 9: documentar gap si no existe comando. Command Mapping table: 22+ acciones → comando correspondiente.
-
----
-
-### EVO-048 + EVO-049 — Gate CTA + Closing block obligatorio (DONE)
-
-Gate CTA: Pattern A ("¿Lo ejecuto ahora?") / Pattern B ("Cuando estés listo, corre:"). Bloque `→ Siguiente` obligatorio al cierre de cada turno.
-
----
-
-### EVO-044 — Stale context detection (DONE)
-
-`cli/lib/staleness.js`: `checkStaleness`/`warnIfStale`. `build.js` y `discovery-plan-validate.js` avisan si pre-planning artifacts son más nuevos que el plan. Warning informativo, no bloqueante.
-
----
-
-### EVO-043 — Eliminar `handoff`, limpiar deprecation list (DONE)
-
-Eliminado `handoff` de `cli/index.js`. `scaffold`/`implement` conservados sin label DEPRECATION. Fix latente: `resume --feature X` ya pasa el feature correctamente.
-
----
-
-### EVO-042 — Semantic context injection tests (DONE)
-
-`cli-smoke-semantic-context.test.mjs`: verifica que `build` inyecta `architecture-decision.md` en implementation briefs. 3 tests de `--force` guard para pre-planning.
-
----
-
-### EVO-041 — Épicas: container de features (DONE)
-
-`aitri epic create/status`: `docs/epics/<name>.json`. `resume --json` incluye `activeEpic`/`epicProgress`. 14 tests en `cli-smoke-epic.test.mjs`.
-
----
-
-### EVO-040 — `aitri approve` semantic gate (DONE)
-
-Persona `architect.md` evalúa coherencia spec vs `architecture-decision.md`. Output `ARCH_CONCERN:` lines. `--yes` no bloquea; sin AI config se omite silenciosamente.
-
----
-
-### EVO-039 — Resume pre-planning awareness + `--force` (DONE)
-
-`resume` detecta `prePlanningStatus: not-started | in-progress | complete`. `--force` en los 7 comandos de pre-planning sobreescribe sin borrar manualmente.
-
----
-
-### EVO-038 — Pre-planning alimenta el pipeline real (DONE)
-
-`draft` inyecta `dev-roadmap.md`; `plan` inyecta `architecture-decision.md`/`security-review.md`/`ux-design.md`/`qa-plan.md`; `build` inyecta `architecture-decision.md`/`security-review.md`. `docs/architecture.md` reescrito.
-
----
-
-### SKILL-002 — OpenCode: ejecutar desde workspace root (CLOSED — ya implementado)
-
-`adapters/opencode/SKILL.md` Core Contract: ejecutar desde workspace root, verificar con `pwd`.
-
----
-
-### SKILL-001 — Gemini: anti-shadow-change (CLOSED — ya implementado)
-
-`adapters/gemini/SKILL.md` Bootstrap paso 6: re-read artifacts desde disco antes de cada paso.
-
----
-
-### EVO-037 — Persona-Driven SDLC (DONE)
-
-`cli/persona-loader.js`: 7 comandos pre-planning. `spec-improve` usa `architect.md`, `testgen` usa `qa.md`, `contractgen` usa `developer.md`, `audit` usa 4 personas.
-
----
+Walk desde root con SCAN_EXCLUDE. Layer 4 removido de `callAI` → outputea prompts para agente. Layers 2+3 siempre corren.
