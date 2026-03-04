@@ -36,8 +36,17 @@ export function readTemplate(templateName) {
   return fs.readFileSync(templatePath, "utf8");
 }
 
-export function detectStackFamily(parsedSpec) {
-  const stack = parsedSpec.techStack?.id || "node-cli";
+export function detectStackFamily(parsedSpec, root = process.cwd()) {
+  // EVO-052: if spec has no explicit stack, read from arch-decision.md before defaulting
+  const stack = parsedSpec.techStack?.id;
+  if (!stack) {
+    const archPath = path.join(root, ".aitri/architecture-decision.md");
+    if (fs.existsSync(archPath)) {
+      const archContent = fs.readFileSync(archPath, "utf8");
+      if (/\bpython\b/i.test(archContent)) return "python";
+      if (/\bgo\b|\bgolang\b/i.test(archContent)) return "go";
+    }
+  }
   if (stack === "python") return "python";
   if (stack === "go") return "go";
   return "node";

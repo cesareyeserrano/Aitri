@@ -101,8 +101,9 @@ export async function runDraftCommand({
     const outcome = await askRequired("3) What should happen when it works?\n   Example: \"Player can survive zombie waves, collect power-ups, and see their score\"\n   > ");
     const inScope = await askRequired("4) What's included?\n   Example: \"Game mechanics, scoring, 3 zombie types, health system\"\n   > ");
     const outOfScope = await ask("5) What's excluded? (optional, press Enter to skip)\n   Example: \"Multiplayer, leaderboard server, account system\"\n   > ");
-    const technology = await ask("6) Preferred stack (optional):\n   Example: \"React + Node.js + PostgreSQL\"\n   > ");
-    const resolvedTech = technology || "Not specified by user.";
+    // EVO-052: stack is a constraint, not a design decision — architect defines it if not constrained
+    const technology = await ask("6) Stack constraint (optional — skip if the architect should define it):\n   Example: \"Must use Python\" or \"React frontend required\"\n   > ");
+    const resolvedTech = technology || "No constraint — architect will propose the stack.";
 
     console.log("\nNow let's define the key rules and quality criteria.");
     console.log("Tip: be specific. Aitri uses these to generate tests and validate delivery.\n");

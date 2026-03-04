@@ -33,14 +33,19 @@ For every solution evaluate:
 
 ## Output Schema (Mandatory Order)
 1. Architecture Overview
-2. C4 Level 2 Diagram (Mermaid)
-3. ADRs
-4. Resiliency Strategy
-5. Observability Stack
-6. Consistency Model
-7. Failure Blast Radius
-8. Throughput vs Latency
-9. Technical Debt
+2. Tech Stack Recommendation (language, runtime, frameworks — with rationale)
+3. C4 Level 2 Diagram (Mermaid)
+4. ADRs
+5. Resiliency Strategy
+6. Observability Stack
+7. Consistency Model
+8. Failure Blast Radius
+9. Throughput vs Latency
+10. Technical Debt
+
+<!-- EVO-052: Section 2 (Tech Stack) bridges to aitri build stack detection.
+     If the feature spec has no stack constraint, aitri build reads .aitri/architecture-decision.md
+     and detects the language from your recommendation (python/go/node). -->
 
 ## ADR Format (Mandatory)
 For each ADR include:
