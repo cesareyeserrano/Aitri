@@ -14,41 +14,7 @@ _(vacío)_
 
 ## 📋 Backlog
 
-### EVO-045 — Integration tests con LLM real
-
-**Motivación:** Todo el test suite es smoke/unit. Gaps que solo tests de integración detectan: cambios en prompt format que rompen el parsing, regresiones en el output de `discover`, `plan`, `spec-improve`.
-
-**Scope:**
-- `tests/integration/` — tests `@slow` que requieren `ANTHROPIC_API_KEY`
-- `npm run test:integration` — script separado, no corre en CI básico
-- Cobertura mínima: `draft → approve → discover → plan` con un feature real pequeño
-
-**Prioridad:** Media.
-
----
-
-### EVO-059 — `aitri doctor` orphan scan
-
-**Feedback:** `aitri doctor` no detecta huérfanos: FRs sin TC asociado, TCs sin FR padre, funciones con `@aitri-trace` con IDs inexistentes en la spec.
-
-**Scope:**
-- Extender `cli/commands/doctor.js`: sección "Orphan Check"
-- Output: lista de huérfanos con path + línea
-- Informativo, no bloqueante
-
-**Prioridad:** Baja — no urgente hasta que haya proyectos con specs completas.
-
----
-
-### EVO-046 — `resume --feature` cross-epic awareness
-
-**Motivación:** `resume --feature X` no consulta qué épica contiene el feature. El contexto de progreso relativo (cuántos features del epic están done) no se puede computar.
-
-**Scope:**
-- En `runResumeCommand`: cuando `options.feature` está presente, buscar la épica contenedora via `readEpicsSummaryFromDocsRoot` (ya disponible en `epic.js`)
-- Añadir `epicContext: { epicName, position, total, delivered }` al JSON output
-
-**Prioridad:** Baja — `activeEpic` ya funciona para el caso común.
+_(vacío)_
 
 ---
 
@@ -56,6 +22,10 @@ _(vacío)_
 
 > Historial completo en `git log`. Para v1.2.x e inferior ver `git log --oneline`.
 > Release actual: **v1.3.0**
+
+### EVO-086 — `aitri close` muestra `?/?` en Proof (DONE 2026-03-04)
+
+`close.js` leía `proof.passing` y `proof.total` pero el JSON real usa `proof.summary.proven` y `proof.summary.total`. Fix: leer la ruta correcta en human output y JSON output.
 
 ### EVO-080 — `aitri prove` no detecta optional chaining (`input?.prop`) como acceso real (DONE 2026-03-04)
 
