@@ -128,6 +128,7 @@ function computeNextStep({
   buildReady,
   deliveryReady,
   proveOk,
+  qaOk,
   testgenReady,
   contractgenReady,
   verification
@@ -145,6 +146,7 @@ function computeNextStep({
       }
       return "prove_pending";
     }
+    if (!qaOk) return "qa_pending";
     if (!deliveryReady) return "deliver_pending";
     return "delivery_complete";
   }
@@ -218,6 +220,7 @@ function toRecommendedCommand(nextStep, feature) {
   if (nextStep === "testgen_pending") return `aitri testgen${f}`;
   if (nextStep === "contractgen_pending") return `aitri contractgen${f}`;
   if (nextStep === "prove_pending") return `aitri prove${f}`;
+  if (nextStep === "qa_pending") return `aitri qa${f}`;
   if (nextStep === "deliver_pending") return "aitri deliver";
   if (nextStep === "delivery_complete") return "aitri feedback";
   return nextStep;
@@ -249,8 +252,11 @@ function nextStepMessage(nextStep) {
   if (nextStep === "prove_pending") {
     return "Contracts implemented. Run prove to execute each TC and generate proof-of-compliance.";
   }
+  if (nextStep === "qa_pending") {
+    return "Proof of compliance is green. Run QA to independently verify each AC against the running code.";
+  }
   if (nextStep === "deliver_pending") {
-    return "Proof of compliance is green. Run deliver gate for final readiness.";
+    return "QA verification passed. Run deliver gate for final readiness.";
   }
   if (nextStep === "delivery_complete") {
     return "Delivery gate is complete with a SHIP decision. Optional: review local dashboard output.";
@@ -430,6 +436,7 @@ function buildPipelineStages(report) {
     { name: "testgen",     done: report.factory.testgenReady },
     { name: "contractgen", done: report.factory.contractgenReady },
     { name: "prove",       done: report.factory.proveOk },
+    { name: "qa",          done: report.factory.qaOk },
     { name: "deliver",     done: report.factory.deliveryReady }
   ];
 }
@@ -796,6 +803,7 @@ export function getStatusReport(options = {}) {
       implementReady: false,
       deliveryReady: false,
       proveOk: false,
+      qaOk: false,
       goMarker: null,
       scaffoldManifest: null,
       implementManifest: null,
@@ -894,6 +902,16 @@ export function getStatusReport(options = {}) {
     const proofRecord = exists(proofFile) ? readJsonSafe(proofFile) : null;
     const testgenReady = exists(buildManifestFile) ? detectTestgenReady(root, paths, feature) : false;
     const contractgenReady = exists(buildManifestFile) ? detectContractgenReady(root) : false;
+    // EVO-087: qaOk — qa-report.md exists and has no FAIL entries
+    const qaReportPath = path.join(root, ".aitri/qa-report.md");
+    const qaOk = (() => {
+      if (!exists(qaReportPath)) return false;
+      try {
+        const c = fs.readFileSync(qaReportPath, "utf8");
+        const hasFail = c.split("\n").some((l) => /^-\s+AC-\d+:\s+FAIL/i.test(l.trim()));
+        return !hasFail && /^Decision:\s+PASS/im.test(c);
+      } catch { return false; }
+    })();
     report.factory = {
       goCompleted: exists(goMarkerFile),
       scaffoldReady: exists(scaffoldManifestFile),
@@ -901,6 +919,7 @@ export function getStatusReport(options = {}) {
       buildReady: exists(buildManifestFile),
       testgenReady,
       contractgenReady,
+      qaOk,
       deliveryReady: deliveryPayload?.decision === "SHIP",
       proveOk: proofRecord?.ok === true,
       goMarker: exists(goMarkerFile) ? path.relative(root, goMarkerFile) : null,
@@ -940,6 +959,7 @@ export function getStatusReport(options = {}) {
       contractgenReady: report.factory.contractgenReady,
       deliveryReady: report.factory.deliveryReady,
       proveOk: report.factory.proveOk,
+      qaOk: report.factory.qaOk,
       verification: report.verification
     });
   } else if (selectedContext === "draft" && selectedFeature) {

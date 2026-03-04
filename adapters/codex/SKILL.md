@@ -90,6 +90,7 @@ Aitri execution model:
 - `aitri testgen` — LLM generates behavioral test bodies from FR + AC
 - `aitri contractgen` — LLM implements contract functions from FR + test stubs
 - `aitri prove` — run TC stubs, map results to FR-IDs, write proof-of-compliance record
+- `aitri qa` — independent AC-driven QA: verify each AC against running code, write .aitri/qa-report.md
 - `aitri deliver` — final delivery gate: all FRs proven, all TCs passing
 
 ## Interactive Mode (Default)
@@ -136,7 +137,8 @@ After each: show a 3-5 line summary and ask human for approval before proceeding
 13. `aitri testgen` — LLM generates behavioral test bodies
 14. `aitri contractgen` — LLM implements contract functions
 15. `aitri prove --mutate` — run TC stubs, generate proof-of-compliance
-16. `aitri deliver` — final delivery gate
+16. `aitri qa` — independent QA: run each AC against the running system, write .aitri/qa-report.md
+17. `aitri deliver` — final delivery gate
 
 ## Persona Activation
 

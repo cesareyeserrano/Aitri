@@ -209,6 +209,7 @@ Screen: Login
   }
 
   runNodeOk(["verify", "--feature", feature, "--non-interactive", "--json"], { cwd: tempDir });
+  // Note: deliver will also block on missing qa-report, but UI-REF blocker must be present too
   const deliver = runNode(["deliver", "--feature", feature, "--non-interactive", "--yes", "--json"], { cwd: tempDir });
   const payload = JSON.parse(deliver.stdout);
   assert.ok(payload.blockers.some((b) => /UI-REF.*missing file/.test(b)), "Should have UI-REF blocker");
@@ -292,6 +293,11 @@ Screen: Login
   }
 
   runNodeOk(["verify", "--feature", feature, "--non-interactive", "--json"], { cwd: tempDir });
+  // EVO-087: add qa-report so deliver doesn't block on missing QA
+  fs.mkdirSync(path.join(tempDir, ".aitri"), { recursive: true });
+  fs.writeFileSync(path.join(tempDir, ".aitri", "qa-report.md"),
+    `# QA Report: ${feature}\nDate: 2099-01-01\n\n## Results\n- AC-1: PASS — verified\n\n## Summary\nTotal: 1 | Passed: 1 | Failed: 0\nDecision: PASS\n`
+  );
   const deliver = runNode(["deliver", "--feature", feature, "--non-interactive", "--yes", "--json"], { cwd: tempDir });
   const payload = JSON.parse(deliver.stdout);
   assert.ok(!payload.blockers.some((b) => /UI-REF/.test(b)), "Should have no UI-REF blockers");

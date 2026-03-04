@@ -54,6 +54,7 @@ import { runQaPlanCommand } from "./commands/qa-plan.js";
 import { runDevRoadmapCommand } from "./commands/dev-roadmap.js";
 import { runEpicCreateCommand, runEpicStatusCommand } from "./commands/epic.js";
 import { runCloseCommand } from "./commands/close.js";
+import { runQaCommand } from "./commands/qa.js";
 import { fileURLToPath } from "node:url";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import {
@@ -375,7 +376,7 @@ Epics (optional — organize features into outcomes):
   aitri epic status [--name <name>]
   aitri status --epic <name>       Filtered status view for an epic
 
-Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff, adopt, upgrade, audit, close, serve
+Other: preview, status, resume, checkpoint, verify-intent, spec-improve, diff, adopt, upgrade, audit, close, qa, serve
 Pipeline helpers: discover, verify, validate, policy, scaffold, implement
 
 Common options:
@@ -475,6 +476,11 @@ if (cmd === "deliver") {
 
 if (cmd === "prove") {
   const code = await runProveCommand({ options, getProjectContextOrExit, getStatusReportOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "qa") {
+  const code = await runQaCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 

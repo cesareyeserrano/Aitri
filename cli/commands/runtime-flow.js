@@ -323,6 +323,7 @@ function buildResumeStages(report) {
     { name: "testgen",     done: !!report.factory?.testgenReady },
     { name: "contractgen", done: !!report.factory?.contractgenReady },
     { name: "prove",       done: !!report.factory?.proveOk },
+    { name: "qa",          done: !!report.factory?.qaOk },
     { name: "deliver",     done: !!report.factory?.deliveryReady }
   ];
 }

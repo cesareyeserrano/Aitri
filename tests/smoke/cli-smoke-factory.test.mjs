@@ -217,6 +217,11 @@ test("factory E2E flow completes through deliver gate", () => {
     },
     tcResults: {}
   }, null, 2), "utf8");
+  // EVO-087: qa-report.md required before deliver
+  fs.mkdirSync(path.join(tempDir, ".aitri"), { recursive: true });
+  fs.writeFileSync(path.join(tempDir, ".aitri", "qa-report.md"),
+    "# QA Report: factory-e2e\nDate: 2026-01-01\n\n## Results\n- AC-1: PASS — verified\n- AC-2: PASS — verified\n\n## Summary\nTotal: 2 | Passed: 2 | Failed: 0\nDecision: PASS\n"
+  );
   const deliver = runNodeOk(["deliver", "--feature", feature, "--non-interactive", "--yes", "--json"], { cwd: tempDir });
   const payload = JSON.parse(deliver.stdout);
   assert.equal(payload.decision, "SHIP");
@@ -237,4 +242,53 @@ test("factory E2E flow completes through deliver gate", () => {
   );
   assert.equal(statusAfterDeliver.nextStep, "delivery_complete");
   assert.equal(statusAfterDeliver.recommendedCommand, "aitri feedback");
+});
+
+// EVO-087: qa command tests
+test("qa requires --feature flag", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-qa-"));
+  fs.mkdirSync(path.join(tempDir, "specs", "drafts"), { recursive: true });
+  fs.writeFileSync(path.join(tempDir, "project.json"), JSON.stringify({ name: "test" }));
+  const r = runNode(["qa", "--non-interactive"], { cwd: tempDir });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stdout + r.stderr, /feature name is required/i);
+});
+
+test("qa blocks when approved spec is missing", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-qa-"));
+  fs.mkdirSync(path.join(tempDir, "specs", "drafts"), { recursive: true });
+  fs.writeFileSync(path.join(tempDir, "project.json"), JSON.stringify({ name: "test" }));
+  const r = runNode(["qa", "--feature", "my-feat", "--non-interactive"], { cwd: tempDir });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stdout + r.stderr, /approved spec not found/i);
+});
+
+test("qa blocks when proof-of-compliance is missing", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-qa-"));
+  fs.mkdirSync(path.join(tempDir, "specs", "approved"), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "specs", "drafts"), { recursive: true });
+  fs.writeFileSync(path.join(tempDir, "project.json"), JSON.stringify({ name: "test" }));
+  fs.writeFileSync(path.join(tempDir, "specs", "approved", "my-feat.md"), `# AF-SPEC: my-feat\nSTATUS: APPROVED\n## 9. Acceptance Criteria\n- AC-1: Given x, when y, then z.\n`);
+  const r = runNode(["qa", "--feature", "my-feat", "--non-interactive"], { cwd: tempDir });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stdout + r.stderr, /proof of compliance not found/i);
+});
+
+test("qa outputs agent task when proof passes", async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-qa-"));
+  fs.mkdirSync(path.join(tempDir, "specs", "approved"), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "specs", "drafts"), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "docs", "implementation", "my-feat"), { recursive: true });
+  fs.writeFileSync(path.join(tempDir, "project.json"), JSON.stringify({ name: "test" }));
+  fs.writeFileSync(path.join(tempDir, "specs", "approved", "my-feat.md"), `# AF-SPEC: my-feat\nSTATUS: APPROVED\n## 9. Acceptance Criteria\n- AC-1: Given x, when y, then z.\n- AC-2: Given a, when b, then c.\n`);
+  fs.writeFileSync(
+    path.join(tempDir, "docs", "implementation", "my-feat", "proof-of-compliance.json"),
+    JSON.stringify({ ok: true, summary: { proven: 2, unproven: 0, total: 2 } })
+  );
+  const r = runNode(["qa", "--feature", "my-feat", "--non-interactive"], { cwd: tempDir });
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /AGENT TASK: qa/);
+  assert.match(r.stdout, /AC-1/);
+  assert.match(r.stdout, /AC-2/);
+  assert.match(r.stdout, /qa-report\.md/);
 });

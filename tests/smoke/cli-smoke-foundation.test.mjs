@@ -253,6 +253,11 @@ test("resume marks workflow complete when delivery is already finished", () => {
     frProof: { "FR-1": { proven: true, via: ["TC-1"], tracingTcs: ["TC-1"], evidence: [] } },
     tcResults: { "TC-1": { passed: true, file: null } }
   }, null, 2), "utf8");
+  // EVO-087: qa-report required for pipeline to be complete
+  fs.mkdirSync(path.join(tempDir, ".aitri"), { recursive: true });
+  fs.writeFileSync(path.join(tempDir, ".aitri", "qa-report.md"),
+    `# QA Report: ${feature}\nDate: 2099-01-01\n\n## Results\n- AC-1: PASS — verified\n\n## Summary\nTotal: 1 | Passed: 1 | Failed: 0\nDecision: PASS\n`
+  );
 
   const result = runNodeOk(["resume", "--non-interactive", "--yes"], { cwd: tempDir });
   assert.match(result.stdout, /Aitri Resume/);

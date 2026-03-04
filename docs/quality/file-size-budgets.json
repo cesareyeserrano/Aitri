@@ -343,5 +343,9 @@
   "cli/commands/deliver.js": {
     "soft": 440,
     "hard": 500
+  },
+  "cli/commands/qa.js": {
+    "soft": 130,
+    "hard": 180
   }
 }

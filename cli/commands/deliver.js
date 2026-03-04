@@ -342,6 +342,19 @@ export async function runDeliverCommand({
     warnings.push(`Proof of compliance: ${proofRecord.summary?.proven || 0}/${proofRecord.summary?.total || 0} FRs proven. Re-run: aitri prove --feature ${feature}`);
   }
 
+  // EVO-087: QA gate — independent AC-driven verification required before delivery
+  const qaReportPath = path.join(process.cwd(), ".aitri/qa-report.md");
+  if (!fs.existsSync(qaReportPath)) {
+    blockers.push(`QA report missing — independent AC verification required. Run: aitri qa --feature ${feature}`);
+  } else {
+    const qaContent = fs.readFileSync(qaReportPath, "utf8");
+    const qaFails = qaContent.split("\n").filter((l) => /^-\s+AC-\d+:\s+FAIL/i.test(l.trim()));
+    const qaDecisionFail = /^Decision:\s+FAIL/im.test(qaContent);
+    if (qaFails.length > 0 || qaDecisionFail) {
+      blockers.push(`QA report has ${qaFails.length} failing AC(s). Fix and re-run: aitri qa --feature ${feature}`);
+    }
+  }
+
   const decision = blockers.length === 0 ? "SHIP" : "BLOCKED";
   const generatedAt = new Date().toISOString();
   const goMarker = readJson(goMarkerFile) || {};
