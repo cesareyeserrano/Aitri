@@ -73,6 +73,16 @@ function isContractPlaceholder(content) {
   return false;
 }
 
+// EVO-062: detect contracts that always return ok:true without reading input properties
+function isTrivialContract(content) {
+  const s = String(content);
+  // Must contain a trivial ok:true return
+  if (!s.includes("return { ok: true")) return false;
+  // If it reads any property from input (input.something), it is NOT trivial
+  if (/\binput\s*\./.test(s)) return false;
+  return true;
+}
+
 function checkContractCompleteness(stubContent, absFile) {
   const contractImportRe = /^import\s*\{([^}]+)\}\s*from\s*["']([^"']+)["']/gm;
   const issues = [];
@@ -87,6 +97,8 @@ function checkContractCompleteness(stubContent, absFile) {
     const contractContent = fs.readFileSync(absContract, "utf8");
     if (isContractPlaceholder(contractContent)) {
       issues.push({ file: relPath, reason: "placeholder" });
+    } else if (isTrivialContract(contractContent)) {
+      issues.push({ file: relPath, reason: "trivial_contract" });
     }
   }
   return issues;
@@ -112,7 +124,8 @@ function buildProofRecord({ feature, frIds, traceMap, tcResults }) {
     const provenTcs = tracingTcs.filter((tcId) =>
       tcResults[tcId]?.passed &&
       !tcResults[tcId]?.trivial &&
-      !tcResults[tcId]?.contractUnimplemented
+      !tcResults[tcId]?.contractUnimplemented &&
+      !tcResults[tcId]?.contractTrivial
     );
     const evidence = provenTcs.map((tcId) => tcResults[tcId].file).filter(Boolean);
     // EVO-023: aggregate mutation score across proven TCs
@@ -132,6 +145,7 @@ function buildProofRecord({ feature, frIds, traceMap, tcResults }) {
   });
 
   const trivialTcs = Object.entries(tcResults).filter(([, v]) => v.trivial).map(([id]) => id);
+  const trivialContractTcs = Object.entries(tcResults).filter(([, v]) => v.contractTrivial).map(([id]) => id);
   const unimplementedContractTcs = Object.entries(tcResults).filter(([, v]) => v.contractUnimplemented).map(([id]) => id);
   const provenCount = Object.values(frProof).filter((v) => v.proven).length;
 
@@ -143,7 +157,7 @@ function buildProofRecord({ feature, frIds, traceMap, tcResults }) {
 
   return {
     schemaVersion: 1,
-    ok: provenCount === frIds.length && frIds.length > 0 && trivialTcs.length === 0 && unimplementedContractTcs.length === 0,
+    ok: provenCount === frIds.length && frIds.length > 0 && trivialTcs.length === 0 && trivialContractTcs.length === 0 && unimplementedContractTcs.length === 0,
     feature,
     provenAt: new Date().toISOString(),
     summary: {
@@ -151,6 +165,7 @@ function buildProofRecord({ feature, frIds, traceMap, tcResults }) {
       proven: provenCount,
       unproven: frIds.length - provenCount,
       trivialTcs,
+      trivialContractTcs,
       unimplementedContractTcs,
       mutation: overallMutation
     },
@@ -175,6 +190,11 @@ function printProofReport(record) {
     console.log(`\nTRIVIAL stubs (contract imported but not invoked): ${summary.trivialTcs.join(", ")}`);
     console.log("These tests pass but do not verify behavioral compliance.");
     console.log("Invoke the contract function inside the test to make it meaningful.");
+  }
+  if (summary.trivialContractTcs && summary.trivialContractTcs.length > 0) {
+    console.log(`\n[TRIVIAL CONTRACT] TCs backed by contracts that return ok:true without reading input: ${summary.trivialContractTcs.join(", ")}`);
+    console.log("These contracts verify nothing real — proof is structurally invalid.");
+    console.log("Run: aitri contractgen --feature " + record.feature + "  (regenerate with --force)");
   }
   if (summary.unimplementedContractTcs && summary.unimplementedContractTcs.length > 0) {
     console.log(`\nUNIMPLEMENTED contracts (stub passes but contract is still a scaffold placeholder): ${summary.unimplementedContractTcs.join(", ")}`);
@@ -301,10 +321,12 @@ export async function runProveCommand({
     const quality = analyzeStubQuality(stubContent);
     const trivial = passed && quality.trivial;
     const contractIssues = passed && !trivial ? checkContractCompleteness(stubContent, absFile) : [];
-    const contractUnimplemented = contractIssues.length > 0;
-    tcResults[tcId] = { passed, file: entry.file, trivial, contractUnimplemented, contractIssues, mutation: null };
+    const contractUnimplemented = contractIssues.some((i) => i.reason === "placeholder");
+    const contractTrivial = contractIssues.some((i) => i.reason === "trivial_contract");
+    tcResults[tcId] = { passed, file: entry.file, trivial, contractUnimplemented, contractTrivial, contractIssues, mutation: null };
     if (!jsonOutput) {
       if (trivial) console.log("PASS (trivial — contract imported but not invoked)");
+      else if (contractTrivial) console.log("PASS (trivial contract — returns ok:true without reading input)");
       else if (contractUnimplemented) console.log("PASS (blocked — contract is still a placeholder)");
       else console.log(passed ? "PASS" : "FAIL");
     }

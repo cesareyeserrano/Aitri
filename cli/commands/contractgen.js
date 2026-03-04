@@ -59,6 +59,7 @@ Instructions:
 3. The implementation must be minimal and correct — no extra methods, no extra imports unless necessary.
 4. Do not add TODOs or comments explaining what the code "should do" — write the actual code.
 5. Return ONLY the complete updated file content — no prose, no extra explanation.
+6. CRITICAL: A contract that returns \`{ ok: true }\` without reading at least one property from the \`input\` object is INVALID and will fail proof-of-compliance. Every contract must verify at least one observable behavior by reading from \`input\`.
 
 Updated contract file:`;
 }

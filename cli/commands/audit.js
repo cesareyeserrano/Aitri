@@ -2,8 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { resolveFeature } from "../lib.js";
-import { callAI } from "../ai-client.js";
-import { loadPersonaSystemPrompt } from "../persona-loader.js";
+import { loadPersonaSystemPrompt, PERSONA_DISPLAY_NAMES } from "../persona-loader.js";
 
 function exists(p) { return fs.existsSync(p); }
 function readJsonSafe(f) { try { return JSON.parse(fs.readFileSync(f, "utf8")); } catch { return null; } }
@@ -15,6 +14,13 @@ function finding(severity, source, message, meta = {}) { return { severity, sour
 function hasPlaceholder(filePath) {
   try { return /not implemented/i.test(fs.readFileSync(filePath, "utf8")); }
   catch { return false; }
+}
+
+function hasTrivialContract(filePath) {
+  try {
+    const s = fs.readFileSync(filePath, "utf8");
+    return s.includes("return { ok: true") && !/\binput\s*\./.test(s);
+  } catch { return false; }
 }
 
 export function runStaticAudit(project, feature, root) {
@@ -37,6 +43,8 @@ export function runStaticAudit(project, feature, root) {
     const abs = path.join(root, contractRel);
     if (exists(abs) && hasPlaceholder(abs))
       findings.push(finding("HIGH", "pipeline", `Contract ${contractRel} still has placeholder implementation. Run: aitri contractgen --feature ${feature}`));
+    else if (exists(abs) && hasTrivialContract(abs))
+      findings.push(finding("HIGH", "pipeline", `Contract ${contractRel} — trivial contract (returns ok:true without reading input — proof invalid). Run: aitri contractgen --feature ${feature} --force`));
   }
   const proofFile = path.join(paths.implementationFeatureDir(feature), "proof-of-compliance.json");
   const proof = exists(proofFile) ? readJsonSafe(proofFile) : null;
@@ -80,6 +88,8 @@ const INSECURE_PATTERNS = [
   { re: /Math\.random\(\)\s*\*.*(?:token|session|secret|auth|nonce)/i, severity: "MEDIUM", label: "Math.random() used for security-sensitive value — use crypto.randomBytes()" },
 ];
 
+const SCAN_EXCLUDE = new Set(["node_modules", "dist", "build", "vendor", ".gocache"]);
+
 function collectSourceFiles(root, extensions = [".js", ".mjs", ".ts", ".py", ".go"], maxFiles = 60) {
   const files = [];
   function walk(dir, depth = 0) {
@@ -87,14 +97,13 @@ function collectSourceFiles(root, extensions = [".js", ".mjs", ".ts", ".py", ".g
     let entries;
     try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
     for (const e of entries) {
-      if (e.name.startsWith(".") || e.name === "node_modules" || e.name === "dist" || e.name === "build") continue;
+      if (e.name.startsWith(".") || SCAN_EXCLUDE.has(e.name)) continue;
       const full = path.join(dir, e.name);
       if (e.isDirectory()) { walk(full, depth + 1); }
       else if (extensions.some((ext) => e.name.endsWith(ext))) files.push(full);
     }
   }
-  const srcDir = path.join(root, "src");
-  walk(exists(srcDir) ? srcDir : root);
+  walk(root);
   return files.slice(0, maxFiles);
 }
 
@@ -164,9 +173,9 @@ export function runDependencyAudit(root) {
   return findings;
 }
 
-// ─── LAYER 4: LLM TECHNICAL AUDIT ────────────────────────────────────────────
-
-// Personas loaded at runtime via persona-loader.js (architect + security)
+// ─── LAYER 4: AGENT PROMPT OUTPUT ────────────────────────────────────────────
+// Aitri is a skill — the agent (Claude Code / Codex / Gemini) does the analysis.
+// Layer 4 outputs structured prompts for the agent to execute, not callAI directly.
 
 function readSourceSample(root, maxChars = 5000) {
   const files = collectSourceFiles(root, [".js", ".mjs", ".ts", ".py", ".go"], 10);
@@ -207,20 +216,88 @@ function discoverContractFiles(root) {
   } catch { return []; }
 }
 
-function parseLlmFindings(content, source) {
-  const findings = [];
-  for (const line of String(content || "").split("\n")) {
-    const m = line.match(/^FINDING:\s*\[(CRITICAL|HIGH|MEDIUM|LOW)\](?:\s*\[(\w+)\])?\s*(.+)/i);
-    if (m) findings.push(finding(m[1].toUpperCase(), source, m[3].trim(), m[2] ? { tag: m[2].toUpperCase() } : {}));
-  }
-  return findings;
-}
-
-function buildCodeOnlyPrompt(contractSamples) {
-  const section = contractSamples.length > 0
-    ? contractSamples.map((c) => `// File: ${c.path}\n${c.content}`).join("\n\n---\n\n")
+function printLayer4Prompts(root, feature, specContent, contractSamples, sourceSample) {
+  const contractSection = contractSamples.length > 0
+    ? contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")
     : "(no contract files found)";
-  return `Analyze the following contract implementations for quality, reliability, and anti-patterns.\n\n${section}`;
+
+  // 4a: System Architect — technical quality review
+  const architectPersona = loadPersonaSystemPrompt("architect");
+  console.log(`\n${"─".repeat(60)}`);
+  console.log(`[${PERSONA_DISPLAY_NAMES["architect"]}] — Technical Quality Review`);
+  console.log(`${"─".repeat(60)}\n`);
+  if (architectPersona.ok) { console.log("## Persona System Prompt"); console.log(architectPersona.systemPrompt); }
+  console.log("\n## Task");
+  console.log(`Analyze this codebase for technical quality issues.
+Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <brief, actionable description>
+If no significant issues: output NO_FINDINGS
+
+## Source Code Sample
+${sourceSample}
+
+## Contract Implementations
+${contractSection}`);
+
+  // 4b: Security Champion — spec drift (only if spec available)
+  if (specContent) {
+    const securityPersona = loadPersonaSystemPrompt("security");
+    console.log(`\n${"─".repeat(60)}`);
+    console.log(`[${PERSONA_DISPLAY_NAMES["security"]}] — Spec Drift / Integrity Check`);
+    console.log(`${"─".repeat(60)}\n`);
+    if (securityPersona.ok) { console.log("## Persona System Prompt"); console.log(securityPersona.systemPrompt); }
+    console.log("\n## Task");
+    console.log(`Compare this spec against the implementation and identify drift.
+Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] [DRIFT|GAP] <description>
+If no drift detected: output NO_DRIFT
+
+## Approved Spec
+${specContent.slice(0, 3000)}
+
+## Contract Implementations
+${contractSection}`);
+  }
+
+  // 4c: Lead Developer — implementation quality
+  const developerPersona = loadPersonaSystemPrompt("developer");
+  console.log(`\n${"─".repeat(60)}`);
+  console.log(`[${PERSONA_DISPLAY_NAMES["developer"]}] — Implementation Quality Review`);
+  console.log(`${"─".repeat(60)}\n`);
+  if (developerPersona.ok) { console.log("## Persona System Prompt"); console.log(developerPersona.systemPrompt); }
+  console.log("\n## Task");
+  console.log(`Review this codebase for implementation quality issues.
+Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <brief, actionable description>
+If no significant issues: output NO_FINDINGS
+${specContent ? `\n## Approved Spec (context)\n${specContent.slice(0, 1500)}\n` : ""}
+## Contract Implementations
+${contractSection}
+
+## Source Code Sample
+${sourceSample.slice(0, 2000)}`);
+
+  // 4d: Experience Designer — UX audit (conditional)
+  const uxDesignPath = path.join(root, ".aitri/ux-design.md");
+  if (exists(uxDesignPath)) {
+    const uxPersona = loadPersonaSystemPrompt("ux-ui");
+    const uxDesignContent = fs.readFileSync(uxDesignPath, "utf8");
+    console.log(`\n${"─".repeat(60)}`);
+    console.log(`[${PERSONA_DISPLAY_NAMES["ux-ui"]}] — UX Design Audit`);
+    console.log(`${"─".repeat(60)}\n`);
+    if (uxPersona.ok) { console.log("## Persona System Prompt"); console.log(uxPersona.systemPrompt); }
+    console.log("\n## Task");
+    console.log(`Audit the implementation against the approved UX design.
+Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <brief, actionable description>
+If no issues found: output NO_FINDINGS
+
+## Approved UX Design
+${uxDesignContent.slice(0, 2000)}
+
+## Contract Implementations (UI-related)
+${contractSection}`);
+  }
+
+  console.log(`\n${"─".repeat(60)}`);
+  console.log("→ Execute each analysis above and report findings using the FINDING: format.");
+  console.log(`${"─".repeat(60)}\n`);
 }
 
 // ─── APPROVAL FLOW ────────────────────────────────────────────────────────────
@@ -296,136 +373,22 @@ export async function runAuditCommand({ options, getProjectContextOrExit, ask, e
   try { feature = resolveFeature(options, () => { throw new Error("no_status"); }); } catch { }
 
   const { paths } = project;
-  const aiConfig = project.config?.ai;
-  const hasAiConfig = !!(aiConfig?.provider);
   const hasApprovedSpec = feature ? exists(paths.approvedSpecFile(feature)) : false;
-  const codeOnlyMode = !hasApprovedSpec && !skipAi && hasAiConfig;
 
   const allFindings = [];
-  let aiSkipReason = null;
-  let recommendAdopt = false;
 
-  // Layer 1: Pipeline compliance
+  // Layer 1: Pipeline compliance (only when --feature is provided)
   if (feature) {
     allFindings.push(...runStaticAudit(project, feature, root));
-  } else if (!codeOnlyMode) {
-    allFindings.push(finding("HIGH", "pipeline", "Feature name is required. Use --feature <name>."));
+  } else if (!jsonMode) {
+    console.log("\n  (project-level audit — pipeline compliance skipped; use --feature <name> to include it)\n");
   }
 
-  // Layer 2: Code quality (always runs if source files exist)
+  // Layer 2: Code quality — always runs
   allFindings.push(...runCodeQualityAudit(root));
 
-  // Layer 3: Dependency audit (always runs if package.json exists)
+  // Layer 3: Dependency audit — always runs (skips gracefully if no package.json)
   allFindings.push(...runDependencyAudit(root));
-
-  // Layer 4: LLM audit
-  if (!skipAi && hasAiConfig) {
-    const scaffoldManifestFile = feature
-      ? path.join(paths.implementationFeatureDir(feature), "scaffold-manifest.json")
-      : null;
-    const scaffoldManifest = scaffoldManifestFile && exists(scaffoldManifestFile) ? readJsonSafe(scaffoldManifestFile) : null;
-    const contractFiles = scaffoldManifest?.interfaceFiles || discoverContractFiles(root);
-    const contractSamples = readContractSamples(root, contractFiles);
-    const sourceSample = readSourceSample(root);
-
-    if (hasApprovedSpec && feature) {
-      const specContent = fs.readFileSync(paths.approvedSpecFile(feature), "utf8");
-
-      const architectPersona = loadPersonaSystemPrompt("architect");
-      const securityPersona = loadPersonaSystemPrompt("security");
-
-      // 4a: System Architect persona — technical quality review
-      const techPrompt = `Analyze this codebase for technical quality issues.
-Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <brief, actionable description>
-If no significant issues: output NO_FINDINGS
-
-## Source Code Sample
-${sourceSample}
-
-## Contract Implementations
-${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}`;
-      const techResult = await callAI({ prompt: techPrompt, systemPrompt: architectPersona.ok ? architectPersona.systemPrompt : undefined, config: aiConfig });
-      if (techResult.ok) {
-        allFindings.push(...parseLlmFindings(techResult.content, "llm"));
-      } else {
-        allFindings.push(finding("LOW", "llm", `Technical review failed: ${techResult.error}`));
-      }
-
-      // 4b: Security Champion persona — spec drift / integrity check
-      const driftPrompt = `Compare this spec against the implementation and identify drift.
-Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] [DRIFT|GAP] <description with spec ref and code ref>
-If no drift detected: output NO_DRIFT
-
-## Approved Spec
-${specContent.slice(0, 3000)}
-
-## Contract Implementations
-${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}`;
-      const driftResult = await callAI({ prompt: driftPrompt, systemPrompt: securityPersona.ok ? securityPersona.systemPrompt : undefined, config: aiConfig });
-      if (driftResult.ok && !/NO_DRIFT/i.test(driftResult.content)) {
-        allFindings.push(...parseLlmFindings(driftResult.content, "llm-drift"));
-      } else if (!driftResult.ok) {
-        allFindings.push(finding("LOW", "llm-drift", `Spec drift check failed: ${driftResult.error}`));
-      }
-
-      // 4c: Lead Developer persona — implementation quality, tech debt, DoD compliance
-      const developerPersona = loadPersonaSystemPrompt("developer");
-      const devPrompt = `Review this codebase for implementation quality issues.
-Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <brief, actionable description>
-If no significant issues: output NO_FINDINGS
-
-## Approved Spec (requirements context)
-${specContent.slice(0, 1500)}
-
-## Contract Implementations
-${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}
-
-## Source Code Sample
-${sourceSample.slice(0, 2000)}`;
-      const devResult = await callAI({ prompt: devPrompt, systemPrompt: developerPersona.ok ? developerPersona.systemPrompt : undefined, config: aiConfig });
-      if (devResult.ok && !/NO_FINDINGS/i.test(devResult.content)) {
-        allFindings.push(...parseLlmFindings(devResult.content, "llm"));
-      } else if (!devResult.ok) {
-        allFindings.push(finding("LOW", "llm", `Implementation review failed: ${devResult.error}`));
-      }
-
-      // 4d: Experience Designer persona — UX audit (only if ux-design artifact exists)
-      const uxDesignPath = path.join(root, ".aitri/ux-design.md");
-      if (exists(uxDesignPath)) {
-        const uxPersona = loadPersonaSystemPrompt("ux-ui");
-        const uxDesignContent = fs.readFileSync(uxDesignPath, "utf8");
-        const uxPrompt = `Audit the implementation against the approved UX design.
-Format each finding as: FINDING: [CRITICAL|HIGH|MEDIUM|LOW] <brief, actionable description>
-If no issues found: output NO_FINDINGS
-
-## Approved UX Design
-${uxDesignContent.slice(0, 2000)}
-
-## Contract Implementations (UI-related)
-${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}`;
-        const uxResult = await callAI({ prompt: uxPrompt, systemPrompt: uxPersona.ok ? uxPersona.systemPrompt : undefined, config: aiConfig });
-        if (uxResult.ok && !/NO_FINDINGS/i.test(uxResult.content)) {
-          allFindings.push(...parseLlmFindings(uxResult.content, "llm"));
-        }
-      }
-
-    } else if (codeOnlyMode) {
-      const architectPersona = loadPersonaSystemPrompt("architect");
-      const contractSamplesAny = contractSamples.length > 0 ? contractSamples : [{ path: "src/", content: sourceSample }];
-      const result = await callAI({ prompt: buildCodeOnlyPrompt(contractSamplesAny), systemPrompt: architectPersona.ok ? architectPersona.systemPrompt : undefined, config: aiConfig });
-      if (result.ok) {
-        allFindings.push(...parseLlmFindings(result.content, "llm"));
-        recommendAdopt = /RECOMMEND_ADOPT:\s*true/i.test(result.content);
-      }
-    }
-  } else if (!skipAi && !hasAiConfig) {
-    aiSkipReason = "no AI provider configured (add `ai` section to aitri.config.json, or use --no-ai)";
-  } else if (skipAi) {
-    aiSkipReason = "--no-ai flag set";
-  }
-
-  if (recommendAdopt)
-    allFindings.push(finding("MEDIUM", "llm", "No spec found. Run `aitri adopt` to formalize this project."));
 
   const critical = allFindings.filter((f) => f.severity === "CRITICAL").length;
   const high = allFindings.filter((f) => f.severity === "HIGH").length;
@@ -439,11 +402,27 @@ ${contractSamples.map((c) => `// ${c.path}\n${c.content}`).join("\n\n")}`;
     return ok ? OK : ERROR;
   }
 
-  printReport(feature || "(code-only)", allFindings, skipAi || !hasAiConfig, aiSkipReason);
+  printReport(feature || "(project)", allFindings, false, null);
 
   // Approval flow — only in interactive mode
   if (typeof ask === "function") {
     await runApprovalFlow(allFindings, ask, options, root);
+  }
+
+  // Layer 4: Agent prompt output (skipped in --no-ai and --json modes)
+  if (!skipAi) {
+    const scaffoldManifestFile = feature
+      ? path.join(paths.implementationFeatureDir(feature), "scaffold-manifest.json")
+      : null;
+    const scaffoldManifest = scaffoldManifestFile && exists(scaffoldManifestFile) ? readJsonSafe(scaffoldManifestFile) : null;
+    const contractFiles = scaffoldManifest?.interfaceFiles || discoverContractFiles(root);
+    const contractSamples = readContractSamples(root, contractFiles);
+    const sourceSample = readSourceSample(root);
+    const specContent = hasApprovedSpec && feature ? fs.readFileSync(paths.approvedSpecFile(feature), "utf8") : null;
+
+    console.log("\n\nAitri Audit — Layer 4: Agent Analysis");
+    console.log("Execute the following persona-driven analysis tasks:\n");
+    printLayer4Prompts(root, feature, specContent, contractSamples, sourceSample);
   }
 
   return ok ? OK : ERROR;
