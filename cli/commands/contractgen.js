@@ -127,11 +127,12 @@ ${contractContent.trim()}
 ${testContext ? `\nTest stubs that call this contract (use to understand expected behavior):\n\`\`\`\n${testContext.trim()}\n\`\`\`` : ""}
 
 Instructions:
-1. Keep the function signature exactly as-is (same name, same parameters).
+1. Keep the function signature exactly as-is (same exported name, same parameters). Do NOT rename it — test stubs import it by exact name.
 2. Replace ONLY the placeholder body with a working implementation that satisfies ${fr.id}.
 3. Minimal and correct — no extra methods, no extra imports unless necessary.
 4. Do not add TODOs or comments explaining what the code "should do" — write the actual code.
 5. CRITICAL: A contract that returns \`{ ok: true }\` without reading at least one property from \`input\` is INVALID.
+6. Do NOT add long-name alias exports (e.g. \`export const fr_1_system_must_...\`) — they break import compatibility.
 
 Write the complete updated file to: ${relPath}
 --- END TASK ---`);

@@ -134,6 +134,8 @@ After each: show a 3-5 line summary and ask human for approval before proceeding
 15. `aitri prove --mutate` — run TC stubs, generate proof-of-compliance
 16. `aitri deliver` — final delivery gate
 
+> **tests.md is mutable.** If `deliver` reports "Uncovered ACs: AC-N", the spec has ACs with no `Trace:` line in `tests/<feature>/tests.md`. Open that file and add the missing AC ID to the `Trace:` line of the TC that covers that behavior. Example: `- Trace: US-1, FR-1, AC-N`
+
 ## Persona Activation
 
 Personas are **active system prompts**, not reference-only documents.

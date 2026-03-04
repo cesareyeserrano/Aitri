@@ -317,7 +317,8 @@ export function createTestStub({ root, stackFamily, feature, tc, testTemplate, p
 }
 
 export function createInterfaceStub({ root, stackFamily, fr, ifaceTemplate }) {
-  const fnName = slugify(`${fr.id}-${fr.text}`).replace(/-/g, "_");
+  // EVO-073: limit to 50 chars to match the import name used in generated test stubs
+  const fnName = slugify(`${fr.id}-${fr.text}`).replace(/-/g, "_").slice(0, 50);
   const file = interfacePathByStack(root, stackFamily, "", fr.id, fr.text);
   const body = renderTemplate(ifaceTemplate, {
     FR_ID: fr.id,

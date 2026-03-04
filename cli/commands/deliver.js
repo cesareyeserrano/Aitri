@@ -252,7 +252,22 @@ export async function runDeliverCommand({
   }
   const uncoveredAc = acMatrix.filter((row) => !row.covered).map((row) => row.acId);
   if (uncoveredAc.length > 0) {
-    blockers.push(`Uncovered ACs: ${uncoveredAc.join(", ")}`);
+    // EVO-082: actionable hint — tell agent which file to edit and what syntax to use
+    const relTestsPath = path.relative(process.cwd(), testsFile);
+    const tcsWithTraces = Object.keys(traceMap).filter((tcId) =>
+      (traceMap[tcId]?.frIds?.length > 0 || traceMap[tcId]?.acIds?.length > 0)
+    );
+    const candidate = tcsWithTraces.length > 0 ? tcsWithTraces[tcsWithTraces.length - 1] : null;
+    const exampleAc = uncoveredAc[0];
+    const candidateHint = candidate
+      ? ` Consider adding to ${candidate}'s Trace: line.`
+      : "";
+    blockers.push(
+      `Uncovered ACs: ${uncoveredAc.join(", ")}. ` +
+      `Fix: open ${relTestsPath} and add the AC ID to the Trace: line of the TC that covers this behavior.` +
+      candidateHint +
+      ` Example: "- Trace: US-1, FR-1, ${exampleAc}"`
+    );
   }
   uiRefValidation.filter((ref) => !ref.fileExists).forEach((ref) => {
     blockers.push(`UI-REF ${ref.id} references missing file: ${ref.path}`);
