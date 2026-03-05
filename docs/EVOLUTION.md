@@ -21,7 +21,7 @@ _(vacío)_
 ## 🔴 Done
 
 > Historial completo en `git log`. Para v1.2.x e inferior ver `git log --oneline`.
-> Release actual: **v1.4.0**
+> Release actual: **v1.3.1**
 
 ### EVO-091 — `verify` per-TC execution: eliminar false PASS binario (DONE 2026-03-04)
 
