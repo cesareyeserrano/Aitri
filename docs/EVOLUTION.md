@@ -74,6 +74,10 @@ _Nota: EVO-087 (`aitri qa`) mitiga esto a nivel AC contra sistema real. Este EVO
 > Historial completo en `git log`. Para v1.2.x e inferior ver `git log --oneline`.
 > Release actual: **v1.3.0**
 
+### EVO-088 — `go` validator: fallback a `.aitri/*.md` + diagnóstico exacto (DONE 2026-03-04)
+
+`persona-validation.js`: acepta `archContent` y `securityContent`. Si `.aitri/architecture-decision.md` tiene contenido significativo → salta los 5 gates de arquitectura del plan (Components, Data flow, Key decisions, Risks, Observability). Mismo patrón para `.aitri/security-review.md` → salta Threats y Required controls. Mensajes indican archivo + sección exacta y sugieren el artefacto pre-planning como alternativa. `status.js` y `validate.js` leen y pasan los artefactos. 125 tests, 0 fallos.
+
 ### EVO-092 — `go`/`validate` salta discovery gate si pre-planning existe (DONE 2026-03-04)
 
 `status.js` y `validate.js` (2 spots): si `.aitri/discovery.md` existe, `discoveryContent` se pasa como `null` → `collectPersonaValidationIssues` salta el gate. Check de "Missing discovery" también salta. 125 tests, 0 fallos.

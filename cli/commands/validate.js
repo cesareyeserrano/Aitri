@@ -257,7 +257,12 @@ export async function runValidateCommand({
   // EVO-092: skip discovery gate if project-level pre-planning discovery exists
   const discoveryContent = (!_prePlanningDiscovery && fs.existsSync(discoveryFile)) ? fs.readFileSync(discoveryFile, "utf8") : null;
   const planContent = fs.readFileSync(planFile, "utf8");
-  const personaIssues = collectPersonaValidationIssues({ discoveryContent, planContent, specContent: spec });
+  // EVO-088: read pre-planning arch/security for fallback gate satisfaction
+  const _archFile = path.join(process.cwd(), ".aitri", "architecture-decision.md");
+  const _secFile = path.join(process.cwd(), ".aitri", "security-review.md");
+  const archContent = fs.existsSync(_archFile) ? fs.readFileSync(_archFile, "utf8") : null;
+  const securityContent = fs.existsSync(_secFile) ? fs.readFileSync(_secFile, "utf8") : null;
+  const personaIssues = collectPersonaValidationIssues({ discoveryContent, planContent, specContent: spec, archContent, securityContent });
   personaIssues.forEach((issue) => addIssue("persona", issue));
 
   result.gapSummary = Object.fromEntries(Object.entries(gapTypes).map(([k, v]) => [k, v.length]));
@@ -333,7 +338,12 @@ export function collectValidationIssues(project, feature, paths) {
 
   const discoveryContent = (!_prePlanningDiscovery2 && fs.existsSync(discoveryFile)) ? fs.readFileSync(discoveryFile, "utf8") : null;
   const planContent = fs.readFileSync(planFile, "utf8");
-  collectPersonaValidationIssues({ discoveryContent, planContent, specContent: spec }).forEach(i => issues.push(i));
+  // EVO-088: read pre-planning arch/security for fallback gate satisfaction
+  const _archFile2 = path.join(process.cwd(), ".aitri", "architecture-decision.md");
+  const _secFile2 = path.join(process.cwd(), ".aitri", "security-review.md");
+  const archContent2 = fs.existsSync(_archFile2) ? fs.readFileSync(_archFile2, "utf8") : null;
+  const securityContent2 = fs.existsSync(_secFile2) ? fs.readFileSync(_secFile2, "utf8") : null;
+  collectPersonaValidationIssues({ discoveryContent, planContent, specContent: spec, archContent: archContent2, securityContent: securityContent2 }).forEach(i => issues.push(i));
 
   return issues;
 }

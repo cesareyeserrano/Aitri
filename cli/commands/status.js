@@ -52,7 +52,7 @@ function listMd(dir) {
   return fs.readdirSync(dir).filter((f) => f.endsWith(".md")).sort();
 }
 
-function collectValidationIssues(spec, backlog, tests, discovery = "", plan = "") {
+function collectValidationIssues(spec, backlog, tests, discovery = "", plan = "", archContent = null, securityContent = null) {
   const issues = [];
 
   if (!/###\s+US-\d+/m.test(backlog)) {
@@ -101,7 +101,7 @@ function collectValidationIssues(spec, backlog, tests, discovery = "", plan = ""
   }
 
   if (discovery || plan) {
-    collectPersonaValidationIssues({ discoveryContent: discovery, planContent: plan, specContent: spec }).forEach((issue) => issues.push(issue));
+    collectPersonaValidationIssues({ discoveryContent: discovery, planContent: plan, specContent: spec, archContent, securityContent }).forEach((issue) => issues.push(issue));
   }
 
   return issues;
@@ -882,8 +882,13 @@ export function getStatusReport(options = {}) {
       const prePlanningDiscoveryExists = fs.existsSync(path.join(root, ".aitri", "discovery.md"));
       const discovery = (!prePlanningDiscoveryExists && exists(discoveryFile)) ? fs.readFileSync(discoveryFile, "utf8") : "";
       const plan = exists(planFile) ? fs.readFileSync(planFile, "utf8") : "";
+      // EVO-088: read pre-planning arch/security artifacts for fallback gate satisfaction
+      const archFile = path.join(root, ".aitri", "architecture-decision.md");
+      const secFile = path.join(root, ".aitri", "security-review.md");
+      const archContent = fs.existsSync(archFile) ? fs.readFileSync(archFile, "utf8") : null;
+      const securityContent = fs.existsSync(secFile) ? fs.readFileSync(secFile, "utf8") : null;
 
-      report.validation.issues = collectValidationIssues(spec, backlog, tests, discovery, plan);
+      report.validation.issues = collectValidationIssues(spec, backlog, tests, discovery, plan, archContent, securityContent);
       report.validation.ok = report.validation.issues.length === 0;
     } else {
       if (!exists(specFile)) report.validation.issues.push(`Missing approved spec: ${path.relative(root, specFile)}`);

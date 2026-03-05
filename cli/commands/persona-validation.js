@@ -21,7 +21,9 @@ export function hasMeaningfulContent(content) {
   });
 }
 
-export function collectPersonaValidationIssues({ discoveryContent, planContent, specContent }) {
+// EVO-088: accepts archContent and securityContent from .aitri/*.md as fallback
+// when plan section parsing fails due to injected content breaking extractSection boundaries.
+export function collectPersonaValidationIssues({ discoveryContent, planContent, specContent, archContent, securityContent }) {
   const issues = [];
 
   if (discoveryContent) {
@@ -53,28 +55,33 @@ export function collectPersonaValidationIssues({ discoveryContent, planContent, 
       if (!hasMeaningfulContent(assumptions)) issues.push("Persona gate: Product `Assumptions to validate` is unresolved.");
     }
 
+    // EVO-088: if .aitri/architecture-decision.md exists with meaningful content,
+    // it satisfies the architecture gate — plan injection may have broken section boundaries.
+    const archSatisfiedByPrePlanning = archContent && hasMeaningfulContent(archContent);
     const architecture = extractSection(planContent, "## 5. Architecture (Architect Persona)");
-    if (!architecture) {
+    if (!architecture && !archSatisfiedByPrePlanning) {
       issues.push("Persona gate: Plan is missing `## 5. Architecture (Architect Persona)`.");
-    } else {
+    } else if (!archSatisfiedByPrePlanning) {
       const components = extractSubsection(architecture, "### Components");
       const dataFlow = extractSubsection(architecture, "### Data flow");
       const keyDecisions = extractSubsection(architecture, "### Key decisions");
       const risks = extractSubsection(architecture, "### Risks & mitigations");
       const observability = extractSubsection(architecture, "### Observability (logs/metrics/tracing)");
-      if (!hasMeaningfulContent(components)) issues.push("Persona gate: Architect `Components` is unresolved. Add under `### Components`:\n    - <component>: <role/responsibility>");
-      if (!hasMeaningfulContent(dataFlow)) issues.push("Persona gate: Architect `Data flow` is unresolved. Add under `### Data flow`:\n    - <step> → <next step>");
-      if (!hasMeaningfulContent(keyDecisions)) issues.push("Persona gate: Architect `Key decisions` is unresolved. Add under `### Key decisions`:\n    - Decision: <what and why>");
-      if (!hasMeaningfulContent(risks)) issues.push("Persona gate: Architect `Risks & mitigations` is unresolved. Add under `### Risks & mitigations`:\n    - Risk: <description> → Mitigation: <approach>");
-      if (!hasMeaningfulContent(observability)) issues.push("Persona gate: Architect `Observability` is unresolved. Add under `### Observability (logs/metrics/tracing)`:\n    - Logs: <what is logged>; Metrics: <key metrics>; Tracing: <strategy>");
+      if (!hasMeaningfulContent(components)) issues.push("Persona gate: Architect `Components` unresolved in plan `## 5. Architecture`. Add under `### Components`:\n    - <component>: <role/responsibility>\n    Or add content to `.aitri/architecture-decision.md` and re-run `aitri plan`.");
+      if (!hasMeaningfulContent(dataFlow)) issues.push("Persona gate: Architect `Data flow` unresolved in plan `## 5. Architecture`. Add under `### Data flow`:\n    - <step> → <next step>");
+      if (!hasMeaningfulContent(keyDecisions)) issues.push("Persona gate: Architect `Key decisions` unresolved in plan `## 5. Architecture`. Add under `### Key decisions`:\n    - Decision: <what and why>");
+      if (!hasMeaningfulContent(risks)) issues.push("Persona gate: Architect `Risks & mitigations` unresolved in plan `## 5. Architecture`. Add under `### Risks & mitigations`:\n    - Risk: <description> → Mitigation: <approach>");
+      if (!hasMeaningfulContent(observability)) issues.push("Persona gate: Architect `Observability` unresolved in plan `## 5. Architecture`. Add under `### Observability (logs/metrics/tracing)`:\n    - Logs: <what is logged>; Metrics: <key metrics>; Tracing: <strategy>");
     }
 
+    // EVO-088: if .aitri/security-review.md exists with meaningful content, it satisfies the security gate.
+    const securitySatisfiedByPrePlanning = securityContent && hasMeaningfulContent(securityContent);
     const security = extractSection(planContent, "## 6. Security (Security Persona)");
-    if (security) {
+    if (security && !securitySatisfiedByPrePlanning) {
       const threats = extractSubsection(security, "### Threats");
       const controls = extractSubsection(security, "### Required controls");
-      if (!hasMeaningfulContent(threats)) issues.push("Persona gate: Security `Threats` is unresolved. Add under `### Threats`:\n    - <attack scenario>: <attacker goal> → <impact>");
-      if (!hasMeaningfulContent(controls)) issues.push("Persona gate: Security `Required controls` is unresolved. Add under `### Required controls`:\n    - <control>: <implementation approach>");
+      if (!hasMeaningfulContent(threats)) issues.push("Persona gate: Security `Threats` unresolved in plan `## 6. Security`. Add under `### Threats`:\n    - <attack scenario>: <attacker goal> → <impact>\n    Or add content to `.aitri/security-review.md` and re-run `aitri plan`.");
+      if (!hasMeaningfulContent(controls)) issues.push("Persona gate: Security `Required controls` unresolved in plan `## 6. Security`. Add under `### Required controls`:\n    - <control>: <implementation approach>");
     }
 
     if (specContent && /screen|form|button|page|dashboard|component|layout|view|modal|dialog/i.test(specContent)) {
