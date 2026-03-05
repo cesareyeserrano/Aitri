@@ -351,6 +351,22 @@ export async function runDeliverCommand({
   uiRefValidation.filter((ref) => !ref.fileExists).forEach((ref) => {
     blockers.push(`UI-REF ${ref.id} references missing file: ${ref.path}`);
   });
+  // EVO-087: QA gate — independent AC-driven verification required before delivery
+  const qaReportPath = path.join(process.cwd(), ".aitri/qa-report.md");
+  let qaOk = false;
+  const qaContent = fs.existsSync(qaReportPath) ? fs.readFileSync(qaReportPath, "utf8") : null;
+  if (!qaContent) {
+    blockers.push(`QA report missing — independent AC verification required. Run: aitri qa --feature ${feature}`);
+  } else {
+    const qaFails = qaContent.split("\n").filter((l) => /^-\s+AC-\d+:\s+FAIL/i.test(l.trim()));
+    const qaDecisionFail = /^Decision:\s+FAIL/im.test(qaContent);
+    if (qaFails.length > 0 || qaDecisionFail) {
+      blockers.push(`QA report has ${qaFails.length} failing AC(s). Fix and re-run: aitri qa --feature ${feature}`);
+    } else {
+      qaOk = true;
+    }
+  }
+
   // EVO-012: contract coverage warning (non-blocking)
   const scaffoldManifestData = readJson(scaffoldManifestFile) || {};
   const coverageResult = checkContractCoverage({ root: process.cwd(), manifest: scaffoldManifestData });
@@ -367,19 +383,88 @@ export async function runDeliverCommand({
     warnings.push(`Proof of compliance: ${proofRecord.summary?.proven || 0}/${proofRecord.summary?.total || 0} FRs proven. Re-run: aitri prove --feature ${feature}`);
   }
 
-  // EVO-087: QA gate — independent AC-driven verification required before delivery
-  const qaReportPath = path.join(process.cwd(), ".aitri/qa-report.md");
-  let qaOk = false;
-  if (!fs.existsSync(qaReportPath)) {
-    blockers.push(`QA report missing — independent AC verification required. Run: aitri qa --feature ${feature}`);
-  } else {
-    const qaContent = fs.readFileSync(qaReportPath, "utf8");
-    const qaFails = qaContent.split("\n").filter((l) => /^-\s+AC-\d+:\s+FAIL/i.test(l.trim()));
-    const qaDecisionFail = /^Decision:\s+FAIL/im.test(qaContent);
-    if (qaFails.length > 0 || qaDecisionFail) {
-      blockers.push(`QA report has ${qaFails.length} failing AC(s). Fix and re-run: aitri qa --feature ${feature}`);
-    } else {
-      qaOk = true;
+  // EVO-096: prove freshness — warn if contracts changed after proof was generated
+  if (proofRecord && proofRecord.ok && fs.existsSync(proofFile)) {
+    const proofMtime = fs.statSync(proofFile).mtimeMs;
+    const contractsDir = path.join(process.cwd(), "src", "contracts", feature);
+    if (fs.existsSync(contractsDir)) {
+      let latestContractMtime = 0;
+      try {
+        for (const f of fs.readdirSync(contractsDir)) {
+          const mtime = fs.statSync(path.join(contractsDir, f)).mtimeMs;
+          if (mtime > latestContractMtime) latestContractMtime = mtime;
+        }
+      } catch { /* ignore read errors */ }
+      if (latestContractMtime > proofMtime) {
+        warnings.push(`Proof of compliance may be stale — contracts changed after it was generated. Re-run: aitri prove --feature ${feature}`);
+      }
+    }
+  }
+
+  // EVO-095: QA evidence semantic validation — detect thin/gaming evidence (non-blocking)
+  if (qaOk && qaContent) {
+    const thinEvidence = [...qaContent.matchAll(/^-\s+(AC-\d+):\s+PASS\s*[—\-]\s*(.+)/gim)]
+      .filter(([, , evidence]) => {
+        const e = evidence.trim();
+        return e.length < 20 || /^(ok|passed|success|done|yes|true|pass|works|correct)\.?$/i.test(e);
+      })
+      .map(([, acId]) => acId);
+    if (thinEvidence.length > 0) {
+      warnings.push(`QA report has thin evidence for ${thinEvidence.join(", ")} — add actual command + response. Example: "PASS — curl /api/health returned 200 {\\"status\\":\\"ok\\"}"`);
+    }
+  }
+
+  // EVO-093: US implementation completeness — every US must have at least one AC verified in QA
+  if (qaOk) {
+    const backlogFile = project.paths.backlogFile(feature);
+    if (fs.existsSync(backlogFile)) {
+      const backlogContent = fs.readFileSync(backlogFile, "utf8");
+      const allUs = [...new Set([...backlogContent.matchAll(/\bUS-\d+\b/g)].map((m) => m[0]))];
+      if (allUs.length > 0) {
+        // Map US → ACs from backlog sections
+        const usAcMap = {};
+        for (const match of backlogContent.matchAll(/###\s+(US-\d+)([\s\S]*?)(?=\n###\s+US-\d+|$)/g)) {
+          const usId = match[1];
+          usAcMap[usId] = [...new Set([...match[2].matchAll(/\bAC-\d+\b/g)].map((m) => m[0]))];
+        }
+        // Fallback: also collect ACs from traceMap for this US
+        for (const [, trace] of Object.entries(traceMap)) {
+          for (const usId of (trace.usIds || [])) {
+            if (!usAcMap[usId]) usAcMap[usId] = [];
+            for (const acId of (trace.acIds || [])) {
+              if (!usAcMap[usId].includes(acId)) usAcMap[usId].push(acId);
+            }
+          }
+        }
+        const qaPassedAcs = new Set(
+          [...qaContent.matchAll(/^-\s+(AC-\d+):\s+PASS/gim)].map((m) => m[1].toUpperCase())
+        );
+        const usWithoutQa = allUs.filter((usId) => {
+          const acs = usAcMap[usId] || [];
+          return acs.length === 0 || !acs.some((ac) => qaPassedAcs.has(ac.toUpperCase()));
+        });
+        if (usWithoutQa.length > 0) {
+          blockers.push(`US without QA-verified ACs: ${usWithoutQa.join(", ")}. Each User Story needs at least one AC with PASS in qa-report.md. Re-run: aitri qa --feature ${feature}`);
+        }
+      }
+    }
+  }
+
+  // EVO-094: production code evidence — verify non-aitri files changed since go gate
+  const goMarkerData = readJson(goMarkerFile) || {};
+  const goTimestamp = goMarkerData.decidedAt || goMarkerData.generatedAt || null;
+  if (goTimestamp) {
+    const aitriOwnedPrefixes = [".aitri/", "tests/", "src/contracts/", "docs/", "specs/", "node_modules/"];
+    // Check committed changes since go
+    const gitLog = spawnSync("git", ["log", "--format=", "--name-only", `--since=${goTimestamp}`], { cwd: process.cwd(), encoding: "utf8" });
+    // Check uncommitted changes
+    const gitDiff = spawnSync("git", ["diff", "--name-only", "HEAD"], { cwd: process.cwd(), encoding: "utf8" });
+    const committedFiles = gitLog.status === 0 ? gitLog.stdout.trim().split("\n").filter(Boolean) : [];
+    const uncommittedFiles = gitDiff.status === 0 ? gitDiff.stdout.trim().split("\n").filter(Boolean) : [];
+    const allChanged = [...new Set([...committedFiles, ...uncommittedFiles])];
+    const productionFiles = allChanged.filter((f) => !aitriOwnedPrefixes.some((p) => f.startsWith(p)));
+    if (allChanged.length > 0 && productionFiles.length === 0) {
+      warnings.push(`No production code changed since go gate — all ${allChanged.length} file(s) are in aitri-owned paths. Verify implementation was written.`);
     }
   }
 

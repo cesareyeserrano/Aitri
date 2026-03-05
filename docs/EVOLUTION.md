@@ -74,6 +74,22 @@ _Nota: EVO-087 (`aitri qa`) mitiga esto a nivel AC contra sistema real. Este EVO
 > Historial completo en `git log`. Para v1.2.x e inferior ver `git log --oneline`.
 > Release actual: **v1.3.0**
 
+### EVO-096 — `deliver` prove freshness: warn si contratos cambiaron después del proof (DONE 2026-03-04)
+
+`deliver.js`: si `proof-of-compliance.json` existe y `ok: true`, compara su mtime contra el mtime más reciente de `src/contracts/<feature>/`. Si contratos son más nuevos → WARN "stale". 125 tests, 0 fallos.
+
+### EVO-095 — `deliver` QA evidence: validación semántica anti-gaming (DONE 2026-03-04)
+
+`deliver.js`: para cada línea `AC-N: PASS` en qa-report.md, verifica que la evidencia tenga >20 chars y no sea genérica (`ok`, `passed`, `done`, etc.). Si es thin → WARN con ejemplo. No bloquea. 125 tests, 0 fallos.
+
+### EVO-094 — `deliver` production code evidence: git diff desde go marker (DONE 2026-03-04)
+
+`deliver.js`: lee timestamp de `go-marker.json`, corre `git log --since` + `git diff HEAD`, filtra archivos aitri-owned. Si hay commits pero cero archivos de producción cambiaron → WARN "No production code changed since go gate." 125 tests, 0 fallos.
+
+### EVO-093 — `deliver` US completeness: toda US debe tener AC verificada en QA (DONE 2026-03-04)
+
+`deliver.js`: cuando `qaOk`, lee backlog.md, mapea US-* → ACs (secciones `### US-N` + fallback vía traceMap). Parsea qa-report.md para ACs con PASS. Si algún US tiene cero ACs verificadas → BLOCKED. 125 tests, 0 fallos.
+
 ### EVO-088 — `go` validator: fallback a `.aitri/*.md` + diagnóstico exacto (DONE 2026-03-04)
 
 `persona-validation.js`: acepta `archContent` y `securityContent`. Si `.aitri/architecture-decision.md` tiene contenido significativo → salta los 5 gates de arquitectura del plan (Components, Data flow, Key decisions, Risks, Observability). Mismo patrón para `.aitri/security-review.md` → salta Threats y Required controls. Mensajes indican archivo + sección exacta y sugieren el artefacto pre-planning como alternativa. `status.js` y `validate.js` leen y pasan los artefactos. 125 tests, 0 fallos.
