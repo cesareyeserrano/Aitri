@@ -2,26 +2,7 @@
 
 ## 🟢 Ready for Implementation
 
-### EVO-089 — `deliver` hygiene: allowlist dinámica + `extraOwnedPaths`
-
-**Problema:** `checkWorkspaceHygiene()` usa prefijos hardcodeados. Archivos reales de la feature (`internal/server/handlers.go`, `web/templates/settings.html`) se clasifican como "unrelated" y bloquean delivery en cualquier proyecto no-JS.
-
-**Fix:**
-1. Leer `scaffold-manifest.json` e `implement-manifest.json` para extraer dirs/archivos generados → agregarlos a la allowlist dinámicamente
-2. Soporte en `aitri.config.json`: `delivery.extraOwnedPaths: ["internal/", "web/"]`
-3. Corregir truncamiento de paths en mensajes de error
-
-### EVO-090 — `deliver` confidence: no bloquear cuando evidencia feature está completa
-
-**Problema:** El confidence score (40% spec + 60% runtime) es global y puede dar 73% aunque FR/AC/TC del feature estén al 100%. Bloquea delivery que debería pasar.
-
-**Fix:** Si `frMatrix.every(r => r.covered)` AND `acMatrix.every(r => r.covered)` AND QA pasó → confidence no bloquea, baja a warning. Mostrar desglose del score en el mensaje cuando sí bloquea.
-
-### EVO-092 — `go` salta discovery gate si pre-planning existe
-
-**Problema:** Si `.aitri/discovery.md` ya existe (de `discover-idea`), el gate de discovery en `go` es redundante — exige el mismo artefacto en otro formato.
-
-**Fix:** En `go.js`, pasar `discoveryContent: null` si `.aitri/discovery.md` existe. La validación en `persona-validation.js` ya salta el gate si `discoveryContent` es falsy.
+_(vacío)_
 
 ---
 
@@ -92,6 +73,18 @@ _Nota: EVO-087 (`aitri qa`) mitiga esto a nivel AC contra sistema real. Este EVO
 
 > Historial completo en `git log`. Para v1.2.x e inferior ver `git log --oneline`.
 > Release actual: **v1.3.0**
+
+### EVO-092 — `go`/`validate` salta discovery gate si pre-planning existe (DONE 2026-03-04)
+
+`status.js` y `validate.js` (2 spots): si `.aitri/discovery.md` existe, `discoveryContent` se pasa como `null` → `collectPersonaValidationIssues` salta el gate. Check de "Missing discovery" también salta. 125 tests, 0 fallos.
+
+### EVO-090 — `deliver` confidence: no bloquea cuando evidencia feature completa (DONE 2026-03-04)
+
+`deliver.js`: si `frMatrix.every(covered)` AND `acMatrix.every(covered)` AND `tcCoverage.failing === 0` AND `qaOk` → confidence baja a warning con breakdown (spec%/runtime%). Si la evidencia no está completa, muestra breakdown en el blocker. QA gate re-ordenado antes del confidence check para poder evaluar `qaOk`.
+
+### EVO-089 — `deliver` hygiene: allowlist dinámica + `extraOwnedPaths` (DONE 2026-03-04)
+
+`deliver.js`: `checkWorkspaceHygiene` acepta `{ extraOwnedPaths, manifestPaths }`. Se leen `scaffold-manifest.json` e `implement-manifest.json` antes del check para extraer top-level dirs generados. Config `delivery.extraOwnedPaths: ["internal/", "web/"]` en `aitri.config.json`. Fix de renamed files en git porcelain format (`R  old -> new`). 125 tests, 0 fallos.
 
 ### EVO-087 — `aitri qa`: QA independiente AC-driven antes de deliver (DONE 2026-03-04)
 

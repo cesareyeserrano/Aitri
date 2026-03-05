@@ -135,7 +135,9 @@ export async function runValidateCommand({
   if (!fs.existsSync(testsFile)) {
     addIssue("missing_artifact", `Missing tests: ${path.relative(process.cwd(), testsFile)}`);
   }
-  if (!fs.existsSync(discoveryFile)) {
+  // EVO-092: skip discovery requirement if project-level pre-planning discovery exists
+  const _prePlanningDiscovery = fs.existsSync(path.join(process.cwd(), ".aitri", "discovery.md"));
+  if (!_prePlanningDiscovery && !fs.existsSync(discoveryFile)) {
     addIssue("missing_artifact", `Missing discovery: ${path.relative(process.cwd(), discoveryFile)}`);
   }
   if (!fs.existsSync(planFile)) {
@@ -252,7 +254,8 @@ export async function runValidateCommand({
   result.coverage.backlogUs = new Set(backlogUS).size;
   result.coverage.testsUs = testsUS.size;
 
-  const discoveryContent = fs.readFileSync(discoveryFile, "utf8");
+  // EVO-092: skip discovery gate if project-level pre-planning discovery exists
+  const discoveryContent = (!_prePlanningDiscovery && fs.existsSync(discoveryFile)) ? fs.readFileSync(discoveryFile, "utf8") : null;
   const planContent = fs.readFileSync(planFile, "utf8");
   const personaIssues = collectPersonaValidationIssues({ discoveryContent, planContent, specContent: spec });
   personaIssues.forEach((issue) => addIssue("persona", issue));
@@ -297,10 +300,12 @@ export function collectValidationIssues(project, feature, paths) {
       issues.push("Spec was amended. Re-run discover and plan to update downstream artifacts.");
     }
   }
+  // EVO-092: skip discovery requirement if project-level pre-planning discovery exists
+  const _prePlanningDiscovery2 = fs.existsSync(path.join(process.cwd(), ".aitri", "discovery.md"));
   if (!fs.existsSync(approvedFile)) issues.push(`Missing approved spec: ${path.relative(process.cwd(), approvedFile)}`);
   if (!fs.existsSync(backlogFile)) issues.push(`Missing backlog: ${path.relative(process.cwd(), backlogFile)}`);
   if (!fs.existsSync(testsFile)) issues.push(`Missing tests: ${path.relative(process.cwd(), testsFile)}`);
-  if (!fs.existsSync(discoveryFile)) issues.push(`Missing discovery: ${path.relative(process.cwd(), discoveryFile)}`);
+  if (!_prePlanningDiscovery2 && !fs.existsSync(discoveryFile)) issues.push(`Missing discovery: ${path.relative(process.cwd(), discoveryFile)}`);
   if (!fs.existsSync(planFile)) issues.push(`Missing plan: ${path.relative(process.cwd(), planFile)}`);
   if (issues.length > 0) return issues;
 
@@ -326,7 +331,7 @@ export function collectValidationIssues(project, feature, paths) {
   specFRs.filter(fr => !testsFRs.has(fr)).forEach(fr => issues.push(`Coverage: ${fr} not in tests.`));
   backlogUS.filter(us => !testsUS.has(us)).forEach(us => issues.push(`Coverage: ${us} not in tests.`));
 
-  const discoveryContent = fs.readFileSync(discoveryFile, "utf8");
+  const discoveryContent = (!_prePlanningDiscovery2 && fs.existsSync(discoveryFile)) ? fs.readFileSync(discoveryFile, "utf8") : null;
   const planContent = fs.readFileSync(planFile, "utf8");
   collectPersonaValidationIssues({ discoveryContent, planContent, specContent: spec }).forEach(i => issues.push(i));
 

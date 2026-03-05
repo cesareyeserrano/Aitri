@@ -68,7 +68,8 @@ function createReleaseTag(feature, root) {
 }
 
 // EVO-068: workspace hygiene gate — detect dirty files unrelated to the feature
-function checkWorkspaceHygiene(root, feature) {
+// EVO-089: dynamic allowlist from manifests + config extraOwnedPaths
+function checkWorkspaceHygiene(root, feature, { extraOwnedPaths = [], manifestPaths = [] } = {}) {
   const result = spawnSync("git", ["status", "--porcelain"], { cwd: root, encoding: "utf8" });
   if (result.status !== 0) return { ok: true, unrelated: [], featureOwned: [] }; // no git repo — skip
   const lines = result.stdout.trim().split("\n").filter(Boolean);
@@ -83,14 +84,36 @@ function checkWorkspaceHygiene(root, feature) {
     `specs/approved/${feature}.md`,
     `docs/plan/${feature}.md`,
     `docs/verification/${feature}.json`,
+    ...extraOwnedPaths,
+    ...manifestPaths,
   ];
   for (const line of lines) {
-    const filePath = line.slice(3).trim().replace(/^"(.*)"$/, "$1"); // strip XY status prefix and quotes
+    // git porcelain: "XY filename" or "XY old -> new" for renames
+    const status = line.slice(0, 2);
+    let filePath = line.slice(3).trim().replace(/^"(.*)"$/, "$1");
+    // handle renames: "old -> new" — take the new path
+    if (status.includes("R") && filePath.includes(" -> ")) {
+      filePath = filePath.split(" -> ").pop().trim().replace(/^"(.*)"$/, "$1");
+    }
     const isOwned = featurePrefixes.some((p) => filePath.startsWith(p) || filePath === p.replace(/\/$/, ""));
     if (isOwned) featureOwned.push(filePath);
     else unrelated.push(filePath);
   }
   return { ok: unrelated.length === 0, unrelated, featureOwned };
+}
+
+function extractManifestPaths(manifestData) {
+  const paths = [];
+  for (const key of ["interfaceFiles", "testFiles", "files", "briefFiles", "scaffoldFiles"]) {
+    const entries = manifestData?.[key];
+    if (Array.isArray(entries)) {
+      entries.forEach((f) => {
+        const dir = String(f).split("/")[0];
+        if (dir && !dir.startsWith(".")) paths.push(`${dir}/`);
+      });
+    }
+  }
+  return [...new Set(paths)];
 }
 
 function detectBuildCommand(root) {
@@ -177,8 +200,14 @@ export async function runDeliverCommand({
     return ERROR;
   }
 
-  // EVO-068: workspace hygiene gate
-  const hygiene = checkWorkspaceHygiene(process.cwd(), feature);
+  // EVO-068+089: workspace hygiene gate — dynamic allowlist from manifests + config
+  const _scaffoldManifestFileEarly = path.join(project.paths.implementationFeatureDir(feature), "scaffold-manifest.json");
+  const _implementManifestFileEarly = path.join(project.paths.implementationFeatureDir(feature), "implement-manifest.json");
+  const _scaffoldDataEarly = readJson(_scaffoldManifestFileEarly) || {};
+  const _implementDataEarly = readJson(_implementManifestFileEarly) || {};
+  const _manifestPaths = [...extractManifestPaths(_scaffoldDataEarly), ...extractManifestPaths(_implementDataEarly)];
+  const _extraOwnedPaths = (project.config.delivery?.extraOwnedPaths || []).map((p) => p.endsWith("/") ? p : `${p}/`);
+  const hygiene = checkWorkspaceHygiene(process.cwd(), feature, { extraOwnedPaths: _extraOwnedPaths, manifestPaths: _manifestPaths });
   if (!hygiene.ok) {
     const canProceed = options.yes || options.nonInteractive;
     if (!canProceed) {
@@ -322,10 +351,6 @@ export async function runDeliverCommand({
   uiRefValidation.filter((ref) => !ref.fileExists).forEach((ref) => {
     blockers.push(`UI-REF ${ref.id} references missing file: ${ref.path}`);
   });
-  if (confidenceScore < threshold) {
-    blockers.push(`Confidence score ${Math.round(confidenceScore * 100)}% is below threshold ${Math.round(threshold * 100)}%.`);
-  }
-
   // EVO-012: contract coverage warning (non-blocking)
   const scaffoldManifestData = readJson(scaffoldManifestFile) || {};
   const coverageResult = checkContractCoverage({ root: process.cwd(), manifest: scaffoldManifestData });
@@ -344,6 +369,7 @@ export async function runDeliverCommand({
 
   // EVO-087: QA gate — independent AC-driven verification required before delivery
   const qaReportPath = path.join(process.cwd(), ".aitri/qa-report.md");
+  let qaOk = false;
   if (!fs.existsSync(qaReportPath)) {
     blockers.push(`QA report missing — independent AC verification required. Run: aitri qa --feature ${feature}`);
   } else {
@@ -352,6 +378,22 @@ export async function runDeliverCommand({
     const qaDecisionFail = /^Decision:\s+FAIL/im.test(qaContent);
     if (qaFails.length > 0 || qaDecisionFail) {
       blockers.push(`QA report has ${qaFails.length} failing AC(s). Fix and re-run: aitri qa --feature ${feature}`);
+    } else {
+      qaOk = true;
+    }
+  }
+
+  // EVO-090: confidence gate — bypass when feature evidence is complete (all FRs + ACs covered + QA passed)
+  if (confidenceScore < threshold) {
+    const allFrsCovered = frMatrix.length > 0 && frMatrix.every((r) => r.covered);
+    const allAcsCovered = acMatrix.length > 0 && acMatrix.every((r) => r.covered);
+    const noFailingTc = Number(tcCoverage.failing || 0) === 0;
+    const featureEvidenceComplete = allFrsCovered && allAcsCovered && noFailingTc && qaOk;
+    const scoreBreakdown = `spec: ${status.confidence?.components?.specIntegrity ?? "?"}%, runtime: ${status.confidence?.components?.runtimeVerification ?? "?"}%`;
+    if (featureEvidenceComplete) {
+      warnings.push(`Confidence score ${Math.round(confidenceScore * 100)}% is below threshold ${Math.round(threshold * 100)}% — bypassed: all FRs, ACs, and QA are verified. (${scoreBreakdown})`);
+    } else {
+      blockers.push(`Confidence score ${Math.round(confidenceScore * 100)}% is below threshold ${Math.round(threshold * 100)}%. (${scoreBreakdown})`);
     }
   }
 

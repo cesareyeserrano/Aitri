@@ -878,7 +878,9 @@ export function getStatusReport(options = {}) {
       const spec = fs.readFileSync(specFile, "utf8");
       const backlog = fs.readFileSync(backlogFile, "utf8");
       const tests = fs.readFileSync(testsFile, "utf8");
-      const discovery = exists(discoveryFile) ? fs.readFileSync(discoveryFile, "utf8") : "";
+      // EVO-092: skip per-feature discovery gate if project-level pre-planning discovery exists
+      const prePlanningDiscoveryExists = fs.existsSync(path.join(root, ".aitri", "discovery.md"));
+      const discovery = (!prePlanningDiscoveryExists && exists(discoveryFile)) ? fs.readFileSync(discoveryFile, "utf8") : "";
       const plan = exists(planFile) ? fs.readFileSync(planFile, "utf8") : "";
 
       report.validation.issues = collectValidationIssues(spec, backlog, tests, discovery, plan);
