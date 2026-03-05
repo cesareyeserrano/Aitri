@@ -411,9 +411,31 @@ function enrichVerificationWithCoverage(baseResult, { root, feature }) {
 
   const declaredTc = Object.keys(scan.map);
   const executableTc = declaredTc.filter((tcId) => scan.map[tcId].found);
-  const passingTc = baseResult.ok ? executableTc : [];
-  const failingTc = baseResult.ok ? [] : executableTc;
   const missingTc = declaredTc.filter((tcId) => !scan.map[tcId].found);
+
+  // EVO-091: run each TC file individually for per-TC pass/fail (not binary suite result)
+  const _tcEnv = { ...process.env };
+  delete _tcEnv.NODE_TEST_CONTEXT;
+  const _perTcTimeoutMs = Number.parseInt(process.env.AITRI_PER_TC_TIMEOUT_MS || "", 10) || 30000;
+  const _filePassMap = {};
+  for (const tcId of executableTc) {
+    const file = scan.map[tcId].file;
+    if (file in _filePassMap) continue;
+    const abs = path.join(root, file);
+    const ext = path.extname(abs).toLowerCase();
+    let run;
+    if (ext === ".py") {
+      run = spawnSync("python3", ["-m", "pytest", abs, "-q", "--tb=no"], { cwd: root, encoding: "utf8", timeout: _perTcTimeoutMs, env: _tcEnv, windowsHide: true });
+      if (run.error) run = spawnSync("python", ["-m", "pytest", abs, "-q", "--tb=no"], { cwd: root, encoding: "utf8", timeout: _perTcTimeoutMs, env: _tcEnv, windowsHide: true });
+    } else if (ext === ".go") {
+      run = spawnSync("go", ["test", abs], { cwd: root, encoding: "utf8", timeout: _perTcTimeoutMs, env: _tcEnv, windowsHide: true });
+    } else {
+      run = spawnSync(process.execPath, ["--test", abs], { cwd: root, encoding: "utf8", timeout: _perTcTimeoutMs, env: _tcEnv, windowsHide: true });
+    }
+    _filePassMap[file] = run.status === 0 && !run.error;
+  }
+  const passingTc = executableTc.filter((tcId) => _filePassMap[scan.map[tcId].file] === true);
+  const failingTc = executableTc.filter((tcId) => _filePassMap[scan.map[tcId].file] !== true);
 
   const tcCoverage = {
     available: true,

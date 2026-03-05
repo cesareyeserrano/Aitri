@@ -153,3 +153,51 @@ test("verify-coverage CLI: passes when all contracts are imported", () => {
   assert.equal(payload.covered, 1);
   assert.equal(payload.total, 1);
 });
+
+// EVO-091: per-TC execution regression test
+test("verify reports per-TC pass/fail instead of binary suite result", () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-per-tc-"));
+  const feature = "per-tc-coverage";
+
+  fs.mkdirSync(path.join(tempDir, "specs", "approved"), { recursive: true });
+  fs.mkdirSync(path.join(tempDir, "tests", feature, "generated"), { recursive: true });
+
+  fs.writeFileSync(
+    path.join(tempDir, "specs", "approved", `${feature}.md`),
+    `# AF-SPEC: ${feature}\nSTATUS: APPROVED\n## 3. Functional Rules (traceable)\n- FR-1: Rule one.\n- FR-2: Rule two.\n`,
+    "utf8"
+  );
+  fs.writeFileSync(
+    path.join(tempDir, "tests", feature, "tests.md"),
+    `# Test Cases\n### TC-1\n- Trace: FR-1\n### TC-2\n- Trace: FR-2\n`,
+    "utf8"
+  );
+  // TC-1: passes individually
+  fs.writeFileSync(
+    path.join(tempDir, "tests", feature, "generated", "TC-1.test.mjs"),
+    `import test from "node:test";\nimport assert from "node:assert/strict";\n// TC-1: FR-1\ntest("TC-1", () => { assert.ok(true); });\n`,
+    "utf8"
+  );
+  // TC-2: fails individually
+  fs.writeFileSync(
+    path.join(tempDir, "tests", feature, "generated", "TC-2.test.mjs"),
+    `import test from "node:test";\nimport assert from "node:assert/strict";\n// TC-2: FR-2\ntest("TC-2", () => { assert.fail("not implemented"); });\n`,
+    "utf8"
+  );
+  // Overall suite always passes (old binary behavior would mark both TCs as passing)
+  fs.writeFileSync(
+    path.join(tempDir, "package.json"),
+    `{"name":"per-tc","private":true,"scripts":{"test:aitri":"node -e \\"process.exit(0)\\""}}\n`,
+    "utf8"
+  );
+
+  const result = runNodeOk(["verify", "--feature", feature, "--json"], { cwd: tempDir });
+  const payload = JSON.parse(result.stdout);
+
+  assert.equal(payload.ok, true, "overall suite passes");
+  assert.equal(payload.tcCoverage.mode, "scaffold");
+  assert.equal(payload.tcCoverage.passing, 1, "only TC-1 should pass");
+  assert.equal(payload.tcCoverage.failing, 1, "TC-2 should fail");
+  assert.ok(payload.frCoverage.uncovered.includes("FR-2"), "FR-2 uncovered because TC-2 fails");
+  assert.ok(!payload.frCoverage.uncovered.includes("FR-1"), "FR-1 covered by passing TC-1");
+});

@@ -38,8 +38,8 @@
     },
     {
       "path": "cli/commands/runtime.js",
-      "soft": 680,
-      "hard": 700
+      "soft": 700,
+      "hard": 720
     },
     {
       "path": "cli/commands/runtime-flow.js",

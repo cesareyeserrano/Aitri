@@ -14,65 +14,18 @@ _(vacío)_
 
 ## 📋 Backlog
 
-### EVO-088 — `go` validator: aceptar contenido de `.aitri/*.md` + diagnóstico exacto
-
-**Problema:** `persona-validation.js` sólo lee `docs/plan/<feature>.md`. Si el agente puso el contenido en `.aitri/architecture-decision.md` (que `plan` inyecta), los subsections `### Components`, `### Data flow`, etc. no están en la posición que espera `extractSubsection` → bloqueo con mensajes vagos.
-
-**Fix:**
-1. Cuando un subsection falla en `## 5. Architecture`, buscar también en `.aitri/architecture-decision.md` como fallback
-2. Mostrar exactamente: qué archivo, qué sección, qué contenido encontró vs qué esperaba
-3. `aitri plan` debe incluir scaffolding explícito de subsections antes del contenido inyectado
-
-### EVO-093 — US implementation completeness: toda US debe tener AC verificada
-
-**Problema:** Un feature puede tener todos los gates verdes (trazabilidad, contracts, prove) sin que exista implementación real para cada User Story. La cobertura es inferida, no verificada por US.
-
-**Fix en `deliver`:**
-1. Parsear US-* del backlog
-2. Mapear cada US a sus ACs (via spec + traceMap)
-3. Requerir que cada US tenga al menos un AC en `qa-report.md` con PASS
-4. BLOCKED si alguna US tiene cero ACs verificadas en QA
-
-### EVO-094 — Production code evidence gate: git diff desde go marker
-
-**Problema:** Todos los gates verifican archivos editables. Un agente puede editar artefactos para desbloquear sin escribir código real de producción. No hay signal de "alguien realmente implementó algo."
-
-**Fix en `deliver`:**
-1. Leer timestamp del `go-marker.json`
-2. Correr `git diff --name-only <go-commit>..HEAD`
-3. Filtrar archivos fuera de rutas aitri-owned
-4. Si cero archivos de producción cambiaron → BLOCKED con mensaje explicativo
-5. Mostrar lista de archivos de producción modificados como evidencia positiva
-
-### EVO-095 — QA report: validación semántica de evidencia (anti-gaming)
-
-**Problema:** `qa-report.md` es un archivo de texto que el agente escribe libremente. Puede escribir `AC-1: PASS — ok` sin haber ejecutado nada. `deliver` solo verifica que no haya `FAIL` y que `Decision: PASS` exista.
-
-**Fix en `deliver`:**
-1. Para cada línea `AC-N: PASS`, verificar que la evidencia (texto después del `—`) tenga contenido sustancial (> 20 chars, no genérico)
-2. Detectar evidencia trivial: `ok`, `passed`, `success`, `done` → WARN con "QA evidence is too thin — add actual command and response"
-3. No bloquear hard por esto (el agente puede haberlo corrido y resumido) pero alertar explícitamente
-
-### EVO-096 — `prove` freshness: re-ejecutar si stale en deliver
-
-**Problema:** `proof-of-compliance.json` se lee estáticamente. Si fue generado hace horas y el código cambió después, deliver lo acepta sin verificar que siga siendo válido.
-
-**Fix:** En `deliver`, si `proof-of-compliance.json` fue generado antes del último commit en `src/contracts/<feature>/` → marcar como stale y re-correr `aitri prove` inline antes de continuar.
-
-### EVO-091 — `prove` per-TC execution: eliminar false PASS binario
-
-**Problema:** `runtime.js:414`: `const passingTc = baseResult.ok ? executableTc : [];` — si `npm test` pasa globalmente, todos los TCs se marcan PASS. Binario. No hay ejecución individual por TC.
-
-**Fix:** En scaffold mode, correr cada `TC-N.test.js` individualmente (`node --test tests/<feature>/TC-N.test.js`) y acumular resultados per-TC. Mostrar qué TCs ejecutaron y pasaron vs cuáles fallaron.
-
-_Nota: EVO-087 (`aitri qa`) mitiga esto a nivel AC contra sistema real. Este EVO mejora la granularidad interna de `prove`._
+_(vacío)_
 
 ---
 
 ## 🔴 Done
 
 > Historial completo en `git log`. Para v1.2.x e inferior ver `git log --oneline`.
-> Release actual: **v1.3.0**
+> Release actual: **v1.4.0**
+
+### EVO-091 — `verify` per-TC execution: eliminar false PASS binario (DONE 2026-03-04)
+
+`runtime.js:enrichVerificationWithCoverage`: reemplaza `baseResult.ok ? executableTc : []` con ejecución individual por archivo TC. Para cada archivo único en `executableTc`, corre `node --test <file>` (o `pytest`/`go test` según extensión). `_filePassMap[file] = run.status === 0`. `passingTc`/`failingTc` derivados por archivo. Soporta `AITRI_PER_TC_TIMEOUT_MS` env var (default 30s por archivo). Test de regresión en `verify-coverage.test.mjs`: suite global pasa, TC-1 pasa, TC-2 falla → `tcCoverage.passing: 1`, `frCoverage.uncovered: ["FR-2"]`. 126 tests, 0 fallos.
 
 ### EVO-096 — `deliver` prove freshness: warn si contratos cambiaron después del proof (DONE 2026-03-04)
 
