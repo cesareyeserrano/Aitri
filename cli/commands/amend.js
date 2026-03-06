@@ -1,8 +1,22 @@
 import fs from "node:fs";
 import path from "node:path";
+import { readDependencyGraph } from "../lib/dependency-graph.js";
+import { loadPersonaSystemPrompt } from "../persona-loader.js";
 
 function readJsonSafe(file) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; }
+}
+
+// EVO-097: check design.md no_impact condiciones against amendment note
+function checkNoImpactAdvisory(root, amendNote) {
+  const designPath = path.join(root, ".aitri/design.md");
+  if (!fs.existsSync(designPath) || !amendNote) return [];
+  const content = fs.readFileSync(designPath, "utf8");
+  const matches = [...content.matchAll(/condiciones:\s*([^\n]+)/gi)];
+  const noteWords = amendNote.toLowerCase().split(/\s+/).filter((w) => w.length > 4);
+  return matches
+    .filter((m) => noteWords.some((w) => m[1].toLowerCase().includes(w)))
+    .map((m) => m[1].trim().slice(0, 100));
 }
 
 export async function runAmendCommand({
@@ -119,6 +133,74 @@ export async function runAmendCommand({
   console.log(`New draft created: ${path.relative(root, draftFile)}`);
   console.log(`Edit the draft, then run: aitri approve --feature ${feature}`);
   console.log(`Note: discovery, plan, backlog, and tests are now stale.`);
+
+  // EVO-097: design-amendment propagation
+  const amendTs = new Date().toISOString().replace(/[:.]/g, "-");
+  const amendDir = path.join(root, ".aitri", `amendment-${amendTs}`);
+  fs.mkdirSync(amendDir, { recursive: true });
+
+  // 1. Re-sign Security/QA — write pending review slots
+  const note = amendReason || "(no note)";
+  ["security", "qa"].forEach((persona) => {
+    const loaded = loadPersonaSystemPrompt(persona);
+    const body = [
+      `# ${persona === "security" ? "Security" : "QA"} Re-Sign Required`,
+      ``, `Amendment: ${note}`, ``,
+      `Please review this amendment for ${persona === "security" ? "security implications" : "QA implications"}.`,
+      ``, `## Persona System Prompt`, ``,
+      loaded.ok ? loaded.systemPrompt : "(persona not loaded)"
+    ].join("\n");
+    fs.writeFileSync(path.join(amendDir, `${persona}-review-pending.md`), body, "utf8");
+  });
+
+  // 2. GI consumers propagation
+  let giConsumersAffected = [];
+  const depGraph = readDependencyGraph(root);
+  if (depGraph && amendReason) {
+    const gis = depGraph.global_interfaces || [];
+    const giConsumers = depGraph.global_interface_consumers || {};
+    const mentionedGIs = gis.filter((gi) => amendReason.toLowerCase().includes(gi.id.toLowerCase()));
+    giConsumersAffected = [...new Set(mentionedGIs.flatMap((gi) => giConsumers[gi.id] || []))];
+    if (giConsumersAffected.length > 0) {
+      const reProveFile = path.join(root, "docs", "implementation", feature, "re-prove-required.json");
+      const existing = readJsonSafe(reProveFile) || {};
+      const entries = existing.entries || [];
+      giConsumersAffected.forEach((usId) => {
+        entries.push({ story: usId, status: "pending", reason: `GI consumer — amendment: ${note}`, since: new Date().toISOString() });
+      });
+      fs.mkdirSync(path.dirname(reProveFile), { recursive: true });
+      fs.writeFileSync(reProveFile, JSON.stringify({ schemaVersion: 1, feature, entries }, null, 2), "utf8");
+    }
+  }
+
+  // 3. NO IMPACT advisory
+  const noImpactAdvisory = checkNoImpactAdvisory(root, amendReason);
+
+  // 4. Sealed-hashes invalidation (if amendment references FR IDs)
+  const sealedHashesFile = path.join(root, ".aitri", "sealed-hashes.json");
+  let sealedInvalidated = false;
+  if (fs.existsSync(sealedHashesFile) && amendReason && /\bFR-\d+\b/.test(amendReason)) {
+    fs.unlinkSync(sealedHashesFile);
+    sealedInvalidated = true;
+  }
+
+  // 5. Amendment manifest
+  fs.writeFileSync(path.join(amendDir, "manifest.json"), JSON.stringify({
+    schemaVersion: 1, feature, amendedAt: new Date().toISOString(),
+    note, version: currentVersion, nextVersion,
+    giConsumersAffected, sealedInvalidated, noImpactAdvisory,
+    pendingReviews: ["security-review-pending.md", "qa-review-pending.md"]
+  }, null, 2), "utf8");
+
+  const relAmendDir = path.relative(root, amendDir);
+  console.log(`Amendment manifest: ${relAmendDir}/manifest.json`);
+  console.log(`Re-sign prompts: ${relAmendDir}/security-review-pending.md, ${relAmendDir}/qa-review-pending.md`);
+  if (giConsumersAffected.length > 0) console.log(`GI consumers requiring re-prove: ${giConsumersAffected.join(", ")}`);
+  if (sealedInvalidated) console.log("SPEC-SEALED hashes invalidated — re-run: aitri build --feature " + feature);
+  if (noImpactAdvisory.length > 0) {
+    console.log("NO IMPACT ADVISORY: amendment may trigger re-review:");
+    noImpactAdvisory.forEach((c) => console.log(`  - ${c}`));
+  }
 
   printCheckpointSummary(runAutoCheckpoint({
     enabled: options.autoCheckpoint,
