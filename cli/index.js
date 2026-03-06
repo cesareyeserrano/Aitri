@@ -45,6 +45,8 @@ import { runTestgenCommand } from "./commands/testgen.js";
 import { runContractgenCommand } from "./commands/contractgen.js";
 import { runAuditCommand } from "./commands/audit.js";
 import { runServeCommand } from "./commands/serve.js";
+import { runDesignCommand } from "./commands/design.js";
+import { runDesignReviewCommand } from "./commands/design-review.js";
 import { runDiscoverIdeaCommand } from "./commands/discover-idea.js";
 import { runProductSpecCommand } from "./commands/product-spec.js";
 import { runUxDesignCommand } from "./commands/ux-design.js";
@@ -141,6 +143,7 @@ function parseArgs(argv) {
     name: null,
     features: null,
     epic: null,
+    profile: null,
     positional: []
   };
 
@@ -247,6 +250,8 @@ function parseArgs(argv) {
     } else if (arg.startsWith("--features=")) { parsed.features = arg.slice("--features=".length).trim();
     } else if (arg === "--epic") { parsed.epic = (argv[i+1]||"").trim(); i+=1;
     } else if (arg.startsWith("--epic=")) { parsed.epic = arg.slice("--epic=".length).trim();
+    } else if (arg === "--profile") { parsed.profile = (argv[i+1]||"").trim().toLowerCase(); i+=1;
+    } else if (arg.startsWith("--profile=")) { parsed.profile = arg.slice("--profile=".length).trim().toLowerCase();
     } else {
       parsed.positional.push(arg);
     }
@@ -351,6 +356,11 @@ if (!cmd || cmd === "help") {
   const advanced = process.argv.includes("--advanced");
   console.log(`
 Aitri ⚒️  — Spec-driven software factory
+
+Fase 1 — Definition (SDLC v2.2):
+  aitri design          Design Session (7 personas) → .aitri/design.md
+  aitri design-review   Human approval gate         → .aitri/design-review.json
+  aitri spec-from-design  Spec Engineer + dep-graph → specs/approved/<f>.md
 
 Pre-Planning (persona-driven — run once per project):
   aitri discover-idea   Discovery Facilitator → .aitri/discovery.md
@@ -652,6 +662,16 @@ if (cmd === "checkpoint") {
     code = runCheckpointCommand({ options, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   }
   process.exit(code);
+}
+
+if (cmd === "design") {
+  const code = await runDesignCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "design-review") {
+  const code = await runDesignReviewCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
 }
 
 if (cmd === "discover-idea") {

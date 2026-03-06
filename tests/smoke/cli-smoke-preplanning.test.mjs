@@ -108,6 +108,74 @@ test("product-spec outputs persona prompt when discovery.md exists", () => {
   assert.match(out, /product-spec\.md/);
 });
 
+// --- EVO-097: Fase 1 commands ---
+
+test("design requires --idea in non-interactive mode", () => {
+  const dir = makeTempProject();
+  const result = runNode(["design", "--non-interactive"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /Idea input is required/);
+});
+
+test("design outputs all 7 persona prompts and task block", () => {
+  const dir = makeTempProject();
+  const result = runNodeOk(["design", "--non-interactive", "--idea", "build a task tracker"], { cwd: dir });
+  const out = result.stdout + result.stderr;
+  assert.match(out, /Design Session/);
+  assert.match(out, /System Prompts/);
+  assert.match(out, /design\.md/);
+  assert.match(out, /aitri design-review/);
+});
+
+test("design --profile mvp includes mvp preamble for security and qa", () => {
+  const dir = makeTempProject();
+  const result = runNodeOk(["design", "--non-interactive", "--idea", "simple CRUD", "--profile", "mvp"], { cwd: dir });
+  const out = result.stdout + result.stderr;
+  assert.match(out, /PROFILE: mvp/);
+});
+
+test("design --profile invalid returns error", () => {
+  const dir = makeTempProject();
+  const result = runNode(["design", "--non-interactive", "--idea", "test", "--profile", "superstrict"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /Invalid --profile/);
+});
+
+test("design non-interactive fails with --force hint when design.md exists", () => {
+  const dir = makeTempProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design.md"), "# Design\nexisting\n", "utf8");
+  const result = runNode(["design", "--non-interactive", "--idea", "test"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /Use --force to regenerate/);
+});
+
+test("design-review fails when design.md is missing", () => {
+  const dir = makeTempProject();
+  const result = runNode(["design-review", "--non-interactive"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*design\.md/);
+});
+
+test("design-review --non-interactive auto-approves and writes design-review.json", () => {
+  const dir = makeTempProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design.md"), "# Design\nProfile: strict\nSome content.\n", "utf8");
+  const result = runNodeOk(["design-review", "--non-interactive"], { cwd: dir });
+  const out = result.stdout + result.stderr;
+  assert.match(out, /approved/i);
+  assert.ok(fs.existsSync(path.join(dir, ".aitri/design-review.json")));
+  const marker = JSON.parse(fs.readFileSync(path.join(dir, ".aitri/design-review.json"), "utf8"));
+  assert.equal(marker.ok, true);
+  assert.ok(marker.approvedAt);
+});
+
+test("design-review detects mvp profile from design.md", () => {
+  const dir = makeTempProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design.md"), "# Design\nProfile: mvp\nSome content.\n", "utf8");
+  runNodeOk(["design-review", "--non-interactive"], { cwd: dir });
+  const marker = JSON.parse(fs.readFileSync(path.join(dir, ".aitri/design-review.json"), "utf8"));
+  assert.equal(marker.profile, "mvp");
+});
+
 // --- Help output ---
 
 test("help output includes pre-planning commands", () => {
@@ -120,6 +188,13 @@ test("help output includes pre-planning commands", () => {
   assert.match(result.stdout, /qa-plan/);
   assert.match(result.stdout, /dev-roadmap/);
   assert.match(result.stdout, /Pre-Planning/);
+});
+
+test("help output includes Fase 1 commands", () => {
+  const result = runNodeOk(["help"]);
+  assert.match(result.stdout, /design/);
+  assert.match(result.stdout, /design-review/);
+  assert.match(result.stdout, /Fase 1/);
 });
 
 // --- EVO-039: --force guard tests ---
