@@ -3,6 +3,7 @@ import path from "node:path";
 import { warnIfStale } from "../lib/staleness.js";
 import { parseApprovedSpec } from "./spec-parser.js";
 import { extractSection } from "../lib.js";
+import { extractSealedBlocks, computeBlockHash, writeHashes } from "../lib/sealed-hashes.js";
 import {
   createTestStub,
   createInterfaceStub,
@@ -119,6 +120,38 @@ Dependency-sort policy:
 ## Ordered Stories
 ${rows}
 `;
+}
+
+/**
+ * Inject a SPEC-SEALED block into a generated test stub file (after the TC header comment).
+ * Returns { tcId, hash } or null if injection failed.
+ */
+function injectSealedBlock(filePath) {
+  let content;
+  try { content = fs.readFileSync(filePath, "utf8"); } catch { return null; }
+  if (extractSealedBlocks(content).length > 0) {
+    // Already has a sealed block — just return the existing hash
+    const hash = computeBlockHash(extractSealedBlocks(content)[0].content);
+    const tcMatch = content.match(/\/\/\s+(TC-\d+)[:\s]/i) || content.match(/#\s+(TC-\d+)[:\s]/i);
+    return tcMatch ? { tcId: tcMatch[1].toUpperCase(), hash } : null;
+  }
+  const tcMatch = content.match(/\/\/\s+(TC-\d+)[:\s]/i) || content.match(/#\s+(TC-\d+)[:\s]/i);
+  if (!tcMatch) return null;
+  const tcId = tcMatch[1].toUpperCase();
+  const sealedBlock = [
+    "// --- SPEC-SEALED: DO NOT MODIFY ---",
+    "const INPUT = {}; // Spec Engineer fills before implementation",
+    "const EXPECTED = {}; // Spec Engineer fills before implementation",
+    "// --- SPEC-SEALED: END ---"
+  ].join("\n");
+  // Insert after first line
+  const lines = content.split("\n");
+  lines.splice(1, 0, sealedBlock);
+  const newContent = lines.join("\n");
+  fs.writeFileSync(filePath, newContent, "utf8");
+  const blocks = extractSealedBlocks(newContent);
+  const hash = blocks.length > 0 ? computeBlockHash(blocks[0].content) : computeBlockHash(sealedBlock);
+  return { tcId, hash };
 }
 
 function verifyForStory({ story, tcMapByStory, root, feature, verifyCmd }) {
@@ -259,6 +292,7 @@ export async function runBuildCommand({
   const completedStories = [];
   const pendingStories = [];
   const storyResults = [];
+  const sealedHashMap = {}; // EVO-097: SPEC-SEALED hash collection
 
   for (const story of targetStories) {
     console.log(`\n--- ${story.id} ---`);
@@ -269,6 +303,13 @@ export async function runBuildCommand({
     });
     existingScaffold.testFiles = [...new Set([...(existingScaffold.testFiles || []), ...scaffoldResult.testFiles])];
     existingScaffold.interfaceFiles = [...new Set([...(existingScaffold.interfaceFiles || []), ...scaffoldResult.interfaceFiles])];
+
+    // EVO-097: inject SPEC-SEALED block into each generated test stub
+    for (const relFile of scaffoldResult.testFiles) {
+      const absFile = path.join(process.cwd(), relFile);
+      const result = injectSealedBlock(absFile);
+      if (result) sealedHashMap[result.tcId] = { file: relFile, hash: result.hash };
+    }
 
     const references = findScaffoldReferences(story, existingScaffold);
     const previous = ordered.slice(0, ordered.indexOf(story)).map((s) => s.id);
@@ -311,6 +352,13 @@ export async function runBuildCommand({
     } else {
       pendingStories.push(story.id);
     }
+  }
+
+  // EVO-097: write sealed hashes and record in scaffold manifest
+  if (Object.keys(sealedHashMap).length > 0) {
+    writeHashes(process.cwd(), feature, sealedHashMap);
+    existingScaffold.sealedHashesFile = ".aitri/sealed-hashes.json";
+    console.log(`SPEC-SEALED: ${Object.keys(sealedHashMap).length} TC block(s) hashed → .aitri/sealed-hashes.json`);
   }
 
   existingScaffold.feature = feature;
