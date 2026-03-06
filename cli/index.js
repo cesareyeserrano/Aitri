@@ -58,6 +58,7 @@ import { runDevRoadmapCommand } from "./commands/dev-roadmap.js";
 import { runEpicCreateCommand, runEpicStatusCommand } from "./commands/epic.js";
 import { runCloseCommand } from "./commands/close.js";
 import { runQaCommand } from "./commands/qa.js";
+import { runVerifyScopeCommand } from "./commands/verify-scope.js";
 import { fileURLToPath } from "node:url";
 import { CONFIG_FILE, loadAitriConfig, resolveProjectPaths } from "./config.js";
 import {
@@ -225,6 +226,7 @@ function parseArgs(argv) {
     } else if (arg === "--hook") { parsed.hook = (argv[i+1]||"").trim(); i+=1;
     } else if (arg === "--provider") { parsed.provider = (argv[i+1]||"").trim(); i+=1;
     } else if (arg === "--all") { parsed.all = true;
+    } else if (arg === "--affected") { parsed.affected = (argv[i + 1] || "").trim() || true; if (typeof parsed.affected === "string" && /^US-\d+$/i.test(parsed.affected)) { i += 1; } else { parsed.affected = true; }
     } else if (arg === "--ai-backlog") { parsed.aiBacklog = (argv[i+1]||"").trim(); i+=1;
     } else if (arg.startsWith("--ai-backlog=")) { parsed.aiBacklog = arg.slice("--ai-backlog=".length).trim();
     } else if (arg === "--ai-tests") { parsed.aiTests = (argv[i+1]||"").trim(); i+=1;
@@ -494,6 +496,11 @@ if (cmd === "prove") {
 
 if (cmd === "qa") {
   const code = await runQaCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "verify-scope") {
+  const code = await runVerifyScopeCommand({ options, getProjectContextOrExit, getStatusReportOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 

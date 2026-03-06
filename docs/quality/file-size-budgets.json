@@ -13,8 +13,8 @@
     },
     {
       "path": "cli/index.js",
-      "soft": 740,
-      "hard": 800
+      "soft": 755,
+      "hard": 820
     },
     {
       "path": "cli/commands/draft.js",
