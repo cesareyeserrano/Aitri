@@ -176,6 +176,76 @@ test("design-review detects mvp profile from design.md", () => {
   assert.equal(marker.profile, "mvp");
 });
 
+// --- EVO-097: spec-from-design ---
+
+test("spec-from-design fails when design-review.json is missing", () => {
+  const dir = makeTempProject();
+  const result = runNode(["spec-from-design", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*design-review\.json/);
+});
+
+test("spec-from-design fails when design-review.json has ok:false", () => {
+  const dir = makeTempProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: false, approvedAt: null }), "utf8");
+  const result = runNode(["spec-from-design", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /not approved/i);
+});
+
+test("spec-from-design fails when design.md is missing after review approval", () => {
+  const dir = makeTempProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: true, approvedAt: "2026-01-01T00:00:00Z", profile: "strict" }), "utf8");
+  const result = runNode(["spec-from-design", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /Artifact not found:.*design\.md/);
+});
+
+test("spec-from-design requires --feature", () => {
+  const dir = makeTempProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: true, approvedAt: "2026-01-01T00:00:00Z", profile: "strict" }), "utf8");
+  fs.writeFileSync(path.join(dir, ".aitri/design.md"), "# Design\nSome content\n", "utf8");
+  const result = runNode(["spec-from-design", "--non-interactive"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /Feature name required/);
+});
+
+test("spec-from-design outputs Spec Engineer task when prerequisites met", () => {
+  const dir = makeTempProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: true, approvedAt: "2026-01-01T00:00:00Z", profile: "strict" }), "utf8");
+  fs.writeFileSync(path.join(dir, ".aitri/design.md"), "# Design\nProfile: strict\nSome content.\n", "utf8");
+  const result = runNodeOk(["spec-from-design", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  const out = result.stdout + result.stderr;
+  assert.match(out, /AGENT TASK: spec-from-design/);
+  assert.match(out, /Spec Engineer/);
+  assert.match(out, /LOGIC_GAP/);
+  assert.match(out, /dependency-graph/);
+});
+
+test("spec-from-design --check reports missing spec as error", () => {
+  const dir = makeTempProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: true, approvedAt: "2026-01-01T00:00:00Z", profile: "strict" }), "utf8");
+  fs.writeFileSync(path.join(dir, ".aitri/design.md"), "# Design\n", "utf8");
+  const result = runNode(["spec-from-design", "--check", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /CHECK FAILED/);
+});
+
+test("spec-from-design --check passes when spec and dep-graph are valid", () => {
+  const dir = makeTempProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: true, approvedAt: "2026-01-01T00:00:00Z", profile: "strict" }), "utf8");
+  fs.writeFileSync(path.join(dir, ".aitri/design.md"), "# Design\n", "utf8");
+  // Write valid spec (no LOGIC_GAPs)
+  const specsDir = path.join(dir, "specs", "approved");
+  fs.mkdirSync(specsDir, { recursive: true });
+  fs.writeFileSync(path.join(specsDir, "my-feat.md"), "# AF-SPEC: my-feat\nSTATUS: APPROVED\n## 1. Context\n", "utf8");
+  // Write valid dep-graph (no cycles)
+  const depGraph = { feature: "my-feat", generated: "2026-01-01T00:00:00Z", nodes: [{ id: "US-1", depends_on: [], fr: [] }], global_interfaces: [], global_interface_consumers: {}, execution_order: ["US-1"] };
+  fs.writeFileSync(path.join(dir, ".aitri/dependency-graph.json"), JSON.stringify(depGraph), "utf8");
+  const result = runNodeOk(["spec-from-design", "--check", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.match(result.stdout + result.stderr, /check passed/i);
+});
+
 // --- Help output ---
 
 test("help output includes pre-planning commands", () => {

@@ -47,6 +47,7 @@ import { runAuditCommand } from "./commands/audit.js";
 import { runServeCommand } from "./commands/serve.js";
 import { runDesignCommand } from "./commands/design.js";
 import { runDesignReviewCommand } from "./commands/design-review.js";
+import { runSpecFromDesignCommand } from "./commands/spec-from-design.js";
 import { runDiscoverIdeaCommand } from "./commands/discover-idea.js";
 import { runProductSpecCommand } from "./commands/product-spec.js";
 import { runUxDesignCommand } from "./commands/ux-design.js";
@@ -252,6 +253,7 @@ function parseArgs(argv) {
     } else if (arg.startsWith("--epic=")) { parsed.epic = arg.slice("--epic=".length).trim();
     } else if (arg === "--profile") { parsed.profile = (argv[i+1]||"").trim().toLowerCase(); i+=1;
     } else if (arg.startsWith("--profile=")) { parsed.profile = arg.slice("--profile=".length).trim().toLowerCase();
+    } else if (arg === "--check") { parsed.check = true;
     } else {
       parsed.positional.push(arg);
     }
@@ -671,6 +673,11 @@ if (cmd === "design") {
 
 if (cmd === "design-review") {
   const code = await runDesignReviewCommand({ options, getProjectContextOrExit, ask, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR, ABORTED: EXIT_ABORTED } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "spec-from-design") {
+  const code = await runSpecFromDesignCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 
