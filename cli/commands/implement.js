@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseApprovedSpec } from "./spec-parser.js";
 import { extractSection, normalizeLine, resolveFeature } from "../lib.js";
+import { readDependencyGraph } from "../lib/dependency-graph.js";
 
 function readJsonFile(file) {
   try {
@@ -177,6 +178,139 @@ function writeFile(file, content) {
   fs.writeFileSync(file, content, "utf8");
 }
 
+function buildBoundedContextFromGraph({ storyId, feature, depGraphData, root, project }) {
+  const node = (depGraphData.nodes || []).find((n) => n.id === storyId);
+  if (!node) {
+    console.log(`Story ${storyId} not found in dependency graph.`);
+    return null;
+  }
+  const depNodes = (depGraphData.nodes || []).filter((n) => (node.depends_on || []).includes(n.id));
+  const giDefs = (depGraphData.global_interfaces || []).filter((gi) => (node.global_interfaces || []).includes(gi.id));
+
+  let specExcerpt = "";
+  const specPath = project.paths.approvedSpecFile(feature);
+  if (fs.existsSync(specPath)) {
+    const specContent = fs.readFileSync(specPath, "utf8");
+    const usMatch = specContent.match(new RegExp(`###\\s*${storyId}([\\s\\S]*?)(?=\\n###\\s*US-\\d+|$)`, "i"));
+    if (usMatch) specExcerpt = usMatch[1].slice(0, 2000).trim();
+  }
+
+  const lines = [
+    `# Bounded Implementation Context: ${storyId}`,
+    ``,
+    `Feature: ${feature}`,
+    `Generated: ${new Date().toISOString()}`,
+    `Source: .aitri/dependency-graph.json`,
+    ``,
+    `> NOTE: Full design.md is NOT available in this context.`,
+    `> If you need design clarification, contact your architect via: aitri amend`,
+    ``,
+    `## Story`,
+    `ID: ${storyId}`,
+    `FRs: ${(node.fr || []).join(", ") || "none"}`,
+    `Global interfaces: ${(node.global_interfaces || []).join(", ") || "none"}`
+  ];
+
+  if (specExcerpt) {
+    lines.push(``, `### Spec Excerpt`, specExcerpt);
+  }
+
+  if (depNodes.length > 0) {
+    lines.push(``, `## Direct Dependencies (stub headers only)`);
+    for (const dep of depNodes) {
+      lines.push(``, `### ${dep.id}`, `FRs: ${(dep.fr || []).join(", ") || "none"}`, `Global interfaces: ${(dep.global_interfaces || []).join(", ") || "none"}`);
+    }
+  }
+
+  if (giDefs.length > 0) {
+    lines.push(``, `## Global Interface Definitions`);
+    for (const gi of giDefs) {
+      lines.push(``, `### ${gi.id}`, gi.description || "(no description)");
+      if (gi.schema) lines.push(``, `Schema:`, `\`\`\`json`, JSON.stringify(gi.schema, null, 2), `\`\`\``);
+    }
+  }
+
+  const execOrder = depGraphData.execution_order || [];
+  const pos = execOrder.indexOf(storyId);
+  lines.push(``, `## Execution Order`, `Position: ${pos >= 0 ? pos + 1 : "?"} of ${execOrder.length}`, `Full order: ${execOrder.join(" → ")}`);
+
+  return lines.join("\n");
+}
+
+function buildBoundedContextFallback({ storyId, feature, root, project }) {
+  console.log(`[implement --story] No dependency graph — using backlog fallback.`);
+  console.log(`Tip: run \`aitri spec-from-design\` to generate .aitri/dependency-graph.json`);
+  const backlogFile = project.paths.backlogFile(feature);
+  if (!fs.existsSync(backlogFile)) {
+    console.log(`Backlog not found for feature: ${feature}`);
+    return null;
+  }
+  const stories = parseUserStories(fs.readFileSync(backlogFile, "utf8"));
+  const story = stories.find((s) => s.id === storyId);
+  if (!story) { console.log(`Story ${storyId} not found in backlog.`); return null; }
+
+  const acceptance = story.acceptance.length > 0
+    ? story.acceptance.map((ac) => `- Given ${ac.given}, when ${ac.when}, then ${ac.then}.`).join("\n")
+    : "- No explicit acceptance criteria found.";
+
+  return [
+    `# Bounded Implementation Context: ${storyId} (fallback — no dep-graph)`,
+    ``,
+    `Feature: ${feature}`,
+    `Generated: ${new Date().toISOString()}`,
+    ``,
+    `> NOTE: Dependency graph not found. Context limited to backlog data.`,
+    `> Full design.md is NOT available in this context.`,
+    ``,
+    `## Story`,
+    `ID: ${story.id}`,
+    `Sentence: ${story.sentence}`,
+    `FRs: ${story.frIds.join(", ") || "none"}`,
+    ``,
+    `## Acceptance Criteria`,
+    acceptance
+  ].join("\n");
+}
+
+async function runImplementStoryMode({ options, project, feature, exitCodes }) {
+  const { OK, ERROR } = exitCodes;
+  const storyId = String(options.story).toUpperCase().trim();
+  if (!/^US-\d+$/.test(storyId)) {
+    console.log(`Invalid story ID: "${storyId}". Expected format: US-N (e.g. US-1)`);
+    return ERROR;
+  }
+
+  const root = process.cwd();
+  const implDir = project.paths.implementationFeatureDir(feature);
+  const contextFile = path.join(implDir, `${storyId}-context.md`);
+
+  const depGraphResult = readDependencyGraph(root);
+  let contextContent;
+  if (depGraphResult.ok) {
+    contextContent = buildBoundedContextFromGraph({ storyId, feature, depGraphData: depGraphResult.data, root, project });
+  } else {
+    contextContent = buildBoundedContextFallback({ storyId, feature, root, project });
+  }
+  if (!contextContent) return ERROR;
+
+  fs.mkdirSync(implDir, { recursive: true });
+  fs.writeFileSync(contextFile, contextContent, "utf8");
+
+  const relContext = path.relative(root, contextFile);
+  console.log(`\n--- AGENT TASK: implement ---`);
+  console.log(`Story: ${storyId} | Feature: ${feature}`);
+  console.log(`Bounded context written: ${relContext}`);
+  console.log(`\nYour task:`);
+  console.log(`1. Read the bounded context: ${relContext}`);
+  console.log(`2. Implement ONLY the functionality described in ${storyId}.`);
+  console.log(`3. Do NOT implement other stories or access full design.md.`);
+  console.log(`4. Honor all SPEC-SEALED markers in TC stubs — do not modify them.`);
+  console.log(`5. Satisfy all acceptance criteria listed in the context.`);
+  console.log(`---`);
+  console.log(`→ After implementing: aitri prove --story ${storyId} --feature ${feature}`);
+  return OK;
+}
+
 export function buildBriefContent({
   feature,
   story,
@@ -273,7 +407,7 @@ export async function runImplementCommand({
 }) {
   const { OK, ERROR, ABORTED } = exitCodes;
   const _implementJsonOutput = (options.json) || ((options.format||"").toLowerCase()==="json") || (options.positional||[]).some(p=>p.toLowerCase()==="json");
-  if (!_implementJsonOutput) {
+  if (!_implementJsonOutput && !options.story) {
     console.log("DEPRECATION: `aitri implement` is deprecated. Use `aitri build` instead.");
   }
   const project = getProjectContextOrExit();
@@ -284,6 +418,11 @@ export async function runImplementCommand({
   } catch (error) {
     console.log(error instanceof Error ? error.message : "Feature resolution failed.");
     return ERROR;
+  }
+
+  // EVO-097: --story US-N → bounded context chunking mode
+  if (options.story) {
+    return runImplementStoryMode({ options, project, feature, exitCodes });
   }
 
   const goMarkerFile = project.paths.goMarkerFile(feature);

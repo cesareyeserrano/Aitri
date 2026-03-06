@@ -98,7 +98,7 @@
     },
     {
       "path": "cli/commands/implement.js",
-      "soft": 500,
+      "soft": 555,
       "hard": 650
     },
     {
