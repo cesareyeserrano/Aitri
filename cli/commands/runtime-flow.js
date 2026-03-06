@@ -5,6 +5,7 @@ import { evaluatePolicyChecks, resolveVerifyFeature, runVerification } from "./r
 import { normalizeFeatureName } from "../lib.js";
 import { collectValidationIssues } from "./validate.js";
 import { readEpicsSummaryFromDocsRoot } from "./epic.js";
+import { readDependencyGraph, validateCycles } from "../lib/dependency-graph.js";
 import { loadPersonaContribution } from "../persona-loader.js";
 
 function wantsJson(options, positional = []) {
@@ -543,6 +544,34 @@ export async function runGoCommand({
     return ERROR;
   }
 
+  const feature = report.approvedSpec.feature;
+
+  // EVO-097: verify-intent prerequisite check
+  const verifyIntentFile = project.paths.verificationFile ? project.paths.verificationFile(feature) : null;
+  if (verifyIntentFile && fs.existsSync(verifyIntentFile)) {
+    try {
+      const vIntent = JSON.parse(fs.readFileSync(verifyIntentFile, "utf8"));
+      if (vIntent.ok === false) {
+        console.log("GO BLOCKED: verify-intent returned FAIL — fix traceability before go.");
+        console.log(`Evidence: ${path.relative(process.cwd(), verifyIntentFile)}`);
+        console.log("Run: aitri verify-intent --feature " + feature);
+        return ERROR;
+      }
+    } catch { /* ignore parse errors — non-blocking */ }
+  }
+
+  // EVO-097: dep-graph cycle check
+  const depGraphData = readDependencyGraph(process.cwd());
+  if (depGraphData) {
+    const cycleCheck = validateCycles(depGraphData);
+    if (!cycleCheck.ok) {
+      console.log("GO BLOCKED: dependency graph has cycles.");
+      cycleCheck.cycles.forEach((c) => console.log(`  Cycle: ${c.join(" → ")}`));
+      console.log("Fix cycles in .aitri/dependency-graph.json before proceeding.");
+      return ERROR;
+    }
+  }
+
   const proceed = await confirmProceed(options);
   if (proceed === null) {
     console.log("Non-interactive mode requires --yes for go/no-go confirmation.");
@@ -552,8 +581,6 @@ export async function runGoCommand({
     console.log("Implementation go/no-go decision: NO-GO.");
     return ABORTED;
   }
-
-  const feature = report.approvedSpec.feature;
 
   console.log("Implementation go/no-go decision: GO.");
   console.log("Use approved artifacts as source of truth:");

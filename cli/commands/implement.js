@@ -284,10 +284,10 @@ async function runImplementStoryMode({ options, project, feature, exitCodes }) {
   const implDir = project.paths.implementationFeatureDir(feature);
   const contextFile = path.join(implDir, `${storyId}-context.md`);
 
-  const depGraphResult = readDependencyGraph(root);
+  const depGraphData = readDependencyGraph(root);
   let contextContent;
-  if (depGraphResult.ok) {
-    contextContent = buildBoundedContextFromGraph({ storyId, feature, depGraphData: depGraphResult.data, root, project });
+  if (depGraphData) {
+    contextContent = buildBoundedContextFromGraph({ storyId, feature, depGraphData, root, project });
   } else {
     contextContent = buildBoundedContextFallback({ storyId, feature, root, project });
   }

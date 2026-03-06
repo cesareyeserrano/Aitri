@@ -72,11 +72,11 @@ export async function runVerifyScopeCommand({
   }
 
   // Read dependency graph for FR scope
-  const depGraphResult = readDependencyGraph(root);
+  const depGraphData = readDependencyGraph(root);
   let storyFrs = [];
   let declaredInterfaces = [];
-  if (depGraphResult.ok) {
-    const node = (depGraphResult.data.nodes || []).find((n) => n.id === storyId);
+  if (depGraphData) {
+    const node = (depGraphData.nodes || []).find((n) => n.id === storyId);
     if (!node) {
       console.log(`Story ${storyId} not found in dependency graph.`);
       return ERROR;

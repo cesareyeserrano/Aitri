@@ -175,11 +175,11 @@ export async function runProveCommand({
 
   // EVO-097: --affected mode — use dep-graph to find affected stories, run prove per story
   if (options.affected) {
-    const depGraphResult = readDependencyGraph(root);
-    if (!depGraphResult.ok) { console.log("--affected requires .aitri/dependency-graph.json. Run: aitri spec-from-design"); return ERROR; }
+    const depGraphData = readDependencyGraph(root);
+    if (!depGraphData) { console.log("--affected requires .aitri/dependency-graph.json. Run: aitri spec-from-design"); return ERROR; }
     const targetId = String(options.affected === true ? "" : options.affected).toUpperCase().trim();
     const baseId = /^US-\d+$/.test(targetId) ? targetId : null;
-    const affected = baseId ? getAffectedNodes(depGraphResult.data, baseId) : (depGraphResult.data.nodes || []).map((n) => n.id);
+    const affected = baseId ? getAffectedNodes(depGraphData, baseId) : (depGraphData.nodes || []).map((n) => n.id);
     if (!jsonOutput) console.log(`Affected stories: ${affected.join(", ") || "none"}`);
     let allOk = true;
     for (const sid of affected) {
