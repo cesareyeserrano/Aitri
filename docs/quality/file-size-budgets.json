@@ -113,8 +113,13 @@
     },
     {
       "path": "cli/commands/deliver.js",
-      "soft": 390,
-      "hard": 500
+      "soft": 250,
+      "hard": 300
+    },
+    {
+      "path": "cli/lib/deliver-utils.js",
+      "soft": 350,
+      "hard": 400
     },
     {
       "path": "cli/commands/doctor.js",
