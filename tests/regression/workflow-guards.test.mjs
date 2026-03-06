@@ -147,3 +147,71 @@ test("init writes project profile when --project is provided", () => {
   const payload = JSON.parse(fs.readFileSync(profileFile, "utf8"));
   assert.equal(payload.name, "OEL Platform");
 });
+
+// --- EVO-097: validate-design gate ---
+
+function makeDesignProject() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "aitri-validate-design-"));
+  fs.writeFileSync(path.join(dir, "aitri.config.json"), JSON.stringify({ project: "test" }), "utf8");
+  fs.mkdirSync(path.join(dir, ".aitri"), { recursive: true });
+  return dir;
+}
+
+test("validate-design blocked when design-review.json missing", () => {
+  const dir = makeDesignProject();
+  const result = runNode(["validate-design", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /VALIDATE-DESIGN BLOCKED/);
+  assert.match(result.stdout + result.stderr, /design-review/);
+});
+
+test("validate-design blocked when design not approved", () => {
+  const dir = makeDesignProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: false }), "utf8");
+  const result = runNode(["validate-design", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /not approved/i);
+});
+
+test("validate-design blocked when dependency-graph missing", () => {
+  const dir = makeDesignProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: true, approvedAt: "2026-01-01T00:00:00Z" }), "utf8");
+  const result = runNode(["validate-design", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /dependency-graph.*missing/i);
+});
+
+test("validate-design blocked when dependency-graph has cycles", () => {
+  const dir = makeDesignProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: true, approvedAt: "2026-01-01T00:00:00Z" }), "utf8");
+  const cyclicGraph = { feature: "my-feat", nodes: [{ id: "US-1", depends_on: ["US-2"] }, { id: "US-2", depends_on: ["US-1"] }], global_interfaces: [], global_interface_consumers: {} };
+  fs.writeFileSync(path.join(dir, ".aitri/dependency-graph.json"), JSON.stringify(cyclicGraph), "utf8");
+  const result = runNode(["validate-design", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /cycles/i);
+});
+
+test("validate-design passes with all artifacts valid", () => {
+  const dir = makeDesignProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: true, approvedAt: "2026-01-01T00:00:00Z" }), "utf8");
+  const validGraph = { feature: "my-feat", nodes: [{ id: "US-1", depends_on: [], fr: [] }, { id: "US-2", depends_on: ["US-1"], fr: [] }], global_interfaces: [], global_interface_consumers: {}, execution_order: ["US-1", "US-2"] };
+  fs.writeFileSync(path.join(dir, ".aitri/dependency-graph.json"), JSON.stringify(validGraph), "utf8");
+  const specsDir = path.join(dir, "specs", "approved");
+  fs.mkdirSync(specsDir, { recursive: true });
+  fs.writeFileSync(path.join(specsDir, "my-feat.md"), "# AF-SPEC: my-feat\nSTATUS: APPROVED\nUS-1\nUS-2\n", "utf8");
+  const result = runNodeOk(["validate-design", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.match(result.stdout + result.stderr, /passed/i);
+});
+
+test("validate-design blocked when spec has LOGIC_GAPs", () => {
+  const dir = makeDesignProject();
+  fs.writeFileSync(path.join(dir, ".aitri/design-review.json"), JSON.stringify({ ok: true, approvedAt: "2026-01-01T00:00:00Z" }), "utf8");
+  const validGraph = { feature: "my-feat", nodes: [{ id: "US-1", depends_on: [], fr: [] }], global_interfaces: [], global_interface_consumers: {} };
+  fs.writeFileSync(path.join(dir, ".aitri/dependency-graph.json"), JSON.stringify(validGraph), "utf8");
+  const specsDir = path.join(dir, "specs", "approved");
+  fs.mkdirSync(specsDir, { recursive: true });
+  fs.writeFileSync(path.join(specsDir, "my-feat.md"), "# AF-SPEC: my-feat\n## LOGIC_GAPS\nlogic_gap:\n  id: LG-1\n  problema: missing threshold\n", "utf8");
+  const result = runNode(["validate-design", "--non-interactive", "--feature", "my-feat"], { cwd: dir });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stdout + result.stderr, /LOGIC_GAP/i);
+});

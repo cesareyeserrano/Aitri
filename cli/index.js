@@ -7,7 +7,7 @@ import {
   runDiscoverCommand,
   runPlanCommand
 } from "./commands/discovery-plan-validate.js";
-import { runValidateCommand } from "./commands/validate.js";
+import { runValidateCommand, runValidateDesignCommand } from "./commands/validate.js";
 import { runDeliverCommand } from "./commands/deliver.js";
 import { runInitCommand } from "./commands/init.js";
 import { runCompletionGuide } from "./commands/post-delivery.js";
@@ -363,6 +363,7 @@ Fase 1 — Definition (SDLC v2.2):
   aitri design          Design Session (7 personas) → .aitri/design.md
   aitri design-review   Human approval gate         → .aitri/design-review.json
   aitri spec-from-design  Spec Engineer + dep-graph → specs/approved/<f>.md
+  aitri validate-design   Interconnection gate        → Fase 1 complete
 
 Pre-Planning (persona-driven — run once per project):
   aitri discover-idea   Discovery Facilitator → .aitri/discovery.md
@@ -678,6 +679,11 @@ if (cmd === "design-review") {
 
 if (cmd === "spec-from-design") {
   const code = await runSpecFromDesignCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
+  await exitWithFlow({ code, command: cmd, options });
+}
+
+if (cmd === "validate-design") {
+  const code = await runValidateDesignCommand({ options, getProjectContextOrExit, exitCodes: { OK: EXIT_OK, ERROR: EXIT_ERROR } });
   await exitWithFlow({ code, command: cmd, options });
 }
 

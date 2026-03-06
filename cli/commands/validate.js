@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { collectPersonaValidationIssues } from "./persona-validation.js";
 import { normalizeFeatureName } from "../lib.js";
+import { readDependencyGraph, validateCycles } from "../lib/dependency-graph.js";
 
 function wantsJson(options, positional = []) {
   if (options.json) return true;
@@ -346,4 +347,91 @@ export function collectValidationIssues(project, feature, paths) {
   collectPersonaValidationIssues({ discoveryContent, planContent, specContent: spec, archContent: archContent2, securityContent: securityContent2 }).forEach(i => issues.push(i));
 
   return issues;
+}
+
+// EVO-097: Fase 1 interconnection gate (Paso 1.5)
+export async function runValidateDesignCommand({ options, getProjectContextOrExit, exitCodes }) {
+  const { OK, ERROR } = exitCodes;
+  const project = getProjectContextOrExit();
+  const root = process.cwd();
+  const blockers = [];
+
+  // Gate 1: design-review.json must exist and be approved
+  const reviewPath = path.join(root, ".aitri/design-review.json");
+  if (!fs.existsSync(reviewPath)) {
+    blockers.push("design-review.json missing — run: aitri design-review");
+  } else {
+    let review = null;
+    try { review = JSON.parse(fs.readFileSync(reviewPath, "utf8")); } catch { /* ignore */ }
+    if (!review || !review.ok) blockers.push("Design not approved — run: aitri design-review");
+  }
+
+  // Gate 2: dependency-graph.json must exist and be cycle-free
+  const graph = readDependencyGraph(root);
+  if (!graph) {
+    blockers.push(".aitri/dependency-graph.json missing — run: aitri spec-from-design --feature <name>");
+  } else {
+    const cycleResult = validateCycles(graph);
+    if (!cycleResult.ok) {
+      const cycleStr = cycleResult.cycles.map((c) => c.join(" → ")).join("; ");
+      blockers.push(`Dependency graph has cycles: ${cycleStr}`);
+    }
+  }
+
+  // Gate 3: approved spec must exist and contain no pending LOGIC_GAPsif feature was resolved
+  let feature = String(options.feature || "").trim();
+  if (!feature && graph) feature = graph.feature;
+  if (feature) {
+    const specPath = project.paths.approvedSpecFile(feature);
+    if (!fs.existsSync(specPath)) {
+      blockers.push(`Approved spec missing: ${path.relative(root, specPath)} — run: aitri spec-from-design --feature ${feature}`);
+    } else {
+      const specContent = fs.readFileSync(specPath, "utf8");
+      if (/^logic_gap:/im.test(specContent) || /^##\s+LOGIC_GAPS/im.test(specContent)) {
+        blockers.push("Approved spec has unresolved LOGIC_GAPs — resolve in design.md and re-run spec-from-design");
+      }
+      // Gate 4: all US in dep-graph must appear in approved spec
+      if (graph) {
+        const missingUs = (graph.nodes || [])
+          .map((n) => n.id)
+          .filter((id) => !specContent.includes(id));
+        if (missingUs.length > 0) {
+          blockers.push(`US in dependency-graph missing from spec: ${missingUs.join(", ")}`);
+        }
+      }
+    }
+  }
+
+  // Gate 5: NO IMPACT statements in design.md must have valid structure
+  const designPath = path.join(root, ".aitri/design.md");
+  if (fs.existsSync(designPath)) {
+    const designContent = fs.readFileSync(designPath, "utf8");
+    const noImpactBlocks = [...designContent.matchAll(/^no_impact:\s*\n([\s\S]*?)(?=\n\n|\nno_impact:|$)/gm)];
+    for (const block of noImpactBlocks) {
+      const text = block[0];
+      const justificacion = (text.match(/justificacion:\s*"?([^"\n]+)"?/i) || [])[1] || "";
+      const condiciones = (text.match(/condiciones:\s*"?([^"\n]+)"?/i) || [])[1] || "";
+      const wordCount = justificacion.trim().split(/\s+/).filter(Boolean).length;
+      if (wordCount < 20) {
+        blockers.push(`NO IMPACT statement has thin justification (${wordCount} words, need ≥20): "${justificacion.slice(0, 60)}..."`);
+      }
+      if (!condiciones.trim()) {
+        blockers.push("NO IMPACT statement missing 'condiciones' field");
+      }
+    }
+  }
+
+  if (blockers.length > 0) {
+    console.log("VALIDATE-DESIGN BLOCKED:");
+    blockers.forEach((b) => console.log(`  - ${b}`));
+    return ERROR;
+  }
+
+  console.log("validate-design passed.");
+  if (feature) console.log(`  Feature: ${feature}`);
+  console.log("  design-review: approved");
+  console.log("  dependency-graph: valid, no cycles");
+  console.log("  spec: present, no LOGIC_GAPs");
+  console.log("→ Fase 1 complete. Next: aitri go --feature " + (feature || "<feature>"));
+  return OK;
 }
