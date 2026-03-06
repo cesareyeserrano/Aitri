@@ -352,5 +352,45 @@
   "cli/commands/qa.js": {
     "soft": 130,
     "hard": 180
+  },
+  "cli/lib/dependency-graph.js": {
+    "soft": 100,
+    "hard": 140
+  },
+  "cli/lib/sealed-hashes.js": {
+    "soft": 95,
+    "hard": 130
+  },
+  "cli/commands/design.js": {
+    "soft": 210,
+    "hard": 270
+  },
+  "cli/commands/design-review.js": {
+    "soft": 95,
+    "hard": 130
+  },
+  "cli/commands/spec-from-design.js": {
+    "soft": 210,
+    "hard": 270
+  },
+  "cli/commands/verify-scope.js": {
+    "soft": 165,
+    "hard": 220
+  },
+  "cli/lib/prove-utils.js": {
+    "soft": 210,
+    "hard": 280
+  },
+  "cli/lib/amend-utils.js": {
+    "soft": 155,
+    "hard": 210
+  },
+  "tests/regression/dependency-graph.test.mjs": {
+    "soft": 110,
+    "hard": 160
+  },
+  "tests/regression/sealed-hashes.test.mjs": {
+    "soft": 120,
+    "hard": 170
   }
 }
