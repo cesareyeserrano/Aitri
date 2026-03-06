@@ -64,6 +64,17 @@ feature-type: api | ui | hybrid | cli | background-job | brownfield (pendiente E
 ```
 Esta clasificación determina qué personas son obligatorias y qué gates aplican.
 
+**Perfiles de proyecto (`--profile`):** Al iniciar `aitri design`, el usuario puede seleccionar un perfil que pre-configura qué personas emiten NO IMPACT automáticamente:
+
+| Perfil | Comportamiento | Caso de uso |
+|--------|---------------|-------------|
+| `strict` (default) | Todas las personas evalúan sin pre-configuración | Producción, compliance |
+| `mvp` | Security y QA emiten NO IMPACT pre-firmado con condiciones estándar; UX/UI opcional | Prototipos, hackathons, MVPs internos |
+
+El perfil **no elimina personas** — todas corren, pero en `mvp` las personas designadas reciben instrucción de emitir NO IMPACT con justificación y condiciones estándar. Si la persona detecta impacto real a pesar del perfil (e.g., el feature maneja datos PII), **debe ignorar el perfil y emitir output completo**.
+
+**Evolución de perfil:** Un proyecto iniciado con `--profile mvp` puede evolucionar a `strict` mediante `design-amendment`. El amendment invalida los NO IMPACT pre-firmados cuyas `condiciones` se cumplan con el nuevo alcance, forzando revisión completa de esas personas. No se requiere re-iniciar el proyecto desde cero.
+
 **NO IMPACT STATEMENT:** Cada persona evalúa si su dominio es afectado por el feature. Si determina que no hay impacto, puede emitir un NO IMPACT STATEMENT en lugar de generar documentación completa. El statement **no es un bypass libre** — requiere justificación estructurada:
 
 ```yaml
