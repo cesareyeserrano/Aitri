@@ -48,15 +48,26 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 | Dev roadmap | `aitri dev-roadmap` |
 | Project health audit (full codebase) | `aitri audit` |
 | Pipeline compliance audit (feature) | `aitri audit --feature <name>` |
+| Design session (SDLC v2.2) | `aitri design --idea "<idea>"` |
+| Bounded implementation context | `aitri implement --story US-N` |
+| Scope + sealed check per story | `aitri verify-scope --story US-N` |
 | Scaffold stubs | `aitri build` |
 | Generate tests | `aitri testgen` |
 | Generate contracts | `aitri contractgen` |
-| Run proof of compliance | `aitri prove` |
+| Run proof of compliance | `aitri prove [--story US-N\|--affected\|--all]` |
 | Deliver feature | `aitri deliver` |
 | Epic management | `aitri epic create/status` |
 | Project health check | `aitri doctor` |
 
 ## Aitri Commands
+
+### Fase 1 — Definition (SDLC v2.2)
+Multi-persona design session → spec engineer → validated pipeline for a feature.
+- `aitri design --idea "<idea>" [--profile mvp|strict]` — 7-persona Design Session → `.aitri/design.md`
+- `aitri design-review` — Human approval gate → `.aitri/design-review.json`
+- `aitri spec-from-design --feature <name>` — Spec Engineer → `specs/approved/<name>.md` + `.aitri/dependency-graph.json`
+- `aitri spec-from-design --check --feature <name>` — Validate: no LOGIC_GAPs, no cycles
+- `aitri validate-design` — All Fase 1 interconnection gates (dep-graph, spec, no_impact blocks)
 
 ### Pre-Planning (Persona-Driven — run once per project)
 - `aitri discover-idea [--idea <text>]` — Discovery Facilitator → `.aitri/discovery.md`
@@ -80,12 +91,18 @@ Use Aitri as the execution guardrail for spec-driven SDLC work with explicit hum
 - `aitri go`
 
 ### Post-Go (Factory Execution)
-- `aitri build` — scaffold test stubs and contract placeholders
+- `aitri build` — scaffold test stubs and contract placeholders (injects SPEC-SEALED blocks)
+- `aitri implement --story US-N` — bounded context chunk for a single story (dep-graph aware)
+- `aitri verify-scope --story US-N` — Ghost Code AST + SPEC-SEALED check per story
 - `aitri testgen` — Quality Engineer persona generates behavioral test bodies from FR + AC
 - `aitri contractgen` — Lead Developer persona implements contract functions from FR + test stubs
-- `aitri prove` — run TC stubs, map results to FR-IDs, write proof-of-compliance record
-- `aitri qa` — independent AC-driven QA: verify each AC against running code, write .aitri/qa-report.md
-- `aitri deliver` — final delivery gate: all FRs proven, all TCs passing
+- `aitri prove` — run all TCs, map results to FR-IDs, write proof-of-compliance record
+- `aitri prove --story US-N` — run only TCs tracing to US-N + SPEC-SEALED check
+- `aitri prove --affected [US-N]` — run prove for all dep-graph affected stories
+- `aitri prove --all` — run all TCs → proof-of-compliance-all.json (required for deliver)
+- `aitri qa` — two-phase independent QA: Phase A evidence capture, Phase B persona evaluation
+- `aitri amend` — design amendment with Security/QA re-sign, GI propagation, sealed-hash invalidation
+- `aitri deliver` — final delivery gate: all FRs proven, all TCs passing, SPEC-SEALED clean
 
 ## Interactive Mode (Default)
 Aitri commands are **interactive by default**. The agent should:

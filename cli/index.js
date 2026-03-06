@@ -382,8 +382,12 @@ Workflow (per feature):
   3. aitri approve    Quality gate — validate spec completeness
   4. aitri plan       Discovery interview + plan + backlog + tests
   5. aitri go         Validate + policy + human approval gate
-  6. aitri build      Per-story: scaffold + brief + verify [--story US-N]
+  6. aitri build      Per-story: scaffold + SPEC-SEALED stubs [--story US-N]
+     aitri implement --story US-N   Bounded context chunk per story
+     aitri verify-scope --story US-N  Ghost code + sealed check
      [WRITE CODE]    You or your AI agent implements each story
+     aitri prove --story US-N   Prove per story (SPEC-SEALED aware)
+     aitri prove --all          Prove all stories → proof-of-compliance-all.json
   7. aitri deliver    Release tag + build artifact
 
 Epics (optional — organize features into outcomes):
