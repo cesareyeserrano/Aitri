@@ -14,18 +14,44 @@ function wantsJson(options, positional = []) {
   return positional.some((p) => p.toLowerCase() === "json");
 }
 
+function analyzeImportScope(testOutput, interfaceFiles) {
+  if (!testOutput || !interfaceFiles || interfaceFiles.length === 0) return [];
+  const declared = new Set(interfaceFiles.map((f) => f.replace(/\\/g, "/")));
+  const importRe = /from\s+["']([^"']+)["']/g;
+  const warnings = [];
+  for (const m of testOutput.matchAll(importRe)) {
+    const imp = m[1].replace(/\\/g, "/");
+    if (imp.startsWith(".") && !declared.has(imp) && !declared.some((d) => imp.includes(d.split("/").pop().replace(/\.[^.]+$/, "")))) {
+      warnings.push(imp);
+    }
+  }
+  return [...new Set(warnings)].slice(0, 20);
+}
+
 function writeVerificationEvidence(project, feature, result) {
   const evidenceDir = project.paths.docsVerificationDir;
   const evidenceFile = project.paths.verificationFile(feature);
   fs.mkdirSync(evidenceDir, { recursive: true });
+
+  // EVO-097: light import scope analysis
+  const manifestPath = path.join(project.paths.implementationFeatureDir(feature), "scaffold-manifest.json");
+  let scopeWarnings = [];
+  try {
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    const testOut = `${result.stdout || ""}${result.stderr || ""}`;
+    scopeWarnings = analyzeImportScope(testOut, manifest.interfaceFiles || []);
+  } catch { /* no manifest or unreadable — skip */ }
+
   fs.writeFileSync(evidenceFile, JSON.stringify({
     schemaVersion: 1,
     ...result,
+    ...(scopeWarnings.length > 0 ? { scopeWarnings } : {}),
     evidenceFile: path.relative(process.cwd(), evidenceFile)
   }, null, 2), "utf8");
 
   return {
     ...result,
+    ...(scopeWarnings.length > 0 ? { scopeWarnings } : {}),
     evidenceFile: path.relative(process.cwd(), evidenceFile)
   };
 }

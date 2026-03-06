@@ -1,8 +1,9 @@
 // cli/commands/qa.js
-// EVO-087: Independent QA gate — AC-driven verification against running code
+// EVO-087 + EVO-097: Two-phase independent QA gate
 import fs from "node:fs";
 import path from "node:path";
 import { extractSection, resolveFeature } from "../lib.js";
+import { loadPersonaSystemPrompt } from "../persona-loader.js";
 
 function parseAcs(specContent) {
   const section = extractSection(specContent, "## 9. Acceptance Criteria");
@@ -40,49 +41,41 @@ function detectPort(root) {
   return "3000";
 }
 
-function buildQaPrompt({ feature, acs, startCmd, port }) {
-  const setupLines = startCmd
+function buildPhaseAPrompt({ feature, acs, startCmd, port }) {
+  const setup = startCmd
     ? `1. Start: \`${startCmd}\`\n2. Wait until ready (port ${port})\n3. Base URL: http://localhost:${port}`
     : `1. Identify how to start the project (check README or package.json)\n2. Start the system and note the base URL`;
 
   const acLines = acs.map((ac) =>
-    `### ${ac.id}\n**Criterion:** ${ac.text}\n- Run a real test against the system (HTTP call, CLI command, or function call)\n- Record: PASS or FAIL with evidence (actual response or output)`
+    `### ${ac.id}\n**Criterion:** ${ac.text}\n` +
+    `- Command: <exact command you ran>\n` +
+    `- Response: <exact output / HTTP response>\n` +
+    `- Exit code: <0 or non-zero>\n` +
+    `- Result: PASS or FAIL`
   ).join("\n\n");
 
-  return `## Objective
-Independently verify that \`${feature}\` satisfies ALL Acceptance Criteria.
-This is QA verification — do NOT read existing tests. Run the actual code directly.
+  return `## PHASE A — Mechanical Evidence Capture\n\n` +
+    `Feature: ${feature} | Do NOT read test files or src/ code.\n\n` +
+    `## Setup\n${setup}\n\n` +
+    `## Capture Evidence for Each AC\n${acLines}\n\n` +
+    `## Write Phase A Evidence\nAppend to: .aitri/qa-report.md\nFormat:\n` +
+    `- AC-N: PASS — <command> returned <response>\n` +
+    `- AC-N: FAIL — Expected: <X>, Got: <Y>\n`;
+}
 
-## Setup
-${setupLines}
-
-## Test Each AC
-${acLines}
-
-## Write Results
-Write ALL results to: .aitri/qa-report.md
-
-Required format (exact):
-\`\`\`
-# QA Report: ${feature}
-Date: <ISO date>
-
-## Results
-- AC-1: PASS — <evidence: command + actual response>
-- AC-2: FAIL — Expected: <X>, Got: <Y>
-
-## Summary
-Total: ${acs.length} | Passed: <n> | Failed: <n>
-Decision: PASS
-\`\`\`
-
-Use "Decision: PASS" only if ALL ACs passed. Use "Decision: FAIL" if any failed.
-
-## If ANY AC fails
-1. Fix the implementation
-2. Re-run: aitri prove --feature ${feature}
-3. Re-run: aitri qa --feature ${feature}
-4. Only proceed to deliver when Decision is PASS`;
+function buildPhaseBPrompt({ feature, acs, qaPersonaPrompt }) {
+  return `## PHASE B — Independent QA Evaluation\n\n` +
+    `${qaPersonaPrompt}\n\n` +
+    `---\n\n` +
+    `Evaluate the Phase A evidence in .aitri/qa-report.md WITHOUT accessing src/.\n` +
+    `Verify: is each AC proven by the captured evidence?\n\n` +
+    `ACs to evaluate: ${acs.map((a) => a.id).join(", ")}\n\n` +
+    `## Finalize qa-report.md\nAppend:\n` +
+    `\`\`\`\n## QA Evaluation (Phase B)\n` +
+    `Total: ${acs.length} | Passed: <n> | Failed: <n>\n` +
+    `Decision: PASS\n\`\`\`\n\n` +
+    `Use "Decision: PASS" only if ALL ACs have valid evidence. "Decision: FAIL" if any failed.\n\n` +
+    `If ANY AC fails: fix implementation → aitri prove --feature ${feature} → aitri qa --feature ${feature}`;
 }
 
 export async function runQaCommand({ options, getProjectContextOrExit, exitCodes }) {
@@ -103,13 +96,11 @@ export async function runQaCommand({ options, getProjectContextOrExit, exitCodes
     console.log(`Approved spec not found. Run: aitri approve --feature ${feature}`);
     return ERROR;
   }
-
   const proofFile = path.join(project.paths.implementationFeatureDir(feature), "proof-of-compliance.json");
   if (!fs.existsSync(proofFile)) {
     console.log(`Proof of compliance not found. Run: aitri prove --feature ${feature}`);
     return ERROR;
   }
-
   let proof;
   try { proof = JSON.parse(fs.readFileSync(proofFile, "utf8")); } catch { proof = {}; }
   if (!proof.ok) {
@@ -126,11 +117,14 @@ export async function runQaCommand({ options, getProjectContextOrExit, exitCodes
 
   const startCmd = detectStartCommand(root);
   const port = detectPort(root);
-  const prompt = buildQaPrompt({ feature, acs, startCmd, port });
+  const qaPersona = loadPersonaSystemPrompt("qa");
+  const qaPersonaPrompt = qaPersona.ok ? qaPersona.systemPrompt : "You are a QA Engineer. Evaluate evidence objectively.";
 
   console.log(`QA — ${feature} | ACs: ${acs.length}\n`);
   console.log(`--- AGENT TASK: qa ---`);
-  console.log(prompt);
+  console.log(buildPhaseAPrompt({ feature, acs, startCmd, port }));
+  console.log(`\n--- PHASE B (run after Phase A evidence is written) ---`);
+  console.log(buildPhaseBPrompt({ feature, acs, qaPersonaPrompt }));
   console.log(`\n→ WRITE artifact: .aitri/qa-report.md — aitri deliver requires this file.`);
   console.log(`--- END TASK ---`);
 

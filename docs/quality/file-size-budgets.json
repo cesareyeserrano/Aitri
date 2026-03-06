@@ -43,8 +43,8 @@
     },
     {
       "path": "cli/commands/runtime-flow.js",
-      "soft": 580,
-      "hard": 700
+      "soft": 635,
+      "hard": 720
     },
     {
       "path": "tests/smoke/cli-smoke-foundation.test.mjs",
@@ -350,7 +350,7 @@
     "hard": 500
   },
   "cli/commands/qa.js": {
-    "soft": 130,
+    "soft": 135,
     "hard": 180
   },
   "cli/lib/dependency-graph.js": {
