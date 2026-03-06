@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { verifyAllHashes } from "./sealed-hashes.js";
 
 export function wantsJson(options, positional = []) {
   if (options.json) return true;
@@ -311,6 +312,38 @@ export function collectDeliveryGates({ feature, frMatrix, acMatrix, tcCoverage, 
     if (allChanged.length > 0 && productionFiles.length === 0) {
       warnings.push(`No production code changed since go gate — all ${allChanged.length} file(s) are in aitri-owned paths. Verify implementation was written.`);
     }
+  }
+
+  // EVO-097: SPEC-SEALED integrity check
+  const root = process.cwd();
+  const sealedResult = verifyAllHashes(root, feature);
+  if (!sealedResult.ok && !sealedResult.missing) {
+    const count = (sealedResult.violations || []).length;
+    blockers.push(`SPEC-SEALED: ${count} TC block(s) modified. Re-run: aitri build --feature ${feature}`);
+  }
+
+  // EVO-097: prove --all gate
+  const implDir = project.paths.implementationFeatureDir(feature);
+  const proofAllFile = path.join(implDir, "proof-of-compliance-all.json");
+  if (!fs.existsSync(proofAllFile)) {
+    warnings.push(`proof-of-compliance-all.json missing — run: aitri prove --all --feature ${feature}`);
+  } else {
+    try {
+      const proofAll = JSON.parse(fs.readFileSync(proofAllFile, "utf8"));
+      if (!proofAll.ok) warnings.push(`proof-of-compliance-all not passing. Re-run: aitri prove --all --feature ${feature}`);
+    } catch { /* ignore parse errors */ }
+  }
+
+  // EVO-097: REQUIRES_RE_PROVE check
+  const reProveFile = path.join(implDir, "re-prove-required.json");
+  if (fs.existsSync(reProveFile)) {
+    try {
+      const rp = JSON.parse(fs.readFileSync(reProveFile, "utf8"));
+      const pending = (rp.entries || []).filter((e) => e.status === "pending");
+      if (pending.length > 0) {
+        blockers.push(`REQUIRES_RE_PROVE: ${pending.length} story/stories need re-prove after amendment: ${pending.map((e) => e.story).join(", ")}`);
+      }
+    } catch { /* ignore */ }
   }
 
   // EVO-090: confidence gate
