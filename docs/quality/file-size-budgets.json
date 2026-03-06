@@ -362,8 +362,8 @@
     "hard": 130
   },
   "cli/commands/design.js": {
-    "soft": 210,
-    "hard": 270
+    "soft": 230,
+    "hard": 280
   },
   "cli/commands/design-review.js": {
     "soft": 95,

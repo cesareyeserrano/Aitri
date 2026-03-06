@@ -241,6 +241,7 @@ function parseArgs(argv) {
     } else if (arg.startsWith("--fr=")) { parsed.fr = arg.slice("--fr=".length).trim();
     } else if (arg === "--input") { parsed.input = (argv[i+1]||"").trim(); i+=1;
     } else if (arg.startsWith("--input=")) { parsed.input = arg.slice("--input=".length).trim();
+    } else if (arg === "--brownfield") { parsed.brownfield = true;
     } else if (arg === "--force") { parsed.force = true;
     } else if (arg === "--mutate") { parsed.mutate = true;
     } else if (arg === "--no-ai") { parsed.noAi = true;

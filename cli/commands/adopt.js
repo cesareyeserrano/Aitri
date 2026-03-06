@@ -706,12 +706,15 @@ export async function runAdoptCommand({
     console.log("");
     console.log("Phase 3 complete.");
     console.log("");
-    console.log("Next steps:");
-    console.log("  1. Review tests/<feature>/tests.md — add FR-* and AC-* Trace lines");
-    console.log("  2. Run: aitri plan --feature <name>  (to generate full backlog)");
-    console.log("  3. Run: aitri go --feature <name>  (unlocks factory mode)");
+    console.log("Next steps — SDLC v2.2 brownfield route:");
+    console.log("  1. Run: aitri design --brownfield         (retrograde Design Session using adoption manifest)");
+    console.log("  2. Review .aitri/design.md — edit as needed");
+    console.log("  3. Run: aitri design-review               (approve the design)");
+    console.log("  4. Run: aitri spec-from-design --feature <name>  (extract spec + dep-graph)");
+    console.log("  5. Run: aitri validate-design --feature <name>   (Fase 1 gate)");
+    console.log("  6. Run: aitri go --feature <name>                (unlock Fase 2 implementation)");
     console.log("");
-    console.log("Pre-planning commands (discover-idea → dev-roadmap) are also available.");
+    console.log("Legacy route (pre-v2.2): aitri plan → aitri go  (still supported)");
 
     printCheckpointSummary(runAutoCheckpoint({
       enabled: options.autoCheckpoint,

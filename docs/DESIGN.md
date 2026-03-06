@@ -60,7 +60,7 @@ Developer  → Orden de implementación, dependencias entre US, riesgos de integ
 
 **Clasificación obligatoria al inicio:**
 ```
-feature-type: api | ui | hybrid | cli | background-job | brownfield (pendiente EVO-098)
+feature-type: api | ui | hybrid | cli | background-job | brownfield
 ```
 Esta clasificación determina qué personas son obligatorias y qué gates aplican.
 
@@ -570,7 +570,7 @@ Con N user stories, `prove --all` en cada US produce O(N²) ejecuciones de tests
 | GAP-06 | Rechazo de design sin estado definido | ALTO | EVO-097 | Resuelto en diseño (v2.2) |
 | GAP-07 | Features sin UI con personas irrelevantes | ALTO | EVO-097 | Resuelto en diseño (v2.2) |
 | GAP-08 | Una sola ronda de conflictos insuficiente | ALTO | EVO-097 | Resuelto en diseño (v2.2) |
-| GAP-09 | Brownfield sin ruta de entrada al flujo | MEDIO | EVO-098 | Pendiente |
+| GAP-09 | Brownfield sin ruta de entrada al flujo | MEDIO | EVO-098 | Resuelto: `aitri adopt --depth deep` → `aitri design --brownfield` → pipeline v2.2 |
 | GAP-10 | verify-intent no bloquea el go gate | MEDIO | EVO-097 | Resuelto en diseño (v2.2) |
 | GAP-11 | Formato de flags de conflicto no definido | MEDIO | EVO-097 | Resuelto en diseño (v2.2) |
 | GAP-12 | Release tag se crea antes de verificar build | BAJO | EVO-097 | Resuelto en diseño (v2.2) |

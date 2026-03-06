@@ -1,19 +1,19 @@
 # Aitri Development Checkpoint
-> LAST UPDATE: 2026-03-06T12:00:00.000Z
+> LAST UPDATE: 2026-03-06T14:00:00.000Z
 > AGENT: Developer/Agent
 
 ## Current Objective
-EVO-097 completo — SDLC v2.2 implementado en 12 batches. 310 tests verdes.
+EVO-098 completo — Brownfield entry route al SDLC v2.2. Backlog vacío.
 
 ## Working Memory (Context)
-- v1.3.1 — 310 tests, 0 fails
-- DESIGN.md v2.2: carta magna cerrada con --profile mvp|strict
-- EVO-097 done: todos los Batches 1-12 completos
+- v1.3.2 — 310 tests, 0 fails
+- DESIGN.md v2.2: GAP-09 cerrado
+- EVO-098 done: `aitri design --brownfield` + adopt Phase 3 v2.2 next steps
 
 ## Active State
-- [x] DESIGN.md v2.2 cerrado
+- [x] DESIGN.md v2.2 cerrado (todos los GAPs resueltos)
 - [x] EVO-097 completo (Batches 1-12)
-- [ ] EVO-098: Brownfield entry route (backlog)
+- [x] EVO-098: Brownfield entry route
 
 ## EVO-097 Batches Completed
 - [x] Batch 1: dependency-graph.js + sealed-hashes.js (foundation)
@@ -34,5 +34,5 @@ Ninguno.
 
 ## Estado del Repositorio
 - Branch: main
-- Version: v1.3.1
+- Version: v1.3.2
 - 310 tests verdes (156 smoke + 154 regression)

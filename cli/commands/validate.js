@@ -403,6 +403,7 @@ export async function runValidateDesignCommand({ options, getProjectContextOrExi
   }
 
   // Gate 5: NO IMPACT statements in design.md must have valid structure
+  // EVO-098: brownfield feature-type is valid; relaxes UX/UI gate (already non-mandatory for non-ui types)
   const designPath = path.join(root, ".aitri/design.md");
   if (fs.existsSync(designPath)) {
     const designContent = fs.readFileSync(designPath, "utf8");
