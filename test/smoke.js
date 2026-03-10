@@ -152,4 +152,37 @@ describe('Aitri CLI — Smoke Test', () => {
     assert.ok(Array.isArray(config.approvedPhases), 'approvedPhases should be an array');
     assert.ok(config.approvedPhases.includes(1), 'Phase 1 should be in approvedPhases');
   });
+
+  it('aitri approve discovery succeeds with valid artifact', () => {
+    const discoveryContent = [
+      '## Problem\nFreelancers lose track of invoices.\n',
+      '## Users\n- Freelancer: wants to get paid on time.\n',
+      '## Success Criteria\n- Invoice created in under 2 minutes.\n- Reminder sent within 24h.\n',
+      '## Out of Scope\n- No payroll. No multi-currency. No accounting integration.\n',
+    ].join('\n').repeat(2);
+    fs.writeFileSync(path.join(tmpDir, '00_DISCOVERY.md'), discoveryContent);
+    const out = aitri('complete discovery', tmpDir);
+    assert.match(out, /complete/i);
+    const out2 = aitri('approve discovery', tmpDir);
+    assert.match(out2, /APPROVED/i);
+  });
+
+  it('aitri approve ux succeeds with valid artifact', () => {
+    const uxContent = [
+      '## User Flows\n### Screen: Dashboard\n- Entry: login\n- Steps: view list\n- Exit: logout\n- Error path: retry button\n',
+      '## Component Inventory\n| Component | Default | Loading | Error | Empty | Disabled |\n|---|---|---|---|---|---|\n| List | rows | skeleton | error+retry | empty msg | N/A |\n',
+      '## Nielsen Compliance\n### Dashboard\n- H1: status updates within 1s\n- H8: minimal controls visible\n',
+    ].join('\n').repeat(2);
+    fs.writeFileSync(path.join(tmpDir, '01_UX_SPEC.md'), uxContent);
+    const out = aitri('complete ux', tmpDir);
+    assert.match(out, /complete/i);
+    const out2 = aitri('approve ux', tmpDir);
+    assert.match(out2, /APPROVED/i);
+  });
+
+  it('aitri reject discovery records feedback', () => {
+    const out = aitri('reject discovery --feedback "Add more out of scope items"', tmpDir);
+    assert.match(out, /rejected/i);
+    assert.match(out, /run-phase discovery/);
+  });
 });
