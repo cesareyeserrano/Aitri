@@ -45,7 +45,10 @@ describe('Phase 5 — validate()', () => {
   it('throws when a compliance level is invalid', () => {
     const d = JSON.parse(validP5());
     d.requirement_compliance[0].level = 'done';
-    assert.throws(() => PHASE_DEFS[5].validate(JSON.stringify(d)), /Invalid compliance level.*FR-001/);
+    assert.throws(() => PHASE_DEFS[5].validate(JSON.stringify(d)), (err) => {
+      // message must mention invalid levels AND identify the offending entry
+      return /Invalid compliance level/i.test(err.message) && err.message.includes('FR-001') && err.message.includes('"done"');
+    });
   });
 
   it('throws when multiple compliance levels are invalid', () => {
