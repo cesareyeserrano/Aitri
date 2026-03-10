@@ -256,4 +256,67 @@ describe('Aitri CLI — Smoke Test', () => {
     // Should show Phase 1 as approved (state carried from parent)
     assert.match(out, /Approved/);
   });
+
+  it('[regression] aitri init <path> initializes in the given directory, not cwd', () => {
+    // Use a fresh tmp dir as cwd (no .aitri, no IDEA.md) to confirm init targets the arg, not cwd
+    const cwdForTest = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-init-cwd-'));
+    const target     = path.join(cwdForTest, 'nested', 'new-project');
+    try {
+      const out = aitri(`init ${target}`, cwdForTest);
+      assert.match(out, /initialized/i);
+      assert.ok(fs.existsSync(path.join(target, 'IDEA.md')),       'IDEA.md should be in target dir');
+      assert.ok(fs.existsSync(path.join(target, '.aitri')),        '.aitri should be in target dir');
+      assert.ok(!fs.existsSync(path.join(cwdForTest, 'IDEA.md')),  'IDEA.md must NOT be created in cwd');
+      const cfg = JSON.parse(fs.readFileSync(path.join(target, '.aitri'), 'utf8'));
+      assert.equal(cfg.projectName, 'new-project', 'projectName must match target folder name');
+    } finally {
+      fs.rmSync(cwdForTest, { recursive: true, force: true });
+    }
+  });
+
+  it('[regression] aitri init <path> works with relative path argument', () => {
+    const relTarget = 'relative-project';
+    const absTarget = path.join(tmpDir, relTarget);
+    const out = aitri(`init ${relTarget}`, tmpDir);
+    assert.match(out, /initialized/i);
+    assert.ok(fs.existsSync(path.join(absTarget, '.aitri')), '.aitri should be in relative target dir');
+  });
+
+  it('[regression] phase2 complete passes with numbered section headers', () => {
+    // Write a 02_SYSTEM_DESIGN.md with numbered headers (## 1. Executive Summary style)
+    const design = [
+      '## 1. Executive Summary',
+      'Node.js v20 + PostgreSQL 16. Justified by team expertise.',
+      '',
+      '## 2. System Architecture',
+      '```',
+      'Client → API → DB',
+      '```',
+      '',
+      '## 3. Data Model',
+      'Users: id, email, password_hash',
+      '',
+      '## 4. API Design',
+      'POST /auth/login — returns JWT',
+      '',
+      '## 5. Security Design',
+      'JWT HS256, bcrypt 12 rounds',
+      '',
+      '## 6. Performance & Scalability',
+      'Connection pool size 20, Redis cache',
+      '',
+      '## 7. Deployment Architecture',
+      'Docker + docker-compose',
+      '',
+      '## 8. Risk Analysis',
+      'Risk 1: DB exhaustion — pool limit',
+      'Risk 2: Token leak — short TTL',
+      'Risk 3: Spike — horizontal scale',
+      ...Array(15).fill('Extra design content line.'),
+    ].join('\n');
+    fs.writeFileSync(path.join(tmpDir, '02_SYSTEM_DESIGN.md'), design);
+    // complete 2 requires phase 1 approved (already done) and the artifact to exist
+    const out = aitri('complete 2', tmpDir);
+    assert.match(out, /Phase 2.*complete/i);
+  });
 });

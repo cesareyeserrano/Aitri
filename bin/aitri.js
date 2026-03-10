@@ -26,11 +26,22 @@ import { cmdStatus }         from '../lib/commands/status.js';
 import { cmdValidate }       from '../lib/commands/validate.js';
 import { cmdHelp }           from '../lib/commands/help.js';
 
-const VERSION   = '0.1.9';
+const VERSION   = '0.1.10';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
 const [,, cmd, ...args] = process.argv;
+
+/**
+ * If init is called with a path argument (e.g. "aitri init ./my-project"),
+ * use that as the target directory. Prevents init from silently writing to the
+ * wrong place when agents pass a path from a different cwd.
+ */
+function resolveInitDir() {
+  const target = args[0];
+  if (target && !target.startsWith('-')) return path.resolve(cwd, target);
+  return cwd;
+}
 
 /**
  * Find the project directory by searching upward for .aitri (like git finds .git).
@@ -48,9 +59,9 @@ function findProjectDir(startDir) {
   }
 }
 
-// init always uses cwd (creating a new project here)
-// all other commands search upward for the .aitri file
-const dir = cmd === 'init' ? cwd : findProjectDir(cwd);
+// init: uses explicit path arg if given, otherwise cwd
+// all other commands: search upward for .aitri (cwd-invariant)
+const dir = cmd === 'init' ? resolveInitDir() : findProjectDir(cwd);
 
 const flagValue = (flag) => {
   const i = args.indexOf(flag);

@@ -51,6 +51,23 @@ describe('Phase 2 — validate()', () => {
     assert.throws(() => PHASE_DEFS[2].validate(content), /missing required sections/);
   });
 
+  it('[regression] passes with numbered headers (## 1. Executive Summary style)', () => {
+    const numbered = validP2()
+      .replace('## Executive Summary',   '## 1. Executive Summary')
+      .replace('## System Architecture', '## 2. System Architecture')
+      .replace('## Data Model',          '## 3. Data Model')
+      .replace('## API Design',          '## 4. API Design')
+      .replace('## Security Design',     '## 5. Security Design');
+    assert.doesNotThrow(() => PHASE_DEFS[2].validate(numbered));
+  });
+
+  it('[regression] passes with decimal-prefixed headers (## 1.1 style)', () => {
+    const decimal = validP2()
+      .replace('## Executive Summary',   '## 1.1 Executive Summary')
+      .replace('## System Architecture', '## 2.0 System Architecture');
+    assert.doesNotThrow(() => PHASE_DEFS[2].validate(decimal));
+  });
+
   it('throws when content is too short (< 40 lines)', () => {
     const short = [
       '## Executive Summary', 'Short.',
