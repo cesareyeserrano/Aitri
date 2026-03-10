@@ -56,4 +56,28 @@ describe('Phase 4 — validate()', () => {
     d.technical_debt = [];
     assert.doesNotThrow(() => PHASE_DEFS[4].validate(JSON.stringify(d)));
   });
+
+  it('throws when technical_debt entry is missing fr_id', () => {
+    const d = JSON.parse(validP4());
+    d.technical_debt = [{ substitution: 'HTML table', reason: 'conflict', effort_to_fix: 'low' }];
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /missing fr_id/);
+  });
+
+  it('throws when technical_debt entry has generic substitution', () => {
+    const d = JSON.parse(validP4());
+    d.technical_debt = [{ fr_id: 'FR-003', substitution: 'placeholder declared', reason: 'time', effort_to_fix: 'high' }];
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /generic or empty substitution/);
+  });
+
+  it('throws when technical_debt entry has empty substitution', () => {
+    const d = JSON.parse(validP4());
+    d.technical_debt = [{ fr_id: 'FR-003', substitution: '', reason: 'time', effort_to_fix: 'high' }];
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /generic or empty substitution/);
+  });
+
+  it('passes when technical_debt entry is fully described', () => {
+    const d = JSON.parse(validP4());
+    d.technical_debt = [{ fr_id: 'FR-003', substitution: 'Used static PNG instead of animated Chart.js component', reason: 'chart lib conflict with bundler', effort_to_fix: 'medium' }];
+    assert.doesNotThrow(() => PHASE_DEFS[4].validate(JSON.stringify(d)));
+  });
 });

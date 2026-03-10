@@ -75,4 +75,28 @@ describe('Phase 1 — validate()', () => {
     delete d.functional_requirements[3].type;
     assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
   });
+
+  it('throws when UX MUST FR has only vague acceptance_criteria', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[1].acceptance_criteria = ['the UI looks nice and smooth'];
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /FR-002.*observable metric/);
+  });
+
+  it('throws when visual MUST FR has no metric in acceptance_criteria', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements.push({ id: 'FR-006', title: 'Visual theme', priority: 'MUST', type: 'visual', acceptance_criteria: ['beautiful modern design'] });
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /FR-006.*observable metric/);
+  });
+
+  it('passes when UX MUST FR has metric in acceptance_criteria', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[1].acceptance_criteria = ['layout visible at 375px viewport', 'animation ≤200ms'];
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
+  it('passes when audio MUST FR has metric in acceptance_criteria', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements.push({ id: 'FR-006', title: 'Sound design', priority: 'MUST', type: 'audio', acceptance_criteria: ['audio plays within 100ms of trigger'] });
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
 });
