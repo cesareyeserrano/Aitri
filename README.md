@@ -1,4 +1,4 @@
-# Aitri v2 — Spec-Driven SDLC Engine
+# Aitri — Spec-Driven SDLC Engine
 
 **Agent-agnostic CLI that turns any idea into a production-ready app through a 5-phase pipeline.**
 
