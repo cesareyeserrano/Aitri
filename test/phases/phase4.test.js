@@ -7,6 +7,8 @@ const validP4 = () => JSON.stringify({
   setup_commands: ['npm install', 'npm test'],
   environment_variables: [{ name: 'DATABASE_URL', default: 'postgres://localhost/dev' }],
   technical_debt: [],
+  test_runner: 'npm test',
+  test_files: ['tests/unit.test.js'],
 });
 
 describe('Phase 4 — validate()', () => {
@@ -80,6 +82,37 @@ describe('Phase 4 — validate()', () => {
     d.technical_debt = [{ fr_id: 'FR-003', substitution: 'Used static PNG instead of animated Chart.js component', reason: 'chart lib conflict with bundler', effort_to_fix: 'medium' }];
     assert.doesNotThrow(() => PHASE_DEFS[4].validate(JSON.stringify(d)));
   });
+
+  it('throws when test_runner is missing', () => {
+    const d = JSON.parse(validP4());
+    delete d.test_runner;
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /test_runner is required/);
+  });
+
+  it('throws when test_runner is empty string', () => {
+    const d = JSON.parse(validP4());
+    d.test_runner = '';
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /test_runner is required/);
+  });
+
+  it('throws when test_files is missing', () => {
+    const d = JSON.parse(validP4());
+    delete d.test_files;
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /test_files must be a non-empty array/);
+  });
+
+  it('throws when test_files is empty array', () => {
+    const d = JSON.parse(validP4());
+    d.test_files = [];
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /test_files must be a non-empty array/);
+  });
+
+  it('passes with test_runner and test_files declared', () => {
+    const d = JSON.parse(validP4());
+    d.test_runner = 'node --test tests/';
+    d.test_files = ['tests/unit.test.js', 'tests/integration.test.js'];
+    assert.doesNotThrow(() => PHASE_DEFS[4].validate(JSON.stringify(d)));
+  });
 });
 
 describe('Phase 4 — buildBriefing() (BL-004)', () => {
@@ -128,6 +161,56 @@ describe('Phase 4 — buildBriefing() (BL-004)', () => {
     const reviewSection = briefing.slice(reviewIdx);
     assert.ok(reviewSection.includes('technical_debt') && reviewSection.includes('files_created'),
       'Human Review must cover technical_debt and files_created checks');
+  });
+
+  it('briefing contains test_runner in manifest output schema', () => {
+    assert.ok(briefing.includes('test_runner'), 'briefing must include test_runner in output schema');
+  });
+
+  it('briefing contains test_files in manifest output schema', () => {
+    assert.ok(briefing.includes('test_files'), 'briefing must include test_files in output schema');
+  });
+
+  it('briefing does not include Test Authorship Lock section when no TCs (empty inputs)', () => {
+    assert.ok(!briefing.includes('Test Authorship Lock'), 'authorship lock must not appear when 03_TEST_CASES.json has no test_cases');
+  });
+});
+
+describe('Phase 4 — buildBriefing() with TC and FR data', () => {
+  const reqsWithFRs = JSON.stringify({
+    functional_requirements: [
+      { id: 'FR-001', priority: 'MUST', type: 'persistence', title: 'Budget storage', acceptance_criteria: 'Budget persists across page reload' },
+    ],
+  });
+  const tcsWithCases = JSON.stringify({
+    test_cases: [
+      { id: 'TC-001', requirement_id: 'FR-001', title: 'setBudget persists to localStorage', type: 'unit' },
+    ],
+  });
+  const richBriefing = PHASE_DEFS[4].buildBriefing({
+    dir: '/tmp/test',
+    inputs: { '01_REQUIREMENTS.json': reqsWithFRs, '02_SYSTEM_DESIGN.md': '', '03_TEST_CASES.json': tcsWithCases },
+    feedback: null,
+  });
+
+  it('briefing includes Requirements Snapshot section when FRs are present', () => {
+    assert.ok(richBriefing.includes('Requirements Snapshot'), 'must include Requirements Snapshot for context retention');
+  });
+
+  it('briefing includes FR-001 in snapshot', () => {
+    assert.ok(richBriefing.includes('FR-001'), 'FR-001 must appear in requirements snapshot');
+  });
+
+  it('briefing includes Test Authorship Lock when TCs are present', () => {
+    assert.ok(richBriefing.includes('Test Authorship Lock'), 'Test Authorship Lock must appear when 03_TEST_CASES.json has test_cases');
+  });
+
+  it('briefing lists TC-001 in authorship lock', () => {
+    assert.ok(richBriefing.includes('TC-001'), 'TC-001 must appear in authorship lock list');
+  });
+
+  it('briefing includes @aitri-tc marker instruction in authorship lock', () => {
+    assert.ok(richBriefing.includes('// @aitri-tc TC-XXX'), 'briefing must instruct agent to use @aitri-tc markers in test code');
   });
 });
 
