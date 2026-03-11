@@ -44,6 +44,7 @@
     "overall_status":         string  — "compliant" | "partial" | "draft"
     "requirement_compliance": array   — one entry per FR/NFR (see below)
   Each compliance entry: { "id":"FR-001", "title":"...", "level":"...", "evidence":"..." }
+  ⚠ Field MUST be "id" — NOT "fr_id". 04_TEST_RESULTS.json uses "fr_id" internally; this file uses "id". Do not copy the field name from test results.
   Optional: "technical_debt_inherited": [copy from 04_IMPLEMENTATION_MANIFEST.json]
 
 ## Compliance level — assign based on Test Results fr_coverage above:

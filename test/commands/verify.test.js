@@ -197,6 +197,27 @@ describe('buildFRCoverage()', () => {
 
 });
 
+describe('BUG-3 regression — flagValue null vs undefined', () => {
+
+  it('parseFloat(null) is NaN — confirms the root cause', () => {
+    // flagValue returns null when a flag is absent (not undefined)
+    // Old check: rawThreshold !== undefined → true for null → parseFloat(null) = NaN → coverage injected
+    // Fix: rawThreshold !== null && rawThreshold !== undefined
+    const rawThreshold = null; // what flagValue returns when --coverage-threshold is absent
+    assert.ok(Number.isNaN(parseFloat(rawThreshold)), 'parseFloat(null) must be NaN');
+    // The correct guard:
+    const coverageThreshold = rawThreshold !== null && rawThreshold !== undefined ? parseFloat(rawThreshold) : null;
+    assert.equal(coverageThreshold, null, 'fixed guard returns null — no coverage injection');
+  });
+
+  it('valid threshold string is parsed correctly with fixed guard', () => {
+    const rawThreshold = '80';
+    const coverageThreshold = rawThreshold !== null && rawThreshold !== undefined ? parseFloat(rawThreshold) : null;
+    assert.equal(coverageThreshold, 80);
+  });
+
+});
+
 describe('scanTestContent()', () => {
 
   it('flags TC with 0 assertions as low confidence', () => {

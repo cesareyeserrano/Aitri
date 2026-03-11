@@ -24,15 +24,15 @@
 {{/IF_UX_SPEC}}
 
 ## Output: `{{DIR}}/02_SYSTEM_DESIGN.md`
-Required sections (in order):
-1. Executive Summary — tech choices with justification
-2. System Architecture — ASCII/Mermaid diagram + components
-3. Data Model — ER diagram + schema with indexes
-4. API Design — all endpoints (method, path, auth, request/response, errors)
-5. Security Design — auth, encryption, input validation
-6. Performance & Scalability — caching, query optimization, scaling
-7. Deployment Architecture — environments, containers, CI/CD
-8. Risk Analysis — top 3-5 risks + mitigation
+Required sections — use these EXACT names as `##` level-2 headers (aitri complete 2 validates by exact match):
+1. `## Executive Summary` — tech choices with justification
+2. `## System Architecture` — ASCII/Mermaid diagram + components
+3. `## Data Model` — schema with field constraints; for frontend-only apps: localStorage structure
+4. `## API Design` — for backend apps: all endpoints (method, path, auth, request/response, errors); for frontend-only apps: internal JS module API (exported function signatures)
+5. `## Security Design` — auth, input validation, security headers, XSS/injection mitigations
+6. `## Performance & Scalability` — caching, query optimization, size bounds
+7. `## Deployment Architecture` — environments, containers, CI/CD
+8. `## Risk Analysis` — top 3-5 risks + mitigation; ADRs belong here
 
 ## Architectural Decision Records (ADRs)
 For every significant tech choice, write an ADR using this format:
@@ -81,7 +81,7 @@ Before completing this phase, verify:
 6. Run: aitri complete 2
 
 ## Human Review — Before approving phase 2
-  [ ] All 5 required sections are present and substantive (not one-liners or placeholders)
+  [ ] All 8 required sections are present with exact header names (Executive Summary, System Architecture, Data Model, API Design, Security Design, Performance & Scalability, Deployment Architecture, Risk Analysis)
   [ ] Tech stack is compatible with constraints and technology_preferences from requirements
   [ ] Every significant decision has an ADR with ≥2 options evaluated
   [ ] Data model covers all persistence FRs
