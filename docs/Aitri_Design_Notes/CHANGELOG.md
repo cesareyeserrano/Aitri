@@ -5,6 +5,37 @@
 
 ---
 
+## [0.1.24] — 2026-03-11
+
+### Bug Fixes
+- **fix(approve):** `aitri approve ux` — when Phase 1 is already approved, now shows `aitri run-phase 2` PIPELINE INSTRUCTION instead of the generic "run-phase 1" hint (BUG-2)
+
+### Features
+- **feat(verify):** `parseRunnerOutput()` — TC regex changed from `TC-\d+` to `TC-[A-Za-z0-9]+`; alphanumeric TC IDs (e.g. `TC-020b`, `TC-020c`) are now detected correctly
+- **feat(verify):** New export `parsePlaywrightOutput(output)` — Playwright uses `✓` (U+2713), not `✔` (U+2714); dedicated parser handles Playwright format without charset collision
+- **feat(verify):** `spawnSync` for both main runner and Playwright runner — `shell: true` → `shell: false`; eliminates `[DEP0190]` DeprecationWarning
+- **feat(verify):** Skipped TC breakdown — summary now reports `skipped_e2e` (browser/e2e TCs) and `skipped_no_marker` (no marker detected) separately
+- **feat(personas/ux):** CONSTRAINTS updated — when UX/visual FRs explicitly require visual attributes, the UX designer now defines concrete design tokens (color roles, type scale, spacing); prevents generic CSS output for apps with "minimalist modern" aesthetic requirements
+- **feat(templates/phaseUX):** `## Design Tokens` section added to required output — enforced when visual FRs specify aesthetic style; tokens flow directly to implementation
+- **feat(complete):** `--check` dry-run flag — `aitri complete <phase> --check` validates the artifact without recording state; exits 0 on pass, exits 1 with error on fail
+
+### Tests
+- **test(verify):** 2 new `parseRunnerOutput()` tests — alphanumeric TC IDs (`TC-020b`, `TC-020c`)
+- **test(verify):** 6 new `parsePlaywrightOutput()` tests — ✓ pass, ✗ fail, multi-line, dedup, no TC patterns, alphanumeric IDs
+- **Total: 243 tests (up from 235)**
+
+---
+
+## [0.1.23] — 2026-03-11
+
+### Prompt Template Layer
+- **feat(prompts):** `lib/prompts/render.js` — lightweight `{{KEY}}` / `{{#IF_KEY}}...{{/IF_KEY}}` renderer, zero deps
+- **refactor(phases):** all 8 `buildBriefing()` methods now load from `templates/phases/*.md` — prompts readable and editable as plain markdown without touching JS logic
+- **no behavior change** — 235 tests pass, agent output identical to prior version
+- **benefit:** prompt content is first-class — diffs are clean, adjustments don't require JS knowledge
+
+---
+
 ## [0.1.22] — 2026-03-11
 
 ### Playwright E2E Detection

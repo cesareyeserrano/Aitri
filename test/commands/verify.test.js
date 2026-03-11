@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRunnerOutput, buildFRCoverage, scanTestContent, parseCoverageOutput } from '../../lib/commands/verify.js';
+import { parseRunnerOutput, parsePlaywrightOutput, buildFRCoverage, scanTestContent, parseCoverageOutput } from '../../lib/commands/verify.js';
 
 describe('parseRunnerOutput()', () => {
 
@@ -63,6 +63,67 @@ describe('parseRunnerOutput()', () => {
     const output = `✔ TC-018: docker healthcheck (0.3ms)`;
     const result = parseRunnerOutput(output);
     assert.equal(result.get('TC-018')?.status, 'pass');
+  });
+
+  it('detects alphanumeric TC id (e.g. TC-020b)', () => {
+    const output = `✔ TC-020b: no horizontal scroll at 375px (0.1ms)`;
+    const result = parseRunnerOutput(output);
+    assert.equal(result.get('TC-020b')?.status, 'pass');
+  });
+
+  it('detects TC-020c as pass with alphanumeric id', () => {
+    const output = `✔ TC-020c: negative — body overflow-x hidden (0.1ms)`;
+    const result = parseRunnerOutput(output);
+    assert.equal(result.get('TC-020c')?.status, 'pass');
+  });
+
+});
+
+describe('parsePlaywrightOutput()', () => {
+
+  it('detects passing TC from ✓ (U+2713) Playwright line', () => {
+    const output = `  ✓  1 tests/e2e/sales-tracker.spec.js › TC-021: Full flow (1.23s)`;
+    const result = parsePlaywrightOutput(output);
+    assert.equal(result.get('TC-021')?.status, 'pass');
+  });
+
+  it('detects failing TC from ✗ Playwright line', () => {
+    const output = `  ✗  2 tests/e2e/sales-tracker.spec.js › TC-022: Deal persists (0.5s)`;
+    const result = parsePlaywrightOutput(output);
+    assert.equal(result.get('TC-022')?.status, 'fail');
+  });
+
+  it('detects multiple TCs from multi-line Playwright output', () => {
+    const output = [
+      `  ✓  1 tests/e2e/sales-tracker.spec.js › TC-021: Full flow (1.2s)`,
+      `  ✓  2 tests/e2e/sales-tracker.spec.js › TC-022: Deal persists (0.8s)`,
+      `  ✗  3 tests/e2e/sales-tracker.spec.js › TC-023: Stage change (0.4s)`,
+    ].join('\n');
+    const result = parsePlaywrightOutput(output);
+    assert.equal(result.get('TC-021')?.status, 'pass');
+    assert.equal(result.get('TC-022')?.status, 'pass');
+    assert.equal(result.get('TC-023')?.status, 'fail');
+  });
+
+  it('does not double-detect same TC id (first occurrence wins)', () => {
+    const output = [
+      `  ✓  1 tests/e2e/sales-tracker.spec.js › TC-020: No scroll (0.3s)`,
+      `  ✗  2 tests/e2e/sales-tracker.spec.js › TC-020: No scroll retry (0.1s)`,
+    ].join('\n');
+    const result = parsePlaywrightOutput(output);
+    assert.equal(result.get('TC-020')?.status, 'pass');
+  });
+
+  it('returns empty map for output with no TC patterns', () => {
+    const output = `  ✓  1 tests/e2e/sales-tracker.spec.js › Full flow — no TC tag (1.0s)`;
+    const result = parsePlaywrightOutput(output);
+    assert.equal(result.size, 0);
+  });
+
+  it('detects alphanumeric TC id (TC-020b) in Playwright output', () => {
+    const output = `  ✓  3 tests/e2e/sales-tracker.spec.js › TC-020b: 375px viewport (0.5s)`;
+    const result = parsePlaywrightOutput(output);
+    assert.equal(result.get('TC-020b')?.status, 'pass');
   });
 
 });

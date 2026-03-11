@@ -52,10 +52,27 @@
 - [x] P2 — **Phase 4 Human Review hardened** — 2 new checklist items: verify assertion tests real behavior; review density warnings (2026-03-11)
 - [ ] P3 — **Mutation testing** (Stryker.js) — detects trivial tests that pass on mutated code; backlog, requires external dep
 
+## Prompt Template Layer (v0.1.23)
+
+- [x] P2 — `lib/prompts/render.js` — `{{KEY}}` / `{{#IF_KEY}}` renderer, zero deps (2026-03-11)
+- [x] P2 — `templates/phases/*.md` — all 8 phase prompts migrated to editable markdown files (2026-03-11)
+- [x] P2 — Phase JS files reduced from 50-100 lines to ~10 lines each — prompt content decoupled from logic (2026-03-11)
+
 ## Playwright E2E Detection (v0.1.22)
 
 - [x] P2 — **`--e2e` flag in `verify-run`** — runs `npx playwright test` as second runner when `playwright.config.js/.ts` exists; merges TCs into results (2026-03-11)
 - [x] P2 — **Phase 3 briefing** — Playwright e2e tests must follow `TC-XXX:` naming for auto-detection (2026-03-11)
+
+## E2E Test Fixes & UX Design Tokens (v0.1.24)
+
+- [x] P1 — **BUG-2: `aitri approve ux` shows wrong next step** — when Phase 1 already approved, output `run-phase 2` PIPELINE INSTRUCTION, not `run-phase 1` (2026-03-11)
+- [x] P1 — **`parseRunnerOutput()` — alphanumeric TC IDs** — regex `TC-\d+` → `TC-[A-Za-z0-9]+`; fixes TC-020b, TC-020c not detected (2026-03-11)
+- [x] P1 — **`parsePlaywrightOutput()` — Playwright ✓ vs ✔ charset** — new dedicated parser using U+2713 (✓); old parser used U+2714 (✔) causing 0 TCs detected (2026-03-11)
+- [x] P2 — **`spawnSync` `shell: false`** — eliminates `[DEP0190]` DeprecationWarning for both main runner and Playwright runner (2026-03-11)
+- [x] P2 — **Skipped TC breakdown** — `skipped_e2e` (browser/e2e TCs) vs `skipped_no_marker` (no marker) reported separately in verify-run summary (2026-03-11)
+- [x] P2 — **GAP-1: UX persona design tokens** — CONSTRAINTS updated; when visual FRs require visual attributes, UX designer defines design tokens (color roles, type scale, spacing); prevents generic CSS output (2026-03-11)
+- [x] P2 — **GAP-1: phaseUX.md `## Design Tokens` section** — required output section when visual FRs specify aesthetic style; flows to implementation (2026-03-11)
+- [x] P2 — **FRICTION-3: `aitri complete <phase> --check`** — dry-run validation; exits 0 on pass, exits 1 with error message on fail; does not record state (2026-03-11)
 
 ## Aitri Testing
 
