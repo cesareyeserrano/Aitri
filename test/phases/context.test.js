@@ -177,12 +177,12 @@ describe('extractTestIndex()', () => {
     assert.equal(tc.priority, 'high');
   });
 
-  it('strips given/when/then from test_cases', () => {
+  it('includes given/when/then for implementation fidelity', () => {
     const out = JSON.parse(extractTestIndex(fullTestCases()));
     const tc = out.test_cases[0];
-    assert.equal(tc.given, undefined);
-    assert.equal(tc.when, undefined);
-    assert.equal(tc.then, undefined);
+    assert.equal(tc.given, 'user exists');
+    assert.equal(tc.when, 'POST /login');
+    assert.equal(tc.then, 'status 200');
   });
 
   it('handles missing test_cases gracefully (no throw)', () => {

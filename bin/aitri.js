@@ -26,7 +26,7 @@ import { cmdStatus }         from '../lib/commands/status.js';
 import { cmdValidate }       from '../lib/commands/validate.js';
 import { cmdHelp }           from '../lib/commands/help.js';
 
-const VERSION   = '0.1.16';
+const VERSION   = '0.1.17';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
