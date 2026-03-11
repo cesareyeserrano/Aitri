@@ -1,6 +1,6 @@
 {
   "name": "aitri",
-  "version": "0.1.17",
+  "version": "0.1.18",
   "description": "Aitri — Agent-agnostic SDLC CLI. Works with Claude Code, Codex, Gemini Code, Opencode.",
   "bin": {
     "aitri": "bin/aitri.js"
@@ -19,9 +19,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "test": "node --test test/state.test.js test/phases/context.test.js test/phases/phase1.test.js test/phases/phase2.test.js test/phases/phase3.test.js test/phases/phase4.test.js test/phases/phase5.test.js test/phases/phaseUX.test.js test/phases/phaseDiscovery.test.js",
+    "test": "node --test test/state.test.js test/phases/context.test.js test/phases/phase1.test.js test/phases/phase2.test.js test/phases/phase3.test.js test/phases/phase4.test.js test/phases/phase5.test.js test/phases/phaseUX.test.js test/phases/phaseDiscovery.test.js test/phases/phaseReview.test.js",
     "test:smoke": "node --test test/smoke.js",
-    "test:all": "node --test test/state.test.js test/phases/context.test.js test/phases/phase1.test.js test/phases/phase2.test.js test/phases/phase3.test.js test/phases/phase4.test.js test/phases/phase5.test.js test/phases/phaseUX.test.js test/phases/phaseDiscovery.test.js test/smoke.js"
+    "test:all": "node --test test/state.test.js test/phases/context.test.js test/phases/phase1.test.js test/phases/phase2.test.js test/phases/phase3.test.js test/phases/phase4.test.js test/phases/phase5.test.js test/phases/phaseUX.test.js test/phases/phaseDiscovery.test.js test/phases/phaseReview.test.js test/smoke.js"
   },
   "dependencies": {}
 }

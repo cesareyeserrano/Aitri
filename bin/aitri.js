@@ -21,12 +21,12 @@ import { cmdRunPhase }       from '../lib/commands/run-phase.js';
 import { cmdComplete }       from '../lib/commands/complete.js';
 import { cmdApprove }        from '../lib/commands/approve.js';
 import { cmdReject }         from '../lib/commands/reject.js';
-import { cmdVerify, cmdVerifyComplete } from '../lib/commands/verify.js';
+import { cmdVerify, cmdVerifyRun, cmdVerifyComplete } from '../lib/commands/verify.js';
 import { cmdStatus }         from '../lib/commands/status.js';
 import { cmdValidate }       from '../lib/commands/validate.js';
 import { cmdHelp }           from '../lib/commands/help.js';
 
-const VERSION   = '0.1.17';
+const VERSION   = '0.1.18';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -83,6 +83,7 @@ switch (cmd) {
   case 'approve':          cmdApprove(ctx);         break;
   case 'reject':           cmdReject(ctx);          break;
   case 'verify':           cmdVerify(ctx);          break;
+  case 'verify-run':       cmdVerifyRun(ctx);       break;
   case 'verify-complete':  cmdVerifyComplete(ctx);  break;
   case 'status':           cmdStatus(ctx);          break;
   case 'validate':         cmdValidate(ctx);        break;
