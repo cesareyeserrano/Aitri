@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRunnerOutput, parsePlaywrightOutput, buildFRCoverage, scanTestContent, parseCoverageOutput } from '../../lib/commands/verify.js';
+import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, buildFRCoverage, scanTestContent, parseCoverageOutput } from '../../lib/commands/verify.js';
 
 describe('parseRunnerOutput()', () => {
 
@@ -75,6 +75,70 @@ describe('parseRunnerOutput()', () => {
     const output = `✔ TC-020c: negative — body overflow-x hidden (0.1ms)`;
     const result = parseRunnerOutput(output);
     assert.equal(result.get('TC-020c')?.status, 'pass');
+  });
+
+});
+
+describe('parseVitestOutput()', () => {
+
+  it('detects passing TC from ✓ (U+2713) Vitest verbose line', () => {
+    const output = ` ✓ TC-001: login returns JWT (3ms)`;
+    const result = parseVitestOutput(output);
+    assert.equal(result.get('TC-001')?.status, 'pass');
+  });
+
+  it('detects failing TC from × (U+00D7) Vitest line', () => {
+    const output = ` × TC-002: invalid token returns 401 (1ms)`;
+    const result = parseVitestOutput(output);
+    assert.equal(result.get('TC-002')?.status, 'fail');
+  });
+
+  it('detects failing TC from ✕ (U+2715) Jest verbose line', () => {
+    const output = `    ✕ TC-003: dashboard renders at 375px (2ms)`;
+    const result = parseVitestOutput(output);
+    assert.equal(result.get('TC-003')?.status, 'fail');
+  });
+
+  it('detects multiple TCs from multi-line Vitest output', () => {
+    const output = [
+      ` ✓ TC-001: login returns JWT (3ms)`,
+      ` ✓ TC-002: dashboard renders (2ms)`,
+      ` × TC-003: invalid token rejected (1ms)`,
+    ].join('\n');
+    const result = parseVitestOutput(output);
+    assert.equal(result.get('TC-001')?.status, 'pass');
+    assert.equal(result.get('TC-002')?.status, 'pass');
+    assert.equal(result.get('TC-003')?.status, 'fail');
+  });
+
+  it('returns empty map for output with no TC patterns', () => {
+    const output = ` ✓ some non-TC test (1ms)\n × another non-TC test (1ms)`;
+    const result = parseVitestOutput(output);
+    assert.equal(result.size, 0);
+  });
+
+  it('does not double-detect same TC id (first occurrence wins)', () => {
+    const output = [
+      ` ✓ TC-001: first run (2ms)`,
+      ` × TC-001: retry (1ms)`,
+    ].join('\n');
+    const result = parseVitestOutput(output);
+    assert.equal(result.get('TC-001')?.status, 'pass');
+  });
+
+  it('detects alphanumeric TC id (TC-020b) in Vitest output', () => {
+    const output = ` ✓ TC-020b: 375px viewport no scroll (2ms)`;
+    const result = parseVitestOutput(output);
+    assert.equal(result.get('TC-020b')?.status, 'pass');
+  });
+
+  it('captures error context in notes for failing TC', () => {
+    const output = [
+      ` × TC-005: rejects invalid token (1ms)`,
+      `   AssertionError: Expected 401 but got 200`,
+    ].join('\n');
+    const result = parseVitestOutput(output);
+    assert.ok(result.get('TC-005')?.notes.includes('AssertionError'));
   });
 
 });

@@ -61,7 +61,10 @@ Test naming convention (REQUIRED for aitri verify-run auto-detection):
   1. Test name MUST start with TC id:  it('TC-XXX: description of what is tested', ...)
   2. Test body MUST include marker:     // @aitri-tc TC-XXX
 
-aitri verify-run parses ✔/✖ TC-XXX patterns directly from runner output.
+aitri verify-run parses TC-XXX patterns directly from runner output:
+  - node:test / mocha / TAP: ✔/✖ TC-XXX — auto-detected
+  - Vitest:                  run with --reporter verbose — ✓/× TC-XXX detected automatically
+  - Jest:                    run with --verbose flag     — ✓/✕ TC-XXX detected automatically
 Tests not matching TC-XXX: naming are auto-classified as skip — verify-complete rejects 0 passing tests.
 {{/IF_TC_LOCK}}
 
@@ -109,7 +112,7 @@ In 04_IMPLEMENTATION_MANIFEST.json, you MUST declare every simplification made v
     technical_debt:[{fr_id, substitution, reason, effort_to_fix:"low|medium|high"}],
     test_runner: "npm test",
     test_files: ["tests/unit.test.js"] }
-  test_runner: the exact command to run all tests (e.g. "npm test", "node --test tests/")
+  test_runner: the exact command to run all tests (e.g. "npm test", "node --test tests/", "vitest run --reporter verbose", "jest --verbose")
   test_files: every file that contains @aitri-tc markers — required for aitri verify-run
 
 ## Instructions
