@@ -134,4 +134,15 @@ describe('Phase UX — buildBriefing()', () => {
       feedback: null,
     }));
   });
+
+  it('[v0.1.28] briefing renders artifact path using artifactsBase when provided', () => {
+    const b = PHASE_DEFS['ux'].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { 'IDEA.md': 'A simple app idea.', '01_REQUIREMENTS.json': validRequirements },
+      feedback: null,
+      artifactsBase: '/tmp/test/spec',
+    });
+    assert.ok(b.includes('/tmp/test/spec/01_UX_SPEC.md'), 'artifact path must use artifactsBase/spec');
+    assert.ok(!b.includes('/tmp/test/01_UX_SPEC.md'), 'artifact path must NOT use bare dir');
+  });
 });

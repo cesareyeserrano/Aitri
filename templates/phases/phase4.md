@@ -115,6 +115,10 @@ In 04_IMPLEMENTATION_MANIFEST.json, you MUST declare every simplification made v
   test_runner: the exact command to run all tests (e.g. "npm test", "node --test tests/", "vitest run --reporter verbose", "jest --verbose")
   test_files: every file that contains @aitri-tc markers — required for aitri verify-run
 
+{{#IF_BEST_PRACTICES}}
+{{BEST_PRACTICES}}
+{{/IF_BEST_PRACTICES}}
+
 ## Instructions
 1. Phase skeleton: create all file structure and module interfaces
 2. Phase persistence/integrations: implement DB layer, APIs, storage

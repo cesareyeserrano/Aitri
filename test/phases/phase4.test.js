@@ -242,4 +242,35 @@ describe('Phase 4 — buildBriefing() debug mode', () => {
   it('debug mode includes minimal fix protocol', () => {
     assert.ok(debugBriefing.includes('minimal fix'), 'debug protocol must instruct minimal fix');
   });
+
+  it('[v0.1.28] briefing renders artifact path using artifactsBase when provided', () => {
+    const b = PHASE_DEFS[4].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '', '03_TEST_CASES.json': '{}' },
+      feedback: null, failingTests: undefined,
+      artifactsBase: '/tmp/test/spec',
+    });
+    assert.ok(b.includes('/tmp/test/spec/04_IMPLEMENTATION_MANIFEST.json'), 'artifact path must use artifactsBase/spec');
+    assert.ok(!b.includes('/tmp/test/04_IMPLEMENTATION_MANIFEST.json'), 'artifact path must NOT use bare dir');
+  });
+
+  it('[v0.1.28] injects bestPractices content when provided', () => {
+    const b = PHASE_DEFS[4].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '', '03_TEST_CASES.json': '{}' },
+      feedback: null, failingTests: undefined,
+      bestPractices: 'No hardcoded secrets or environment-specific values',
+    });
+    assert.ok(b.includes('No hardcoded secrets'), 'best practices content must appear in briefing');
+  });
+
+  it('[v0.1.28] omits best practices block when bestPractices is empty', () => {
+    const b = PHASE_DEFS[4].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '', '03_TEST_CASES.json': '{}' },
+      feedback: null, failingTests: undefined,
+      bestPractices: '',
+    });
+    assert.ok(!b.includes('Coding Standards'), 'Coding Standards header must not appear when bestPractices is empty');
+  });
 });

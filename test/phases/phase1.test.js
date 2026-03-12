@@ -171,4 +171,13 @@ describe('Phase 1 — buildBriefing() (BL-001)', () => {
     assert.ok(reviewSection.includes('no_go_zone') && reviewSection.includes('acceptance_criteria'),
       'Human Review must cover no_go_zone and acceptance_criteria checks');
   });
+
+  it('[v0.1.28] briefing renders artifact path using artifactsBase when provided', () => {
+    const b = PHASE_DEFS[1].buildBriefing({
+      dir: '/tmp/test', inputs: { 'IDEA.md': 'A simple app idea.' }, feedback: null,
+      artifactsBase: '/tmp/test/spec',
+    });
+    assert.ok(b.includes('/tmp/test/spec/01_REQUIREMENTS.json'), 'artifact path must use artifactsBase/spec');
+    assert.ok(!b.includes('/tmp/test/01_REQUIREMENTS.json'), 'artifact path must NOT use bare dir');
+  });
 });

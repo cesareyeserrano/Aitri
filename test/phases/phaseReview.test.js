@@ -115,4 +115,15 @@ describe('Phase review — buildBriefing()', () => {
     });
     assert.ok(b.includes('Focus on the auth module'), 'feedback must appear in briefing');
   });
+
+  it('[v0.1.28] briefing renders artifact path using artifactsBase when provided', () => {
+    const b = PHASE_DEFS['review'].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { '01_REQUIREMENTS.json': '{}', '03_TEST_CASES.json': '{}', '04_IMPLEMENTATION_MANIFEST.json': '{}' },
+      feedback: null,
+      artifactsBase: '/tmp/test/spec',
+    });
+    assert.ok(b.includes('/tmp/test/spec/04_CODE_REVIEW.md'), 'artifact path must use artifactsBase/spec');
+    assert.ok(!b.includes('/tmp/test/04_CODE_REVIEW.md'), 'artifact path must NOT use bare dir');
+  });
 });

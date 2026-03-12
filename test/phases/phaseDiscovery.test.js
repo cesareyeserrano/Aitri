@@ -106,4 +106,15 @@ describe('Phase Discovery — buildBriefing()', () => {
     const wordCount = idea.trim().split(/\s+/).length;
     assert.ok(briefing.includes(`${wordCount} words`), `briefing must show correct word count (${wordCount})`);
   });
+
+  it('[v0.1.28] briefing renders artifact path using artifactsBase when provided', () => {
+    const b = PHASE_DEFS['discovery'].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { 'IDEA.md': idea },
+      feedback: null,
+      artifactsBase: '/tmp/test/spec',
+    });
+    assert.ok(b.includes('/tmp/test/spec/00_DISCOVERY.md'), 'artifact path must use artifactsBase/spec');
+    assert.ok(!b.includes('/tmp/test/00_DISCOVERY.md'), 'artifact path must NOT use bare dir');
+  });
 });

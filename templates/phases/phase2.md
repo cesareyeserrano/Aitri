@@ -72,6 +72,10 @@ Before completing this phase, verify:
 - All tech choices must be justified with specific versions
 - Honor the no_go_zone from 01_REQUIREMENTS.json — do not introduce components that were declared out of scope
 
+{{#IF_BEST_PRACTICES}}
+{{BEST_PRACTICES}}
+{{/IF_BEST_PRACTICES}}
+
 ## Instructions
 1. Write ADRs for all major tech decisions (≥2 options each)
 2. Document failure blast radius for critical components

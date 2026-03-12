@@ -108,6 +108,10 @@ the specific metric from that FR's acceptance_criteria — not just check presen
   ✅ expected_result: "audio plays within 100ms of trigger with no gap on loop"
 Copy the metric directly from the FR's acceptance_criteria into expected_result.
 
+{{#IF_BEST_PRACTICES}}
+{{BEST_PRACTICES}}
+{{/IF_BEST_PRACTICES}}
+
 ## Instructions
 1. Build Type Coverage Matrix for all FRs
 2. Write test cases with concrete Given/When/Then (SPEC-SEALED)

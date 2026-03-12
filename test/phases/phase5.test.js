@@ -115,4 +115,15 @@ describe('Phase 5 — buildBriefing()', () => {
     assert.ok(reviewSection.includes('placeholder') && reviewSection.includes('compliance'),
       'Human Review must cover placeholder and compliance level checks');
   });
+
+  it('[v0.1.28] briefing renders artifact path using artifactsBase when provided', () => {
+    const b = PHASE_DEFS[5].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '', '04_IMPLEMENTATION_MANIFEST.json': '{}', '04_TEST_RESULTS.json': '{}' },
+      feedback: null,
+      artifactsBase: '/tmp/test/spec',
+    });
+    assert.ok(b.includes('/tmp/test/spec/05_PROOF_OF_COMPLIANCE.json'), 'artifact path must use artifactsBase/spec');
+    assert.ok(!b.includes('/tmp/test/05_PROOF_OF_COMPLIANCE.json'), 'artifact path must NOT use bare dir');
+  });
 });

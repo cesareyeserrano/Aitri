@@ -112,4 +112,29 @@ describe('Phase 2 — buildBriefing() (BL-002)', () => {
     assert.ok(reviewSection.includes('no_go_zone') && reviewSection.includes('ADR'),
       'Human Review must cover no_go_zone and ADR verification');
   });
+
+  it('[v0.1.28] briefing renders artifact path using artifactsBase when provided', () => {
+    const b = PHASE_DEFS[2].buildBriefing({
+      dir: '/tmp/test', inputs: { '01_REQUIREMENTS.json': '{}' }, feedback: null,
+      artifactsBase: '/tmp/test/spec',
+    });
+    assert.ok(b.includes('/tmp/test/spec/02_SYSTEM_DESIGN.md'), 'artifact path must use artifactsBase/spec');
+    assert.ok(!b.includes('/tmp/test/02_SYSTEM_DESIGN.md'), 'artifact path must NOT use bare dir');
+  });
+
+  it('[v0.1.28] injects bestPractices content when provided', () => {
+    const b = PHASE_DEFS[2].buildBriefing({
+      dir: '/tmp/test', inputs: { '01_REQUIREMENTS.json': '{}' }, feedback: null,
+      bestPractices: 'Separation of concerns: each module has one responsibility',
+    });
+    assert.ok(b.includes('Separation of concerns'), 'best practices content must appear in briefing');
+  });
+
+  it('[v0.1.28] omits best practices block when bestPractices is empty', () => {
+    const b = PHASE_DEFS[2].buildBriefing({
+      dir: '/tmp/test', inputs: { '01_REQUIREMENTS.json': '{}' }, feedback: null,
+      bestPractices: '',
+    });
+    assert.ok(!b.includes('Engineering Standards'), 'Engineering Standards header must not appear when bestPractices is empty');
+  });
 });
