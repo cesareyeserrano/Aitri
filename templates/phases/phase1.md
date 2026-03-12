@@ -75,6 +75,17 @@ Include these as comments in project_summary or as a separate "product_analysis"
     ❌ "smooth animations"         → ✅ "transition completes in ≤200ms, no jank at 60fps"
     Aitri does not define aesthetic values — you define them, Aitri enforces that they exist.
 
+{{#IF_PARENT_REQUIREMENTS}}
+## Existing Requirements — do NOT duplicate
+This is a feature addition to an existing project. The following requirements already exist.
+Generate ONLY NEW FRs and user stories for this feature. Do not restate, paraphrase, or
+reuse IDs from the list below.
+
+```json
+{{PARENT_REQUIREMENTS}}
+```
+{{/IF_PARENT_REQUIREMENTS}}
+
 ## Instructions
 1. Declare no_go_zone (≥3 items) before writing any FR
 2. Identify North Star KPI + JTBD + guardrail metric

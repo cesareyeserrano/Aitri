@@ -26,9 +26,10 @@ import { cmdStatus }         from '../lib/commands/status.js';
 import { cmdResume }         from '../lib/commands/resume.js';
 import { cmdCheckpoint }     from '../lib/commands/checkpoint.js';
 import { cmdValidate }       from '../lib/commands/validate.js';
+import { cmdFeature }        from '../lib/commands/feature.js';
 import { cmdHelp }           from '../lib/commands/help.js';
 
-const VERSION   = '0.1.30';
+const VERSION   = '0.1.31';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -90,6 +91,7 @@ switch (cmd) {
   case 'status':           cmdStatus(ctx);          break;
   case 'resume':           cmdResume(ctx);          break;
   case 'checkpoint':       cmdCheckpoint(ctx);      break;
+  case 'feature':          cmdFeature(ctx);         break;
   case 'validate':         cmdValidate(ctx);        break;
   case '--version':        console.log(`Aitri v${VERSION}`); break;
   default:                 cmdHelp(ctx);            break;
