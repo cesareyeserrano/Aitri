@@ -29,7 +29,7 @@ import { cmdValidate }       from '../lib/commands/validate.js';
 import { cmdFeature }        from '../lib/commands/feature.js';
 import { cmdHelp }           from '../lib/commands/help.js';
 
-const VERSION   = '0.1.32';
+const VERSION   = '0.1.33';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();

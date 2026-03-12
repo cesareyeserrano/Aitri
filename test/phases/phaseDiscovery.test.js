@@ -28,6 +28,11 @@ This leads to late payments going unnoticed for weeks, causing cash flow disrupt
 - Multi-currency conversion
 - Accounting software integration (QuickBooks, Xero)
 - Mobile native app (web only at launch)
+
+## Discovery Confidence
+Confidence: high
+Evidence gaps: none
+Handoff decision: ready — all sections grounded in user input
 `;
 
 describe('Phase Discovery — validate()', () => {
@@ -64,6 +69,56 @@ describe('Phase Discovery — validate()', () => {
   it('phaseDiscovery is accessible via PHASE_DEFS["discovery"]', () => {
     assert.equal(PHASE_DEFS['discovery'].num, 'discovery');
     assert.equal(PHASE_DEFS['discovery'].artifact, '00_DISCOVERY.md');
+  });
+
+  it('throws when ## Discovery Confidence section is absent', () => {
+    const d = validDiscovery().replace('## Discovery Confidence\n', '## Notes\n');
+    assert.throws(() => PHASE_DEFS['discovery'].validate(d), /Discovery Confidence/);
+  });
+
+  it('throws when Confidence line is missing from section', () => {
+    const d = validDiscovery().replace('Confidence: high', 'Rating: high');
+    assert.throws(() => PHASE_DEFS['discovery'].validate(d), /Confidence: low\|medium\|high/);
+  });
+
+  it('throws when Handoff decision line is missing from section', () => {
+    const d = validDiscovery().replace('Handoff decision: ready', 'Status: ready');
+    assert.throws(() => PHASE_DEFS['discovery'].validate(d), /Handoff decision/);
+  });
+
+  it('throws when Confidence is low', () => {
+    const d = validDiscovery().replace('Confidence: high', 'Confidence: low');
+    assert.throws(() => PHASE_DEFS['discovery'].validate(d), /confidence is low/);
+  });
+
+  it('throws when Handoff decision is blocked (overrides confidence)', () => {
+    const d = validDiscovery()
+      .replace('Confidence: high', 'Confidence: high')
+      .replace('Handoff decision: ready', 'Handoff decision: blocked');
+    assert.throws(() => PHASE_DEFS['discovery'].validate(d), /handoff is blocked/);
+  });
+
+  it('warns on stderr but does not throw when Confidence is medium', () => {
+    const d = validDiscovery().replace('Confidence: high', 'Confidence: medium');
+    const chunks = [];
+    const orig = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (c) => { chunks.push(c); return true; };
+    try {
+      assert.doesNotThrow(() => PHASE_DEFS['discovery'].validate(d));
+    } finally {
+      process.stderr.write = orig;
+    }
+    assert.ok(chunks.join('').includes('medium'), 'stderr must mention medium confidence');
+  });
+
+  it('low confidence message includes evidence gaps when present', () => {
+    const d = validDiscovery()
+      .replace('Confidence: high', 'Confidence: low')
+      .replace('Evidence gaps: none', 'Evidence gaps: pricing model unclear');
+    assert.throws(
+      () => PHASE_DEFS['discovery'].validate(d),
+      /pricing model unclear/
+    );
   });
 });
 

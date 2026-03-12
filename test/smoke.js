@@ -167,6 +167,7 @@ describe('Aitri CLI — Smoke Test', () => {
       '## Users\n- Freelancer: wants to get paid on time.\n',
       '## Success Criteria\n- Invoice created in under 2 minutes.\n- Reminder sent within 24h.\n',
       '## Out of Scope\n- No payroll. No multi-currency. No accounting integration.\n',
+      '## Discovery Confidence\nConfidence: high\nEvidence gaps: none\nHandoff decision: ready — all sections grounded in user input\n',
     ].join('\n').repeat(2);
     fs.writeFileSync(path.join(tmpDir, 'spec', '00_DISCOVERY.md'), discoveryContent);
     const out = aitri('complete discovery', tmpDir);
