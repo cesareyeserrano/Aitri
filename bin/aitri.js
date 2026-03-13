@@ -65,8 +65,12 @@ function findProjectDir(startDir) {
 }
 
 // init: uses explicit path arg if given, otherwise cwd
+// adopt scan/apply: always use cwd — these target a directory that may not have .aitri yet
 // all other commands: search upward for .aitri (cwd-invariant)
-const dir = cmd === 'init' ? resolveInitDir() : findProjectDir(cwd);
+const adoptSub = args[0];
+const dir = cmd === 'init'   ? resolveInitDir()
+          : cmd === 'adopt' && (adoptSub === 'scan' || adoptSub === 'apply') ? cwd
+          : findProjectDir(cwd);
 
 const flagValue = (flag) => {
   const i = args.indexOf(flag);
