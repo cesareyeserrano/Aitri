@@ -13,6 +13,15 @@
 {{FEEDBACK}}
 {{/IF_FEEDBACK}}
 
+{{#IF_INTERVIEW_CONTEXT}}
+## Interview Context — primary source
+The following answers were provided directly by the project owner.
+Treat them as primary source — synthesize the discovery from these answers, do not invent beyond them.
+Where answers are vague, mark the gap in Evidence gaps.
+
+{{INTERVIEW_CONTEXT}}
+{{/IF_INTERVIEW_CONTEXT}}
+
 ## Source Idea ({{IDEA_WORD_COUNT}} words)
 {{IDEA_MD}}
 
