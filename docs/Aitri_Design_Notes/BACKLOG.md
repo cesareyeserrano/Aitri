@@ -108,6 +108,46 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ---
 
+## AitriHub Integration Backlog
+
+> Gestionado desde Aitri hasta que Hub tenga su propio pipeline Aitri activo.
+> Reference: `docs/Aitri_Design_Notes/INTEGRATION_CONTRACT.md`
+> Hub repo: `/Users/cesareyeserrano/Documents/PROJECTS/AITRI-HUB`
+
+### Bugs (Hub side — correctness)
+
+- ✅ **[Hub] `fr_id` field name** — Not a bug. `test-reader.js` already reads `entry.fr_id` correctly and exposes it as `frId` internally. Confirmed by reading source + tests (2026-03-13).
+
+- ✅ **[Hub] respect `artifactsDir` from `.aitri` config** — Done v0.1.1. `aitri-reader` exposes `artifactsDir` (defaults to `"spec"`). `test-reader` accepts it as param. `collector/index` passes `aitriState?.artifactsDir`. 6 new tests.
+
+- ✅ **[Hub] handle `.aitri` as directory** — Done v0.1.1. `aitri-reader` detects EISDIR and reads `.aitri/config.json` instead. 3 new tests.
+
+
+### Features (Hub side — new data)
+
+- ✅ **[Hub] read `05_PROOF_OF_COMPLIANCE.json` → compliance badge** — Done Hub v0.1.4. `compliance-reader.js`, Rule 6 in alerts engine, badge on ProjectCard (✓ COMPLIANT / ⚠ PARTIAL / · DRAFT). 13 new tests.
+
+- ~~[ ] P2 — **[Hub] read `05_PROOF_OF_COMPLIANCE.json` → compliance badge**~~ — Hub shows "verify passed ✅" but not the final compliance verdict. `05_PROOF_OF_COMPLIANCE.json` has `overall_compliance` per project.
+  Problem: A project can pass all tests but still have `development_only` compliance. Hub currently shows it as healthy. This is misleading for production readiness decisions.
+  Files: `AITRI-HUB/lib/collector/` (new `compliance-reader.js`), `AITRI-HUB/lib/alerts/engine.js` (new alert: compliance-blocked), web components (ProjectCard, header badge)
+  Behavior: New `complianceSummary: {overall, production_ready: n, partial: n, blocked: n}` in ProjectData. New alert `compliance-blocked` (severity: error) when overall is not `production_ready`. Show badge in project card: `✅ production_ready` / `⚠️ staging_ready` / `❌ blocked`.
+  Decisions: Only read if Phase 5 is in `approvedPhases` — don't show stale compliance from previous runs.
+  Acceptance: Project card shows compliance level. Alert fires when `overall_compliance !== 'production_ready'`.
+
+- ✅ **[Hub] read `01_REQUIREMENTS.json` → requirements context** — Done Hub v0.1.5. `requirements-reader.js`, FR count + priority breakdown on ProjectCard header. 11 new tests.
+
+- ✅ **[Hub] detect feature sub-pipelines** — Done Hub v0.1.6. `aitri-reader` scans `features/` subdirs for `.aitri` files, exposes `features[]` (max 10, sorted by name). ProjectCard shows "N active" badge with name preview. Refactored `readStateFile()` shared helper. 9 new tests. Note: actual structure is `features/<name>/.aitri`, not `.aitri-feature-*` files — backlog description was incorrect.
+
+### Features (Aitri side — better data for Hub)
+
+- ✅ **[Aitri] event log in `.aitri`** — Done Aitri v0.1.45. `appendEvent()` in `state.js`, called by `approve.js`, `complete.js`, `reject.js`. Cap 20 entries. Hub reads `events[]` via `aitri-reader`, ActivityTab renders timeline. Hub v0.1.3.
+
+- ✅ **[Aitri] `aitri init` auto-registers in Hub if installed** — Done Aitri v0.1.46. Silent, non-blocking. Reads `~/.aitri-hub/projects.json`, appends entry if not already registered. Prints `  Registered in Aitri Hub`.
+
+- ✅ **[Aitri] `aitri status` mentions Hub if project is monitored** — Done Aitri v0.1.46. Silent check of `~/.aitri-hub/projects.json`; prints `  Monitored by Aitri Hub — run: aitri-hub monitor` if project is registered.
+
+---
+
 ## Known Technical Debt (design trade-offs — v0.1.44)
 
 > These are not bugs. They are intentional trade-offs that have known failure modes. Documented so they are not rediscovered in future sessions.
