@@ -479,7 +479,7 @@ describe('Aitri CLI — complete 3 h/f naming gate', () => {
     id, requirement_id: reqId, title: `Test ${id}`, type,
     scenario, user_story_id: 'US-001', ac_id: 'AC-001',
     priority: 'high', preconditions: [], steps: ['step'],
-    expected_result: 'ok', test_data: {},
+    expected_result: 'HTTP 200 with expected response', test_data: {},
     given: 'user=alice@example.com exists', when: 'POST /login', then: 'status 200',
   });
 

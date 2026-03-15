@@ -1,5 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { PHASE_DEFS } from '../../lib/phases/index.js';
 
 const validP5 = () => JSON.stringify({
@@ -83,6 +86,57 @@ describe('Phase 5 — validate()', () => {
   it('passes when placeholder level is not present', () => {
     const d = JSON.parse(validP5());
     assert.doesNotThrow(() => PHASE_DEFS[5].validate(JSON.stringify(d)));
+  });
+
+  it('[cross-artifact] throws when FR-MUST not in requirement_compliance', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p5-'));
+    try {
+      const reqs = { functional_requirements: [
+        { id: 'FR-001', priority: 'MUST' },
+        { id: 'FR-002', priority: 'MUST' },
+        { id: 'FR-005', priority: 'MUST' }, // missing from validP5 compliance
+      ]};
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
+      assert.throws(
+        () => PHASE_DEFS[5].validate(validP5(), { dir, config: {} }),
+        /FR-MUST.*not found in requirement_compliance/
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('[cross-artifact] passes when all FR-MUSTs have compliance entries', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p5-'));
+    try {
+      const reqs = { functional_requirements: [
+        { id: 'FR-001', priority: 'MUST' },
+        { id: 'FR-002', priority: 'MUST' },
+      ]};
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
+      assert.doesNotThrow(() => PHASE_DEFS[5].validate(validP5(), { dir, config: {} }));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('[cross-artifact] SHOULD FRs not in compliance do not trigger the gap check', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p5-'));
+    try {
+      const reqs = { functional_requirements: [
+        { id: 'FR-001', priority: 'MUST'   },
+        { id: 'FR-002', priority: 'MUST'   },
+        { id: 'FR-099', priority: 'SHOULD' }, // SHOULD — gap check ignores
+      ]};
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
+      assert.doesNotThrow(() => PHASE_DEFS[5].validate(validP5(), { dir, config: {} }));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('[cross-artifact] skips check when dir not provided (backward compat)', () => {
+    assert.doesNotThrow(() => PHASE_DEFS[5].validate(validP5()));
   });
 
   it('rejects compliance level "Placeholder" (capital P) as invalid — not silently passed as valid', () => {

@@ -8,7 +8,7 @@ import { PHASE_DEFS } from '../../lib/phases/index.js';
 const makeTC = (id, reqId, type, scenario = 'happy_path') => ({
   id, requirement_id: reqId, title: `Test ${id}`, type,
   scenario, user_story_id: 'US-001', ac_id: 'AC-001',
-  priority: 'high', preconditions: [], steps: ['step'], expected_result: 'ok', test_data: {},
+  priority: 'high', preconditions: [], steps: ['step'], expected_result: 'HTTP 200 with expected response', test_data: {},
 });
 
 const validP3 = () => JSON.stringify({
@@ -171,6 +171,24 @@ describe('Phase 3 — validate()', () => {
     }
   });
 
+  it('[expected_result] throws when TC has placeholder expected_result', () => {
+    const d = JSON.parse(validP3());
+    d.test_cases[0].expected_result = 'it works';
+    assert.throws(() => PHASE_DEFS[3].validate(JSON.stringify(d)), /Placeholder expected_result.*TC-001h/);
+  });
+
+  it('[expected_result] throws when TC expected_result is "passes"', () => {
+    const d = JSON.parse(validP3());
+    d.test_cases[0].expected_result = 'passes';
+    assert.throws(() => PHASE_DEFS[3].validate(JSON.stringify(d)), /Placeholder expected_result/);
+  });
+
+  it('[expected_result] passes when expected_result is specific and observable', () => {
+    const d = JSON.parse(validP3());
+    d.test_cases[0].expected_result = 'HTTP 401 returned with body { "error": "invalid_token" }';
+    assert.doesNotThrow(() => PHASE_DEFS[3].validate(JSON.stringify(d)));
+  });
+
   it('[Rank 3] cross-phase check fails when ac_id not found in requirements', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-'));
     try {
@@ -192,6 +210,63 @@ describe('Phase 3 — validate()', () => {
         () => PHASE_DEFS[3].validate(JSON.stringify(d), { dir, config: {} }),
         /Three Amigos gate.*AC references not found/
       );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('[FR-MUST gap] throws when FR-MUST has no test cases', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-'));
+    try {
+      const reqs = {
+        functional_requirements: [
+          { id: 'FR-001', priority: 'MUST', acceptance_criteria: [] },
+          { id: 'FR-002', priority: 'MUST', acceptance_criteria: [] },
+          { id: 'FR-003', priority: 'MUST', acceptance_criteria: [] }, // no TCs
+        ],
+        user_stories: [],
+      };
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
+      // validP3 only covers FR-001 and FR-002 — FR-003 is uncovered
+      assert.throws(
+        () => PHASE_DEFS[3].validate(validP3(), { dir, config: {} }),
+        /FR-MUST.*no test cases/
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('[FR-MUST gap] passes when all FR-MUSTs have at least one TC', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-'));
+    try {
+      const reqs = {
+        functional_requirements: [
+          { id: 'FR-001', priority: 'MUST', acceptance_criteria: [] },
+          { id: 'FR-002', priority: 'MUST', acceptance_criteria: [] },
+        ],
+        user_stories: [],
+      };
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
+      assert.doesNotThrow(() => PHASE_DEFS[3].validate(validP3(), { dir, config: {} }));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('[FR-MUST gap] SHOULD FRs not in TCs do not trigger the gap check', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-'));
+    try {
+      const reqs = {
+        functional_requirements: [
+          { id: 'FR-001', priority: 'MUST',   acceptance_criteria: [] },
+          { id: 'FR-002', priority: 'MUST',   acceptance_criteria: [] },
+          { id: 'FR-099', priority: 'SHOULD', acceptance_criteria: [] }, // SHOULD — gap check ignores
+        ],
+        user_stories: [],
+      };
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
+      assert.doesNotThrow(() => PHASE_DEFS[3].validate(validP3(), { dir, config: {} }));
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

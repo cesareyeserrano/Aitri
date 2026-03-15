@@ -100,6 +100,30 @@ describe('Phase 1 — validate()', () => {
     assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
   });
 
+  it('[broad vague] throws when security MUST FR has all-vague acceptance_criteria', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[0].acceptance_criteria = ['the system must work correctly', 'data must be handled safely'];
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /FR-001.*all acceptance_criteria are vague/);
+  });
+
+  it('[broad vague] throws when persistence MUST FR has all-vague acceptance_criteria', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements.push({ id: 'FR-006', title: 'Save state', priority: 'MUST', type: 'persistence', acceptance_criteria: ['data must be stored properly', 'state must be persisted correctly'] });
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /FR-006.*all acceptance_criteria are vague/);
+  });
+
+  it('[broad vague] passes when security MUST FR has specific acceptance_criteria without metric', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[0].acceptance_criteria = ['passwords must be hashed with bcrypt', 'tokens expire after inactivity'];
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
+  it('[broad vague] passes when not all ACs are vague (mixed specific + vague)', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[0].acceptance_criteria = ['must be secure', 'returns 401 on invalid token'];
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
   it('[ASSUMPTION] does not throw when FRs contain [ASSUMPTION] marker', () => {
     const d = JSON.parse(validP1());
     d.functional_requirements[0].title = 'Login [ASSUMPTION: needs user confirmation]';
