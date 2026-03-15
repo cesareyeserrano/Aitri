@@ -144,4 +144,19 @@ Example: "CRITICAL: .env committed — add to .gitignore immediately and rotate 
 2. Analyze the pre-scanned Technical Health Signals above
 3. Generate complete ADOPTION_PLAN.md following the format above
 4. Save to: {{PROJECT_DIR}}/ADOPTION_PLAN.md
-5. Run: aitri adopt apply
+5. Determine entry phase and run the appropriate apply command:
+
+```
+Phase N = the first Aitri phase that needs to be run for this project.
+
+  Project has no prior specs or design → aitri adopt apply --from 1
+  Project has requirements docs only   → aitri adopt apply --from 2
+  Project has requirements + design    → aitri adopt apply --from 3
+  Project has code but no formal tests → aitri adopt apply --from 4
+  Project has code + tests, needs CI   → aitri adopt apply --from 5
+
+  --from N marks phases 1 through N-1 as completed and enters the pipeline at Phase N.
+  ADOPTION_PLAN.md is still used for IDEA.md content — keep it accurate.
+```
+
+6. Tell the user which command to run and why (reference the Technical Health findings).

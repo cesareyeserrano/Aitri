@@ -296,6 +296,93 @@ describe('aitri adopt apply', () => {
   });
 });
 
+// ── apply --from <N> ──────────────────────────────────────────────────────────
+
+describe('aitri adopt apply --from', () => {
+  function run(dir, fromN) {
+    const origIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = false;
+    try {
+      cmdAdopt({ dir, args: ['apply', '--from', String(fromN)], VERSION: '0.1.50', rootDir: ROOT_DIR, err: makeErr().fn });
+    } finally { process.stdin.isTTY = origIsTTY; }
+  }
+
+  it('marks phases 1 through N-1 as completed when --from N', () => {
+    const dir = tmpDir();
+    try {
+      run(dir, 4);
+      const cfg = loadConfig(dir);
+      assert.ok(cfg.completedPhases.includes(1), 'phase 1 must be marked');
+      assert.ok(cfg.completedPhases.includes(2), 'phase 2 must be marked');
+      assert.ok(cfg.completedPhases.includes(3), 'phase 3 must be marked');
+      assert.ok(!cfg.completedPhases.includes(4), 'phase 4 must NOT be marked');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('marks no phases when --from 1 (greenfield start)', () => {
+    const dir = tmpDir();
+    try {
+      run(dir, 1);
+      const cfg = loadConfig(dir);
+      assert.deepEqual(cfg.completedPhases, [], 'no phases should be completed for --from 1');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('creates IDEA.md from README when no ADOPTION_PLAN.md', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, 'README.md'), 'An invoicing tool for freelancers.', 'utf8');
+      run(dir, 3);
+      const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
+      assert.ok(idea.includes('invoicing'), 'IDEA.md should use README content');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('creates IDEA.md from ADOPTION_PLAN.md Project Summary when available', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), makeAdoptionPlan(), 'utf8');
+      run(dir, 2);
+      const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
+      assert.ok(idea.includes('invoicing'), 'IDEA.md should use ADOPTION_PLAN.md Project Summary');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('errors when --from value is out of range', () => {
+    const dir = tmpDir();
+    try {
+      const { fn: err, thrown } = makeErr();
+      assert.throws(
+        () => cmdAdopt({ dir, args: ['apply', '--from', '6'], VERSION: '0.1.50', rootDir: ROOT_DIR, err }),
+        /--from requires a phase number between 1 and 5/
+      );
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('infers additional phases from existing artifacts in spec/', () => {
+    const dir = tmpDir();
+    try {
+      // Write a valid-looking artifact for phase 1
+      fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), '{}', 'utf8');
+      // --from 2 would mark phase 1; artifact also exists for phase 1 — no dup
+      run(dir, 2);
+      const cfg = loadConfig(dir);
+      assert.equal(cfg.completedPhases.filter(p => p === 1).length, 1, 'phase 1 must appear exactly once');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not overwrite existing IDEA.md', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), 'Existing content.', 'utf8');
+      run(dir, 3);
+      const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
+      assert.equal(idea, 'Existing content.', 'existing IDEA.md must not be overwritten');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── scanner unit tests ────────────────────────────────────────────────────────
 
 describe('scanCodeQuality', () => {
