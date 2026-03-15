@@ -5,12 +5,64 @@
 
 ---
 
+## [0.1.47] — 2026-03-14
+
+### Bug Fixes
+- **fix(run-phase.js):** `started` event was saved before `buildBriefing()` executed — could log phantom starts if template rendering threw. Moved `appendEvent + saveConfig` to after `console.log(briefing)`. Requires second save but guarantees event only fires when briefing reaches stdout.
+- **fix(adopt.js):** `process.exit(1)` on user abort reverted to `process.exit(0)`. User cancelling a prompt is not an error. The v0.1.44 change was incorrect — "aitri adopt apply && next_cmd" not running after N is the expected behavior, which exit(0) achieves correctly.
+- **fix(phase4.js):** `validate()` now accepts `{ dir }` as second argument (already passed by `complete.js`). Emits `[aitri] Warning` in stderr for each `test_files` entry not found on disk. Non-blocking — enforcement remains in `verify-run`.
+- **fix(feature.js):** `aitri feature run-phase` now errors explicitly if `FEATURE_IDEA.md` doesn't exist, with the exact path to create. Previously the briefing was generated with empty feature context and the agent received no feature description.
+- **fix(adopt.js):** `adoptApply` now emits `[aitri] Warning` in stderr when zero completed phases could be inferred from `ADOPTION_PLAN.md`, with instructions to use `aitri adopt --upgrade` as fallback.
+
+### Features
+- **feat(approve.js):** `aitri approve review` now has explicit routing: if `verifyPassed` → suggests `run-phase 5`; if Phase 4 approved → suggests `verify-run`; otherwise → suggests `run-phase 4`. Non-blocking — review remains an optional phase.
+- **feat(run-phase.js):** `appendEvent(config, 'started', phase)` emitted after briefing is confirmed. Hub now has full timeline: started → completed → approved/rejected.
+- **feat(verify.js):** `appendEvent(config, 'verify-run', 'verify', { passed, failed, skipped })` and `appendEvent(config, 'verify-complete', 'verify', { passed, failed })` added. Hub can read verify outcomes from event log.
+- **feat(init.js):** isTempDir regex extended with `/private/tmp/` — covers macOS symlink resolution edge case.
+
+### Technical Debt (P3 — resolved)
+- **fix(phase1,3,4,5 validate):** `JSON.parse()` now wrapped with friendly error message. Malformed agent output (markdown fences, trailing commas, truncation) produces actionable error instead of raw SyntaxError stack.
+- **fix(verify.js):** Warning emitted when all `fr_coverage` entries have `tests_passing === 0` but tests did pass — signals missing `@aitri-tc` markers in test files.
+- **fix(adopt.js):** `scanTestHealth` now uses `openSync/readSync` with `MAX_FILE_READ_BYTES` cap, consistent with `scanCodeQuality` and `scanSecretSignals`.
+
+### Tests
+- **feat(adopt.test.js):** 13 new unit tests for `scanCodeQuality`, `scanSecretSignals`, `scanInfrastructure`, `scanTestHealth`. Scanners exported as named exports.
+- **feat(init.test.js):** 3 new tests for isTempDir classification (temp paths excluded, real paths included).
+- **Total: 459/459 passing** (was 443 at v0.1.44)
+
+---
+
+## [0.1.46] — 2026-03-13
+
+### Features
+- **feat(init.js):** Auto-register project in Aitri Hub (`~/.aitri-hub/projects.json`) on `aitri init`. Silent, non-blocking. Skips temp/system directories.
+- **feat(status.js):** Shows `Monitored by Aitri Hub` line when project is registered in Hub.
+
+### Bug Fixes
+- **fix(init.js):** isTempDir guard added to skip Hub registration for temp/system directories (`/tmp/`, `/var/folders/`, `/private/var/`, `/var/tmp/`). Prevents test dirs from polluting Hub registry.
+
+### Tests
+- **Total: 446/446 passing** (was 443 at v0.1.44 — 3 new tests for isTempDir)
+
+---
+
+## [0.1.45] — 2026-03-13
+
+### Features
+- **feat(state.js):** `appendEvent(config, event, phase, extra)` — appends pipeline activity events to `config.events[]`, capped at 20. Called by `approve.js`, `complete.js`, `reject.js`.
+- **feat(approve.js, complete.js, reject.js):** All three now call `appendEvent` before `saveConfig`. Event types: `'approved'`, `'completed'`, `'rejected'`.
+
+### Tests
+- **Total: 443/443 passing (unchanged)**
+
+---
+
 ## [0.1.44] — 2026-03-13
 
 ### Bug Fixes (deep stability audit — v0.1.44)
 - **fix(resume.js):** `fr_coverage` was treated as an object with `Object.keys()`, but `verify.js` writes it as an array `[{fr_id, tests_passing, tests_failing, ...}]`. `aitri resume` was showing `- 0: unknown (0/0 tests passing)` instead of `- FR-001: covered (3/3 tests passing)`. Now handles both array and legacy object formats. Test fixture updated to match the real artifact structure.
 - **fix(adopt.js):** `buf.slice()` → `buf.subarray()` in `scanCodeQuality` and `scanSecretSignals`. `wizard.js` was already using `buf.subarray()` — brings all three into alignment.
-- **fix(adopt.js):** `process.exit(0)` on user abort in `adoptApply` changed to `process.exit(1)`. Exit code 0 signals success to the shell — `aitri adopt apply && next_cmd` would continue even if the user pressed N. Now consistent with `approve.js` which uses `process.exit(1)`.
+- **fix(adopt.js):** `process.exit(0)` on user abort in `adoptApply` changed to `process.exit(1)`. _(Note: reverted to `exit(0)` in v0.1.47 — the original reasoning was incorrect.)_
 
 ### Docs
 - **docs(BACKLOG.md):** Stabilization item closed. Added `## Known Technical Debt` section documenting 3 design trade-offs: JSON.parse error quality in validators, missing `@aitri-tc` marker silent failure in verify, and `scanTestHealth` byte-limit inconsistency.

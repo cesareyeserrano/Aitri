@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { cmdAdopt } from '../../lib/commands/adopt.js';
+import { cmdAdopt, scanCodeQuality, scanSecretSignals, scanInfrastructure, scanTestHealth } from '../../lib/commands/adopt.js';
 import { cmdInit }  from '../../lib/commands/init.js';
 import { loadConfig, saveConfig } from '../../lib/state.js';
 
@@ -242,6 +242,25 @@ describe('aitri adopt apply', () => {
     } finally { process.stdin.isTTY = origIsTTY; }
   });
 
+  it('emits warning to stderr when zero phases can be inferred', () => {
+    const dir = tmpDir();
+    const origIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = false;
+    let stderrOutput = '';
+    const origStderr = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (chunk) => { stderrOutput += chunk; return true; };
+    try {
+      // Plan with no recognizable "Completed Phases" section
+      const planNoPhases = makeAdoptionPlan({ completedPhases: 'none' });
+      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), planNoPhases);
+      cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.47', rootDir: ROOT_DIR, err: makeErr().fn });
+    } finally {
+      process.stderr.write = origStderr;
+      process.stdin.isTTY = origIsTTY;
+    }
+    assert.ok(stderrOutput.includes('no completed phases'), `expected warning, got: ${stderrOutput}`);
+  });
+
   it('handles empty completedPhases gracefully', () => {
     const dir = tmpDir();
     const origIsTTY = process.stdin.isTTY;
@@ -274,6 +293,125 @@ describe('aitri adopt apply', () => {
 
     const updated = loadConfig(dir);
     assert.equal(updated.completedPhases.filter(p => p === 1).length, 1);
+  });
+});
+
+// ── scanner unit tests ────────────────────────────────────────────────────────
+
+describe('scanCodeQuality', () => {
+  it('detects TODO markers in source files', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'app.js'), '// TODO: fix this\nconst x = 1;');
+    const result = scanCodeQuality(dir);
+    assert.ok(result.includes('TODO') || result.includes('1 marker') || result.match(/Total: \d+/), `expected marker count, got: ${result}`);
+    assert.ok(!result.startsWith('None found.'), 'should detect at least one marker');
+  });
+
+  it('returns "None found." when no markers present', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'clean.js'), 'const x = 1;\nmodule.exports = x;');
+    const result = scanCodeQuality(dir);
+    assert.equal(result, 'None found.');
+  });
+
+  it('counts FIXME and HACK markers', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'util.js'), '// FIXME: broken\n// HACK: workaround\nconst y = 2;');
+    const result = scanCodeQuality(dir);
+    assert.ok(!result.startsWith('None found.'), 'should detect FIXME and HACK');
+  });
+});
+
+describe('scanSecretSignals', () => {
+  it('detects hardcoded api_key pattern', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'config.js'), `const api_key = 'sk-abc123verylongkey';`);
+    const result = scanSecretSignals(dir);
+    assert.ok(!result.startsWith('No hardcoded'), `should flag credential pattern, got: ${result}`);
+    assert.ok(result.includes('config.js'), 'should report the offending file');
+  });
+
+  it('returns clean message when no credentials found', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'safe.js'), 'const name = "hello";\nmodule.exports = { name };');
+    const result = scanSecretSignals(dir);
+    assert.equal(result, 'No hardcoded credential patterns detected.');
+  });
+
+  it('detects password assignment pattern', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'db.js'), `const password = 'supersecret123';`);
+    const result = scanSecretSignals(dir);
+    assert.ok(!result.startsWith('No hardcoded'), `should flag password pattern, got: ${result}`);
+  });
+});
+
+describe('scanInfrastructure', () => {
+  it('reports Dockerfile present when it exists', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'Dockerfile'), 'FROM node:20\n');
+    const result = scanInfrastructure(dir);
+    assert.ok(result.includes('Dockerfile: ✓'), `expected Dockerfile present, got: ${result}`);
+  });
+
+  it('reports Dockerfile missing when absent', () => {
+    const dir = tmpDir();
+    const result = scanInfrastructure(dir);
+    assert.ok(result.includes('Dockerfile: missing'), `expected Dockerfile missing, got: ${result}`);
+  });
+
+  it('detects package-lock.json as lockfile', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'package-lock.json'), '{}');
+    const result = scanInfrastructure(dir);
+    assert.ok(result.includes('package-lock.json'), `expected lockfile detected, got: ${result}`);
+  });
+
+  it('reports lockfile missing when none present', () => {
+    const dir = tmpDir();
+    const result = scanInfrastructure(dir);
+    assert.ok(result.includes('Lockfile: missing'), `expected lockfile missing, got: ${result}`);
+  });
+});
+
+describe('scanTestHealth', () => {
+  it('detects empty test files', () => {
+    const dir = tmpDir();
+    const testFile = 'test/empty.test.js';
+    fs.mkdirSync(path.join(dir, 'test'), { recursive: true });
+    fs.writeFileSync(path.join(dir, testFile), '// empty');
+    const result = scanTestHealth(dir, [testFile]);
+    assert.ok(result.includes('empty') || result.includes(testFile), `should flag empty test, got: ${result}`);
+  });
+
+  it('detects .skip markers in test files', () => {
+    const dir = tmpDir();
+    const testFile = 'test/skipped.test.js';
+    fs.mkdirSync(path.join(dir, 'test'), { recursive: true });
+    fs.writeFileSync(path.join(dir, testFile), `
+describe('suite', () => {
+  it.skip('does something', () => {
+    // lots of content here to pass the empty check threshold yes indeed yes
+    const x = 1;
+  });
+});`);
+    const result = scanTestHealth(dir, [testFile]);
+    assert.ok(result.includes('skip') || result.includes(testFile), `should flag skipped tests, got: ${result}`);
+  });
+
+  it('returns clean message for healthy test files', () => {
+    const dir = tmpDir();
+    const testFile = 'test/good.test.js';
+    fs.mkdirSync(path.join(dir, 'test'), { recursive: true });
+    fs.writeFileSync(path.join(dir, testFile), `
+import assert from 'assert';
+describe('suite', () => {
+  it('does something real', () => {
+    assert.equal(1 + 1, 2);
+  });
+});`);
+    const result = scanTestHealth(dir, [testFile]);
+    assert.ok(!result.includes(testFile), `healthy test should not be flagged, got: ${result}`);
   });
 });
 

@@ -102,6 +102,49 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ---
 
+### Auditoría 2026-03-14 — Hallazgos pendientes de implementación
+
+> Fuente: revisión profunda de todo el codebase (v0.1.46). Ordenados por severidad.
+
+- ✅ **`checkpoint.js` — stdout restore sin `try/finally`** — Ya tenía try/finally. Confirmado en auditoría v0.1.47 — no requirió cambio.
+
+- ✅ **`adopt apply` — inferencia de fases completadas es frágil** — Done v0.1.47. Emite `[aitri] Warning` en stderr cuando `completedPhases.length === 0`, con instrucción de usar `aitri adopt --upgrade` como alternativa.
+
+- ✅ **`feature run-phase` — FEATURE_IDEA.md sin guardrail** — Done v0.1.47. `err()` explícito con path exacto si FEATURE_IDEA.md no existe antes de generar briefing.
+
+- ✅ **`manifest.test_files` declarados pero no verificados en disco** — Done v0.1.47. `phase4.validate()` acepta `{ dir }` como segundo arg (ya pasado por `complete.js`). Emite advertencia en stderr por cada test_file no encontrado. No bloquea.
+
+- ✅ **`phaseReview` — approve no tiene routing específico** — Done v0.1.47. Routing explícito para `review` en `approve.js`: si verify passed → `run-phase 5`, si Phase 4 aprobada → `verify-run`, si no → `run-phase 4`. No bloqueante para Phase 5.
+
+- ✅ **`run-phase` no emite evento "started"** — Done v0.1.47. `appendEvent(config, 'started', phase)` antes de `saveConfig` en `run-phase.js`. Solo emite si el briefing llega a completarse sin errores de prerequisito.
+
+- ✅ **`adopt scan` — scanners individuales sin tests unitarios** — Done v0.1.47. `scanCodeQuality`, `scanSecretSignals`, `scanInfrastructure`, `scanTestHealth` exportados como named exports. 13 tests unitarios añadidos en `test/commands/adopt.test.js`.
+
+---
+
+### Estudio futuro — Calidad semántica de artifacts
+
+> No es un bug ni un item de implementación. Es una pregunta de diseño para explorar.
+
+**Tema:** Aitri valida la *estructura* de los artifacts (schema, campos requeridos, conteos mínimos) pero no su *calidad semántica*. Un agente puede producir `01_REQUIREMENTS.json` con 5 FRs técnicamente válidos pero conceptualmente triviales, genéricos, o desconectados del problema real descrito en IDEA.md.
+
+**Pregunta abierta:** ¿Hasta dónde debe llegar Aitri en validar calidad semántica?
+
+Ejemplos de lo que no se valida hoy:
+- FR.title de "La app debe funcionar correctamente" pasa validación
+- Acceptance criteria copiados entre FRs sin diferenciación
+- System design que ignora los NFRs de Phase 1
+- Test cases que no ejercen los acceptance criteria (Three Amigos gate cubre ac_id cross-reference, pero no la relevancia del test)
+
+**Opciones a estudiar:**
+1. Heurísticas de calidad en `validate()` (longitud mínima de títulos, diversidad de acceptance criteria, detección de duplicados)
+2. Phase de revisión cruzada entre artifacts (ej: validar que el system design menciona cada NFR)
+3. Dejar la calidad 100% al humano que aprueba — las gates solo verifican estructura
+
+**Criterio de decisión:** No introducir complejidad que genere falsos positivos. Un validator que rechaza artifacts buenos es peor que uno que acepta artifacts mediocres.
+
+---
+
 ### Stabilization
 
 - ✅ **Aitri Stabilization (v0.1.37–v0.1.44)** — Done v0.1.44. Full real-world adopt test (Ultron), wizard agent-mode, idea/ folder, Delivery Summary in all 8 templates, dead code audit, 3 real bugs fixed (resume.js fr_coverage array mismatch, adopt.js buf.slice deprecation, adopt.js process.exit(0) on abort). 443/443 tests passing. No known open bugs.
@@ -152,26 +195,11 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 > These are not bugs. They are intentional trade-offs that have known failure modes. Documented so they are not rediscovered in future sessions.
 
-- [ ] P3 — **`JSON.parse()` in phase validators produces cryptic errors on malformed agent output**
-  Problem: `phase1/3/4/5.validate()` calls `JSON.parse(content)` directly. If the agent produces malformed JSON (truncated, markdown fences, trailing commas), the error message is a raw Node.js SyntaxError with a column number, not a user-actionable message.
-  Files: `lib/phases/phase1.js`, `phase3.js`, `phase4.js`, `phase5.js`
-  Behavior: Wrap `JSON.parse` in a try/catch inside each `validate()` and throw a friendly error: `"Phase N artifact is not valid JSON — check that the agent did not wrap the output in markdown fences or add trailing commas."` The caller in `complete.js` already has a try/catch but it just re-throws.
-  Decisions: `complete.js` try/catch is the right layer for catching IO errors; `validate()` is the right layer for catching semantic errors. Separating them avoids swallowing real crashes.
-  Acceptance: `aitri complete 1` with malformed JSON in the artifact shows a readable error, not a raw SyntaxError stack.
+- ✅ **`JSON.parse()` in phase validators produces cryptic errors on malformed agent output** — Done v0.1.47. `phase1/3/4/5.validate()` now wraps `JSON.parse` in try/catch and throws a user-actionable message including the artifact name. Test updated in `phase1.test.js`.
 
-- [ ] P3 — **`verify.js` coverage is empty if agent omits `@aitri-tc` markers**
-  Problem: `scanTestContent()` in `verify.js` relies on `// @aitri-tc TC-001` markers in test files to map tests to TCs. If the agent writes tests without the markers, `fr_coverage` entries all show `tests_passing: 0` even when tests pass. No warning is emitted.
-  Files: `lib/commands/verify.js`, `templates/phases/phase4.md`
-  Behavior: After building `frCoverage`, if every entry has `tests_passing === 0` and at least one TC result has `status: 'pass'`, emit a `process.stderr.write` warning: `"[aitri] Warning: all FR coverage is zero but tests passed — @aitri-tc markers may be missing from test files."`. Non-blocking.
-  Decisions: Do not make markers mandatory — they are documentation hints, not execution hooks.
-  Acceptance: Warning appears in `verify-run` output when markers are missing and tests pass.
+- ✅ **`verify.js` coverage is empty if agent omits `@aitri-tc` markers** — Done v0.1.47. Warning emitted in stderr when all `fr_coverage` entries show `tests_passing === 0` but `summary.passed > 0`. Non-blocking.
 
-- [ ] P3 — **`scanTestHealth` reads full test files with `fs.readFileSync` (no byte limit)**
-  Problem: `scanTestHealth()` in `adopt.js` uses `fs.readFileSync(fullPath, 'utf8')` without a size cap. The other two file-walking scanners (`scanCodeQuality`, `scanSecretSignals`) use the `openSync/readSync` pattern with `MAX_FILE_READ_BYTES=50KB`. Inconsistency. On repos with large generated test fixtures, this can slow `adopt scan`.
-  Files: `lib/commands/adopt.js` — `scanTestHealth()` function
-  Behavior: Replace `fs.readFileSync` with the `openSync/readSync/closeSync` pattern using `MAX_FILE_READ_BYTES`. Same pattern already in `scanCodeQuality` and `scanSecretSignals`.
-  Decisions: The empty-file check (`content.trim().length < 80`) still works correctly on truncated content. The skip-marker check may miss markers near end-of-file in very large test files — acceptable since markers usually appear near the top.
-  Acceptance: `scanTestHealth` reads at most 50KB per file. No behavioral change on normal repos.
+- ✅ **`scanTestHealth` reads full test files with `fs.readFileSync` (no byte limit)** — Done v0.1.47. Replaced with `openSync/readSync/closeSync` + `MAX_FILE_READ_BYTES`. Consistent with `scanCodeQuality` and `scanSecretSignals`.
 
 ---
 

@@ -31,7 +31,7 @@ describe('Phase 1 — validate()', () => {
   });
 
   it('throws on malformed JSON', () => {
-    assert.throws(() => PHASE_DEFS[1].validate('{not json}'), /SyntaxError|Unexpected/);
+    assert.throws(() => PHASE_DEFS[1].validate('{not json}'), /not valid JSON/);
   });
 
   it('throws when project_name is missing', () => {

@@ -213,6 +213,24 @@ describe('aitri feature — error handling', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('errors when FEATURE_IDEA.md is missing before run-phase', () => {
+    const dir = makeProjectDir();
+    try {
+      const { fn: err } = makeErr();
+      // Init the feature (creates FEATURE_IDEA.md from template)
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'my-feat'], err, rootDir: ROOT_DIR }));
+      // Remove FEATURE_IDEA.md to simulate missing file
+      fs.unlinkSync(path.join(dir, 'features', 'my-feat', 'FEATURE_IDEA.md'));
+      const { fn: err2 } = makeErr();
+      assert.throws(
+        () => cmdFeature({ dir, args: ['run-phase', 'my-feat', '1'], err: err2, rootDir: ROOT_DIR }),
+        /FEATURE_IDEA\.md not found/
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 // ── phase1.md template — PARENT_REQUIREMENTS block ───────────────────────────
