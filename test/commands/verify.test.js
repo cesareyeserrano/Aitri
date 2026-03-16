@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, buildFRCoverage, scanTestContent, parseCoverageOutput } from '../../lib/commands/verify.js';
+import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, buildFRCoverage, scanTestContent, parseCoverageOutput } from '../../lib/commands/verify.js';
 
 describe('parseRunnerOutput()', () => {
 
@@ -358,6 +358,89 @@ describe('parseCoverageOutput()', () => {
   it('is case-insensitive for all files row', () => {
     const output = `All Files      |  80.00 |    75.00 |  90.00 |`;
     assert.equal(parseCoverageOutput(output), 80.00);
+  });
+
+});
+
+describe('parsePytestOutput()', () => {
+
+  it('detects passing TC from pytest -v PASSED line', () => {
+    const output = `tests/test_foo.py::test_TC_001h_env_example_exists PASSED`;
+    const result = parsePytestOutput(output);
+    assert.equal(result.get('TC-001h')?.status, 'pass');
+  });
+
+  it('detects failing TC from pytest -v FAILED line', () => {
+    const output = `tests/test_foo.py::test_TC_002f_no_tracked_file FAILED`;
+    const result = parsePytestOutput(output);
+    assert.equal(result.get('TC-002f')?.status, 'fail');
+  });
+
+  it('normalizes TC_XXX underscore to TC-XXX hyphen', () => {
+    const output = `tests/test_foo.py::test_TC_003h_requirements_deleted PASSED`;
+    const result = parsePytestOutput(output);
+    assert.ok(result.has('TC-003h'), 'TC_003h should be normalized to TC-003h');
+    assert.equal(result.get('TC-003h')?.status, 'pass');
+  });
+
+  it('detects TC-XXX with hyphen directly in test name', () => {
+    const output = `tests/test_foo.py::TC-004h_ci_coverage PASSED`;
+    const result = parsePytestOutput(output);
+    assert.equal(result.get('TC-004h')?.status, 'pass');
+  });
+
+  it('detects multiple TCs from multi-line pytest -v output', () => {
+    const output = [
+      `tests/test_foo.py::test_TC_001h_exists PASSED`,
+      `tests/test_foo.py::test_TC_002h_gitignore PASSED`,
+      `tests/test_foo.py::test_TC_003f_no_requirements FAILED`,
+    ].join('\n');
+    const result = parsePytestOutput(output);
+    assert.equal(result.get('TC-001h')?.status, 'pass');
+    assert.equal(result.get('TC-002h')?.status, 'pass');
+    assert.equal(result.get('TC-003f')?.status, 'fail');
+  });
+
+  it('captures AssertionError context from lines following FAILED', () => {
+    const output = [
+      `tests/test_foo.py::test_TC_005f_ruff_check FAILED`,
+      `E   AssertionError: ruff format --check exits 0 but expected 1`,
+      `E   assert 0 != 0`,
+    ].join('\n');
+    const result = parsePytestOutput(output);
+    assert.ok(result.get('TC-005f')?.notes.includes('AssertionError'));
+  });
+
+  it('captures E-prefixed error lines from pytest short output', () => {
+    const output = [
+      `FAILED tests/test_foo.py::test_TC_004f_threshold - AssertionError: threshold not enforced`,
+    ].join('\n');
+    const result = parsePytestOutput(output);
+    assert.equal(result.get('TC-004f')?.status, 'fail');
+  });
+
+  it('does not double-detect same TC id (first occurrence wins)', () => {
+    const output = [
+      `tests/test_foo.py::test_TC_001h_first PASSED`,
+      `tests/test_foo.py::test_TC_001h_duplicate FAILED`,
+    ].join('\n');
+    const result = parsePytestOutput(output);
+    assert.equal(result.get('TC-001h')?.status, 'pass');
+  });
+
+  it('returns empty map for output with no TC patterns', () => {
+    const output = [
+      `tests/test_foo.py::test_some_unrelated_function PASSED`,
+      `tests/test_foo.py::test_another_test FAILED`,
+    ].join('\n');
+    const result = parsePytestOutput(output);
+    assert.equal(result.size, 0);
+  });
+
+  it('ignores lines with TC pattern but no PASSED/FAILED marker', () => {
+    const output = `collecting ... tests/test_foo.py::test_TC_001h_env COLLECTED`;
+    const result = parsePytestOutput(output);
+    assert.equal(result.size, 0);
   });
 
 });
