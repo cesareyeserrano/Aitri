@@ -56,107 +56,108 @@
 
 ---
 
-## Output: `{{PROJECT_DIR}}/ADOPTION_PLAN.md`
-Required sections (in order):
+## Your task
 
-### 1. ## Project Summary
-One to three paragraphs: what problem this solves, who uses it, what it does.
-This becomes the project's IDEA.md — write it as the original author would have described the idea.
+Read the project files listed above and produce two files.
 
-### 2. ## Stack
-Single line: language · framework · test runner (e.g. "Go · HTMX · go test")
+---
 
-### 3. ## Inferred Artifacts
-For each Aitri artifact, mark [x] if you can produce it from existing code, [ ] if not:
-```
-- [x] 01_REQUIREMENTS.json      — <one-line reason>
-- [x] 02_SYSTEM_DESIGN.md       — <one-line reason>
-- [ ] 03_TEST_CASES.json         — <one-line reason it's missing>
-- [ ] 04_IMPLEMENTATION_MANIFEST.json — <one-line reason>
-```
+### File 1: `{{PROJECT_DIR}}/ADOPTION_SCAN.md`
 
-### 4. ## Completed Phases
-JSON array of phase keys that have inferrable artifacts (numbers 1-5, or "discovery"/"ux"):
-```json
-["1", "2"]
-```
-Leave as `[]` if nothing is inferrable.
+Complete technical audit. The human will read this before running `aitri adopt apply`.
 
-### 5. ## Gaps
-Bullet list of what is missing, ambiguous, or would need manual work. Be specific.
+Required sections:
 
-### 6. ## Adoption Decision
-Single line: `ready` or `blocked` — one-line reason.
-Use `blocked` only if the Project Summary itself cannot be written from available information.
+#### Stack
+Single line: language · framework · test runner (e.g. "Node.js · Express · Jest")
 
-### 7. ## Technical Health Report
-Deep technical audit based on the pre-scanned signals above AND your own reading of the code.
-Be specific, actionable, and ruthlessly honest. Structure as:
+#### Priority Actions
+List in priority order. Rate each: CRITICAL / HIGH / MEDIUM / LOW.
+Be specific — name files, patterns, exact gaps.
+Example: "CRITICAL: .env committed — add to .gitignore immediately and rotate credentials"
+This section comes first so the human sees the most important issues immediately.
 
-#### Code Quality
+#### Technical Health Report
+
+**Code Quality**
 - TODO/FIXME/HACK count and what they imply about code maturity
-- Evidence of rushed code, workarounds, or unresolved design decisions
-- Dead code, commented-out blocks, or placeholder logic
+- Rushed code, workarounds, or unresolved design decisions
+- Dead code, commented-out blocks, placeholder logic
 
-#### Test Health
-- Test coverage assessment (what is tested vs what is not)
-- Test quality: are assertions meaningful, or are they trivial/always-pass?
+**Test Health**
+- What is tested vs what is not
+- Test quality: meaningful assertions or trivial/always-pass?
 - Empty or skip-heavy test files and what they imply
 - Missing test scenarios for critical paths
 
-#### Documentation
-- README completeness: does it cover setup, usage, architecture, and deployment?
-- Missing docs: API reference, DEPLOYMENT.md, CONTRIBUTING.md, architecture diagrams
-- .env.example: present and complete, partial, or missing entirely
-- Inline code documentation: are public functions/APIs documented?
+**Documentation**
+- README completeness: setup, usage, architecture, deployment
+- Missing docs: API reference, CONTRIBUTING.md, architecture diagrams
+- .env.example: present and complete, partial, or missing
+- Inline code documentation: are public APIs documented?
 
-#### Security Posture
+**Security Posture**
 - .env files committed to repository (credential exposure risk)
 - Hardcoded credential patterns found
 - .gitignore gaps that expose sensitive data
-- Authentication/authorization implementation quality (from code reading)
-- Input validation, CSRF protection, rate limiting — present or absent?
+- Auth/authorization quality, input validation, rate limiting — present or absent?
 
-#### Infrastructure & Operational Readiness
+**Infrastructure & Operational Readiness**
 - Dockerfile quality: multi-stage build? non-root user? HEALTHCHECK?
-- CI/CD coverage: what pipelines exist, what's missing (lint, test, deploy)?
+- CI/CD coverage: what exists, what's missing (lint, test, deploy)?
 - Dependency management: lockfile present? deps pinned?
 - Health check endpoints, observability, logging
 
-#### Technical Debt Summary
-- Top 3-5 most critical debt items with estimated impact
-- Risk areas: components most likely to cause production incidents
+---
 
-#### Priority Actions
-Rate each action: CRITICAL / HIGH / MEDIUM / LOW
-List actions in priority order. Be specific — name files, patterns, exact gaps.
-Example: "CRITICAL: .env committed — add to .gitignore immediately and rotate any exposed credentials"
+### File 2: `{{PROJECT_DIR}}/IDEA.md`
+
+This is the input to Phase 1 (Requirements). The PM agent will read this and produce
+`01_REQUIREMENTS.json` defining exactly what stabilization work needs to happen.
+
+Write it as a concrete, specific brief — not a summary of problems, but a description
+of the work to be done:
+
+```
+# [Project Name] — Adoption Stabilization
+
+## What this project does
+[2-3 sentences: what problem it solves, who uses it, what it currently does.
+Write as the original author would have described it.]
+
+## Stabilization goals
+[Bullet list of specific, concrete things needed to make this project stable,
+maintainable, and production-ready. Based on the scan findings.
+
+Be specific — name files, patterns, exact gaps:
+  GOOD: "Add unit tests for src/auth.js and src/payment.js — both handle
+         critical auth and billing flows with zero test coverage"
+  BAD:  "Improve test coverage"
+
+  GOOD: "Remove hardcoded DB password in config/database.js line 12,
+         add DATABASE_URL to .env.example and load via process.env"
+  BAD:  "Fix security issues"
+
+Only include things that are genuinely necessary for the project to be stable.
+Do not invent problems that are not supported by the scan findings.]
+
+## Out of scope
+[What is NOT part of this stabilization — product features, new functionality,
+performance optimizations that are not blocking stability.]
+```
+
+---
 
 ## Rules
-- Every [x] artifact must be backed by evidence you actually read — not assumed
-- Completed Phases must match the [x] items in Inferred Artifacts exactly
-- Technical Health Report must be based on actual signals — not generic boilerplate
-- Priority Actions must be specific and actionable — no vague "improve test coverage"
-- Do NOT create any other files — only ADOPTION_PLAN.md
+- ADOPTION_SCAN.md: based on actual signals and code you read — no generic boilerplate
+- IDEA.md: stabilization goals must be specific and backed by scan findings
+- Save ADOPTION_SCAN.md to: `{{PROJECT_DIR}}/ADOPTION_SCAN.md`
+- Save IDEA.md to: `{{PROJECT_DIR}}/IDEA.md`
+- Do NOT create any other files
 
 ## Instructions
-1. Read the files listed in File Structure above (focus on entry points, routes, models, tests, config)
-2. Analyze the pre-scanned Technical Health Signals above
-3. Generate complete ADOPTION_PLAN.md following the format above
-4. Save to: {{PROJECT_DIR}}/ADOPTION_PLAN.md
-5. Determine entry phase and run the appropriate apply command:
-
-```
-Phase N = the first Aitri phase that needs to be run for this project.
-
-  Project has no prior specs or design → aitri adopt apply --from 1
-  Project has requirements docs only   → aitri adopt apply --from 2
-  Project has requirements + design    → aitri adopt apply --from 3
-  Project has code but no formal tests → aitri adopt apply --from 4
-  Project has code + tests, needs CI   → aitri adopt apply --from 5
-
-  --from N marks phases 1 through N-1 as completed and enters the pipeline at Phase N.
-  ADOPTION_PLAN.md is still used for IDEA.md content — keep it accurate.
-```
-
-6. Tell the user which command to run and why (reference the Technical Health findings).
+1. Read the key files in the File Structure above (entry points, routes, models, tests, config)
+2. Analyze the pre-scanned Technical Health Signals
+3. Produce ADOPTION_SCAN.md (complete diagnostic with Priority Actions first)
+4. Produce IDEA.md (specific stabilization brief for Phase 1)
+5. Tell the user: "Scan complete. Review ADOPTION_SCAN.md — when ready: aitri adopt apply"

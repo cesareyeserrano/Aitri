@@ -31,7 +31,7 @@ import { cmdAdopt }          from '../lib/commands/adopt.js';
 import { cmdWizard }         from '../lib/commands/wizard.js';
 import { cmdHelp }           from '../lib/commands/help.js';
 
-const VERSION   = '0.1.54';
+const VERSION   = '0.1.55';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();

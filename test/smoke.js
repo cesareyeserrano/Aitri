@@ -623,85 +623,39 @@ describe('Aitri CLI — adopt smoke', () => {
     assert.match(out, /package\.json|src|README/i, 'file tree must appear in briefing');
   });
 
-  it('aitri adopt apply initializes project from well-formed ADOPTION_PLAN.md', () => {
-    const plan = [
-      '# Adoption Plan',
-      '',
-      '## Project Summary',
-      'Invoice tracking web app. Node.js backend, PostgreSQL database.',
-      '',
-      '## Completed Phases',
-      '[1, 2]',
-      '',
-      '## Adoption Decision',
-      'Ready — project is well-structured and can be adopted.',
-      '',
-      '## Evidence',
-      '- package.json found with test script',
-      '- README describes the project clearly',
-      '',
-      '## Gaps',
-      'None.',
-      '',
-      '## Recommended Next Step',
-      'Run aitri run-phase 3',
-    ].join('\n');
-
-    fs.writeFileSync(path.join(adoptDir, 'ADOPTION_PLAN.md'), plan);
-    // Non-TTY: skips confirmation prompt
+  it('aitri adopt apply initializes project from IDEA.md (from scan)', () => {
+    fs.writeFileSync(
+      path.join(adoptDir, 'IDEA.md'),
+      '# Invoice App — Adoption Stabilization\n\n## What this project does\nInvoice tracking web app.\n\n## Stabilization goals\n- Add .env.example\n\n## Out of scope\nNew features.\n'
+    );
     aitri('adopt apply', adoptDir);
 
     assert.ok(fs.existsSync(path.join(adoptDir, '.aitri')), '.aitri must be created');
-    assert.ok(fs.existsSync(path.join(adoptDir, 'IDEA.md')), 'IDEA.md must be created from Project Summary');
+    assert.ok(fs.existsSync(path.join(adoptDir, 'spec')), 'spec/ must be created');
 
     const config = JSON.parse(fs.readFileSync(path.join(adoptDir, '.aitri'), 'utf8'));
-    assert.ok(config.completedPhases.includes(1), 'phase 1 must be in completedPhases');
-    assert.ok(config.completedPhases.includes(2), 'phase 2 must be in completedPhases');
+    assert.deepEqual(config.completedPhases, [], 'apply must not mark any phases — pipeline starts from Phase 1');
   });
 
-  it('aitri adopt apply tolerates ### headings in ADOPTION_PLAN.md', () => {
-    const adoptDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-adopt-h3-'));
+  it('aitri adopt apply creates placeholder IDEA.md when scan was not run', () => {
+    const adoptDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-adopt-noidea-'));
     try {
-      const plan = [
-        '# Adoption Plan',
-        '',
-        '### Project Summary',
-        'A different app.',
-        '',
-        '### Completed Phases',
-        '[1]',
-        '',
-        '### Adoption Decision',
-        'Status: ready to proceed',
-      ].join('\n');
-      fs.writeFileSync(path.join(adoptDir2, 'ADOPTION_PLAN.md'), plan);
       aitri('adopt apply', adoptDir2);
-      assert.ok(fs.existsSync(path.join(adoptDir2, '.aitri')), '.aitri must be created with ### headings');
+      assert.ok(fs.existsSync(path.join(adoptDir2, 'IDEA.md')), 'placeholder IDEA.md must be created');
+      const idea = fs.readFileSync(path.join(adoptDir2, 'IDEA.md'), 'utf8');
+      assert.ok(idea.includes('Stabilization'), 'placeholder must mention stabilization');
     } finally {
       try { fs.rmSync(adoptDir2, { recursive: true, force: true }); } catch {}
     }
   });
 
-  it('aitri adopt apply tolerates bullet-list Completed Phases format', () => {
-    const adoptDir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-adopt-bullets-'));
+  it('aitri adopt apply does not overwrite existing IDEA.md', () => {
+    const adoptDir3 = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-adopt-keepidea-'));
     try {
-      const plan = [
-        '## Project Summary',
-        'App with bullet phases.',
-        '',
-        '## Completed Phases',
-        '- Phase 1',
-        '- Phase 2',
-        '- Phase 3',
-        '',
-        '## Adoption Decision',
-        'Ready',
-      ].join('\n');
-      fs.writeFileSync(path.join(adoptDir3, 'ADOPTION_PLAN.md'), plan);
+      fs.writeFileSync(path.join(adoptDir3, 'IDEA.md'), '# My Custom Idea\nKeep this content.\n');
       aitri('adopt apply', adoptDir3);
-      const config = JSON.parse(fs.readFileSync(path.join(adoptDir3, '.aitri'), 'utf8'));
-      assert.ok(config.completedPhases.includes(1), 'phase 1 from bullet list');
-      assert.ok(config.completedPhases.includes(3), 'phase 3 from bullet list');
+      const idea = fs.readFileSync(path.join(adoptDir3, 'IDEA.md'), 'utf8');
+      assert.ok(idea.includes('My Custom Idea'), 'existing IDEA.md must not be overwritten');
     } finally {
       try { fs.rmSync(adoptDir3, { recursive: true, force: true }); } catch {}
     }

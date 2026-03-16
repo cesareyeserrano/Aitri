@@ -45,40 +45,8 @@ function writeArtifact(dir, subdir, name, content = '{}') {
   fs.writeFileSync(path.join(d, name), content, 'utf8');
 }
 
-function makeAdoptionPlan(overrides = {}) {
-  const sections = {
-    summary:         'An invoicing tool for freelancers. Helps track payments and send reminders.',
-    stack:           'Node.js · Express · Jest',
-    inferred:        '- [x] 01_REQUIREMENTS.json — inferrable from README\n- [ ] 02_SYSTEM_DESIGN.md — no architecture docs',
-    completedPhases: '["1"]',
-    gaps:            '- No user personas\n- No deployment config',
-    decision:        'ready — core requirements inferrable',
-    ...overrides,
-  };
-  return [
-    '# Aitri Adoption Plan',
-    '',
-    '## Project Summary',
-    sections.summary,
-    '',
-    '## Stack',
-    sections.stack,
-    '',
-    '## Inferred Artifacts',
-    sections.inferred,
-    '',
-    '## Completed Phases',
-    '```json',
-    sections.completedPhases,
-    '```',
-    '',
-    '## Gaps',
-    sections.gaps,
-    '',
-    '## Adoption Decision',
-    sections.decision,
-    '',
-  ].join('\n');
+function makeIdea(content = 'An invoicing tool for freelancers. Helps track payments.') {
+  return `# My Project — Adoption Stabilization\n\n## What this project does\n${content}\n\n## Stabilization goals\n- Add .env.example\n- Fix ESLint errors in src/\n\n## Out of scope\nNew features.\n`;
 }
 
 // ── adopt scan ────────────────────────────────────────────────────────────────
@@ -92,8 +60,8 @@ describe('aitri adopt scan', () => {
       cmdAdopt({ dir, args: ['scan'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn })
     );
     assert.ok(out.length > 100, 'briefing must be non-trivial');
-    assert.ok(out.includes('ADOPTION_PLAN.md'), 'briefing must reference output artifact');
-    assert.ok(out.includes('Project Adopter') || out.includes('reverse-engineering'), 'briefing must contain persona');
+    assert.ok(out.includes('ADOPTION_SCAN.md'), 'briefing must reference ADOPTION_SCAN.md output');
+    assert.ok(out.includes('IDEA.md'), 'briefing must reference IDEA.md output');
   });
 
   it('briefing includes project dir', () => {
@@ -151,148 +119,79 @@ describe('aitri adopt scan', () => {
 // ── adopt apply ───────────────────────────────────────────────────────────────
 
 describe('aitri adopt apply', () => {
-  it('throws when ADOPTION_PLAN.md is missing', () => {
-    const dir = tmpDir();
-    const e = makeErr();
-    assert.throws(
-      () => cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: e.fn }),
-      /ADOPTION_PLAN.md not found/
-    );
-  });
+  function run(dir) {
+    const origIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = false;
+    try {
+      cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.55', rootDir: ROOT_DIR, err: makeErr().fn });
+    } finally { process.stdin.isTTY = origIsTTY; }
+  }
 
   it('creates .aitri after applying', () => {
     const dir = tmpDir();
-    const origIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = false;
-    try {
-      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), makeAdoptionPlan());
-      cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn });
-    } finally { process.stdin.isTTY = origIsTTY; }
-
+    fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
+    run(dir);
     assert.ok(fs.existsSync(path.join(dir, '.aitri')), '.aitri must be created');
   });
 
-  it('creates IDEA.md from Project Summary', () => {
+  it('creates spec/ directory', () => {
     const dir = tmpDir();
-    const origIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = false;
-    try {
-      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), makeAdoptionPlan());
-      cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn });
-    } finally { process.stdin.isTTY = origIsTTY; }
-
-    const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
-    assert.ok(idea.includes('invoicing tool'), 'IDEA.md must contain project summary');
-  });
-
-  it('marks completedPhases from plan', () => {
-    const dir = tmpDir();
-    const origIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = false;
-    try {
-      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), makeAdoptionPlan({ completedPhases: '["1", "2"]' }));
-      cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn });
-    } finally { process.stdin.isTTY = origIsTTY; }
-
-    const config = loadConfig(dir);
-    assert.ok(config.completedPhases.includes(1), 'phase 1 must be marked');
-    assert.ok(config.completedPhases.includes(2), 'phase 2 must be marked');
+    fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
+    run(dir);
+    assert.ok(fs.existsSync(path.join(dir, 'spec')), 'spec/ must be created');
   });
 
   it('does not overwrite existing IDEA.md', () => {
     const dir = tmpDir();
-    const origIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = false;
     fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Existing Idea\nDo not overwrite.');
-    try {
-      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), makeAdoptionPlan());
-      cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn });
-    } finally { process.stdin.isTTY = origIsTTY; }
-
+    run(dir);
     const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
     assert.ok(idea.includes('Existing Idea'), 'must not overwrite existing IDEA.md');
   });
 
-  it('throws when Adoption Decision is blocked', () => {
+  it('creates placeholder IDEA.md when scan was not run', () => {
     const dir = tmpDir();
-    const origIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = false;
-    const e = makeErr();
-    try {
-      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), makeAdoptionPlan({ decision: 'blocked — critical info missing' }));
-      assert.throws(
-        () => cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: e.fn }),
-        /blocked/
-      );
-    } finally { process.stdin.isTTY = origIsTTY; }
+    run(dir);
+    assert.ok(fs.existsSync(path.join(dir, 'IDEA.md')), 'IDEA.md must be created as placeholder');
+    const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
+    assert.ok(idea.includes('Stabilization'), 'placeholder must mention stabilization');
   });
 
-  it('throws when Project Summary section is missing', () => {
+  it('emits warning to stderr when IDEA.md is missing', () => {
     const dir = tmpDir();
-    const origIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = false;
-    const e = makeErr();
-    const planWithoutSummary = makeAdoptionPlan().replace('## Project Summary', '## About');
-    try {
-      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), planWithoutSummary);
-      assert.throws(
-        () => cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: e.fn }),
-        /Project Summary/
-      );
-    } finally { process.stdin.isTTY = origIsTTY; }
-  });
-
-  it('emits warning to stderr when zero phases can be inferred', () => {
-    const dir = tmpDir();
-    const origIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = false;
     let stderrOutput = '';
     const origStderr = process.stderr.write.bind(process.stderr);
     process.stderr.write = (chunk) => { stderrOutput += chunk; return true; };
+    const origIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = false;
     try {
-      // Plan with no recognizable "Completed Phases" section
-      const planNoPhases = makeAdoptionPlan({ completedPhases: 'none' });
-      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), planNoPhases);
-      cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.47', rootDir: ROOT_DIR, err: makeErr().fn });
+      cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.55', rootDir: ROOT_DIR, err: makeErr().fn });
     } finally {
       process.stderr.write = origStderr;
       process.stdin.isTTY = origIsTTY;
     }
-    assert.ok(stderrOutput.includes('no completed phases'), `expected warning, got: ${stderrOutput}`);
+    assert.ok(stderrOutput.includes('adopt scan'), `expected warning mentioning adopt scan, got: ${stderrOutput}`);
   });
 
-  it('handles empty completedPhases gracefully', () => {
+  it('does NOT mark any completedPhases on apply', () => {
     const dir = tmpDir();
-    const origIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = false;
-    try {
-      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), makeAdoptionPlan({ completedPhases: '[]' }));
-      assert.doesNotThrow(() =>
-        cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn })
-      );
-    } finally { process.stdin.isTTY = origIsTTY; }
-
+    fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
+    run(dir);
     const config = loadConfig(dir);
-    assert.deepEqual(config.completedPhases, []);
+    assert.deepEqual(config.completedPhases, [], 'apply must not mark any phases as completed');
   });
 
-  it('does not duplicate already-completed phases', () => {
+  it('prints next-step hint for run-phase 1', () => {
     const dir = tmpDir();
-    const origIsTTY = process.stdin.isTTY;
-    process.stdin.isTTY = false;
-
-    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.35' });
-    const config = loadConfig(dir);
-    config.completedPhases = [1];
-    saveConfig(dir, config);
-
-    try {
-      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), makeAdoptionPlan({ completedPhases: '["1"]' }));
-      cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn });
-    } finally { process.stdin.isTTY = origIsTTY; }
-
-    const updated = loadConfig(dir);
-    assert.equal(updated.completedPhases.filter(p => p === 1).length, 1);
+    fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
+    const out = captureLog(() => {
+      const origIsTTY = process.stdin.isTTY;
+      process.stdin.isTTY = false;
+      try {
+        cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.55', rootDir: ROOT_DIR, err: makeErr().fn });
+      } finally { process.stdin.isTTY = origIsTTY; }
+    });
+    assert.ok(out.includes('run-phase 1'), `expected next-step hint, got: ${out}`);
   });
 });
 
@@ -338,13 +237,13 @@ describe('aitri adopt apply --from', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('creates IDEA.md from ADOPTION_PLAN.md Project Summary when available', () => {
+  it('does not overwrite existing IDEA.md (from scan) when --from is used', () => {
     const dir = tmpDir();
     try {
-      fs.writeFileSync(path.join(dir, 'ADOPTION_PLAN.md'), makeAdoptionPlan(), 'utf8');
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea('invoicing tool content'), 'utf8');
       run(dir, 2);
       const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
-      assert.ok(idea.includes('invoicing'), 'IDEA.md should use ADOPTION_PLAN.md Project Summary');
+      assert.ok(idea.includes('invoicing'), 'existing IDEA.md must not be overwritten by --from');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
