@@ -5,6 +5,31 @@
 
 ---
 
+## [0.1.59] — 2026-03-17
+
+### Features — Pipeline quality (from AITRI-GRAPH real-project audit)
+- **feat(verify.js):** `cmdVerifyRun` auto-detects `playwright.config.js` / `playwright.config.ts` — runs Playwright E2E automatically without `--e2e` flag. `--e2e` kept as no-op for backward compat. Failure logged as `status: fail` in notes — no silent skip.
+- **feat(verify.js):** `cmdVerifyComplete` E2E gate — if Phase 3 has TCs with `type: "e2e"` and none have `status: "pass"`, blocks with list of affected TCs. Prevents approving a phase with all E2E tests skipped.
+- **feat(templates/phase1.md):** IDEA.md pre-flight evaluation block — 5 criteria evaluated before writing `01_REQUIREMENTS.json`. 2+ fails → block with list of failing criteria + `aitri wizard` instruction. 1 fail → proceed with `idea_gaps` in `project_summary`.
+- **feat(templates/phase1.md):** Operational NFR categories — PM must cover or explicitly declare not applicable: Observability (request logging), CI/CD (pipeline runs test_runner + Playwright), API security (input whitelist), Healthcheck (`GET /health`). Silently omitting a category is invalid.
+- **feat(templates/phase3.md):** Security multi-vector rule — each NFR with `type: security` requires ≥3 distinct attack vectors (e.g. traversal + absolute path + encoding). Organized by control type with Bad/Good examples. 2 new Human Review checklist items.
+- **feat(templates/phase3.md):** Test portability rule — fixtures must use relative paths, `process.cwd()`, `path.join(__dirname, ...)`, or `os.tmpdir()`. Absolute paths with machine-specific user dirs are invalid.
+- **feat(templates/phase3.md):** Behavior vs implementation rule — tests verify observable behavior, not source code text. Explicit Bad/Good examples. `manual verification required` as valid alternative for hard-to-observe behaviors.
+- **feat(templates/phase4.md):** CI/CD deliverable — when `01_REQUIREMENTS.json` has a CI/CD NFR, `implementation_files` must include the workflow file path with the full test command. No hardcoded absolute paths in test fixtures.
+- **feat(templates/phase5.md):** CI/CD verification — checks workflow file exists, trigger fires on push/PR to main, installs deps, runs `test_runner` from manifest, includes Playwright if `playwright.config.js` exists. Gaps reported as compliance entries with level `"partial"`.
+- **feat(resume.js):** Version mismatch detection — reads `aitriVersion` from `.aitri`, compares to current VERSION. Prepends "⚠ Version Update Required" section with `aitri adopt --upgrade` instruction when mismatch or field missing. Next Action shows `adopt --upgrade` as step 1.
+- **feat(resume.js):** Bug fix — phase completed but not yet approved now correctly shows `aitri approve N` as Next Action (was: `aitri run-phase N`).
+- **feat(status.js):** Version mismatch warning updated to recommend `aitri adopt --upgrade` (was: `aitri init`). Added `aitri resume` as complementary suggestion.
+- **feat(README.md):** "Resuming a Project" section — documents the `aitri resume` → detect version → `adopt --upgrade` → clean resume flow.
+- **feat(.github/workflows/ci.yml):** CI for Aitri repo — runs `npm run test:all` on Node 20/22/24 on push and PR to main.
+
+### Tests
+- **test(resume):** Fixed assertion — phase completed but not approved → Next Action is `aitri approve 3`, not `aitri run-phase 3`.
+- **test(init):** Fixed 2 assertions — version mismatch suggestion updated from `aitri init` to `aitri adopt --upgrade`.
+- **Total: 505/505 passing (unchanged count — existing tests fixed, no new tests added)**
+
+---
+
 ## [0.1.58] — 2026-03-16
 
 ### Features

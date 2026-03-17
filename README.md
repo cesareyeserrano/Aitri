@@ -104,6 +104,31 @@ Full command reference: `aitri help`
 
 ---
 
+## Resuming a Project
+
+When returning to a project after a break, or after updating Aitri:
+
+```bash
+cd my-project
+
+# Full session briefing — pipeline state, requirements, test coverage, tech debt, next step
+aitri resume
+
+# Quick pipeline snapshot
+aitri status
+```
+
+If Aitri has been updated since the project was created, `aitri resume` will detect the version mismatch and tell you to upgrade first:
+
+```bash
+aitri adopt --upgrade   # sync artifacts and version — non-destructive
+aitri resume            # clean briefing, ready to continue
+```
+
+`aitri adopt --upgrade` reconciles what is on disk with the tracked state, updates the version, and preserves all approvals. Run it before continuing the pipeline when the CLI version has changed.
+
+---
+
 ## Adopting an Existing Project
 
 ```bash

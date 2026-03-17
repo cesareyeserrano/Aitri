@@ -153,7 +153,8 @@ describe('cmdResume() — output structure', () => {
 
   it('includes Next Action section', () => {
     assert.ok(output.includes('## Next Action'), 'Next Action section must appear');
-    assert.ok(output.includes('aitri run-phase 3') || output.includes('aitri run-phase'), 'next run-phase command must appear');
+    // Phase 3 is completed but not approved — next action is approve, not run-phase
+    assert.ok(output.includes('aitri approve 3'), 'next approve command must appear for completed phase');
   });
 });
 

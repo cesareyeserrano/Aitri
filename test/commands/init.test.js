@@ -118,7 +118,7 @@ describe('aitri status — version warnings', () => {
     const out = captureLog(() => cmdStatus({ dir, VERSION: '0.1.34' }));
     assert.ok(out.includes('v0.1.10'), 'must show old project version');
     assert.ok(out.includes('v0.1.34'), 'must show current CLI version');
-    assert.ok(out.includes('aitri init'), 'must suggest running aitri init');
+    assert.ok(out.includes('aitri adopt --upgrade'), 'must suggest running aitri adopt --upgrade');
   });
 
   it('warns when aitriVersion is missing from .aitri', () => {
@@ -131,6 +131,6 @@ describe('aitri status — version warnings', () => {
 
     const out = captureLog(() => cmdStatus({ dir, VERSION: '0.1.34' }));
     assert.ok(out.includes('missing aitriVersion'), `must warn about missing version, got: ${out}`);
-    assert.ok(out.includes('aitri init'), 'must suggest running aitri init');
+    assert.ok(out.includes('aitri adopt --upgrade'), 'must suggest running aitri adopt --upgrade');
   });
 });

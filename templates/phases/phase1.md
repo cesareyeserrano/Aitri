@@ -18,6 +18,37 @@
 {{IDEA_MD}}
 ```
 
+## IDEA.md Pre-flight Evaluation — Do This Before Writing Any Requirements
+
+Evaluate IDEA.md against these 5 criteria. Report PASS or FAIL for each explicitly.
+If 2 or more criteria FAIL → do NOT write 01_REQUIREMENTS.json.
+Instead, report which criteria failed, why each matters, and instruct the user: "Run `aitri wizard` to complete IDEA.md before Phase 1."
+
+1. **Concrete problem statement** — Does it name a specific, observable problem with context?
+   - FAIL: "improve the system", "build an app", "make something useful" — one sentence with no context for why this problem exists now
+   - PASS: describes observable friction, a failing process, or a metric not being met — with enough context to derive ≥3 distinct FRs
+
+2. **Users with role and usage context** — Who uses this and in what situation?
+   - FAIL: "users", "people", "the team", a role without usage context
+   - PASS: role + usage situation + inferable technical level ("developers managing multiple Aitri projects from CLI")
+
+3. **Current state / pain documented** — How is this solved today? What is lost without it?
+   - FAIL: absent, or "there is no solution" with no further detail
+   - PASS: describes the current workaround, measurable cost, or frequency of the problem
+
+4. **At least one measurable success criterion** — Is there an observable condition that defines "this works"?
+   - FAIL: "that it works well", "that it's fast", "that users are happy" — anything unverifiable without mind-reading
+   - PASS: metric with threshold, binary observable condition, or Given/When/Then with concrete values
+
+5. **At least one no-go zone item** — What is explicitly NOT included in this version?
+   - FAIL: absent, or "anything is possible", or "whatever the team decides"
+   - PASS: any explicit exclusion with a reason ("no authentication — local access only in v1")
+
+**Blocking rule:** 2+ criteria FAIL → stop, report gaps, do not write artifact.
+With exactly 1 FAIL → proceed but document the gap in `project_summary.idea_gaps`.
+
+---
+
 ## Output: `{{ARTIFACTS_BASE}}/01_REQUIREMENTS.json`
 Schema: { project_name, project_summary,
   functional_requirements: [{
@@ -59,7 +90,15 @@ Include these as comments in project_summary or as a separate "product_analysis"
   Given: concrete system state | When: exact action or input | Then: verifiable assertion with specific value
 - user_personas: infer from IDEA.md — who uses this product, their tech level, goal, and pain point
   If IDEA.md doesn't specify, use the most likely real user (not "general user")
-- Min 3 NFRs
+- Min 3 NFRs — cover ALL applicable operational categories below. If a category does not apply, declare it explicitly with a reason (do NOT silently omit):
+    **Observability** — applies to: any HTTP server or daemon process
+      NFR minimum: every request logs [timestamp] METHOD /path STATUS to stdout/stderr
+    **CI/CD** — applies to: any project with a test suite
+      NFR minimum: pipeline runs the full test suite (including E2E if playwright.config.js exists) on every push to the main branch
+    **API security** — applies to: any endpoint with path or input parameters that reads filesystem, DB, or executes commands
+      NFR minimum: accepted values are restricted to a whitelist of allowed directories or resources — blocking `..` alone is insufficient
+    **Healthcheck** — applies to: any project with Docker or server deployment
+      NFR minimum: GET /health returns 200 when the process is alive
 - Every MUST FR must have a type (UX|persistence|security|reporting|logic)
 - acceptance_criteria must be measurable by type:
     UX         → "passes mobile viewport at 375px", "animation completes in ≤200ms", "contrast ≥4.5:1"
@@ -121,3 +160,4 @@ Next: aitri complete 1   →   aitri approve 1
   [ ] user_personas reflect real users — not "general user" — with a real goal and pain_point
   [ ] No FR invents scope beyond what IDEA.md implies
   [ ] North Star KPI, JTBD, and guardrail metric are identified in project_summary
+  [ ] Operational NFRs covered: observability, CI/CD, API security, healthcheck — or explicitly declared "not applicable" with reason

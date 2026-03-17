@@ -55,6 +55,13 @@
 → Do NOT default to production_ready. Let test results drive the level.
 → "placeholder" is honest but BLOCKS the pipeline — it forces a real decision before shipping.
 
+## CI/CD Verification
+If `01_REQUIREMENTS.json` contains a CI/CD NFR:
+1. Check if a workflow file exists (`.github/workflows/*.yml` or equivalent CI config)
+2. If it exists: read the file and verify — (a) trigger fires on push/pull_request to main branch, (b) installs dependencies, (c) runs the same `test_runner` command declared in the manifest, (d) includes Playwright if `playwright.config.js` exists
+3. Report any gap as a compliance entry with level "partial" and evidence listing what is missing
+4. If the workflow file does not exist and CI/CD NFR is MUST → compliance level is "functionally_present" (pipeline defined but not wired)
+
 ## Instructions
 1. Create all deployment files
 2. Assign compliance level per FR using fr_coverage from Test Results
@@ -89,3 +96,4 @@ Next: aitri complete 5   →   aitri approve 5   →   DONE
   [ ] Dockerfile present, uses multi-stage build, non-root user, HEALTHCHECK
   [ ] DEPLOYMENT.md includes rollback procedure and health check endpoints
   [ ] overall_status is honest — "compliant" only when all MUST FRs are complete or production_ready
+  [ ] If CI/CD NFR exists: workflow file verified — trigger, dependency install, test command, and Playwright all checked

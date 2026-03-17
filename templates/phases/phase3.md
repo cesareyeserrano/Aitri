@@ -89,6 +89,23 @@ Include the coverage matrix as `type_coverage_matrix` field in the JSON output.
 - `test_plan` is required — the artifact is invalid without it
 - `given`, `when`, `then` are required fields — abstract values fail SPEC-SEALED rule
 
+## Test Portability Rule
+Test setup, fixtures, and file paths MUST be relative to the project (`process.cwd()`, `path.join(__dirname, ...)`, env vars) or use generated temp dirs (`os.tmpdir()`).
+Hardcoded absolute paths containing usernames or machine-specific routes (`/Users/name/...`, `C:\Users\name\...`) are invalid — tests must run on any machine without modification.
+If a test requires a file, create it in setup using `os.tmpdir()` and clean up in teardown.
+
+## Behavior vs Implementation Rule
+Tests MUST verify observable behavior, not implementation details.
+A test that reads source code as a string to check a constant value tests the implementation — not what it produces.
+
+  ❌ `assert(src.includes('ZOOM_STEP = 0.10'))` → tests the code, not the zoom
+  ✅ Click zoom-in, assert viewport scale changed by ~10% → tests the behavior
+
+  ❌ `assert(src.includes('autoungrabify: true'))` → tests config, not behavior
+  ✅ Attempt to drag a node, assert it did not move → tests the behavior
+
+If a behavior is genuinely hard to verify observationally → document it as `"manual verification required"` in `preconditions`, do NOT create an implementation test as substitute.
+
 ## Rules
 - Every FR-* gets min 3 test cases: one happy_path, one edge_case, one negative
 - Min 2 test cases with type "e2e" — each assigned to a single requirement_id
@@ -101,7 +118,11 @@ Include the coverage matrix as `type_coverage_matrix` field in the JSON output.
 - FR type visual:      must include test at each breakpoint declared in acceptance_criteria (e.g. 375px, 768px, 1440px)
 - FR type audio:       must include test that audio fires within the ms threshold declared in acceptance_criteria
 - FR type persistence: must include test that data survives process restart — NOT in-memory/variable storage
-- FR type security:    must include test that expired/invalid token returns 401 AND that protected route rejects unauthenticated request
+- FR type security:    must include ≥3 distinct attack vectors per security NFR — not just the most obvious one. Examples by control type:
+    Filesystem/path access: (1) traversal `../../etc/passwd`, (2) direct absolute path `/etc/hosts`, (3) symlink outside allowed dir, (4) URL-encoded `%2e%2e%2f` if applicable
+    API input validation:   (1) extreme value (max-length string, max integer), (2) wrong type (null, array where string expected), (3) special character (`;DROP TABLE`, `<script>`, `\x00`)
+    Authentication:         (1) wrong credentials, (2) expired token, (3) valid token from a different user (horizontal authorization)
+    Also: must include test that expired/invalid token returns 401 AND protected route rejects unauthenticated request
 - FR type reporting:   must include test that chart/graph component renders with real data (not placeholder/empty state)
 - FR type logic:       must include boundary value test AND a test with production-scale data volume
 
@@ -179,3 +200,6 @@ Next: aitri complete 3   →   aitri approve 3
   [ ] Every FR has at least one TC id ending in `h` (happy path) and one ending in `f` (failure)
   [ ] Negative TCs: expected_result includes specific error code/message — not just "fails" or "returns error"
   [ ] Mutation check: if the core logic of each TC were deleted, would the test catch it?
+  [ ] Security NFRs: each has ≥3 distinct attack vectors covered (not just the obvious one)
+  [ ] No fixture or setup uses hardcoded absolute paths — all paths are relative or use os.tmpdir()
+  [ ] No test verifies source code values as strings — all tests verify observable behavior
