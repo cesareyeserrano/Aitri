@@ -69,3 +69,8 @@ Estos invariantes no se negocian. Si una propuesta los viola, Claude debe decirl
 - **NO introducir dependencias npm**
 - Mantener VERSION en sync: `package.json` y `bin/aitri.js` VERSION const siempre iguales
 - Todo cambio estructural requiere cobertura en `npm run test:all` antes de release
+- **Documentación de integración obligatoria:** cualquier cambio en artifact schemas, nuevo artefacto, o cambio en el schema de `.aitri` → actualizar en el mismo commit:
+  - `docs/integrations/ARTIFACTS.md` — si cambia el schema de algún artifact o se agrega uno nuevo
+  - `docs/integrations/SCHEMA.md` — si cambia el schema de `.aitri`
+  - `docs/integrations/CHANGELOG.md` — siempre que cambie ARTIFACTS.md o SCHEMA.md
+  - `docs/integrations/README.md` — si se agrega un nuevo surface visible para subproductos
