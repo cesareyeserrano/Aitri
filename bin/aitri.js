@@ -34,7 +34,7 @@ import { cmdBacklog }        from '../lib/commands/backlog.js';
 import { cmdReview }        from '../lib/commands/review.js';
 import { cmdBug }          from '../lib/commands/bug.js';
 
-const VERSION   = '0.1.68';
+const VERSION   = '0.1.69';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();

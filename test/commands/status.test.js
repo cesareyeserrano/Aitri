@@ -84,11 +84,11 @@ describe('cmdStatus --json', () => {
     assert.ok(corePhases.every(p => p.status === 'not_started'));
   });
 
-  it('nextAction is aitri run-phase 1 on fresh project', () => {
+  it('nextAction is aitri run-phase requirements on fresh project', () => {
     const dir = tmpDir();
     cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
-    assert.equal(result.nextAction, 'aitri run-phase 1');
+    assert.equal(result.nextAction, 'aitri run-phase requirements');
     assert.equal(result.allComplete, false);
   });
 

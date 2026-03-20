@@ -117,7 +117,7 @@ describe('Aitri CLI — Smoke Test', () => {
   it('aitri complete 1 succeeds with valid artifact', () => {
     fs.writeFileSync(path.join(tmpDir, 'spec', '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
     const out = aitri('complete 1', tmpDir);
-    assert.match(out, /Phase 1.*complete/i);
+    assert.match(out, /Phase requirements.*complete/i);
   });
 
   it('aitri approve 1 updates state and shows next step', () => {
@@ -130,14 +130,14 @@ describe('Aitri CLI — Smoke Test', () => {
 
   it('aitri status shows Phase 1 as approved', () => {
     const out = aitri('status', tmpDir);
-    assert.match(out, /PM Analysis/);
+    assert.match(out, /requirements/);
     assert.match(out, /Approved/);
   });
 
   it('aitri reject 1 records feedback and prints re-run command', () => {
     const out = aitri('reject 1 --feedback "Need more security FRs"', tmpDir);
     assert.match(out, /rejected/i);
-    assert.match(out, /run-phase 1/);
+    assert.match(out, /run-phase requirements/);
   });
 
   it('aitri reject without feedback fails with usage error', () => {
@@ -388,7 +388,7 @@ describe('Aitri CLI — Smoke Test', () => {
     fs.writeFileSync(path.join(tmpDir, 'spec', '02_SYSTEM_DESIGN.md'), design);
     // complete 2 requires phase 1 approved (already done) and the artifact to exist
     const out = aitri('complete 2', tmpDir);
-    assert.match(out, /Phase 2.*complete/i);
+    assert.match(out, /Phase architecture.*complete/i);
   });
 });
 
@@ -528,7 +528,7 @@ describe('Aitri CLI — complete 3 h/f naming gate', () => {
   it('complete 3 passes with valid h/f-suffixed TCs', () => {
     fs.writeFileSync(path.join(gateDir, 'spec', '03_TEST_CASES.json'), VALID_TCS);
     const out = aitri('complete 3', gateDir);
-    assert.match(out, /Phase 3.*complete/i);
+    assert.match(out, /Phase tests.*complete/i);
   });
 
   it('complete 3 rejects TCs missing h suffix (Rank 11 gate)', () => {
