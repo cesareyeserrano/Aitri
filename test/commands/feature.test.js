@@ -233,13 +233,13 @@ describe('aitri feature — error handling', () => {
   });
 });
 
-// ── phase1.md template — PARENT_REQUIREMENTS block ───────────────────────────
+// ── requirements.md template — PARENT_REQUIREMENTS block ───────────────────────────
 
 import { render } from '../../lib/prompts/render.js';
 
-describe('phase1 template — {{#IF_PARENT_REQUIREMENTS}} block', () => {
+describe('requirements template — {{#IF_PARENT_REQUIREMENTS}} block', () => {
   it('renders PARENT_REQUIREMENTS block when value provided', () => {
-    const output = render('phases/phase1', {
+    const output = render('phases/requirements', {
       ROLE: '', CONSTRAINTS: '', REASONING: '', FEEDBACK: '',
       IDEA_MD: 'test idea', DIR: '/tmp', ARTIFACTS_BASE: '/tmp',
       PARENT_REQUIREMENTS: '{"project_name":"Existing"}',
@@ -249,7 +249,7 @@ describe('phase1 template — {{#IF_PARENT_REQUIREMENTS}} block', () => {
   });
 
   it('omits PARENT_REQUIREMENTS block when value is empty', () => {
-    const output = render('phases/phase1', {
+    const output = render('phases/requirements', {
       ROLE: '', CONSTRAINTS: '', REASONING: '', FEEDBACK: '',
       IDEA_MD: 'test idea', DIR: '/tmp', ARTIFACTS_BASE: '/tmp',
       PARENT_REQUIREMENTS: '',
