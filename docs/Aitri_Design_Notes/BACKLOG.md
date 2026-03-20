@@ -214,7 +214,7 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ### Core — Bug Tracking
 
-- [ ] P1 — **`aitri bug` — formal bug lifecycle with FR traceability** — Post-deploy bugs go into the flat backlog with no traceability to the FR they break, no TC enforcement, and no impact on `validate` or `verify-complete`. Teams have no canonical way to track regressions without contaminating the pipeline artifact chain.
+- [x] P1 — **`aitri bug` — formal bug lifecycle with FR traceability** *(implemented v0.1.66–v0.1.67)* — Post-deploy bugs go into the flat backlog with no traceability to the FR they break, no TC enforcement, and no impact on `validate` or `verify-complete`. Teams have no canonical way to track regressions without contaminating the pipeline artifact chain.
 
   Problem: When something breaks post-deploy, the only option today is `aitri backlog add` (untracked) or manually editing spec artifacts (triggers drift). There is no mechanism to require a test case before closing a bug, or to block deployment if open bugs affect must-have FRs.
 
@@ -279,7 +279,7 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ### Core — Cross-Document Consistency
 
-- [ ] P1 — **`aitri review` — cross-artifact semantic consistency check** — Aitri validates each artifact's structure individually but not whether artifacts are consistent with each other. An FR missing from test cases is only discovered at `verify-complete`, potentially wasting multiple verify-run cycles. There is no way to proactively check the pipeline's semantic integrity before a gate blocks.
+- [x] P1 — **`aitri review` — cross-artifact semantic consistency check** *(implemented v0.1.66)* — Aitri validates each artifact's structure individually but not whether artifacts are consistent with each other. An FR missing from test cases is only discovered at `verify-complete`, potentially wasting multiple verify-run cycles. There is no way to proactively check the pipeline's semantic integrity before a gate blocks.
 
   Problem: FR-008 might be marked MUST in `01_REQUIREMENTS.json` but have zero TCs in `03_TEST_CASES.json`. Today this surfaces only at `verify-complete` with a cryptic block. `aitri review` surfaces it at any time and automatically before `complete 3`.
 
@@ -326,7 +326,7 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ### Core — Brownfield Validation
 
-- [ ] P2 — **`aitri adopt verify-spec` — validated spec-to-code alignment for brownfield projects** — `aitri adopt apply` produces spec artifacts by declaration. There is no mechanism to verify that the generated requirements actually reflect the code's behavior. FRs can be aspirational rather than descriptive, and the gap is invisible until `verify-complete` blocks.
+- [x] P2 — **`aitri adopt verify-spec` — validated spec-to-code alignment for brownfield projects** *(implemented v0.1.66)* — `aitri adopt apply` produces spec artifacts by declaration. There is no mechanism to verify that the generated requirements actually reflect the code's behavior. FRs can be aspirational rather than descriptive, and the gap is invisible until `verify-complete` blocks.
 
   Problem: On a brownfield adoption, `01_REQUIREMENTS.json` may contain AC items that the existing code does not actually satisfy. The only way to discover this today is to run Phase 4 and watch tests fail — after spending time on Phase 2, 3, and partial Phase 4.
 
@@ -391,7 +391,7 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ### Core — Phase 4 TDD Guidance
 
-- [ ] P3 — **TDD recommendation section in Phase 4 briefing** — Phase 4 (Implementation) tells the agent what to build but not how to approach testing. The agent decides TDD vs Test-After independently with no traceability. A regression caused by a Test-After choice on a high-AC stateful feature has no record of the decision.
+- [x] P3 — **TDD recommendation section in Phase 4 briefing** *(implemented v0.1.66)* — Phase 4 (Implementation) tells the agent what to build but not how to approach testing. The agent decides TDD vs Test-After independently with no traceability. A regression caused by a Test-After choice on a high-AC stateful feature has no record of the decision.
 
   Problem: On the Ultron-AP project, the CSRF and auth tests were written Test-After and had one regression on an edge case that would likely have been caught in TDD spec-writing. The decision to go Test-After was silent and untracked.
 
