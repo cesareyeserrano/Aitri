@@ -5,6 +5,21 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## v0.1.67
+
+**`aitri bug` — first-class QA artifact (redesign from v0.1.66 prototype)**
+- Bug artifact promoted from utility to first-class artifact with full schema formalization
+- `BUGS.json` schema: `id, title, description, steps_to_reproduce[], expected_result, actual_result, environment, severity, status, fr, tc_reference, phase_detected, detected_by, evidence, reported_by, created_at, updated_at, resolution`
+- Lifecycle: `open → fixed → verified → closed` (`in_progress` status removed)
+- `detected_by`: `"manual"` | `"verify-run"` | `"playwright"` | `"review"`
+- `reported_by`: `"aitri"` (auto) or arbitrary string from `--reported-by` flag
+- Blocking rule: `status: "open"` + `severity: "critical"` or `"high"` blocks `verify-complete`
+- Playwright evidence: auto-populated from `test-results/<folder>/screenshot.png` on TC failure
+
+**No `.aitri` schema changes in v0.1.67.**
+
+---
+
 ## v0.1.66
 
 **New artifact: `BUGS.json`**

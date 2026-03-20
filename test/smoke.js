@@ -747,3 +747,154 @@ describe('Aitri CLI — feature smoke', () => {
     }
   });
 });
+
+// ── help ──────────────────────────────────────────────────────────────────────
+
+describe('Aitri CLI — help smoke', () => {
+  let helpDir;
+
+  before(() => {
+    helpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-help-smoke-'));
+    execSync('aitri init', { cwd: helpDir, encoding: 'utf8' });
+  });
+
+  after(() => { try { fs.rmSync(helpDir, { recursive: true, force: true }); } catch {} });
+
+  it('aitri help outputs usage and command list', () => {
+    const out = aitri('help', helpDir);
+    assert.match(out, /aitri/i, 'help must mention aitri');
+    assert.match(out, /init|run-phase|complete|approve/i, 'help must list commands');
+  });
+
+  it('aitri --help is equivalent to aitri help', () => {
+    const out = aitri('--help', helpDir);
+    assert.match(out, /aitri/i);
+    assert.match(out, /init|run-phase|complete|approve/i);
+  });
+
+  it('aitri help exits zero (does not throw)', () => {
+    assert.doesNotThrow(() => aitri('help', helpDir));
+  });
+});
+
+// ── bug ───────────────────────────────────────────────────────────────────────
+
+describe('Aitri CLI — bug smoke', () => {
+  let bugDir;
+
+  before(() => {
+    bugDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-bug-smoke-'));
+    execSync('aitri init', { cwd: bugDir, encoding: 'utf8' });
+  });
+
+  after(() => { try { fs.rmSync(bugDir, { recursive: true, force: true }); } catch {} });
+
+  it('aitri bug add --title creates BUGS.json', () => {
+    aitri('bug add --title "Login fails with valid credentials" --severity high', bugDir);
+    assert.ok(
+      fs.existsSync(path.join(bugDir, 'spec', 'BUGS.json')),
+      'BUGS.json must be created after bug add'
+    );
+  });
+
+  it('aitri bug list shows the registered bug', () => {
+    const out = aitri('bug list', bugDir);
+    assert.match(out, /BG-001/, 'bug list must show BG-001');
+    assert.match(out, /Login fails with valid credentials/i, 'bug list must show the title');
+  });
+
+  it('aitri bug list --status open filters correctly', () => {
+    const out = aitri('bug list --status open', bugDir);
+    assert.match(out, /BG-001/, 'open bug must appear in --status open filter');
+  });
+
+  it('aitri bug fix BG-001 marks bug as fixed', () => {
+    const out = aitri('bug fix BG-001', bugDir);
+    assert.match(out, /fixed|BG-001/i);
+    const bugs = JSON.parse(fs.readFileSync(path.join(bugDir, 'spec', 'BUGS.json'), 'utf8'));
+    const bug = bugs.bugs.find(b => b.id === 'BG-001');
+    assert.equal(bug.status, 'fixed', 'bug status must be fixed after bug fix');
+  });
+
+  it('aitri bug add fails without --title', () => {
+    const out = aitriShouldFail('bug add --severity high', bugDir);
+    assert.match(out, /--title/i, 'error must mention --title');
+  });
+
+  it('aitri bug add with --fr and --tc links to requirement and test case', () => {
+    aitri('bug add --title "Export CSV produces wrong delimiter" --severity medium --fr FR-003 --tc TC-003f', bugDir);
+    const bugs = JSON.parse(fs.readFileSync(path.join(bugDir, 'spec', 'BUGS.json'), 'utf8'));
+    const bug = bugs.bugs.find(b => b.title.includes('Export CSV'));
+    assert.ok(bug, 'linked bug must exist');
+    assert.equal(bug.fr, 'FR-003');
+    assert.equal(bug.tc_reference, 'TC-003f');
+  });
+
+  it('BUGS.json is valid JSON after multiple bug operations', () => {
+    const raw = fs.readFileSync(path.join(bugDir, 'spec', 'BUGS.json'), 'utf8');
+    assert.doesNotThrow(() => JSON.parse(raw), 'BUGS.json must remain valid JSON');
+    const bugs = JSON.parse(raw);
+    assert.ok(Array.isArray(bugs.bugs), 'bugs.bugs must be an array');
+  });
+});
+
+// ── review ────────────────────────────────────────────────────────────────────
+
+describe('Aitri CLI — review smoke', () => {
+  let reviewDir;
+
+  const REVIEW_REQUIREMENTS = JSON.stringify({
+    project_name: 'Review Smoke App',
+    project_summary: 'Testing review command.',
+    functional_requirements: [
+      { id: 'FR-001', title: 'Login',      priority: 'MUST',   type: 'security',  acceptance_criteria: ['returns 401 on invalid token'], description: 'Auth' },
+      { id: 'FR-002', title: 'Dashboard',  priority: 'MUST',   type: 'ux',        acceptance_criteria: ['renders at 375px viewport'],   description: 'View' },
+      { id: 'FR-003', title: 'Export CSV', priority: 'MUST',   type: 'reporting', acceptance_criteria: ['generates valid CSV file'],     description: 'Export' },
+      { id: 'FR-004', title: 'Save data',  priority: 'SHOULD', type: 'persistence', acceptance_criteria: ['data survives restart'],       description: 'Persist' },
+      { id: 'FR-005', title: 'Totals',     priority: 'COULD',  type: 'logic',     acceptance_criteria: ['returns correct sum'],          description: 'Calc' },
+    ],
+    user_stories: [
+      { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I can access data' },
+    ],
+    non_functional_requirements: [
+      { id: 'NFR-001', category: 'Performance', requirement: 'p99 < 200ms', acceptance_criteria: 'load test at 100 RPS' },
+      { id: 'NFR-002', category: 'Security',    requirement: 'TLS 1.3',     acceptance_criteria: 'SSL Labs A grade' },
+      { id: 'NFR-003', category: 'Reliability', requirement: '99.9% uptime', acceptance_criteria: 'monthly SLA report' },
+    ],
+    constraints: [],
+    technology_preferences: ['Node.js'],
+  }, null, 2);
+
+  before(() => {
+    reviewDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-review-smoke-'));
+    execSync('aitri init', { cwd: reviewDir, encoding: 'utf8' });
+    fs.writeFileSync(path.join(reviewDir, 'spec', '01_REQUIREMENTS.json'), REVIEW_REQUIREMENTS);
+    execSync('aitri complete 1', { cwd: reviewDir, encoding: 'utf8' });
+    execSync('aitri approve 1', { cwd: reviewDir, encoding: 'utf8' });
+  });
+
+  after(() => { try { fs.rmSync(reviewDir, { recursive: true, force: true }); } catch {} });
+
+  it('aitri review exits zero with only requirements present', () => {
+    assert.doesNotThrow(() => aitri('review', reviewDir));
+  });
+
+  it('aitri review output includes phase summary or check results', () => {
+    const out = aitri('review', reviewDir);
+    assert.match(out, /review|FR-|check|OK|PASS|WARN|ERROR/i, 'review must output structured results');
+  });
+
+  it('aitri review --phase 1 scopes output to Phase 1', () => {
+    assert.doesNotThrow(() => aitri('review --phase 1', reviewDir));
+  });
+
+  it('aitri review exits zero outside a project (no artifacts = no failures)', () => {
+    const bareDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-review-bare-'));
+    try {
+      // review gracefully passes with no artifacts — empty project is trivially compliant
+      assert.doesNotThrow(() => aitri('review', bareDir));
+    } finally {
+      try { fs.rmSync(bareDir, { recursive: true, force: true }); } catch {}
+    }
+  });
+});
