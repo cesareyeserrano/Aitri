@@ -130,6 +130,41 @@ describe('Phase 1 — validate()', () => {
     assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
   });
 
+  it('[user-story] warning fires on stderr when MUST FR has no linked user story', () => {
+    const d = JSON.parse(validP1());
+    // FR-002 and FR-003 are MUST but have no user story (US-001 only links FR-001)
+    const stderrChunks = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (chunk) => { stderrChunks.push(chunk); return true; };
+    try {
+      PHASE_DEFS[1].validate(JSON.stringify(d));
+    } finally {
+      process.stderr.write = origWrite;
+    }
+    const out = stderrChunks.join('');
+    assert.match(out, /MUST FR\(s\) have no linked user story/);
+    assert.match(out, /FR-002/);
+    assert.match(out, /FR-003/);
+  });
+
+  it('[user-story] no warning when all MUST FRs have linked user stories', () => {
+    const d = JSON.parse(validP1());
+    d.user_stories.push(
+      { id: 'US-002', requirement_id: 'FR-002', as_a: 'user', i_want: 'see dashboard', so_that: 'I can view data' },
+      { id: 'US-003', requirement_id: 'FR-003', as_a: 'user', i_want: 'export data', so_that: 'I can share it' },
+    );
+    const stderrChunks = [];
+    const origWrite = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (chunk) => { stderrChunks.push(chunk); return true; };
+    try {
+      PHASE_DEFS[1].validate(JSON.stringify(d));
+    } finally {
+      process.stderr.write = origWrite;
+    }
+    const out = stderrChunks.join('');
+    assert.ok(!out.includes('MUST FR(s) have no linked user story'), 'no warning when all MUST FRs are covered');
+  });
+
   it('[ASSUMPTION] warning is emitted on stderr when FR title contains [ASSUMPTION]', () => {
     const d = JSON.parse(validP1());
     d.functional_requirements[0].title = 'Notifications [ASSUMPTION: needs user confirmation]';

@@ -66,6 +66,17 @@ Schema: { project_name, project_summary,
   no_go_zone: ["item — what is explicitly out of scope and why"],
   constraints:[], technology_preferences:[] }
 
+## Requirement Depth Protocol
+Before writing any FR, work through this decomposition for the product in IDEA.md:
+1. **Screens / surfaces** — list every distinct screen, modal, or major UI surface
+2. **User actions** — for each screen: list every action a user can perform (clicks, form submissions, navigation)
+3. **System states** — for every I/O action: loading, success, error, and empty/zero-data states
+4. **Auth + permissions** — who can do what; what happens when an unauthorized user attempts an action
+5. **Async operations** — for every network call or background job: during, on success, on failure
+6. **Edge cases** — empty inputs, max-length inputs, duplicate submissions, concurrent operations
+
+Each item above that is not in no_go_zone is a candidate FR. If you don't write an FR for it, put it in no_go_zone with a reason. A screen with no FR is a gap. A user action with no FR is a gap.
+
 ## No-go zone (mandatory)
 Before listing any FR, declare ≥3 items that are explicitly OUT OF SCOPE for this delivery.
 The no_go_zone field must be populated — an empty array is a scope defect.
@@ -85,7 +96,9 @@ Before writing FRs, identify:
 Include these as comments in project_summary or as a separate "product_analysis" field.
 
 ## Rules
-- Min 5 FRs, each with at least 1 user story
+- Min 5 FRs — non-trivial products have 8-15 MUST FRs. If you have fewer than 8 MUSTs, revisit the Depth Protocol above
+- Every MUST FR must have ≥1 linked user story. For projects with multiple personas, write one story per persona that interacts with that FR
+- MUST FRs of type security, persistence, logic, or reporting: ≥2 distinct acceptance_criteria — one for the happy path, one for a failure or boundary condition
 - Every user story linked to a MUST FR must have ≥1 acceptance_criteria entry in Given/When/Then format
   Given: concrete system state | When: exact action or input | Then: verifiable assertion with specific value
 - user_personas: infer from IDEA.md — who uses this product, their tech level, goal, and pain point
@@ -128,10 +141,15 @@ reuse IDs from the list below.
 ## Instructions
 1. Declare no_go_zone (≥3 items) before writing any FR
 2. Identify North Star KPI + JTBD + guardrail metric
-3. Generate complete 01_REQUIREMENTS.json
-4. Save to: {{ARTIFACTS_BASE}}/01_REQUIREMENTS.json
-5. Present the Delivery Summary below to the user
-6. Run: aitri complete 1
+3. Work through the Requirement Depth Protocol — enumerate screens, actions, states, auth, async, edge cases
+4. Generate complete 01_REQUIREMENTS.json
+5. Before saving — run this completeness self-check:
+   - Every screen identified has ≥1 FR or is in no_go_zone
+   - Every MUST FR has ≥1 linked user story
+   - MUST FRs of type security/persistence/logic/reporting each have ≥2 ACs
+6. Save to: {{ARTIFACTS_BASE}}/01_REQUIREMENTS.json
+7. Present the Delivery Summary below to the user
+8. Run: aitri complete 1
 
 ## Delivery Summary
 After saving 01_REQUIREMENTS.json, present this report to the user:
@@ -140,6 +158,7 @@ After saving 01_REQUIREMENTS.json, present this report to the user:
 ─── Phase 1 Complete — Requirements ─────────────────────────
 Functional Requirements:  [N] MUST · [N] SHOULD · [N] COULD
 Non-functional:           [N]
+User stories:             [N] ([N] MUST FRs covered)
 North Star KPI:           [value]
 JTBD:                     [statement]
 

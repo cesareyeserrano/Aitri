@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractRequirements, extractTestIndex, extractTestResults, extractManifest, head } from '../../lib/phases/context.js';
+import { extractRequirements, extractRequirementsForCompliance, extractTestIndex, extractTestResults, extractManifest, head } from '../../lib/phases/context.js';
 
 const fullRequirements = () => JSON.stringify({
   project_name: 'Test Project',
@@ -273,5 +273,72 @@ describe('extractManifest()', () => {
   it('returns raw content on malformed JSON', () => {
     const raw = '{not valid json}';
     assert.equal(extractManifest(raw), raw);
+  });
+});
+
+describe('extractRequirementsForCompliance()', () => {
+  const full = () => JSON.stringify({
+    project_name: 'Compliance Test',
+    technology_preferences: ['Node.js'],
+    constraints: ['No external APIs'],
+    no_go_zone: ['No mobile app'],
+    user_personas: [{ role: 'Admin', tech_level: 'high', goal: 'manage', pain_point: 'manual' }],
+    functional_requirements: [
+      { id: 'FR-001', title: 'Login', priority: 'MUST', type: 'security', description: 'Auth', acceptance_criteria: ['401 on invalid token'] },
+      { id: 'FR-002', title: 'Dashboard', priority: 'SHOULD', type: 'ux', acceptance_criteria: ['375px'] },
+    ],
+    user_stories: [{ id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'login', so_that: 'access' }],
+    non_functional_requirements: [{ id: 'NFR-001', category: 'Performance', requirement: 'p99 < 200ms', acceptance_criteria: 'load test' }],
+  });
+
+  it('returns valid JSON', () => {
+    assert.doesNotThrow(() => JSON.parse(extractRequirementsForCompliance(full())));
+  });
+
+  it('strips user_stories, user_personas, constraints, technology_preferences', () => {
+    const out = JSON.parse(extractRequirementsForCompliance(full()));
+    assert.ok(!('user_stories' in out), 'user_stories must be stripped');
+    assert.ok(!('user_personas' in out), 'user_personas must be stripped');
+    assert.ok(!('constraints' in out), 'constraints must be stripped');
+    assert.ok(!('technology_preferences' in out), 'technology_preferences must be stripped');
+  });
+
+  it('strips acceptance_criteria from FRs', () => {
+    const out = JSON.parse(extractRequirementsForCompliance(full()));
+    assert.ok(!('acceptance_criteria' in out.functional_requirements[0]), 'FR acceptance_criteria must be stripped');
+  });
+
+  it('preserves FR id, title, priority, type', () => {
+    const out = JSON.parse(extractRequirementsForCompliance(full()));
+    const fr = out.functional_requirements[0];
+    assert.equal(fr.id, 'FR-001');
+    assert.equal(fr.title, 'Login');
+    assert.equal(fr.priority, 'MUST');
+    assert.equal(fr.type, 'security');
+  });
+
+  it('preserves NFR id, category, requirement', () => {
+    const out = JSON.parse(extractRequirementsForCompliance(full()));
+    const nfr = out.non_functional_requirements[0];
+    assert.equal(nfr.id, 'NFR-001');
+    assert.equal(nfr.category, 'Performance');
+    assert.equal(nfr.requirement, 'p99 < 200ms');
+  });
+
+  it('preserves project_name and no_go_zone', () => {
+    const out = JSON.parse(extractRequirementsForCompliance(full()));
+    assert.equal(out.project_name, 'Compliance Test');
+    assert.deepEqual(out.no_go_zone, ['No mobile app']);
+  });
+
+  it('produces smaller output than extractRequirements', () => {
+    const compact = extractRequirementsForCompliance(full());
+    const full2 = extractRequirements(full());
+    assert.ok(compact.length < full2.length, 'compliance extract must be smaller than full extract');
+  });
+
+  it('returns raw content on malformed JSON', () => {
+    const raw = '{not valid json}';
+    assert.equal(extractRequirementsForCompliance(raw), raw);
   });
 });
