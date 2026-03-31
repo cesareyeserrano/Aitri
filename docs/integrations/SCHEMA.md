@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v0.1.67+
+**Aitri version:** v0.1.70+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -52,6 +52,31 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `verifyPassed` | `boolean` | `false` | `true` if `aitri verify-complete` passed. Required to unlock Phase 5 |
 | `verifySummary` | `object` | `null` | Last test run summary: `{ passed, failed, skipped, total }` |
 | `rejections` | `object<string, Rejection>` | `{}` | Map of phase key → last rejection. Key is phase as string (`"1"`, `"2"`, etc.) |
+| `lastSession` | `object\|null` | `null` | Session checkpoint — see schema below. Written automatically by state-mutating commands |
+
+---
+
+## lastSession schema (v0.1.70+)
+
+Written automatically by `complete`, `approve`, `verify-run`, `verify-complete`, `feature init`, and `checkpoint`.
+
+```json
+{
+  "at": "2026-03-30T21:00:00.000Z",
+  "agent": "claude",
+  "event": "complete requirements",
+  "context": "implementing FR-003, JWT validation done, pending error handling",
+  "files_touched": ["src/auth.js", "src/middleware.js"]
+}
+```
+
+| Field | Type | Always present | Description |
+|---|---|---|---|
+| `at` | `string` ISO 8601 | yes | Timestamp of the checkpoint |
+| `agent` | `string` | yes | Auto-detected agent: `"claude"`, `"codex"`, `"gemini"`, `"opencode"`, `"cursor"`, `"unknown"` |
+| `event` | `string` | yes | What triggered the checkpoint (e.g. `"complete requirements"`, `"approve tests"`, `"checkpoint"`) |
+| `context` | `string` | no | Agent/user-provided session context via `--context` flag |
+| `files_touched` | `array<string>` | no | Files with uncommitted changes (from `git diff --name-only`) |
 
 ---
 

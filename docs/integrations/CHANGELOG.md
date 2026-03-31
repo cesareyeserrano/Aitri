@@ -5,6 +5,22 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## v0.1.70
+
+**`.aitri` schema: `lastSession` field added**
+- New optional field `lastSession` in `.aitri` — session checkpoint written automatically by `complete`, `approve`, `verify-run`, `verify-complete`, `feature init`, and `checkpoint`
+- Schema: `{ at, agent, event, context?, files_touched? }`
+- Agent auto-detected from environment variables (claude, codex, gemini, opencode, cursor)
+- `aitri resume` now shows "Last Session" section with this data
+- Subproducts can read `lastSession.at` for "last activity" and `lastSession.event` for "what happened last"
+
+**Agent instruction files: multi-agent support**
+- `aitri init` and `aitri adopt` now generate instruction files for multiple agents: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.codex/instructions.md`
+- All files have identical content sourced from `templates/AGENTS.md`
+- Non-destructive: never overwrites existing files
+
+---
+
 ## v0.1.67
 
 **`aitri bug` — first-class QA artifact (redesign from v0.1.66 prototype)**

@@ -576,15 +576,23 @@ describe('Aitri CLI — resume + checkpoint smoke', () => {
     assert.match(out, /AITRI SESSION RESUME/);
   });
 
-  it('aitri checkpoint creates a file in checkpoints/', () => {
+  it('aitri checkpoint writes lastSession to .aitri', () => {
     aitri('checkpoint', rcDir);
-    assert.ok(fs.existsSync(path.join(rcDir, 'checkpoints')), 'checkpoints/ must be created');
-    const files = fs.readdirSync(path.join(rcDir, 'checkpoints'));
-    assert.equal(files.filter(f => f.endsWith('.md')).length, 1, 'one checkpoint file must exist');
+    const config = JSON.parse(fs.readFileSync(path.join(rcDir, '.aitri'), 'utf8'));
+    assert.ok(config.lastSession, 'lastSession must exist');
+    assert.equal(config.lastSession.event, 'checkpoint');
+    assert.ok(config.lastSession.at, 'lastSession.at must exist');
   });
 
-  it('aitri checkpoint --name creates file with label in name', () => {
+  it('aitri checkpoint --context saves context to .aitri', () => {
+    aitri('checkpoint --context "implementing FR-003"', rcDir);
+    const config = JSON.parse(fs.readFileSync(path.join(rcDir, '.aitri'), 'utf8'));
+    assert.equal(config.lastSession.context, 'implementing FR-003');
+  });
+
+  it('aitri checkpoint --name creates file with label in checkpoints/', () => {
     aitri('checkpoint --name before-refactor', rcDir);
+    assert.ok(fs.existsSync(path.join(rcDir, 'checkpoints')), 'checkpoints/ must be created');
     const files = fs.readdirSync(path.join(rcDir, 'checkpoints'));
     assert.ok(files.some(f => f.includes('before-refactor')), 'labeled checkpoint must exist');
   });
@@ -594,7 +602,7 @@ describe('Aitri CLI — resume + checkpoint smoke', () => {
     assert.match(out, /\.md/);
   });
 
-  it('checkpoint file contains resume content', () => {
+  it('checkpoint --name file contains resume content', () => {
     const files    = fs.readdirSync(path.join(rcDir, 'checkpoints')).filter(f => f.endsWith('.md')).sort();
     const cpContent = fs.readFileSync(path.join(rcDir, 'checkpoints', files[0]), 'utf8');
     assert.match(cpContent, /AITRI SESSION RESUME/);

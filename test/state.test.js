@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact } from '../lib/state.js';
+import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent } from '../lib/state.js';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-state-test-'));
@@ -235,5 +235,76 @@ describe('artifactPath()', () => {
   it('handles null/undefined config gracefully', () => {
     const p = artifactPath('/project', null, '02_SYSTEM_DESIGN.md');
     assert.equal(p, path.join('/project', '02_SYSTEM_DESIGN.md'));
+  });
+});
+
+describe('detectAgent()', () => {
+
+  it('returns "claude" when CLAUDE_CODE is set', () => {
+    const orig = process.env.CLAUDE_CODE;
+    process.env.CLAUDE_CODE = '1';
+    assert.equal(detectAgent(), 'claude');
+    if (orig === undefined) delete process.env.CLAUDE_CODE;
+    else process.env.CLAUDE_CODE = orig;
+  });
+
+  it('returns "codex" when CODEX_CLI is set', () => {
+    const orig = process.env.CODEX_CLI;
+    process.env.CODEX_CLI = '1';
+    assert.equal(detectAgent(), 'codex');
+    if (orig === undefined) delete process.env.CODEX_CLI;
+    else process.env.CODEX_CLI = orig;
+  });
+
+  it('returns "unknown" when no agent env vars are set', () => {
+    const saved = {};
+    for (const k of ['CLAUDE_CODE', 'CLAUDE_CODE_ENTRY', 'CODEX_CLI', 'GEMINI_CLI', 'OPENCODE', 'CURSOR_TRACE_ID']) {
+      saved[k] = process.env[k]; delete process.env[k];
+    }
+    assert.equal(detectAgent(), 'unknown');
+    for (const [k, v] of Object.entries(saved)) {
+      if (v !== undefined) process.env[k] = v;
+    }
+  });
+});
+
+describe('writeLastSession()', () => {
+
+  it('writes lastSession with event and timestamp', () => {
+    const config = {};
+    const dir = tmpDir();
+    writeLastSession(config, dir, 'complete requirements');
+    assert.ok(config.lastSession, 'lastSession must exist');
+    assert.equal(config.lastSession.event, 'complete requirements');
+    assert.ok(config.lastSession.at, 'must have timestamp');
+    assert.ok(config.lastSession.agent, 'must have agent field');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('includes context when provided', () => {
+    const config = {};
+    const dir = tmpDir();
+    writeLastSession(config, dir, 'checkpoint', 'implementing FR-003');
+    assert.equal(config.lastSession.context, 'implementing FR-003');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('omits context when not provided', () => {
+    const config = {};
+    const dir = tmpDir();
+    writeLastSession(config, dir, 'approve tests');
+    assert.equal(config.lastSession.context, undefined);
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('persists through saveConfig round-trip', () => {
+    const dir = tmpDir();
+    const config = { approvedPhases: [1] };
+    writeLastSession(config, dir, 'complete requirements', 'halfway through FR-001');
+    saveConfig(dir, config);
+    const loaded = loadConfig(dir);
+    assert.equal(loaded.lastSession.event, 'complete requirements');
+    assert.equal(loaded.lastSession.context, 'halfway through FR-001');
+    fs.rmSync(dir, { recursive: true });
   });
 });

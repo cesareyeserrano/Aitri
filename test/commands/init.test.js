@@ -104,6 +104,41 @@ describe('aitri init — Hub registration', () => {
   });
 });
 
+describe('aitri init — agent instruction files', () => {
+  it('creates AGENTS.md, CLAUDE.md, GEMINI.md, and .codex/instructions.md', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.70' });
+    assert.ok(fs.existsSync(path.join(dir, 'AGENTS.md')), 'AGENTS.md must exist');
+    assert.ok(fs.existsSync(path.join(dir, 'CLAUDE.md')), 'CLAUDE.md must exist');
+    assert.ok(fs.existsSync(path.join(dir, 'GEMINI.md')), 'GEMINI.md must exist');
+    assert.ok(fs.existsSync(path.join(dir, '.codex', 'instructions.md')), '.codex/instructions.md must exist');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('does not overwrite existing agent files on re-init', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.70' });
+    fs.writeFileSync(path.join(dir, 'CLAUDE.md'), '# custom rules');
+    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.70' });
+    const content = fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8');
+    assert.equal(content, '# custom rules', 'must not overwrite custom CLAUDE.md');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('all agent files have identical content', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.70' });
+    const agents = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+    const claude = fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8');
+    const gemini = fs.readFileSync(path.join(dir, 'GEMINI.md'), 'utf8');
+    const codex  = fs.readFileSync(path.join(dir, '.codex', 'instructions.md'), 'utf8');
+    assert.equal(agents, claude, 'CLAUDE.md must match AGENTS.md');
+    assert.equal(agents, gemini, 'GEMINI.md must match AGENTS.md');
+    assert.equal(agents, codex, '.codex/instructions.md must match AGENTS.md');
+    fs.rmSync(dir, { recursive: true });
+  });
+});
+
 describe('aitri status — version warnings', () => {
   it('shows no version warning when versions match', () => {
     const dir = tmpDir();
