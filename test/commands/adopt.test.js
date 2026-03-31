@@ -193,6 +193,39 @@ describe('aitri adopt apply', () => {
     });
     assert.ok(out.includes('run-phase 1'), `expected next-step hint, got: ${out}`);
   });
+
+  it('errors when known Aitri artifacts already exist at project root', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), '{}', 'utf8');
+      const { fn: err } = makeErr();
+      const origIsTTY = process.stdin.isTTY;
+      process.stdin.isTTY = false;
+      try {
+        assert.throws(
+          () => cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.55', rootDir: ROOT_DIR, err }),
+          /adopt --upgrade/
+        );
+      } finally { process.stdin.isTTY = origIsTTY; }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not error when artifacts exist in spec/ but not at root', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
+      fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), '{}', 'utf8');
+      const origIsTTY = process.stdin.isTTY;
+      process.stdin.isTTY = false;
+      try {
+        assert.doesNotThrow(() =>
+          cmdAdopt({ dir, args: ['apply'], VERSION: '0.1.55', rootDir: ROOT_DIR, err: makeErr().fn })
+        );
+      } finally { process.stdin.isTTY = origIsTTY; }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // ── apply --from <N> ──────────────────────────────────────────────────────────
@@ -459,6 +492,35 @@ describe('aitri adopt --upgrade', () => {
     const config = loadConfig(dir);
     assert.equal(config.aitriVersion, '0.1.35');
     assert.deepEqual(config.completedPhases, []);
+  });
+
+  it('corrects artifactsDir to root when spec/ is empty but artifacts exist at root', () => {
+    const dir = tmpDir();
+    try {
+      // Simulate state left by a misapplied 'adopt apply': config has artifactsDir='spec',
+      // spec/ exists but is empty, real artifacts are at project root.
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), '{}', 'utf8');
+
+      cmdAdopt({ dir, args: ['--upgrade'], VERSION: '0.1.70', rootDir: ROOT_DIR, err: makeErr().fn });
+
+      const updated = loadConfig(dir);
+      assert.equal(updated.artifactsDir, '', 'artifactsDir must be corrected to root');
+      assert.ok(updated.completedPhases.includes(1), 'phase 1 must be inferred from root artifact');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not change artifactsDir when artifacts are found in the configured dir', () => {
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      writeArtifact(dir, 'spec', '01_REQUIREMENTS.json', '{}');
+
+      cmdAdopt({ dir, args: ['--upgrade'], VERSION: '0.1.70', rootDir: ROOT_DIR, err: makeErr().fn });
+
+      const updated = loadConfig(dir);
+      assert.equal(updated.artifactsDir, 'spec', 'artifactsDir must remain spec');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
   it('throws on unknown subcommand', () => {
