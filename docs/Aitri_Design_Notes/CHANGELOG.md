@@ -5,6 +5,90 @@
 
 ---
 
+## [0.1.69] — 2026-03-26
+
+- **feat:** Named phase aliases — `1→requirements`, `2→architecture`, `3→tests`, `4→build`, `5→deploy`. Numbers still accepted (backward compatible). `PHASE_ALIASES` exported from `lib/phases/index.js`.
+- **feat:** All commands (run-phase, complete, approve, reject) resolve aliases before numeric parse.
+- **feat:** `aitri status` uses alias in key column and Run:/Next: suggestions.
+- **feat:** `approve.js` pipeline instructions use aliases.
+- **feat:** `templates/phases/` renamed to match aliases (e.g. `phase1.md` → `requirements.md`).
+- **feat:** Phase display names updated: "PM Analysis" → "Requirements", "QA Test Design" → "Test Cases".
+- **fix:** `validate.js` drift note shows `aitri approve tests` instead of `aitri approve 3` (2026-03-30).
+- **fix:** `status.js` re-approval history shows alias instead of phase number (2026-03-30).
+
+---
+
+## [0.1.68] — 2026-03-25
+
+- **feat(phase1):** Requirement Depth Protocol — 6 systematic probing questions. AC depth rules per FR type (security/persistence/logic/reporting require ≥2 ACs). Warns (non-blocking) when MUST FR has no linked user story.
+- **feat(context.js):** `extractRequirementsForCompliance()` — minimal FR/NFR extract for phase 5 (token reduction).
+- **refactor:** Phase 2, 4, 5 inject `extractRequirements()` instead of raw JSON.
+
+---
+
+## [0.1.67] — 2026-03-22
+
+- **feat(bug):** Redesign as first-class QA artifact. New schema: `steps_to_reproduce[]`, `expected_result`, `actual_result`, `environment`, `detected_by`, `evidence`, `reported_by`.
+- **feat(bug):** Lifecycle simplified: `open → fixed → verified → closed` (`in_progress` removed).
+- **feat(bug):** `getBlockingBugs` now severity-based (critical/high) — was MUST FR-linked.
+- **feat(verify-run):** Prompts `[y/N]` on test failure to register bug; auto-populates from Playwright evidence (`test-results/`).
+- **feat(resume):** Open Bugs section with severity sort.
+
+---
+
+## [0.1.66] — 2026-03-21
+
+- **feat:** `aitri review` — cross-artifact semantic consistency checks. `complete 3` and `complete 5` auto-run review; errors block, warnings prompt y/N.
+- **feat:** `aitri bug` — formal bug lifecycle with FR traceability. `verify-complete` blocks on open MUST FR bugs. `validate` warns on fixed bugs without TC reference.
+- **feat:** `adopt verify-spec` — brownfield TC stub generator. `--complete` registers stubs and updates phase 3 hash baseline.
+- **feat(phase4):** TDD recommendation block — `buildTDDRecommendation()` heuristic injected as `{{TDD_RECOMMENDATION}}` in phase 4 briefing.
+- **fix(approve):** Atomically updates `artifactHashes` + emits `afterDrift:true` event on drift-recovery approval.
+
+---
+
+## [0.1.65] — 2026-03-20
+
+- **feat:** `aitri backlog` — project-level backlog management. Storage: `spec/BACKLOG.json`.
+- **feat:** `aitri backlog add --title --priority --problem [--fr]`, `aitri backlog list [--all]`, `aitri backlog done <id>`.
+- **feat:** `aitri status` shows open backlog count when `BACKLOG.json` exists.
+
+---
+
+## [0.1.64] — 2026-03-20
+
+- **feat:** Ecosystem integration model — Aitri is now a passive producer. Subproducts (Hub, Graph) are autonomous consumers.
+- **refactor:** `init.js` and `adopt.js` no longer write to `~/.aitri-hub/projects.json`. Hub manages its own registry.
+- **docs:** `docs/integrations/` — canonical contract: `README.md`, `SCHEMA.md`, `ARTIFACTS.md`, `CHANGELOG.md`.
+
+---
+
+## [0.1.63] — 2026-03-19
+
+- **fix:** `complete.js` updates `artifactHashes` after successful validation — prevents `hasDrift()` false positive on subsequent `approve`. Before: completing an artifact left the hash stale, causing the drift gate to fire even on legitimate human-authorized changes.
+
+---
+
+## [0.1.62] — 2026-03-19
+
+- **feat(run-phase):** Gate blocks agents from re-running core phases when all 5 are approved. Non-TTY: error + redirect to `aitri feature init`. isTTY: confirmation prompt. Gate skipped inside feature sub-pipelines.
+
+---
+
+## [0.1.61] — 2026-03-18
+
+- **feat:** `templates/AGENTS.md` — pipeline guardrails for any agent (Claude, Codex, Gemini). Created by `init`, `adopt apply`, `adopt --upgrade`.
+
+---
+
+## [0.1.60] — 2026-03-18
+
+- **feat(approve):** Drift re-approval gate — non-TTY blocks agent re-approval when artifact has drifted; isTTY prompts confirmation before checklist. Event marked `afterDrift: true`.
+- **feat(status):** Shows re-approved-after-drift warning from `events[]`.
+- **feat(resume):** Dedicated section when phases were re-approved after drift.
+- **refactor(state):** `hasDrift()` exported from `state.js` (was duplicated in validate/status).
+
+---
+
 ## [0.1.59] — 2026-03-17
 
 ### Features — Pipeline quality (from AITRI-GRAPH real-project audit)

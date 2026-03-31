@@ -125,26 +125,7 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ### Core — Backlog management
 
-- [ ] P3 — **`aitri backlog` command — project-level backlog management** — Aitri projects have no built-in way to track open work items. Today subproducts (Hub, Graph) each maintain their own `BACKLOG.md` manually with no tooling. A native `aitri backlog` command would give every Aitri project the same structured backlog experience.
-
-  Problem: Teams using Aitri generate artifacts through the pipeline but have no canonical place to track "what's next" per project. Each team invents its own format. Subproducts that Aitri spawns (Hub, Graph, future) also have no backlog tooling at all.
-
-  Proposed UX (to be designed before implementation):
-  - `aitri backlog add` — interactively add an item (title, priority, problem, files, behavior, acceptance)
-  - `aitri backlog list` — show open items (filterable by priority)
-  - `aitri backlog done <id>` — mark item as closed (moves to CHANGELOG.md)
-  - Storage: `spec/BACKLOG.json` (structured, readable by Hub/Graph/future tools) or `BACKLOG.md` (human-friendly, same format as Aitri's own backlog)
-
-  Open design questions (decide before implementing):
-  - JSON vs Markdown storage — JSON enables Hub alerts and Graph nodes; Markdown is human-editable without tooling
-  - Scope: project-level only, or also feature-level (`features/<name>/BACKLOG.md`)?
-  - Integration with artifact chain: does a backlog item trace to a FR/TC, or is it orthogonal?
-  - Does `aitri status` surface open backlog items (count, top priority)?
-  - Persona: does backlog management need a new persona or reuse PM?
-
-  Decisions: None resolved. Needs design session before becoming an implementation item.
-
-  Acceptance: TBD after design session.
+- [x] P3 — **`aitri backlog` command — project-level backlog management** *(implemented — shipped in a prior session, discovered during design review 2026-03-30)* — `lib/commands/backlog.js`, `spec/BACKLOG.json`, integrated in `status.js` and `bin/aitri.js`. 15 tests passing.
 
 ---
 
@@ -209,6 +190,35 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
   - `run-phase 1` en proyecto con `spec/IDEA.md`: funciona sin advertencia
   - Proyecto legacy con `IDEA.md` en raíz: Aitri aborta con instrucción de migración explícita
   - Smoke tests pasan con 0 failures
+
+---
+
+### Core — Approve UX
+
+- [x] P2 — **`aitri approve` y `validate`: instrucciones de drift muestran clave numérica en lugar de alias** *(fixed v0.1.69 — validate.js + status.js, 2026-03-30)* — Cuando `validate` detecta drift en una fase aprobada, la nota de acción muestra `aitri approve 3` / `aitri approve 4` en lugar de `aitri approve tests` / `aitri approve build`. El agente lee esa instrucción literal y la repite al usuario con el número, que no comunica nada semántico.
+
+  Problem: El usuario (y el agente que actúa como intermediario) recibe una instrucción opaca. "approve 3" no dice qué aprueba ni por qué importa. Esto es especialmente problemático en escenarios de drift donde el usuario debe entender *qué artifact cambió* antes de re-aprobar.
+
+  Files:
+  - `lib/commands/validate.js` — línea 48: `aitri approve ${num}` → `aitri approve ${p.alias || num}` (fix puntual, 1 línea)
+  - `lib/commands/status.js` — línea 93: `Phase ${e.phase}` en historial de re-approvals usa el número crudo; menor prioridad pero inconsistente
+  - `lib/commands/approve.js` — revisar si el mensaje de error non-TTY (drift gate) también necesita contexto adicional: nombre del artifact + qué sección revisar
+
+  Behavior:
+  - `validate` drift note: `run: aitri approve tests` en lugar de `run: aitri approve 3`
+  - `status` re-approval history: `Phase tests — re-approved on ...` en lugar de `Phase 3 — re-approved on ...`
+  - `approve` non-TTY drift error: evaluar si agregar el nombre del artifact y un hint de qué revisar mejora el flujo o si es ruido
+
+  Decisions a resolver antes de implementar:
+  - El fix en `validate.js` es trivial y aislado. Pero el issue raíz es más amplio: ¿deben todos los outputs de Aitri que referencian fases usar alias canónicamente? Decidir si aplicar el fix puntual o hacer un sweep completo antes de implementar.
+  - En `approve.js` non-TTY drift: el mensaje actual es correcto (ya usa `key = p.alias || phase`). Verificar antes de tocar.
+  - `status.js` línea 93: `e.phase` puede ser número o string (opcional). `PHASE_DEFS[e.phase]?.alias || e.phase` resuelve ambos casos.
+
+  Acceptance:
+  - `aitri validate` con drift en fase 3: muestra `aitri approve tests`
+  - `aitri validate` con drift en fase 4: muestra `aitri approve build`
+  - `aitri status` con re-approval history: muestra alias, no número
+  - `npm run test:all` pasa sin regresión
 
 ---
 
