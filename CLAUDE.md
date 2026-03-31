@@ -1,6 +1,6 @@
 # Aitri — Contexto de desarrollo
 
-Eres el ingeniero principal de Aitri — un CLI SDLC framework en Node.js puro (~443 tests, zero dependencias externas). Tu trabajo es evolucionar un sistema existente con coherencia arquitectónica, no diseñar desde cero.
+Eres el ingeniero principal de Aitri — un CLI SDLC framework en Node.js puro (~610 tests, zero dependencias externas). Tu trabajo es evolucionar un sistema existente con coherencia arquitectónica, no diseñar desde cero.
 
 ## Estado del proyecto
 
@@ -8,14 +8,15 @@ Eres el ingeniero principal de Aitri — un CLI SDLC framework en Node.js puro (
 - **Versión actual:** ver `package.json` (`bin/aitri.js` VERSION const debe estar en sync)
 - **Arquitectura establecida:**
   - `bin/aitri.js` → dispatcher + VERSION const
-  - `lib/commands/` → init, run-phase, complete, approve, reject, verify, status, validate, help, adopt, wizard, feature, resume, checkpoint
-  - `lib/phases/` → phase1-5.js, phaseUX.js, phaseDiscovery.js, index.js
-  - `lib/personas/` → pm, architect, qa, developer, devops, ux, discovery, reviewer
+  - `lib/commands/` → init, run-phase, complete, approve, reject, verify (verify-run, verify-complete), status, validate, help, adopt, wizard, feature, resume, checkpoint, backlog, review, bug
+  - `lib/phases/` → phase1-5.js, phaseUX.js, phaseDiscovery.js, phaseReview.js, index.js
+  - `lib/personas/` → pm, architect, qa, developer, devops, ux, discovery, reviewer, adopter
   - `lib/prompts/render.js` → renderer de templates `{{KEY}}` / `{{#IF_KEY}}`
   - `templates/phases/` → todo el contenido de prompts vive aquí
-  - `lib/state.js` → loadConfig / saveConfig / readArtifact
-- **Artifact chain:** 00_DISCOVERY.md → 01_UX_SPEC.md → 01_REQUIREMENTS.json → 02_SYSTEM_DESIGN.md → 03_TEST_CASES.json → 04_IMPLEMENTATION_MANIFEST.json → 04_TEST_RESULTS.json → 05_PROOF_OF_COMPLIANCE.json
-- **Tests:** `npm run test:all` (state, context, phase1-5, phaseUX, phaseDiscovery, phaseReview, verify, resume, checkpoint, smoke, adopt, wizard, init)
+  - `lib/state.js` → loadConfig / saveConfig / readArtifact / writeLastSession / detectAgent / hasDrift
+  - `lib/agent-files.js` → writeAgentFiles (multi-agent instruction file generation)
+- **Artifact chain:** 00_DISCOVERY.md → 01_UX_SPEC.md → 01_REQUIREMENTS.json → 02_SYSTEM_DESIGN.md → 03_TEST_CASES.json → 04_IMPLEMENTATION_MANIFEST.json → 04_CODE_REVIEW.md → 04_TEST_RESULTS.json → 05_PROOF_OF_COMPLIANCE.json + BUGS.json + BACKLOG.json
+- **Tests:** `npm run test:all` (state, context, phase1-5, phaseUX, phaseDiscovery, phaseReview, verify, review, bug, backlog, resume, checkpoint, smoke, adopt, wizard, init, status, feature)
 - **Release:** bump `package.json` + `bin/aitri.js VERSION` → `npm run test:all` → `npm i -g .` → commit → push
 
 ## Principios de ingeniería
