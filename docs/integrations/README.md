@@ -44,6 +44,7 @@ Subproducts (Hub, Graph, CI, IDE, ...)
 | Optional: UX | `<project>/spec/01_UX_SPEC.md` | UX specification |
 | Optional: Code Review | `<project>/spec/04_CODE_REVIEW.md` | Phase 4 review output |
 | Optional: Bugs | `<project>/spec/BUGS.json` | Bug registry — open, fixed, verified, closed |
+| Optional: Audit | `<project>/spec/AUDIT_REPORT.md` | On-demand technical audit findings (bugs, backlog, observations) |
 | Feature pipelines | `<project>/features/<name>/` | Sub-pipelines with same structure |
 
 ---
