@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent } from '../lib/state.js';
+import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate } from '../lib/state.js';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-state-test-'));
@@ -306,5 +306,117 @@ describe('writeLastSession()', () => {
     assert.equal(loaded.lastSession.event, 'complete requirements');
     assert.equal(loaded.lastSession.context, 'halfway through FR-001');
     fs.rmSync(dir, { recursive: true });
+  });
+});
+
+// ── cascadeInvalidate() ───────────────────────────────────────────────────────
+
+describe('cascadeInvalidate()', () => {
+  it('returns empty array when phase has no downstream (deploy)', () => {
+    const config = { approvedPhases: [], completedPhases: [], artifactHashes: {} };
+    const result = cascadeInvalidate(config, 5);
+    assert.deepEqual(result, []);
+  });
+
+  it('returns empty array when phase has no downstream (review)', () => {
+    const config = { approvedPhases: [], completedPhases: [], artifactHashes: {} };
+    const result = cascadeInvalidate(config, 'review');
+    assert.deepEqual(result, []);
+  });
+
+  it('removes downstream phases from approvedPhases', () => {
+    const config = {
+      approvedPhases:  [1, 2, 3],
+      completedPhases: [1, 2, 3],
+      artifactHashes:  {},
+    };
+    cascadeInvalidate(config, 1);
+    assert.ok(config.approvedPhases.map(String).includes('1'), 'phase 1 must stay approved');
+    assert.ok(!config.approvedPhases.map(String).includes('2'), 'phase 2 must be removed');
+    assert.ok(!config.approvedPhases.map(String).includes('3'), 'phase 3 must be removed');
+  });
+
+  it('removes downstream phases from completedPhases', () => {
+    const config = {
+      approvedPhases:  [1, 2, 3, 4],
+      completedPhases: [1, 2, 3, 4],
+      artifactHashes:  {},
+    };
+    cascadeInvalidate(config, 2);
+    assert.ok(!config.completedPhases.map(String).includes('3'), 'phase 3 must be removed');
+    assert.ok(!config.completedPhases.map(String).includes('4'), 'phase 4 must be removed');
+    assert.ok(config.completedPhases.map(String).includes('2'), 'phase 2 must remain');
+  });
+
+  it('removes downstream artifactHashes', () => {
+    const config = {
+      approvedPhases:  [1, 2, 3],
+      completedPhases: [1, 2, 3],
+      artifactHashes:  { '1': 'hash1', '2': 'hash2', '3': 'hash3' },
+    };
+    cascadeInvalidate(config, 1);
+    assert.ok(config.artifactHashes['1'], 'phase 1 hash must remain');
+    assert.ok(!config.artifactHashes['2'], 'phase 2 hash must be removed');
+    assert.ok(!config.artifactHashes['3'], 'phase 3 hash must be removed');
+  });
+
+  it('resets verifyPassed when build is in cascade', () => {
+    const config = {
+      approvedPhases:  [1, 2, 3],
+      completedPhases: [1, 2, 3],
+      artifactHashes:  {},
+      verifyPassed:    true,
+      verifySummary:   { passed: 5 },
+    };
+    cascadeInvalidate(config, 1); // cascade includes 4 and 5
+    assert.equal(config.verifyPassed, false);
+    assert.ok(!config.verifySummary, 'verifySummary must be cleared');
+  });
+
+  it('does not reset verifyPassed when cascade does not reach build', () => {
+    const config = {
+      approvedPhases:  [1, 2, 3, 4],
+      completedPhases: [1, 2, 3, 4],
+      artifactHashes:  {},
+      verifyPassed:    true,
+    };
+    cascadeInvalidate(config, 4); // cascade is only [5]
+    assert.equal(config.verifyPassed, false, 'verifyPassed reset because 5 is downstream');
+  });
+
+  it('returns only phases that were actually tracked', () => {
+    const config = {
+      approvedPhases:  [1, 3],   // phase 2 was never approved
+      completedPhases: [1, 3],
+      artifactHashes:  {},
+    };
+    const invalidated = cascadeInvalidate(config, 1);
+    // downstream of 1: ux, 2, 3, 4, 5, review — but only 3 was tracked
+    assert.ok(invalidated.map(String).includes('3'), 'phase 3 must be in invalidated list');
+    assert.ok(!invalidated.map(String).includes('2'), 'phase 2 must not appear (was not tracked)');
+  });
+
+  it('handles optional phase ux in cascade from requirements', () => {
+    const config = {
+      approvedPhases:  [1, 'ux', 2],
+      completedPhases: [1, 'ux', 2],
+      artifactHashes:  {},
+    };
+    cascadeInvalidate(config, 1);
+    assert.ok(!config.approvedPhases.includes('ux'), 'ux must be invalidated');
+    assert.ok(!config.approvedPhases.map(String).includes('2'), 'phase 2 must be invalidated');
+    assert.ok(config.approvedPhases.map(String).includes('1'), 'phase 1 must remain');
+  });
+
+  it('cascade from ux invalidates architecture and below but not requirements', () => {
+    const config = {
+      approvedPhases:  [1, 'ux', 2, 3],
+      completedPhases: [1, 'ux', 2, 3],
+      artifactHashes:  {},
+    };
+    cascadeInvalidate(config, 'ux');
+    assert.ok(config.approvedPhases.map(String).includes('1'), 'requirements must remain');
+    assert.ok(!config.approvedPhases.map(String).includes('2'), 'architecture must be invalidated');
+    assert.ok(!config.approvedPhases.map(String).includes('3'), 'tests must be invalidated');
   });
 });

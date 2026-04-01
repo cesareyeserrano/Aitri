@@ -166,6 +166,88 @@ describe('cmdApprove() — unknown phase', () => {
 // In non-TTY mode, cmdApprove calls process.exit(1) on drift — cannot be unit-tested.
 // Drift clearing is covered by the approve.js logic path that runs after TTY confirmation.
 
+// ── Cascade invalidation ──────────────────────────────────────────────────────
+
+describe('cmdApprove() — cascade invalidation on re-approval', () => {
+  it('does not cascade on first approval (nothing downstream was approved)', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', ARTIFACT_CONTENT);
+      writeFile(dir, '.aitri', minimalConfig({
+        completedPhases: [1],
+        approvedPhases:  [],   // first approval
+      }));
+      captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      const config = loadConfig(dir);
+      // No downstream to cascade — approvedPhases should only contain phase 1
+      assert.deepEqual(config.approvedPhases.map(String), ['1']);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('cascades downstream phases on re-approval of requirements', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', ARTIFACT_CONTENT);
+      writeFile(dir, '.aitri', minimalConfig({
+        completedPhases: [1, 2, 3],
+        approvedPhases:  [1, 2, 3],  // re-approval of phase 1
+        artifactHashes:  { '2': 'oldhash', '3': 'oldhash' },
+      }));
+      captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      const config = loadConfig(dir);
+      assert.ok(config.approvedPhases.map(String).includes('1'), 'phase 1 must stay approved');
+      assert.ok(!config.approvedPhases.map(String).includes('2'), 'phase 2 must be cascaded out');
+      assert.ok(!config.approvedPhases.map(String).includes('3'), 'phase 3 must be cascaded out');
+      assert.ok(!config.completedPhases.map(String).includes('2'), 'phase 2 must be cascaded from completed');
+      assert.ok(!config.artifactHashes['2'], 'phase 2 hash must be cleared');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('resets verifyPassed when cascade reaches build', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', ARTIFACT_CONTENT);
+      writeFile(dir, '.aitri', minimalConfig({
+        completedPhases: [1, 2, 3, 4],
+        approvedPhases:  [1, 2, 3, 4],
+        verifyPassed:    true,
+      }));
+      captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      const config = loadConfig(dir);
+      assert.equal(config.verifyPassed, false, 'verifyPassed must be reset');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('prints cascade warning when downstream phases are reset', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', ARTIFACT_CONTENT);
+      writeFile(dir, '.aitri', minimalConfig({
+        completedPhases: [1, 2, 3],
+        approvedPhases:  [1, 2, 3],
+      }));
+      const out = captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      assert.ok(out.includes('Cascade'), `expected cascade warning, got: ${out}`);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('cascade from architecture leaves requirements intact', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '## Executive Summary\nDesign.\n');
+      writeFile(dir, '.aitri', minimalConfig({
+        completedPhases: [1, 2, 3, 4],
+        approvedPhases:  [1, 2, 3, 4],
+      }));
+      captureAll(() => cmdApprove({ dir, args: ['architecture'], err: noopErr }));
+      const config = loadConfig(dir);
+      assert.ok(config.approvedPhases.map(String).includes('1'), 'requirements must remain approved');
+      assert.ok(!config.approvedPhases.map(String).includes('3'), 'tests must be cascaded');
+      assert.ok(!config.approvedPhases.map(String).includes('4'), 'build must be cascaded');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('cmdApprove() — phase 4 shows verify-run hint', () => {
   let dir;
   let output;
