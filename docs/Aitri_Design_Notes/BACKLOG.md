@@ -193,6 +193,63 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ---
 
+### Core — Code Audit
+
+- [x] P2 — **`aitri audit` — on-demand code & architecture audit** *(implemented v0.1.71)* — No existe forma de auditar la calidad del código, arquitectura, lógica y stack de un proyecto Aitri en cualquier momento del pipeline. Los problemas concretos y la deuda técnica no tienen un canal estructurado hasta que el usuario los clasifica manualmente.
+
+  Problem: Un agente puede producir código que pasa todos los gates estructurales pero tiene problemas reales de arquitectura, lógica, seguridad o calidad. No hay ningún command que genere un prompt evaluativo orientado a descubrir esos problemas y canalizarlos hacia `BUGS.json` o `BACKLOG.json`. El audit también es necesario en el flujo de `adopt scan` para profundizar el diagnóstico técnico del proyecto brownfield.
+
+  Files:
+  - `lib/commands/audit.js` — nuevo command; genera el prompt evaluativo; escribe `spec/AUDIT_REPORT.md`
+  - `lib/personas/auditor.js` — nueva persona: ROLE/CONSTRAINTS/REASONING orientados a revisión evaluativa (código, arquitectura, lógica, stack, seguridad)
+  - `templates/phases/audit.md` — template del prompt; secciones: Findings→Bugs, Findings→Backlog, Observations (riesgos/concerns sin acción inmediata)
+  - `bin/aitri.js` — add `audit` dispatch case
+  - `templates/adopt/scan.md` — extender con sección de code audit que usa la persona auditor cuando el proyecto tiene código
+  - `test/commands/audit.test.js` — tests: generación de prompt, escritura de AUDIT_REPORT.md, adopt integration
+
+  Behavior:
+  - `aitri audit` — genera el prompt evaluativo en stdout; escribe `spec/AUDIT_REPORT.md` con tres secciones: **Findings → Bugs** (problemas concretos con severidad sugerida), **Findings → Backlog** (deuda técnica, gaps, mejoras), **Observations** (riesgos arquitectónicos, concerns sin acción clara todavía)
+  - Artifact opcional, on-demand, fuera de la cadena lineal — mismo modelo que `BUGS.json` y `BACKLOG.json`
+  - En `adopt scan`: se extiende el prompt de scan para incluir análisis de calidad de código orientado a producir hallazgos en el mismo formato; no reemplaza el scan existente
+  - No bloquea el pipeline — es informativo; el usuario decide qué promover a `aitri bug add` o `aitri backlog add`
+
+  Decisions:
+  - Persona `auditor` sigue el mismo patrón que las demás personas (ROLE/CONSTRAINTS/REASONING) — no es "multi-persona simultánea". El prompt cubre preocupaciones de arquitectura, QA, desarrollo y seguridad como un revisor senior unificado
+  - Tres secciones en AUDIT_REPORT.md resuelven el problema de hallazgos que no son bug ni backlog todavía (Observations). Sin esto se perderían riesgos y concerns que necesitan awareness pero no tienen acción inmediata
+  - Persona ceiling: `auditor` es la 9ª persona. Evaluar si reemplaza alguna existente o si el ceiling se extiende para commands transversales (audit no es una fase). Decisión a tomar antes de implementar.
+  - `AUDIT_REPORT.md` no va al artifact chain lineal — no afecta `validate`, no genera drift al modificarse
+
+  Acceptance:
+  - `aitri audit` en proyecto con código: genera prompt y escribe `spec/AUDIT_REPORT.md` con las tres secciones
+  - `aitri audit` sin `.aitri` en el directorio: error claro ("not an Aitri project")
+  - `adopt scan` en proyecto brownfield con código: output incluye sección de hallazgos de código quality en el mismo formato
+  - `npm run test:all` pasa sin regresión
+
+- [x] P2 — **`aitri audit plan` — convierte AUDIT_REPORT.md en acciones Aitri** *(implemented v0.1.71)* — Una vez generado `AUDIT_REPORT.md`, el usuario no tiene forma de pedirle al agente que priorice y organice los hallazgos como acciones concretas dentro del pipeline de Aitri. El reporte queda como documento estático.
+
+  Problem: `AUDIT_REPORT.md` puede tener 20 hallazgos mezclados entre bugs, backlog items y observations. El usuario tiene que leerlo entero y decidir manualmente qué va a `bug add`, qué a `backlog add`, y qué requiere una `feature` o re-run de fase. Un agente debería poder hacer esa clasificación y proponer el plan de acción.
+
+  Files:
+  - `lib/commands/audit.js` — agregar sub-command `plan`; lee `spec/AUDIT_REPORT.md`; genera prompt de clasificación y acción
+  - `templates/phases/auditPlan.md` — template del prompt: instruye al agente a leer el reporte, clasificar hallazgos y proponer comandos Aitri concretos por sección
+  - `test/commands/audit.test.js` — tests para `audit plan`: AUDIT_REPORT.md presente/ausente, formato del prompt generado
+
+  Behavior:
+  - `aitri audit plan` — requiere que `spec/AUDIT_REPORT.md` exista; genera un prompt que instruye al agente a: (1) leer el reporte, (2) proponer para cada hallazgo el comando Aitri correspondiente (`bug add`, `backlog add`, `feature`, `run-phase N`), (3) priorizar por impacto en el pipeline actual
+  - Alternativa: si `resume` se extiende para leer `AUDIT_REPORT.md` cuando existe, `audit plan` puede ser un alias — evaluar antes de implementar
+
+  Decisions:
+  - Depende de BL anterior (`aitri audit`). No implementar antes de que `AUDIT_REPORT.md` tenga formato estable
+  - Sub-command de `audit` (no command separado) — mantiene la superficie del CLI limpia
+  - El prompt es el output — no escribe ningún artifact nuevo; las acciones las ejecuta el usuario
+
+  Acceptance:
+  - `aitri audit plan` con `AUDIT_REPORT.md` presente: genera prompt coherente con el vocabulario de Aitri
+  - `aitri audit plan` sin `AUDIT_REPORT.md`: error claro ("run `aitri audit` first")
+  - `npm run test:all` pasa sin regresión
+
+---
+
 ### Core — Approve UX
 
 - [x] P2 — **`aitri approve` y `validate`: instrucciones de drift muestran clave numérica en lugar de alias** *(fixed v0.1.69 — validate.js + status.js, 2026-03-30)* — Cuando `validate` detecta drift en una fase aprobada, la nota de acción muestra `aitri approve 3` / `aitri approve 4` en lugar de `aitri approve tests` / `aitri approve build`. El agente lee esa instrucción literal y la repite al usuario con el número, que no comunica nada semántico.

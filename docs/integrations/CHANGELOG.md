@@ -5,6 +5,17 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## v0.1.71
+
+**`aitri audit` — on-demand code & architecture audit**
+- New command: `aitri audit` generates an evaluative briefing; agent writes `AUDIT_REPORT.md`
+- New sub-command: `aitri audit plan` reads `AUDIT_REPORT.md` and proposes Aitri actions (`bug add`, `backlog add`) for each finding
+- New persona: `auditor` — meta-persona (not phase-bound, like `adopter`); evaluative, not generative
+- New artifact: `AUDIT_REPORT.md` — optional, off-pipeline (three sections: Findings → Bugs, Findings → Backlog, Observations)
+- No pipeline changes: AUDIT_REPORT.md does not affect validate, approve, or drift detection
+
+---
+
 ## v0.1.70
 
 **`.aitri` schema: `lastSession` field added**

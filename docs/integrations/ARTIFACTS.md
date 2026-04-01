@@ -290,8 +290,46 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
 | `01_UX_SPEC.md` | `aitri run-phase ux` | Optional phase; present if UX phase was run |
 | `04_CODE_REVIEW.md` | `aitri review` | Present if code review was run |
 | `BUGS.json` | `aitri bug add` / `aitri verify-run` | Present if any bug has been registered |
+| `AUDIT_REPORT.md` | `aitri audit` | Present if an on-demand audit has been run |
 
 Check `approvedPhases[]` and `completedPhases[]` in `.aitri` to determine which optional artifacts exist before attempting to read them.
+
+---
+
+## AUDIT_REPORT.md
+
+**Written by:** agent (instructed by `aitri audit` briefing). **Not** written by Aitri Core.
+**Read by:** `aitri audit plan` (generates action plan from findings). Hub/Graph may surface it.
+**Optional:** off-pipeline artifact — no pipeline phase depends on it. Never blocks validate, approve, or drift detection.
+
+This file is produced on demand at any point in the pipeline. It contains the agent's findings from a holistic technical audit of the codebase across five dimensions: code quality, architecture, logic, security, and stack.
+
+Required sections (exact headings):
+
+```markdown
+### Findings → Bugs
+Each entry:
+  **[BUG-N]** `[severity: critical|high|medium|low]` — Title
+  - File: `path/to/file.js:line`
+  - Problem: what is broken or incorrect
+  - Suggested: `aitri bug add --title "..." --severity [severity] --description "..."`
+
+### Findings → Backlog
+Each entry:
+  **[BL-N]** `[priority: P1|P2|P3]` — Title
+  - File: `path/to/file.js` (if file-specific)
+  - Problem: what is missing, fragile, or suboptimal
+  - Suggested: `aitri backlog add --title "..." --priority P[N] --problem "..."`
+
+### Observations
+Each entry:
+  **[OBS-N]** — Title
+  - Context: where this applies
+  - Concern: what risk or implication this represents
+  - Why deferred: reason it is an observation rather than a bug or backlog item
+```
+
+Findings that map to bugs should be promoted to `BUGS.json` via `aitri bug add`. Findings that map to tech debt should be promoted to `BACKLOG.json` via `aitri backlog add`. Observations remain in AUDIT_REPORT.md as awareness items.
 
 ---
 
