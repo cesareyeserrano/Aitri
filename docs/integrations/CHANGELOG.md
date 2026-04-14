@@ -5,6 +5,21 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## v0.1.74
+
+**`aitri tc verify` — record manual TC execution results**
+- New command: `aitri tc verify <TC-ID> --result pass|fail --notes "..."`
+- Updates `04_TEST_RESULTS.json` in place: sets `status` to `pass|fail`, adds `verified_manually: true`, `verified_at` timestamp
+- Manually verified TCs count toward `summary.passed` — total score reflects reality
+- Syncs `.aitri` `verifySummary` so `aitri resume` shows updated numbers immediately
+- `verify-run`: preserves `verified_manually: true` entries on re-run — manual verifications are not wiped by a subsequent automated test run
+- New `summary.manual_verified` field: how many manual TCs have been recorded
+- Display updated: `Manual: N/N verified` (was just `Manual: N`)
+
+**Subproduct impact:** `04_TEST_RESULTS.json` now has `summary.manual_verified` and result entries may have `verified_manually: true` + `verified_at` fields. `summary.passed` now includes manually-verified passing TCs.
+
+---
+
 ## v0.1.72
 
 **`04_TEST_RESULTS.json` — manual TC support**

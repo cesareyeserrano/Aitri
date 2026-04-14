@@ -35,8 +35,9 @@ import { cmdReview }        from '../lib/commands/review.js';
 import { cmdBug }           from '../lib/commands/bug.js';
 import { cmdNormalize }     from '../lib/commands/normalize.js';
 import { cmdAudit }        from '../lib/commands/audit.js';
+import { cmdTC }           from '../lib/commands/tc.js';
 
-const VERSION   = '0.1.73';
+const VERSION   = '0.1.74';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -111,6 +112,7 @@ switch (cmd) {
   case 'bug':              cmdBug(ctx);             break;
   case 'normalize':        cmdNormalize(ctx);       break;
   case 'audit':            cmdAudit(ctx);           break;
+  case 'tc':               cmdTC(ctx);              break;
   case '--version':        console.log(`Aitri v${VERSION}`); break;
   default:                 cmdHelp(ctx);            break;
 }
