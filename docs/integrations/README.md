@@ -1,6 +1,6 @@
 # Aitri — Integration Model
 
-**Version:** v0.1.67+
+**Version:** v0.1.76+
 **Owner:** This document is the authoritative description of how the Aitri ecosystem is structured.
 
 ---
@@ -87,6 +87,24 @@ A compliant Aitri subproduct must:
 3. **Follow SCHEMA.md** — implement against the documented contract, not against Aitri source code
 4. **Track CHANGELOG.md** — when the contract version changes, update the subproduct reader
 5. **Manage its own state** — project lists, caches, dashboards live in the subproduct's own directory
+6. **Gate on integration version** — maintain an internal `INTEGRATION_LAST_REVIEWED` constant (semver string). When the detected Aitri version in any project or the installed CLI exceeds this value, surface a visible alert before rendering any data. The alert must link to `docs/integrations/CHANGELOG.md`. Only bump `INTEGRATION_LAST_REVIEWED` after a developer has reviewed the changelog and confirmed (or implemented) any required reader changes.
+
+```js
+// Example — Hub or any subproduct
+const INTEGRATION_LAST_REVIEWED = '0.1.76'; // bump after reviewing CHANGELOG.md
+
+function checkIntegrationAlignment(installedAitriVersion) {
+  if (semverGt(installedAitriVersion, INTEGRATION_LAST_REVIEWED)) {
+    emitAlert({
+      severity: 'warning',
+      message: `Aitri ${installedAitriVersion} detected — integration not reviewed past ${INTEGRATION_LAST_REVIEWED}`,
+      action: 'Review docs/integrations/CHANGELOG.md before trusting displayed data',
+    });
+  }
+}
+```
+
+This alert is for **subproduct developers**, not end users — it signals that Hub (or another consumer) may be reading data with an outdated schema understanding.
 
 ---
 
