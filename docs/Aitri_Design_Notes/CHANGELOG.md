@@ -5,6 +5,15 @@
 
 ---
 
+## [0.1.78] — 2026-04-17
+
+- **fix:** Interactive prompts broken on Node 24+. Node 24 leaves TTY stdin in non-blocking mode; `fs.readSync(0, ...)` throws `EAGAIN` instead of blocking, making every interactive confirmation unreachable (approve checklist, drift re-approval, complete warnings, verify-complete known gaps, bug registration on failed tests, wizard discovery interview, run-phase re-run, `adopt apply` / `adopt --from N` confirmation).
+- **fix:** New module `lib/read-stdin.js` — `readStdinSync(maxBytes)` wraps `fs.readSync` with an `EAGAIN` retry loop using `Atomics.wait` on a `SharedArrayBuffer` for synchronous sleep (zero-dep; zero CPU spin). All 7 commands that prompted interactively migrated to the helper.
+- **fix:** `adopt apply` / `adopt --from N` now accept `y` or `yes` (previously only `y`) and consume the full line — removes a latent bug where typing `yes` left `es\n` in stdin and contaminated the next read.
+- **refactor:** Eight near-duplicated inline stdin readers collapsed into one helper — reduces surface area for the same class of bug in the future.
+
+---
+
 ## [0.1.77] — 2026-04-17
 
 - **refactor:** Introduced `lib/snapshot.js` — `buildProjectSnapshot()` is now the single source of truth for `status`, `resume`, and `validate`. Aggregates root pipeline + `features/<name>/.aitri` sub-pipelines, derives health signals, produces priority-ordered next actions. Pure function with injectable `now`. See ADR-022 in DECISIONS.md.
