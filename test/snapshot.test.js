@@ -356,6 +356,83 @@ describe('audit freshness', () => {
       assert.equal(snap.health.staleAudit, false);
     } finally { cleanup(dir); }
   });
+
+  it('audit.lastAt prefers persisted auditLastAt over file mtime', () => {
+    const dir = tmpDir();
+    try {
+      // Persisted timestamp: 5 days ago. File mtime: 90 days ago (simulates a
+      // fresh clone of an older audit). Snapshot must trust the persisted value.
+      const fiveDaysAgo  = new Date(Date.now() - 5  * MS_PER_DAY).toISOString();
+      saveConfig(dir, { projectName: 'x', artifactsDir: 'spec', auditLastAt: fiveDaysAgo });
+      writeSpec(dir, 'AUDIT_REPORT.md', '# Audit');
+      const auditPath = path.join(dir, 'spec', 'AUDIT_REPORT.md');
+      const oldDate   = new Date(Date.now() - 90 * MS_PER_DAY);
+      fs.utimesSync(auditPath, oldDate, oldDate);
+
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.audit.exists, true);
+      assert.equal(snap.audit.lastAt, fiveDaysAgo);
+      assert.ok(snap.audit.stalenessDays <= 6);
+      assert.equal(snap.health.staleAudit, false);
+    } finally { cleanup(dir); }
+  });
+
+  it('audit.lastAt falls back to file mtime when auditLastAt is absent', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'x', artifactsDir: 'spec' });
+      writeSpec(dir, 'AUDIT_REPORT.md', '# Audit');
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.audit.exists, true);
+      assert.ok(snap.audit.lastAt, 'lastAt should fall back to mtime');
+    } finally { cleanup(dir); }
+  });
+});
+
+// ── Verify freshness ─────────────────────────────────────────────────────────
+
+describe('verify freshness (verifyRanAt)', () => {
+  it('tests.stalenessDays = null when verifyRanAt is absent', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'x', artifactsDir: 'spec' });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.tests.stalenessDays, null);
+      assert.deepEqual(snap.health.staleVerify, []);
+    } finally { cleanup(dir); }
+  });
+
+  it('tests.stalenessDays computed from verifyRanAt on root pipeline', () => {
+    const dir = tmpDir();
+    try {
+      const tenDaysAgo = new Date(Date.now() - 10 * MS_PER_DAY).toISOString();
+      saveConfig(dir, {
+        projectName:  'x',
+        artifactsDir: 'spec',
+        verifyRanAt:  tenDaysAgo,
+      });
+      const snap = buildProjectSnapshot(dir);
+      assert.ok(snap.tests.stalenessDays >= 9 && snap.tests.stalenessDays <= 11);
+      // 10 days is within the 14-day threshold — should NOT be stale
+      assert.deepEqual(snap.health.staleVerify, []);
+    } finally { cleanup(dir); }
+  });
+
+  it('health.staleVerify lists pipelines with verifyRanAt older than 14 days', () => {
+    const dir = tmpDir();
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * MS_PER_DAY).toISOString();
+      saveConfig(dir, {
+        projectName:  'x',
+        artifactsDir: 'spec',
+        verifyRanAt:  thirtyDaysAgo,
+      });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.health.staleVerify.length, 1);
+      assert.equal(snap.health.staleVerify[0].scope, 'root');
+      assert.ok(snap.health.staleVerify[0].days >= 29);
+    } finally { cleanup(dir); }
+  });
 });
 
 // ── Resilience to malformed input ────────────────────────────────────────────

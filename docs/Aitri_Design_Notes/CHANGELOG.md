@@ -5,6 +5,17 @@
 
 ---
 
+## [0.1.79] — 2026-04-17
+
+- **feat:** `.aitri` now persists `verifyRanAt` (set by every `aitri verify-run`) and `auditLastAt` (set by `aitri audit`). Both ISO 8601 strings. Additive — old projects without these fields keep working.
+- **feat:** `health.staleVerify` in the snapshot now lists pipelines whose `verifyRanAt` is older than 14 days — previously reserved-but-empty (Fase 1 gap from v0.1.77).
+- **feat:** `tests.stalenessDays` now returns an integer for the root pipeline (was always `null`).
+- **fix:** `audit.lastAt` and `audit.stalenessDays` prefer the persisted `auditLastAt` over file mtime — eliminates false "stale audit" signals after a fresh `git clone` (mtime resets to clone time). Mtime fallback retained for legacy projects.
+- **chore:** Removed undocumented `verifyTimestamp` field set by `verify-complete` — never read by any consumer; superseded by `verifyRanAt`.
+- **chore:** Backlog cleanup — discarded "Aitri CI", "Aitri IDE", "Aitri Report", and ecosystem-level "Aitri Audit" (decisions recorded in BACKLOG.md `Discarded` table). IDEA.md/ADOPTION_SCAN.md → `spec/` relocation kept as the only remaining v0.2.0 breaking change.
+
+---
+
 ## [0.1.78] — 2026-04-17
 
 - **fix:** Interactive prompts broken on Node 24+. Node 24 leaves TTY stdin in non-blocking mode; `fs.readSync(0, ...)` throws `EAGAIN` instead of blocking, making every interactive confirmation unreachable (approve checklist, drift re-approval, complete warnings, verify-complete known gaps, bug registration on failed tests, wizard discovery interview, run-phase re-run, `adopt apply` / `adopt --from N` confirmation).

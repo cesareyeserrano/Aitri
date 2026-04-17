@@ -5,6 +5,25 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## v0.1.79
+
+**`.aitri` schema — `verifyRanAt` and `auditLastAt` (additive)**
+- `verifyRanAt` (ISO 8601 string) — written by every `aitri verify-run` invocation, regardless of pass/fail. Closes the gap left in v0.1.77 where `status --json health.staleVerify` was reserved-but-empty.
+- `auditLastAt` (ISO 8601 string) — written by `aitri audit`. Replaces fragile `fs.statSync(AUDIT_REPORT.md).mtimeMs` for the staleness signal — file mtime resets when a project is freshly cloned, producing false "stale audit" signals. Snapshot still falls back to mtime when `auditLastAt` is absent (legacy projects).
+- `verifyTimestamp` (set on `verify-complete` only, undocumented in earlier versions) removed — it was never read by any consumer and was superseded by `verifyRanAt` which is set on every run.
+
+**`aitri status --json` — populated previously-reserved fields**
+- `health.staleVerify` now lists pipelines whose persisted `verifyRanAt` is older than 14 days: `[ { "scope": "root | feature:<name>", "days": N } ]`. Empty when no pipeline has a `verifyRanAt` yet (legacy or never-verified projects), or when all are within the threshold.
+- `tests.stalenessDays` (root pipeline) now returns an integer instead of always `null`. `null` only when the root has never run `verify-run` on v0.1.79+.
+- `audit.lastAt` prefers persisted `auditLastAt`; falls back to file mtime only for legacy projects or audits written off-CLI.
+
+**Subproduct impact:**
+- **Hub and other remote consumers:** purely additive — readers that ignore unknown `.aitri` fields need no changes. If you previously surfaced "audit stale" using mtime, switch to `auditLastAt` when present and you'll stop getting false positives after fresh clones.
+- **`status --json` consumers:** `health.staleVerify` now returns objects, not an empty array (its prior reserved shape). Treat as additive.
+- **Bump `INTEGRATION_LAST_REVIEWED`** to `0.1.79` after reviewing.
+
+---
+
 ## v0.1.77
 
 **`aitri status --json` — unified project snapshot (new surface)**

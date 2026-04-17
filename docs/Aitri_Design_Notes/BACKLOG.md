@@ -129,42 +129,7 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ---
 
-### Ecosystem — Future Subproducts
-
-> These are design seeds. Not implementation items. Expand to full entries before scheduling.
-
-- [ ] P3 — **Aitri CI** — GitHub Actions integration that reads `.aitri` and fails the CI pipeline if any approved phase has drift (artifact modified after approval). Zero-dependency script that runs in a GitHub Actions step.
-
-  Seed:
-  - Single-file Node.js script (`aitri-ci-check.js`) — reads `.aitri`, runs `hasDrift()` logic, exits 1 if drift detected
-  - GitHub Action step: `- run: node aitri-ci-check.js`
-  - Optional: post a comment on the PR listing which phases have drift
-  - No Aitri CLI required in CI — the script bundles its own `.aitri` reader
-
-- [ ] P3 — **Aitri IDE (VSCode Extension)** — Shows current pipeline phase and drift alerts in the VSCode statusbar for any open project that has `.aitri`. Read-only. No execution of Aitri commands.
-
-  Seed:
-  - Extension watches `.aitri` via `fs.watch` and updates statusbar item
-  - Shows: `Aitri: Phase 3 | Drift: 0` or `Aitri: Phase 2 ⚠ drift`
-  - Click opens `aitri status` output in a new terminal
-  - Published to VS Code Marketplace as `aitri-vscode`
-
-- [ ] P3 — **Aitri Report** — Generates a PDF or HTML compliance report from `05_PROOF_OF_COMPLIANCE.json` + `01_REQUIREMENTS.json`. Targeted at delivering audit evidence to clients or stakeholders.
-
-  Seed:
-  - CLI tool: `aitri-report generate --project <path> --output report.html`
-  - Template-based HTML (no headless browser) — printable via browser's native PDF export
-  - Sections: Executive Summary, FR Coverage Table, Test Results, Rejections Log, Approval Timeline
-  - Reads only from `spec/` and `.aitri` — no modifications to project
-
-- [ ] P3 — **Aitri Audit** — Cross-project event aggregator. Reads `events[]` from N registered projects and produces a unified timeline of approvals, rejections, and drift events. Useful for teams managing multiple product pipelines.
-
-  Seed:
-  - CLI tool: `aitri-audit timeline --projects <dir>`
-  - Scans all directories under `<dir>` for `.aitri` files
-  - Merges and sorts `events[]` arrays chronologically
-  - Output: terminal table or JSON export
-  - No state — purely reads and aggregates existing data
+### Core — Breaking changes for v0.2.0
 
 - [ ] P3 — **`IDEA.md` y `ADOPTION_SCAN.md` en raíz del proyecto del usuario** — Ambos archivos quedan en la raíz tras `adopt scan`, contaminando el directorio del usuario y exponiéndolos a borrado accidental.
 
@@ -518,3 +483,7 @@ Items analyzed and explicitly rejected.
 | Item | Decision | Reason |
 | :--- | :--- | :--- |
 | Mutation testing | Discarded indefinitely | Violates zero-dep principle. `verify-run --assertion-density` covers 60% of the same problem at zero cost. Option B (globally-installed stryker) introduces implicit env dependency — worse than explicit dep. ROI does not justify. |
+| Aitri CI (GitHub Actions step) | Discarded 2026-04-17 | No active user demand. Contract not stable enough to publish a separate Action. If needed later, lives outside Core. |
+| Aitri IDE (VSCode extension) | Discarded 2026-04-17 | Separate product with its own release cycle. Not incremental over the CLI; will be reconsidered if the CLI stabilizes across multiple external teams. |
+| Aitri Report (PDF/HTML compliance report) | Discarded 2026-04-17 | User declined the surface. Compliance evidence already lives in `05_PROOF_OF_COMPLIANCE.json` + git history; rendering is a separate concern. |
+| Aitri Audit (ecosystem-level cross-project aggregator) | Discarded 2026-04-17 | Functionally duplicates Hub's dashboard. Aitri Core does not maintain a global registry — adding one to support an aggregator violates the passive-producer model. Name also collides with the per-project `aitri audit` command (v0.1.71). |

@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v0.1.77+
+**Aitri version:** v0.1.79+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -110,7 +110,7 @@ Deploy-gate reasoning and global signals.
   "activeFeatures": N,                 // features with unfinished work
   "versionMismatch": boolean,
   "driftPresent": [ { "scope": "root | feature:<name>", "phase": "<alias-or-key>" } ],
-  "staleVerify": []                    // reserved — requires verifyRanAt (not yet persisted)
+  "staleVerify": [ { "scope": "root | feature:<name>", "days": N } ]  // verifyRanAt > 14 days
 }
 ```
 
@@ -157,7 +157,5 @@ Legacy fields are governed by [CHANGELOG.md](./CHANGELOG.md) entries, not by `sn
 
 ## Known gaps
 
-- `audit.stalenessDays` uses file `mtime`; editing `AUDIT_REPORT.md` without re-running `aitri audit` resets the clock.
-- `tests.stalenessDays` (not exposed yet) requires persisted `verifyRanAt`, which is not in `.aitri` today.
-
-Both gaps are tracked in the ADR log ([Aitri_Design_Notes/DECISIONS.md](../Aitri_Design_Notes/DECISIONS.md)).
+- `audit.lastAt` falls back to file `mtime` only when `auditLastAt` is absent in `.aitri` (legacy projects or audits written without persistence). Projects on v0.1.79+ that have re-run `aitri audit` use the persisted timestamp, which survives git clone.
+- `tests.stalenessDays` is `null` until the root pipeline has run `aitri verify-run` at least once on v0.1.79+ (no retroactive backfill).
