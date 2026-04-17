@@ -5,6 +5,33 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## v0.1.77
+
+**`aitri status --json` — unified project snapshot (new surface)**
+- New CLI surface documented in [STATUS_JSON.md](./STATUS_JSON.md): `aitri status --json` emits an aggregated projection covering root + feature sub-pipelines, health signals, and a priority-ordered next-action list.
+- Single source of truth for the CLI's `status`, `resume`, and `validate` commands — they are now thin projections over `buildProjectSnapshot()`.
+- Legacy `status --json` fields preserved (`project`, `dir`, `phases`, `driftPhases`, `nextAction`, `allComplete`, `inHub`, `rejections`, `versionMismatch`, `aitriVersion`, `cliVersion`).
+- New top-level fields: `snapshotVersion`, `features[]`, `bugs`, `backlog`, `audit`, `health`, `nextActions[]`.
+- `health.deployable` + `health.deployableReasons[]` — deploy-gate reasoning now consistent across all three commands (previously `status` suggested `aitri validate` when phase 4 was approved without checking verify, while `resume` correctly gated on `verifyPassed`).
+
+**`aitri validate --json` — additive fields**
+- Added top-level `deployable`, `deployableReasons[]`, `openBugs`, `blockingBugs`. Existing fields (`artifacts[]`, `allValid`, `deployFiles`, `setupCommands`) unchanged.
+
+**`aitri validate --explain` — new flag**
+- Expanded text output that enumerates deploy-gate reasons (passing or blocking) inline.
+
+**`aitri resume` — feature awareness**
+- New `## Features` section lists each feature sub-pipeline with its progress, verify state, drift flag, and per-feature next action.
+- New `## Health` section (shown when project has progress but is not deployable) enumerates blocking reasons.
+- Next Action section now shows a priority-ordered list (up to 5 actions), not a single command.
+
+**Subproduct impact:**
+- **Hub and other remote (GitHub-URL) consumers:** no action required — the `.aitri` + artifact file contract is unchanged. `status --json` is additive and only reachable via the local CLI.
+- **CLI-colocated consumers (IDE plugins, local dashboards):** may now consume `aitri status --json` directly instead of re-deriving aggregation logic from raw files. See [STATUS_JSON.md](./STATUS_JSON.md).
+- **Bump `INTEGRATION_LAST_REVIEWED`** to `0.1.77` after reviewing changes. No reader changes required for remote consumers.
+
+---
+
 ## v0.1.76
 
 **`04_IMPLEMENTATION_MANIFEST.json` — `files_modified` field added**

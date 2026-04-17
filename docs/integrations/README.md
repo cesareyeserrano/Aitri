@@ -1,6 +1,6 @@
 # Aitri — Integration Model
 
-**Version:** v0.1.76+
+**Version:** v0.1.77+
 **Owner:** This document is the authoritative description of how the Aitri ecosystem is structured.
 
 ---
@@ -46,6 +46,7 @@ Subproducts (Hub, Graph, CI, IDE, ...)
 | Optional: Bugs | `<project>/spec/BUGS.json` | Bug registry — open, fixed, verified, closed |
 | Optional: Audit | `<project>/spec/AUDIT_REPORT.md` | On-demand technical audit findings (bugs, backlog, observations) |
 | Feature pipelines | `<project>/features/<name>/` | Sub-pipelines with same structure |
+| Derived snapshot (CLI-only) | `aitri status --json` | Aggregated pipeline + features + health + priority-ordered next actions. See [STATUS_JSON.md](./STATUS_JSON.md). Requires the `aitri` binary on PATH — remote consumers must read `.aitri` + `spec/` directly. |
 
 ---
 
@@ -91,7 +92,7 @@ A compliant Aitri subproduct must:
 
 ```js
 // Example — Hub or any subproduct
-const INTEGRATION_LAST_REVIEWED = '0.1.76'; // bump after reviewing CHANGELOG.md
+const INTEGRATION_LAST_REVIEWED = '0.1.77'; // bump after reviewing CHANGELOG.md
 
 function checkIntegrationAlignment(installedAitriVersion) {
   if (semverGt(installedAitriVersion, INTEGRATION_LAST_REVIEWED)) {
@@ -114,6 +115,7 @@ This alert is for **subproduct developers**, not end users — it signals that H
 |---|---|
 | [SCHEMA.md](./SCHEMA.md) | Canonical schema of `.aitri` — all fields, types, defaults, semantics |
 | [ARTIFACTS.md](./ARTIFACTS.md) | Schema of each artifact file in `spec/` |
+| [STATUS_JSON.md](./STATUS_JSON.md) | Shape of `aitri status --json` (derived snapshot for CLI-colocated consumers) |
 | [CHANGELOG.md](./CHANGELOG.md) | History of breaking and non-breaking contract changes by Aitri version |
 
 ---

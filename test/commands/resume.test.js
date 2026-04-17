@@ -113,8 +113,13 @@ describe('cmdResume() — output structure', () => {
     assert.ok(output.includes('Phase 3: ⏳ Awaiting approval'), 'Phase 3 awaiting');
   });
 
-  it('marks not-started phases as not started', () => {
-    assert.ok(output.includes('Phase 4: ⬜ Not started'), 'Phase 4 not started');
+  it('marks phases with artifact present but not completed as in-progress', () => {
+    // Phase 4 artifact exists (04_IMPLEMENTATION_MANIFEST.json was written) but
+    // phase 4 is neither completed nor approved → in-progress.
+    assert.ok(output.includes('Phase 4: 🔄 In progress'), 'Phase 4 in progress');
+  });
+
+  it('marks phases with no artifact as not started', () => {
     assert.ok(output.includes('Phase 5: ⬜ Not started'), 'Phase 5 not started');
   });
 
@@ -153,8 +158,8 @@ describe('cmdResume() — output structure', () => {
 
   it('includes Next Action section', () => {
     assert.ok(output.includes('## Next Action'), 'Next Action section must appear');
-    // Phase 3 is completed but not approved — next action is approve, not run-phase
-    assert.ok(output.includes('aitri approve 3'), 'next approve command must appear for completed phase');
+    // Phase 3 is completed but not approved — next action is approve (using alias).
+    assert.ok(output.includes('aitri approve tests'), 'next approve command must appear for completed phase');
   });
 });
 
@@ -251,14 +256,14 @@ describe('cmdResume() — next action logic', () => {
     return out;
   }
 
-  it('suggests run-phase 1 when no phases approved', () => {
+  it('suggests run-phase requirements when no phases approved', () => {
     const out = resume({});
-    assert.ok(out.includes('run-phase 1'), 'must suggest phase 1 when nothing approved');
+    assert.ok(out.includes('run-phase requirements'), 'must suggest phase 1 alias when nothing approved');
   });
 
-  it('suggests run-phase 3 when phases 1-2 approved', () => {
+  it('suggests run-phase tests when phases 1-2 approved', () => {
     const out = resume({ approvedPhases: [1, 2] });
-    assert.ok(out.includes('run-phase 3'), 'must suggest phase 3 when 1-2 approved');
+    assert.ok(out.includes('run-phase tests'), 'must suggest phase 3 alias when 1-2 approved');
   });
 
   it('suggests verify-run when all 4 core phases approved but verify not passed', () => {

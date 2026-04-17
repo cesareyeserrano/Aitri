@@ -191,12 +191,14 @@ describe('cmdStatus --json', () => {
     assert.equal(result.nextAction, 'aitri verify-run');
   });
 
-  it('allComplete is true and nextAction is aitri validate when all 5 phases approved', () => {
+  it('allComplete is true and nextAction is aitri validate when all 5 phases approved and verify passed', () => {
     const dir = tmpDir();
     cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const config = loadConfig(dir);
     config.approvedPhases = [1, 2, 3, 4, 5];
     config.completedPhases = [1, 2, 3, 4, 5];
+    config.verifyPassed = true;
+    config.verifySummary = { passed: 1, total: 1 };
     saveConfig(dir, config);
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
     assert.equal(result.allComplete, true);

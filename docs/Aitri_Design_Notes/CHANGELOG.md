@@ -5,6 +5,19 @@
 
 ---
 
+## [0.1.77] — 2026-04-17
+
+- **refactor:** Introduced `lib/snapshot.js` — `buildProjectSnapshot()` is now the single source of truth for `status`, `resume`, and `validate`. Aggregates root pipeline + `features/<name>/.aitri` sub-pipelines, derives health signals, produces priority-ordered next actions. Pure function with injectable `now`. See ADR-022 in DECISIONS.md.
+- **fix:** `status`/`resume`/`validate` no longer diverge on their "next action" recommendation. Previously `status` suggested `aitri validate` when phase 4 was approved without checking `verifyPassed`, while `resume` correctly gated on it. All three commands now project from `snapshot.nextActions[]` (priority ladder documented in `docs/integrations/STATUS_JSON.md`).
+- **feat:** `aitri resume` — new `## Features` section per feature sub-pipeline (progress, verify, drift, per-feature next action), new `## Health` section when project is not deployable, Next Action now shows up to 5 priority-ordered commands.
+- **feat:** `aitri validate --explain` — enumerates deploy-gate reasons inline (passing or blocking).
+- **feat:** `aitri validate --json` — additive `deployable`, `deployableReasons[]`, `openBugs`, `blockingBugs` fields. Legacy shape unchanged.
+- **feat:** `aitri status --json` — additive `snapshotVersion`, `features[]`, `bugs`, `backlog`, `audit`, `health`, `nextActions[]`. Legacy fields preserved for Hub compatibility.
+- **feat:** Bare `aitri` (no subcommand) now runs `aitri status` when invoked inside an Aitri project; otherwise falls back to help.
+- **docs:** New integration surface documented at `docs/integrations/STATUS_JSON.md`. Changelog entry + README row added to `docs/integrations/`.
+
+---
+
 ## [0.1.69] — 2026-03-26
 
 - **feat:** Named phase aliases — `1→requirements`, `2→architecture`, `3→tests`, `4→build`, `5→deploy`. Numbers still accepted (backward compatible). `PHASE_ALIASES` exported from `lib/phases/index.js`.

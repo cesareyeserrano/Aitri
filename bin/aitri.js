@@ -37,7 +37,7 @@ import { cmdNormalize }     from '../lib/commands/normalize.js';
 import { cmdAudit }        from '../lib/commands/audit.js';
 import { cmdTC }           from '../lib/commands/tc.js';
 
-const VERSION   = '0.1.76';
+const VERSION   = '0.1.77';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -114,5 +114,11 @@ switch (cmd) {
   case 'audit':            cmdAudit(ctx);           break;
   case 'tc':               cmdTC(ctx);              break;
   case '--version':        console.log(`Aitri v${VERSION}`); break;
+  // No command given: if we're inside an Aitri project, run status;
+  // otherwise fall through to help. An unknown command always shows help.
+  case undefined:
+    if (fs.existsSync(path.join(dir, '.aitri'))) cmdStatus(ctx);
+    else                                          cmdHelp(ctx);
+    break;
   default:                 cmdHelp(ctx);            break;
 }
