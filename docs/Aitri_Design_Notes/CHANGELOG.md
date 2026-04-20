@@ -5,6 +5,35 @@
 
 ---
 
+## [0.1.82] — 2026-04-20
+
+- **feat(phase1):** Reject MUST FRs with fully-vague titles (e.g. `"La app debe funcionar correctamente"`, `"System must work properly"`). Rule: title matches `BROAD_VAGUE` regex AND fewer than 2 substantive tokens remain after stopword/vague-word removal. Closes a gap where vague ACs were caught but vague titles passed.
+- **feat(phase1):** Reject FR pairs (any priority) with ≥3 acceptance_criteria each and ≥90% Jaccard similarity on normalized AC sets. Detects copy-paste of ACs across FRs — anti-pattern indicating FRs are not semantically differentiated.
+- **feat(phase1):** `BROAD_VAGUE` regex extended with Spanish qualifiers (`correctamente`, `adecuadamente`, `apropiadamente`, `eficientemente`, `confiablemente`, `seguramente`, `efectivamente`, `debidamente`, `bonito`, `suave`, `limpio`). Aitri now catches vagueness in bilingual projects.
+- **docs:** Integration contract — `docs/integrations/ARTIFACTS.md` documents both new validation rules under 01_REQUIREMENTS.json. `docs/integrations/CHANGELOG.md` gains v0.1.82 entry with subproduct impact (schema unchanged; readers need no updates).
+- **docs:** Backlog — retired "Calidad semántica de artifacts" Design Study; extracted two concrete P3 tickets (closed in this release) and reduced remaining study to NFR traceability in Phase 2 (pending real case).
+
+---
+
+## [0.1.81] — 2026-04-20
+
+- **feat(status/resume):** Aggregate test counts across root + feature sub-pipelines. `aitri status` and `aitri resume` show a `Σ all pipelines: Passed (N/M)` line when ≥1 feature has a verify summary. Per-feature verify indicator now includes counts (e.g. `verify ✅ (53/61)`).
+- **feat(status --json):** New top-level `tests` block: `{ totals: { passed, failed, skipped, manual, total }, perPipeline: [{ scope, passed, failed, total, ran }], stalenessDays }`. Additive; each pipeline's own `verify.summary` preserved unchanged for legacy readers.
+- **fix(UX):** Closes real-world gap where a project with 8 feature sub-pipelines (~256 tests combined) showed only `30/30` on `aitri status` — the root pipeline scope. Users and agents now see the real project-wide test count at a glance.
+- **docs:** `docs/integrations/STATUS_JSON.md` documents the new `tests` block. `docs/integrations/CHANGELOG.md` notes Hub can surface global test counts without walking `features[]`.
+
+---
+
+## [0.1.80] — 2026-04-19
+
+- **feat:** New command `aitri normalize` — baselines off-pipeline code changes after Phase 4 approval. Detects source files that changed outside the briefing → complete → approve loop since the last build approval. Supports git (preferred) and mtime (fallback) methods.
+- **feat:** New `.aitri` field `normalizeState: { status, baseRef, method, lastRun }`. Written on `approve 4` (records baseline) and on `aitri normalize` run (records resolution). Surfaces as priority-4 next-action when `uncountedFiles > 0`.
+- **feat(approve):** Informed human review — `aitri approve N` now prints a structured per-phase artifact summary before the y/N gate (FR/AC counts, TC breakdown, manifest stats, compliance levels, design sections). Non-TTY path (CI/agents) unchanged.
+- **feat(status --json):** New top-level `normalize` block exposes baseline + snapshot-time detection. `nextActions[]` priority 4 triggers on either `normalizeState.status === 'pending'` OR `normalize.uncountedFiles > 0` (distinct reason texts).
+- **docs:** `docs/integrations/SCHEMA.md` documents `normalizeState`. `docs/integrations/STATUS_JSON.md` documents the `normalize` block. `docs/integrations/CHANGELOG.md` Hub impact note: surface `uncountedFiles > 0` as off-pipeline drift signal (complement to approved-artifact drift already exposed via `health.driftPresent`).
+
+---
+
 ## [0.1.79] — 2026-04-17
 
 - **feat:** `.aitri` now persists `verifyRanAt` (set by every `aitri verify-run`) and `auditLastAt` (set by `aitri audit`). Both ISO 8601 strings. Additive — old projects without these fields keep working.

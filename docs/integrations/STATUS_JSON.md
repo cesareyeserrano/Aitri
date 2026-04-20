@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v0.1.81+
+**Aitri version:** v0.1.82+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 

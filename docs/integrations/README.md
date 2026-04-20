@@ -1,6 +1,6 @@
 # Aitri — Integration Model
 
-**Version:** v0.1.80+
+**Version:** v0.1.82+
 **Owner:** This document is the authoritative description of how the Aitri ecosystem is structured.
 
 ---
@@ -93,7 +93,7 @@ A compliant Aitri subproduct must:
 
 ```js
 // Example — Hub or any subproduct
-const INTEGRATION_LAST_REVIEWED = '0.1.79'; // bump after reviewing CHANGELOG.md
+const INTEGRATION_LAST_REVIEWED = '0.1.82'; // bump after reviewing CHANGELOG.md
 
 function checkIntegrationAlignment(installedAitriVersion) {
   if (semverGt(installedAitriVersion, INTEGRATION_LAST_REVIEWED)) {

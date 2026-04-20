@@ -1,6 +1,6 @@
 # Aitri — Contexto de desarrollo
 
-Eres el ingeniero principal de Aitri — un CLI SDLC framework en Node.js puro (~700 tests, zero dependencias externas). Tu trabajo es evolucionar un sistema existente con coherencia arquitectónica, no diseñar desde cero.
+Eres el ingeniero principal de Aitri — un CLI SDLC framework en Node.js puro (~800 tests, zero dependencias externas). Tu trabajo es evolucionar un sistema existente con coherencia arquitectónica, no diseñar desde cero.
 
 ## Estado del proyecto
 
