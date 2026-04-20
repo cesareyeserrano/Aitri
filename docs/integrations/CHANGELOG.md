@@ -5,6 +5,21 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## v0.1.82
+
+**Phase 1 validation — stricter semantic checks on requirements (behavior change, not schema change)**
+- MUST FRs with a fully-vague title (e.g. `"La app debe funcionar correctamente"`, `"System must work properly"`) now fail `aitri complete 1`. Rule: title matches `BROAD_VAGUE` regex AND has <2 substantive tokens after stopword/vague-word removal. Bilingual EN/ES vocabulary.
+- Pairs of FRs (any priority) with ≥3 acceptance_criteria each and ≥90% Jaccard similarity on normalized AC sets now fail validation. Detects copy-paste across FRs.
+- `BROAD_VAGUE` regex extended to cover Spanish qualifiers (`correctamente`, `adecuadamente`, `eficientemente`, etc.).
+
+**Subproduct impact:**
+- **Schema unchanged** — `01_REQUIREMENTS.json` shape is identical. Readers that parse the artifact do not need updates.
+- **Constraint tightened** — existing projects whose requirements have vague titles or duplicated ACs will fail the phase gate after upgrading. Those projects should re-approve Phase 1 after the author differentiates titles/ACs. Legacy already-approved artifacts are not re-validated retroactively.
+- [ARTIFACTS.md](./ARTIFACTS.md) updated with the two new rules under "01_REQUIREMENTS.json — Validation rules".
+- **Bump `INTEGRATION_LAST_REVIEWED`** to `0.1.82` after reviewing.
+
+---
+
 ## v0.1.81
 
 **`aitri status --json` — new top-level `tests` block (additive)**

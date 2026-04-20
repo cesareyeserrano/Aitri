@@ -453,7 +453,62 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ### Core — Status aggregation across features
 
-- [ ] P2 — **`aitri status` y `status --json`: agregar total global + breakdown por feature** — Hoy `aitri status` muestra `Passed (N/M)` del root pipeline solamente. En un proyecto con features sub-pipelines (p.ej. 8 features con ~256 TCs entre todas + 30 del root), el usuario ve `30/30` y asume que ese es el total del proyecto. El agente repite ese número al usuario, y el usuario debe manualmente reconstruir la tabla por feature para saber cuántos tests hay en total.
+- [x] P2 — **`aitri status` y `status --json`: agregar total global + breakdown por feature** *(implemented v0.1.81)*
+
+---
+
+### Core — Semantic validation hardening
+
+Extracted from the retired "Calidad semántica de artifacts" Design Study (2026-04-20). Two concrete gaps identified when auditing what Phase 1's validate() actually catches vs. what the Design Study listed as missing.
+
+- [x] P3 — **Phase 1: vagueness check on FR.title (not just acceptance_criteria)** *(implemented v0.1.82)* — El regex `BROAD_VAGUE` en [phase1.js:79](../../lib/phases/phase1.js#L79) se aplica solo a `acceptance_criteria`. Un FR con `title: "La app debe funcionar correctamente"` pasa validación aunque sus ACs estén bien, y el título queda como documentación pobre del requirement.
+
+  Problem: El título de un FR es el identificador semántico principal que lee todo lector humano del artifact. Un título vago contamina Phase 2 (architect lo interpreta), Phase 3 (QA lo referencia al nombrar TCs), y Phase 5 (aparece en `requirement_compliance`). Los ACs pueden ser buenos y el título aún así ser inútil.
+
+  Files:
+  - `lib/phases/phase1.js` — extender el loop de `BROAD_VAGUE` (línea 80) para aplicar también a `fr.title` cuando el título completo matchea el regex y no contiene métrica/sustantivo técnico específico.
+  - `test/phases/phase1.test.js` — test case: FR con título "La app debe funcionar correctamente" y ACs válidos → throw.
+  - `test/phases/phase1.test.js` — test case: FR con título normal ("User can export report to PDF") → pass.
+
+  Behavior:
+  - Si `fr.title` matchea `BROAD_VAGUE` y no contiene ningún sustantivo concreto (≥3 palabras alfanuméricas fuera del stopword list), throw.
+  - Mensaje: `${fr.id} — title is too vague ("${title}"). A title must name the specific behavior, not describe quality abstractly.`
+  - Aplica solo a MUST FRs (mismo scope que el check actual de ACs).
+
+  Decisions:
+  - No agregar nuevo regex — reusar `BROAD_VAGUE` para consistencia.
+  - No aplicar al `description` field si existe — ese puede tener prosa narrativa legítima.
+  - Mantener bajo threshold de falsos positivos: el check requiere que el título completo sea vago, no que contenga una palabra vaga entre otras.
+
+  Acceptance:
+  - `aitri complete 1` en proyecto con FR título "La app funciona bien" → bloquea con mensaje claro.
+  - `aitri complete 1` en proyecto con FR título "User exports dashboard to PDF" → pasa.
+  - `npm run test:all` pasa.
+
+- [x] P3 — **Phase 1: detect duplicate/near-duplicate acceptance_criteria across FRs** *(implemented v0.1.82)* — Hoy Phase 1 no detecta cuando un PM copy-pastea los mismos ACs entre FRs distintos. Cada FR puede validar individualmente (tiene ACs, tiene métrica) pero el conjunto es inútil porque N FRs comparten los mismos criterios.
+
+  Problem: ACs duplicados entre FRs son el anti-patrón canónico de requirements mal escritos — indican que el PM no entendió la diferencia semántica entre los FRs o copió mecánicamente. Contamina Phase 3 (TCs cross-referencian el mismo AC desde múltiples FRs) y Phase 5 (compliance entries repiten la misma evidencia).
+
+  Files:
+  - `lib/phases/phase1.js` — después del loop de vagueness, agregar check: para cada par de FRs, computar Jaccard similarity entre sus sets de ACs normalizados (lowercase, trimmed, stripped punctuation). Si ≥0.9 → throw.
+  - `test/phases/phase1.test.js` — tests: duplicados exactos, near-duplicates (1 AC distinto de 5), casos legítimos de overlap parcial.
+
+  Behavior:
+  - Normalización: `ac.toLowerCase().replace(/[^\w\s]/g, '').trim()`.
+  - Similarity: `|A ∩ B| / |A ∪ B|` sobre los sets normalizados.
+  - Threshold: 0.9 (permite leves variaciones de wording, bloquea copy-paste).
+  - Mínimo 3 ACs por FR para aplicar check (evita falsos positivos en FRs muy simples).
+  - Mensaje: `${fr1.id} and ${fr2.id} have ${pctSimilar}% identical acceptance_criteria — differentiate the FRs or merge them.`
+
+  Decisions:
+  - No usar fuzzy matching word-by-word — Jaccard sobre ACs completos es más interpretable.
+  - Threshold 0.9 (no 0.8) — demasiado bajo genera FPs en FRs legítimamente similares (e.g. CRUD sobre distintas entidades con ACs paralelos).
+  - Aplicar a todos los FRs (no solo MUST) — el patrón es anti-pattern en cualquier prioridad.
+
+  Acceptance:
+  - `aitri complete 1` en proyecto con 2 FRs que comparten 4/5 ACs literalmente → bloquea.
+  - `aitri complete 1` en proyecto con 2 FRs similares pero ACs distintos → pasa.
+  - `npm run test:all` pasa. — Hoy `aitri status` muestra `Passed (N/M)` del root pipeline solamente. En un proyecto con features sub-pipelines (p.ej. 8 features con ~256 TCs entre todas + 30 del root), el usuario ve `30/30` y asume que ese es el total del proyecto. El agente repite ese número al usuario, y el usuario debe manualmente reconstruir la tabla por feature para saber cuántos tests hay en total.
 
   Problem: La información existe (`snapshot.js` líneas 283-288 ya computa `totalPassing` / `totalFailing` across pipelines internamente) pero no se surfacea. `status` muestra features con `verify ✅/⬜` sin conteos. El resultado es un display técnicamente correcto pero engañoso — el número grande que el usuario ve es solo el scope del root, no la verdad del proyecto. Para proyectos con muchas features esto confunde al usuario y al agente que intermedia. Feedback real del usuario: *"los casos siempre deberían ser el total, no solo el pipeline principal. y sí debería mostrar ese detalle"*.
 
@@ -512,24 +567,25 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 > Not implementation items. Open questions that inform future architectural decisions.
 
-### Calidad semántica de artifacts
+### NFR traceability in system design (Phase 2)
 
-Aitri valida la *estructura* de los artifacts (schema, campos requeridos, conteos mínimos) pero no su *calidad semántica*. Un agente puede producir `01_REQUIREMENTS.json` con 5 FRs técnicamente válidos pero conceptualmente triviales, genéricos, o desconectados del problema real descrito en IDEA.md.
+Phase 2 (`02_SYSTEM_DESIGN.md`) hoy valida presencia de secciones y longitud mínima, pero no verifica que los NFRs declarados en Phase 1 sean *direccionados* por el diseño. Un design puede tener todas las secciones requeridas y aún ignorar por completo los NFRs de performance/security/availability.
 
-**Pregunta abierta:** ¿Hasta dónde debe llegar Aitri en validar calidad semántica?
+**Pregunta abierta:** ¿Vale la pena intentar matching prosa↔NFR en Phase 2?
 
-Ejemplos de lo que no se valida hoy:
-- FR.title de "La app debe funcionar correctamente" pasa validación
-- Acceptance criteria copiados entre FRs sin diferenciación
-- System design que ignora los NFRs de Phase 1
-- Test cases que no ejercen los acceptance criteria (Three Amigos gate cubre ac_id cross-reference, pero no la relevancia del test)
+**Por qué es Design Study y no ticket:**
+- Matching NFR→design requiere NLP ligero sobre Markdown — alto riesgo de falsos positivos.
+- Un NFR como "p95 latency <200ms" podría estar direccionado en la sección "Performance & Scalability" sin mencionar el número exacto, pero con una decisión arquitectónica válida (cache layer, CDN).
+- Un validator demasiado estricto rechazaría diseños buenos.
 
-Opciones:
-1. Heurísticas de calidad en `validate()` (longitud mínima de títulos, diversidad de ACs, detección de duplicados)
-2. Phase de revisión cruzada entre artifacts
-3. Dejar la calidad 100% al humano — gates solo verifican estructura
+**Criterio para madurar a ticket:**
+- Un caso real donde un design aprobado ignoró un NFR crítico y rompió producción.
+- Sin ese caso, la hipótesis (los agentes ignoran NFRs) no está verificada.
 
-**Criterio de decisión:** No introducir complejidad que genere falsos positivos. Un validator que rechaza artifacts buenos es peor que uno que acepta artifacts mediocres.
+**Alternativa más barata si surge el caso:**
+- No validator automático. Extender `aitri review` con un check que liste NFRs de Phase 1 y pregunte al agente/humano "¿cada uno de estos está direccionado en el design? Responde sí/no por cada uno." Honor-system, pero visible.
+
+**Resolved partially (2026-04-20):** La pregunta original de la Design Study ("¿hasta dónde debe llegar Aitri en validar semántica?") quedó respondida de facto por el validation model (2026-03-14) + gates semánticos existentes (BROAD_VAGUE en Phase 1, placeholder detection en Phase 3, FR-MUST coverage en Phase 3/5). Los casos concretos de vagueness en títulos y ACs duplicados se extrajeron como tickets P3 en `Open` (ver arriba). Queda abierta solo la pregunta de NFR traceability.
 
 ---
 

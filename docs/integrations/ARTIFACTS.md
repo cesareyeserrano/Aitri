@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v0.1.80+
+**Aitri version:** v0.1.82+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -70,6 +70,8 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
 - All MUST FRs must have a `type` field and at least one `acceptance_criteria` entry
 - MUST FRs of type `ux`, `visual`, or `audio` must include at least one criterion with a measurable metric (e.g. pixels, ms, %, contrast ratio)
 - All MUST FRs where every AC is purely vague (e.g. "works properly", "runs smoothly") will fail validation
+- MUST FRs whose `title` is fully vague (matches qualifier like "properly"/"correctly"/"correctamente" with <2 substantive tokens remaining after stopword/vague-word removal) will fail validation (v0.1.82+)
+- Any pair of FRs (regardless of priority) with ≥3 acceptance_criteria each and ≥90% Jaccard similarity on their AC sets will fail validation — copy-paste of ACs is an anti-pattern (v0.1.82+)
 - `user_personas` missing → non-fatal warning (not blocked)
 
 **Phase gate:** Approved when `"1"` is in `approvedPhases[]`.

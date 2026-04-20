@@ -124,6 +124,69 @@ describe('Phase 1 — validate()', () => {
     assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
   });
 
+  it('[title vague] throws when MUST FR title is fully vague (Spanish)', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[0].title = 'La app debe funcionar correctamente';
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /FR-001.*title is too vague/);
+  });
+
+  it('[title vague] throws when MUST FR title is fully vague (English)', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[0].title = 'System must work properly';
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /FR-001.*title is too vague/);
+  });
+
+  it('[title vague] passes when title has specific content alongside vague word', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[0].title = 'Generate reports efficiently';
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
+  it('[title vague] passes when title has no vague words', () => {
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(validP1()));
+  });
+
+  it('[title vague] does not fire on SHOULD FRs (MUST-scope only)', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[3].title = 'Everything works fine';
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
+  it('[dup-acs] throws when two FRs share ≥90% of acceptance_criteria', () => {
+    const d = JSON.parse(validP1());
+    const shared = [
+      'returns 200 on valid input with ≤200ms latency',
+      'logs request id to audit trail',
+      'validates token TTL under 60 seconds',
+      'persists response to Postgres within same transaction',
+    ];
+    d.functional_requirements[0].acceptance_criteria = shared;
+    d.functional_requirements[1].acceptance_criteria = shared;
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /FR-001 and FR-002.*identical acceptance_criteria/);
+  });
+
+  it('[dup-acs] passes when FRs share some but not most acceptance_criteria', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[0].acceptance_criteria = [
+      'returns 200 on valid input',
+      'logs request to audit table',
+      'validates token TTL ≤60s',
+    ];
+    d.functional_requirements[1].acceptance_criteria = [
+      'returns 200 on valid input',
+      'exports CSV with UTF-8 BOM marker',
+      'throttles to 10 req per second',
+    ];
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
+  it('[dup-acs] skips check when FRs have fewer than 3 acceptance_criteria', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[0].acceptance_criteria = ['returns 200 on success with p99 ≤200ms'];
+    d.functional_requirements[1].acceptance_criteria = ['returns 200 on success with p99 ≤200ms'];
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
   it('[ASSUMPTION] does not throw when FRs contain [ASSUMPTION] marker', () => {
     const d = JSON.parse(validP1());
     d.functional_requirements[0].title = 'Login [ASSUMPTION: needs user confirmation]';
