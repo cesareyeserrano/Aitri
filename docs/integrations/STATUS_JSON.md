@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v0.1.80+
+**Aitri version:** v0.1.81+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -49,6 +49,7 @@ Exit code: `0` on success (even when the project has drift or blocking bugs — 
   "bugs":    { "total": N, "open": N, "blocking": N },
   "backlog": { "open": N },
   "audit":   { "exists": bool, "stalenessDays": N | null },
+  "tests":   { /* see "tests" below — v0.1.81+ */ },
   "normalize": { /* see "normalize" below */ },
   "health":  { /* see "health" below */ },
   "nextActions": [ /* ordered actions — see "nextActions" below */ ]
@@ -119,6 +120,39 @@ Deploy-gate reason types: `no_root`, `phases_pending`, `verify_not_passed`, `dri
 
 ---
 
+## `tests` (v0.1.81+)
+
+Aggregated test counts across root + all feature sub-pipelines. Each pipeline's own `verify.summary` is preserved unchanged for legacy readers; `tests` adds a cross-pipeline projection so Hub-style consumers don't need to re-implement the aggregation.
+
+```jsonc
+{
+  "totals": {                            // sum across pipelines that have a verify.summary
+    "passed":  N,
+    "failed":  N,
+    "skipped": N,
+    "manual":  N,
+    "total":   N
+  },
+  "perPipeline": [                       // one entry per pipeline (root + features)
+    {
+      "scope":  "root | feature:<name>",
+      "passed": N | null,                // null when verify has not run on this pipeline
+      "failed": N | null,
+      "total":  N | null,
+      "ran":    boolean                  // true when this pipeline has a verify.summary
+    }
+  ],
+  "stalenessDays": N | null              // days since root pipeline's verifyRanAt (null until v0.1.79+ has run verify-run)
+}
+```
+
+Semantics:
+- `totals.total === 0` when no pipeline has run verify yet. Consumers should treat `totals` as a floor, not a truth — pipelines without verify contribute zero.
+- `perPipeline[].ran === false` identifies pipelines whose tests have not been executed at all.
+- The CLI's text `status` and `resume` views surface `totals` as a `Σ all pipelines` line when at least one feature has a verify summary — Hub-style consumers can mirror that.
+
+---
+
 ## `normalize`
 
 Reflects the off-pipeline code-change baseline recorded when build (phase 4) is approved, plus a snapshot-time detection of changes since that baseline.
@@ -180,3 +214,4 @@ Legacy fields are governed by [CHANGELOG.md](./CHANGELOG.md) entries, not by `sn
 
 - `audit.lastAt` falls back to file `mtime` only when `auditLastAt` is absent in `.aitri` (legacy projects or audits written without persistence). Projects on v0.1.79+ that have re-run `aitri audit` use the persisted timestamp, which survives git clone.
 - `tests.stalenessDays` is `null` until the root pipeline has run `aitri verify-run` at least once on v0.1.79+ (no retroactive backfill).
+- `tests.totals` only counts pipelines that have a `verify.summary` persisted. A feature whose tests have never run contributes zero — it does not show as missing.

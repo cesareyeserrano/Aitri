@@ -213,6 +213,32 @@ describe('cmdStatus --json', () => {
     assert.equal(optional.length, 0);
   });
 
+  it('tests block emitted with totals + perPipeline aggregation (v0.1.81+)', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.81' });
+    const config = loadConfig(dir);
+    config.verifyPassed  = true;
+    config.verifySummary = { passed: 30, failed: 0, skipped: 0, total: 30 };
+    saveConfig(dir, config);
+
+    const featDir = path.join(dir, 'features', 'alpha');
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    saveConfig(featDir, {
+      projectName:   'alpha',
+      artifactsDir:  'spec',
+      verifySummary: { passed: 53, failed: 8, total: 61 },
+    });
+
+    const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.81', args: ['--json'] }));
+    assert.ok(result.tests, 'tests block present');
+    assert.equal(result.tests.totals.passed, 83);
+    assert.equal(result.tests.totals.total,  91);
+    assert.ok(Array.isArray(result.tests.perPipeline));
+    const scopes = result.tests.perPipeline.map(e => e.scope);
+    assert.ok(scopes.includes('root'));
+    assert.ok(scopes.includes('feature:alpha'));
+  });
+
   it('text output unaffected when --json flag absent', () => {
     const dir = tmpDir();
     cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });

@@ -437,6 +437,87 @@ describe('verify freshness (verifyRanAt)', () => {
   });
 });
 
+// ── tests.totals / tests.perPipeline aggregation ─────────────────────────────
+
+describe('tests aggregation across pipelines', () => {
+  it('tests.totals sums verifySummary across root + features', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, {
+        projectName:   'root',
+        artifactsDir:  'spec',
+        verifySummary: { passed: 30, failed: 0, skipped: 0, manual: 0, total: 30 },
+        verifyPassed:  true,
+      });
+      const featA = path.join(dir, 'features', 'a');
+      fs.mkdirSync(path.join(featA, 'spec'), { recursive: true });
+      saveConfig(featA, {
+        projectName:   'a',
+        artifactsDir:  'spec',
+        verifySummary: { passed: 53, failed: 8, skipped: 0, manual: 0, total: 61 },
+      });
+      const featB = path.join(dir, 'features', 'b');
+      fs.mkdirSync(path.join(featB, 'spec'), { recursive: true });
+      saveConfig(featB, {
+        projectName:   'b',
+        artifactsDir:  'spec',
+        verifySummary: { passed: 20, failed: 0, skipped: 5, manual: 2, total: 27 },
+      });
+
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.tests.totals.passed,  103);
+      assert.equal(snap.tests.totals.failed,  8);
+      assert.equal(snap.tests.totals.skipped, 5);
+      assert.equal(snap.tests.totals.manual,  2);
+      assert.equal(snap.tests.totals.total,   118);
+    } finally { cleanup(dir); }
+  });
+
+  it('tests.perPipeline lists root + each feature with counts', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, {
+        projectName:   'root',
+        artifactsDir:  'spec',
+        verifySummary: { passed: 10, failed: 0, skipped: 0, total: 10 },
+        verifyPassed:  true,
+      });
+      const featA = path.join(dir, 'features', 'a');
+      fs.mkdirSync(path.join(featA, 'spec'), { recursive: true });
+      saveConfig(featA, {
+        projectName:   'a',
+        artifactsDir:  'spec',
+        verifySummary: { passed: 4, failed: 1, total: 5 },
+      });
+
+      const snap = buildProjectSnapshot(dir);
+      const scopes = snap.tests.perPipeline.map(e => e.scope);
+      assert.ok(scopes.includes('root'));
+      assert.ok(scopes.includes('feature:a'));
+      const rootEntry = snap.tests.perPipeline.find(e => e.scope === 'root');
+      assert.equal(rootEntry.passed, 10);
+      assert.equal(rootEntry.total,  10);
+      const featEntry = snap.tests.perPipeline.find(e => e.scope === 'feature:a');
+      assert.equal(featEntry.passed, 4);
+      assert.equal(featEntry.total,  5);
+    } finally { cleanup(dir); }
+  });
+
+  it('tests.totals zero across the board when no pipeline has run verify', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'x', artifactsDir: 'spec' });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.tests.totals.passed, 0);
+      assert.equal(snap.tests.totals.total,  0);
+      const entry = snap.tests.perPipeline.find(e => e.scope === 'root');
+      assert.equal(entry.ran,    false);
+      assert.equal(entry.passed, null);
+      assert.equal(entry.total,  null);
+    } finally { cleanup(dir); }
+  });
+});
+
 // ── Resilience to malformed input ────────────────────────────────────────────
 
 describe('resilience', () => {

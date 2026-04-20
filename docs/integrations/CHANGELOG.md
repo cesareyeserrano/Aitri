@@ -5,6 +5,23 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## v0.1.81
+
+**`aitri status --json` — new top-level `tests` block (additive)**
+- New `tests` object aggregates test counts across root + all feature sub-pipelines. Shape: `{ totals: { passed, failed, skipped, manual, total }, perPipeline: [{ scope, passed, failed, total, ran }], stalenessDays }`. See [STATUS_JSON.md](./STATUS_JSON.md#tests-v0181) for semantics.
+- Each pipeline's own `verify.summary` is preserved unchanged — `tests` is an additive projection so consumers don't re-implement cross-pipeline aggregation.
+
+**CLI text output — `Σ all pipelines` aggregate**
+- `aitri status` and `aitri resume` now show a `Σ all pipelines` line with combined `passed/total` when at least one feature has a verify summary. Per-feature verify indicator now includes test counts: `verify ✅ (42/42)`.
+- Closes the real-world gap where `aitri status` showed `30/30` for the root pipeline while features had ~256 additional tests invisible to the top-line view.
+
+**Subproduct impact:**
+- Purely additive — readers that ignore unknown JSON fields need no changes.
+- Hub-style dashboards can now surface a global test-count without walking `features[]` and summing `verifyPassed` entries.
+- **Bump `INTEGRATION_LAST_REVIEWED`** to `0.1.81` after reviewing.
+
+---
+
 ## v0.1.80
 
 **`aitri status --json` — new top-level `normalize` block (additive)**
