@@ -339,10 +339,6 @@ When a project-level file exists, it replaces the global default for that phase.
 - Node.js 18 or later
 - No external npm dependencies
 
-## Building on Aitri
-
-Aitri writes structured artifacts (`.aitri` state + `spec/` files) that any external tool can read without coupling to the CLI. The public contract — schemas, change detection, versioning — is documented in [`docs/integrations/README.md`](./docs/integrations/README.md).
-
 ## License
 
 Apache 2.0 — © César Augusto Reyes Serrano
