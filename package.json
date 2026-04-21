@@ -1,6 +1,6 @@
 {
   "name": "aitri",
-  "version": "0.1.83",
+  "version": "0.1.84",
   "description": "Aitri — Agent-agnostic SDLC CLI. Works with Claude Code, Codex, Gemini Code, Opencode.",
   "bin": {
     "aitri": "bin/aitri.js"

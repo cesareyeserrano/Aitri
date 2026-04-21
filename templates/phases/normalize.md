@@ -81,3 +81,19 @@ List commands in dependency order (bug fixes first, then fr-changes, then new fe
 If any file cannot be classified, explain why and what the user must clarify before you can proceed.
 
 Do not make assumptions about intent — ask.
+
+### Step 5 — Close the cycle
+
+After executing the proposed commands in Step 3, the warning in `aitri status` clears automatically in two cases:
+
+- **Pipeline re-run path:** for any `fr-change` or `new-feature`, re-approving Phase 4 at the end of the re-run advances the baseline. No extra action needed — this happens automatically as part of `aitri approve build`.
+- **Maintenance path:** if every entry is `refactor` or `bug-fix` that has been registered *and* verified in `BUGS.json`, the pipeline did not need spec changes. Run:
+
+  ```
+  aitri verify-run && aitri verify-complete
+  aitri normalize --resolve
+  ```
+
+  `normalize --resolve` performs mechanical gates (tests passing, no open critical/high bugs) plus a human TTY confirmation, then advances the baseline to current HEAD without cascading Phase 5.
+
+Do NOT use `--resolve` if any entry is `fr-change`, `new-feature`, or `undetermined`. Route those through the pipeline first.

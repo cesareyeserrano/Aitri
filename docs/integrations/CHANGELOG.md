@@ -5,6 +5,22 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## v0.1.84
+
+**`aitri normalize --resolve` — maintenance-path closure for normalize cycle (behavior change, not schema change)**
+- New flag on existing `aitri normalize` command. Closes the pending state without re-approving Phase 4 (which would cascade-invalidate Phase 5). Intended for maintenance changes classified as `refactor` or already-registered+verified `bug-fix` — i.e. code changes that did not require spec updates.
+- Mechanical gates before closure: `verifyPassed === true`, no open critical/high bugs in `BUGS.json`. A non-TTY invocation is rejected when files are detected; with zero detected files the baseline auto-advances.
+- Human TTY gate: prints the detected file list and requires explicit `y/N` confirmation that every file is `refactor` or registered `bug-fix`. `fr-change` / `new-feature` / `undetermined` entries must still route through the pipeline.
+- Writes `normalize-resolved` event into `.aitri.events[]` with `{ files, method, baseRefFrom, baseRefTo }`.
+
+**Subproduct impact:**
+- **Schema unchanged** — `.aitri.normalizeState` shape is identical (`{ status, baseRef, method, lastRun }`). Readers do not need updates.
+- **New event type** — `events[]` may now contain entries with `event: 'normalize-resolved'`. Readers that enumerate events should add this to any allow-list.
+- **Observable change** — `normalizeState.status` can transition from `pending` → `resolved` without a `approved` phase-4 event preceding it. Consumers that inferred "normalize resolved ⇒ phase 4 re-approved" must drop that assumption.
+- **Bump `INTEGRATION_LAST_REVIEWED`** to `0.1.84` after reviewing.
+
+---
+
 ## v0.1.82
 
 **Phase 1 validation — stricter semantic checks on requirements (behavior change, not schema change)**

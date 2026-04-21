@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v0.1.83+
+**Aitri version:** v0.1.84+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -55,7 +55,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `auditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit` invocation. Persisted because `AUDIT_REPORT.md` mtime resets on git clone (v0.1.79+) |
 | `rejections` | `object<string, Rejection>` | `{}` | Map of phase key → last rejection. Key is phase as string (`"1"`, `"2"`, etc.) |
 | `lastSession` | `object\|null` | `null` | Session checkpoint — see schema below. Written automatically by state-mutating commands |
-| `normalizeState` | `object\|null` | `null` | Off-pipeline change baseline. Set on `approve 4` and by `aitri normalize`. Schema: `{ status: "pending" \| "resolved", baseRef: "<git-sha>" \| "<ISO>", method: "git" \| "mtime", lastRun: "ISO" }` (v0.1.80+) |
+| `normalizeState` | `object\|null` | `null` | Off-pipeline change baseline. Set on `approve 4`, by `aitri normalize`, and by `aitri normalize --resolve`. Schema: `{ status: "pending" \| "resolved", baseRef: "<git-sha>" \| "<ISO>", method: "git" \| "mtime", lastRun: "ISO" }` (v0.1.80+; `--resolve` flag added v0.1.84) |
 
 ---
 

@@ -213,6 +213,128 @@ describe('cmdApprove() — records normalizeState on phase 4 approval', () => {
   });
 });
 
+// ── --resolve flag ───────────────────────────────────────────────────────────
+
+describe('cmdNormalize() --resolve — gates and cycle closure', () => {
+  function captureStderr(fn) {
+    let out = '';
+    const orig = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (chunk) => { out += chunk; return true; };
+    try { fn(); } catch {} finally { process.stderr.write = orig; }
+    return out;
+  }
+
+  function withExit(fn) {
+    const origExit = process.exit.bind(process);
+    let exitCode = null;
+    process.exit = (code) => { exitCode = code; throw new Error('exit'); };
+    try { fn(); } catch {} finally { process.exit = origExit; }
+    return exitCode;
+  }
+
+  it('errors when normalizeState is not pending', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion:   '0.1.83',
+        artifactsDir:   'spec',
+        normalizeState: { baseRef: 'abc123', method: 'git', status: 'resolved' },
+      }));
+      const stderr = captureStderr(() => {
+        withExit(() => cmdNormalize({ dir, args: ['--resolve'], err: noopErr }));
+      });
+      assert.ok(stderr.includes('Nothing to resolve'), `expected pending guard, got: ${stderr}`);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('auto-advances baseline when no files changed', () => {
+    const dir = tmpDir();
+    try {
+      const futureRef = new Date(Date.now() + 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion:   '0.1.83',
+        artifactsDir:   'spec',
+        normalizeState: { baseRef: futureRef, method: 'mtime', status: 'pending' },
+      }));
+      captureLog(() => cmdNormalize({ dir, args: ['--resolve'], err: noopErr }));
+      const config = loadConfig(dir);
+      assert.equal(config.normalizeState.status, 'resolved');
+      const events = config.events || [];
+      assert.ok(events.some(e => e.event === 'normalize-resolved'), 'event must be appended');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('blocks resolve when verifyPassed is false', () => {
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion:   '0.1.83',
+        artifactsDir:   'spec',
+        normalizeState: { baseRef: pastRef, method: 'mtime', status: 'pending' },
+      }));
+      writeFile(dir, 'src/app.js', 'console.log("changed");');
+
+      const stderr = captureStderr(() => {
+        withExit(() => cmdNormalize({ dir, args: ['--resolve'], err: noopErr }));
+      });
+      assert.ok(stderr.includes('verify has not passed'), `expected verify gate, got: ${stderr}`);
+      const config = loadConfig(dir);
+      assert.equal(config.normalizeState.status, 'pending', 'state must not advance on gate failure');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('blocks resolve when open critical/high bugs exist', () => {
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion:   '0.1.83',
+        artifactsDir:   'spec',
+        normalizeState: { baseRef: pastRef, method: 'mtime', status: 'pending' },
+        verifyPassed:   true,
+      }));
+      writeFile(dir, 'src/app.js', 'console.log("changed");');
+      writeFile(dir, 'spec/BUGS.json', JSON.stringify({
+        bugs: [{ id: 'BG-001', title: 'critical bug', severity: 'critical', status: 'open' }],
+      }));
+
+      const stderr = captureStderr(() => {
+        withExit(() => cmdNormalize({ dir, args: ['--resolve'], err: noopErr }));
+      });
+      assert.ok(stderr.includes('critical/high bug'), `expected bug gate, got: ${stderr}`);
+      const config = loadConfig(dir);
+      assert.equal(config.normalizeState.status, 'pending');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('blocks resolve in non-TTY mode when changes exist', () => {
+    const dir = tmpDir();
+    const origIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = false;
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion:   '0.1.83',
+        artifactsDir:   'spec',
+        normalizeState: { baseRef: pastRef, method: 'mtime', status: 'pending' },
+        verifyPassed:   true,
+      }));
+      writeFile(dir, 'src/app.js', 'console.log("changed");');
+
+      const stderr = captureStderr(() => {
+        withExit(() => cmdNormalize({ dir, args: ['--resolve'], err: noopErr }));
+      });
+      assert.ok(stderr.includes('non-interactively'), `expected TTY gate, got: ${stderr}`);
+      const config = loadConfig(dir);
+      assert.equal(config.normalizeState.status, 'pending');
+    } finally {
+      process.stdin.isTTY = origIsTTY;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 // ── cascade clears normalizeState ────────────────────────────────────────────
 
 describe('cascadeInvalidate() — clears normalizeState when build is downstream', () => {
