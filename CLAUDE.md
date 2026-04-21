@@ -14,7 +14,9 @@ Criterio de evaluación de cualquier cambio en Aitri, en este orden:
 2. **¿Mejora la usabilidad de Aitri para el agente/humano que lo opera?** (menos fricción, instrucciones más claras, outputs más accionables)
 3. **¿Mantiene la coherencia interna?** (invariantes, zero-dep, artifact chain)
 
-Un cambio que solo cumple (3) sin tocar (1) o (2) probablemente es ruido. Decirlo antes de implementar.
+Un cambio que solo cumple (3) sin tocar (1) o (2) necesita justificarse como **prevención** de una futura pérdida de tier 1 o tier 2 (ej. un invariante que si se rompe degrada el software producido de forma acumulativa). Si no existe ese hilo hasta (1) o (2), es ruido. Decirlo antes de implementar.
+
+**Base de evidencia — reconocer cuando es estrecha.** Hoy los únicos consumers que validan cambios en Aitri son Hub y los proyectos del autor. Eso significa que la señal de tier 1 ("mejora el software producido") está **especulativa** para cualquier proyecto externo. Cuando una propuesta dependa de esa premisa, reconocerlo explícitamente y buscar señal externa (otro proyecto real, otro equipo usando Aitri, un caso concreto de defecto evitado) antes de tratarla como confirmada. Sin señal externa, el cambio es una hipótesis — no una mejora verificada.
 
 ## Estado del proyecto
 
@@ -137,6 +139,17 @@ Todo feedback — bug report, feature request, o cambio de comportamiento — de
 - Se está replicando lógica que ya existe en otro comando.
 - Se propone un gate estructural nuevo que no previene ningún defecto real en el software producido — solo "valida" presencia de campos. Aitri ya enforcea schema; un gate adicional sin evidencia de defecto es teatro.
 - Se agrega un artifact o campo "por completitud" sin que ningún consumer (command, Hub, otro agente) lo vaya a leer.
+
+## Este archivo no es un gate
+
+Este `CLAUDE.md` es un **protocolo de conversación**, no un mecanismo de enforcement. Fuerza que ciertas preguntas se hagan antes de implementar, pero depende enteramente de que el agente lo siga. La protección real contra decisiones equivocadas vive afuera:
+
+- **Tests (`npm run test:all`)** — único enforcement binario. Si un cambio rompe tests, no shippa.
+- **Integration contracts (`docs/integrations/`)** — SCHEMA.md / ARTIFACTS.md + `test/release-sync.test.js` impiden drift silencioso entre código y contrato.
+- **Subproduct canaries (Hub)** — si Hub deja de leer bien después de un cambio, es señal de breaking no declarado. Detectarlo antes de release, no después.
+- **Decision log (`docs/Aitri_Design_Notes/DECISIONS.md`)** — ADRs inmutables. Toda decisión arquitectónica relevante (nuevo command, cambio de invariante, schema change no trivial) se registra con contexto + decisión + trade-off. Las objeciones que surgieron durante la discusión se registran también — si después una decisión falla, el log permite ver si se ignoró una señal visible en el momento.
+
+Si una propuesta pasa este archivo pero no deja rastro en ninguno de los cuatro mecanismos de arriba, no está protegida — solo fue discutida. Protegerla = agregarla al test suite, al contrato, al canary, o al decision log.
 
 ## Reglas críticas
 
