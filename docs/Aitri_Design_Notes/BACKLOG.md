@@ -39,30 +39,30 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ### Core — Breaking changes for v0.2.0
 
-- [ ] P3 — **`IDEA.md` y `ADOPTION_SCAN.md` en raíz del proyecto del usuario** — Ambos archivos quedan en la raíz tras `adopt scan`, contaminando el directorio del usuario y exponiéndolos a borrado accidental.
+- [ ] P3 — **`IDEA.md` and `ADOPTION_SCAN.md` at the root of the user's project** — Both files land at the root after `adopt scan`, polluting the user's directory and exposing them to accidental deletion.
 
-  Problem: La raíz del proyecto del usuario no es el lugar correcto para archivos generados por Aitri. El usuario los puede borrar por error o confundirlos con sus propios archivos. Además, `spec/` ya existe como carpeta de artefactos — semánticamente `IDEA.md` pertenece ahí.
+  Problem: The user's project root is not the right place for Aitri-generated files. The user can delete them by mistake or confuse them with their own files. Also, `spec/` already exists as the artifacts folder — semantically `IDEA.md` belongs there.
 
   Files:
-  - `lib/commands/adopt.js` — cambiar paths de escritura de `path.join(dir, 'IDEA.md')` y `ADOPTION_SCAN.md` a `path.join(dir, 'spec', ...)`; crear `spec/` en `adoptScan` en lugar de solo en `adoptApply`
-  - `lib/commands/run-phase.js` — línea 68: cambiar `adir = ''` por `adir = artifactsDir` para `IDEA.md`
-  - `templates/adopt/scan.md` — actualizar paths de output (`{{PROJECT_DIR}}/spec/IDEA.md`, `{{PROJECT_DIR}}/spec/ADOPTION_SCAN.md`)
-  - `test/smoke.js` — actualizar smoke tests que verifican presencia de `IDEA.md` en raíz
+  - `lib/commands/adopt.js` — change write paths from `path.join(dir, 'IDEA.md')` and `ADOPTION_SCAN.md` to `path.join(dir, 'spec', ...)`; create `spec/` in `adoptScan` instead of only in `adoptApply`
+  - `lib/commands/run-phase.js` — line 68: change `adir = ''` to `adir = artifactsDir` for `IDEA.md`
+  - `templates/adopt/scan.md` — update output paths (`{{PROJECT_DIR}}/spec/IDEA.md`, `{{PROJECT_DIR}}/spec/ADOPTION_SCAN.md`)
+  - `test/smoke.js` — update smoke tests that check for `IDEA.md` at the root
 
   Behavior:
-  - `adopt scan` crea `spec/` si no existe, escribe `spec/IDEA.md` y `spec/ADOPTION_SCAN.md`
-  - `run-phase 1/2/discovery` busca `IDEA.md` en `spec/` (vía `artifactsDir`)
-  - `adopt apply` asume `spec/IDEA.md`
+  - `adopt scan` creates `spec/` if missing, writes `spec/IDEA.md` and `spec/ADOPTION_SCAN.md`
+  - `run-phase 1/2/discovery` looks up `IDEA.md` in `spec/` (via `artifactsDir`)
+  - `adopt apply` assumes `spec/IDEA.md`
 
   Decisions:
-  - **Defer to v0.2.0 como breaking change explícito** (decidido 2026-03-17): sin dual-path fallback — añadiría deuda permanente en run-phase.js. En v0.2.0: el usuario mueve IDEA.md manualmente o Aitri detecta el archivo en raíz y aborta con instrucción clara.
-  - `ADOPTION_SCAN.md` también se mueve — mismo grupo semántico, bajo riesgo individual (solo written by agent, never read by code)
+  - **Defer to v0.2.0 as an explicit breaking change** (decided 2026-03-17): no dual-path fallback — it would add permanent debt in run-phase.js. In v0.2.0: the user moves IDEA.md manually, or Aitri detects the file at root and aborts with a clear instruction.
+  - `ADOPTION_SCAN.md` moves too — same semantic group, low individual risk (only written by agent, never read by code)
 
   Acceptance:
-  - `adopt scan` en proyecto nuevo: `IDEA.md` y `ADOPTION_SCAN.md` aparecen en `spec/`, no en raíz
-  - `run-phase 1` en proyecto con `spec/IDEA.md`: funciona sin advertencia
-  - Proyecto legacy con `IDEA.md` en raíz: Aitri aborta con instrucción de migración explícita
-  - Smoke tests pasan con 0 failures
+  - `adopt scan` in a new project: `IDEA.md` and `ADOPTION_SCAN.md` land in `spec/`, not at root
+  - `run-phase 1` in a project with `spec/IDEA.md`: works without warning
+  - Legacy project with `IDEA.md` at root: Aitri aborts with explicit migration instruction
+  - Smoke tests pass with 0 failures
 
 ---
 
@@ -72,23 +72,23 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 ### NFR traceability in system design (Phase 2)
 
-Phase 2 (`02_SYSTEM_DESIGN.md`) hoy valida presencia de secciones y longitud mínima, pero no verifica que los NFRs declarados en Phase 1 sean *direccionados* por el diseño. Un design puede tener todas las secciones requeridas y aún ignorar por completo los NFRs de performance/security/availability.
+Phase 2 (`02_SYSTEM_DESIGN.md`) today validates section presence and minimum length, but does not verify that the NFRs declared in Phase 1 are *addressed* by the design. A design can have every required section and still completely ignore the performance/security/availability NFRs.
 
-**Pregunta abierta:** ¿Vale la pena intentar matching prosa↔NFR en Phase 2?
+**Open question:** Is it worth attempting prose↔NFR matching in Phase 2?
 
-**Por qué es Design Study y no ticket:**
-- Matching NFR→design requiere NLP ligero sobre Markdown — alto riesgo de falsos positivos.
-- Un NFR como "p95 latency <200ms" podría estar direccionado en la sección "Performance & Scalability" sin mencionar el número exacto, pero con una decisión arquitectónica válida (cache layer, CDN).
-- Un validator demasiado estricto rechazaría diseños buenos.
+**Why it is a Design Study and not a ticket:**
+- NFR→design matching requires lightweight NLP over Markdown — high risk of false positives.
+- An NFR like "p95 latency <200ms" could be addressed in the "Performance & Scalability" section without mentioning the exact number, but with a valid architectural decision (cache layer, CDN).
+- An overly strict validator would reject good designs.
 
-**Criterio para madurar a ticket:**
-- Un caso real donde un design aprobado ignoró un NFR crítico y rompió producción.
-- Sin ese caso, la hipótesis (los agentes ignoran NFRs) no está verificada.
+**Criterion to mature into a ticket:**
+- A real case where an approved design ignored a critical NFR and broke production.
+- Without that case, the hypothesis (agents ignore NFRs) is not verified.
 
-**Alternativa más barata si surge el caso:**
-- No validator automático. Extender `aitri review` con un check que liste NFRs de Phase 1 y pregunte al agente/humano "¿cada uno de estos está direccionado en el design? Responde sí/no por cada uno." Honor-system, pero visible.
+**Cheaper alternative if the case emerges:**
+- No automatic validator. Extend `aitri review` with a check that lists Phase 1 NFRs and asks the agent/human "is each one addressed in the design? Answer yes/no per NFR." Honor-system, but visible.
 
-**Resolved partially (2026-04-20):** La pregunta original de la Design Study ("¿hasta dónde debe llegar Aitri en validar semántica?") quedó respondida de facto por el validation model (2026-03-14) + gates semánticos existentes (BROAD_VAGUE en Phase 1, placeholder detection en Phase 3, FR-MUST coverage en Phase 3/5). Los casos concretos de vagueness en títulos y ACs duplicados se cerraron en v0.1.82. Queda abierta solo la pregunta de NFR traceability.
+**Resolved partially (2026-04-20):** the Design Study's original question ("how far should Aitri go in validating semantics?") was answered de facto by the validation model (2026-03-14) + existing semantic gates (BROAD_VAGUE in Phase 1, placeholder detection in Phase 3, FR-MUST coverage in Phase 3/5). The concrete cases of title vagueness and duplicate ACs were closed in v0.1.82. Only the NFR traceability question remains open.
 
 ---
 

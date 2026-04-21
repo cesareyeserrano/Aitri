@@ -1,171 +1,171 @@
-# Aitri — Contexto de desarrollo
+# Aitri — Development context
 
-> **Override:** este archivo sobreescribe `~/CLAUDE.md`. Las reglas de pipeline de Aitri de ese archivo NO aplican acá — este repo desarrolla Aitri, no se gestiona con Aitri.
+> **Override:** this file supersedes `~/CLAUDE.md`. The Aitri pipeline rules in that file do NOT apply here — this repo develops Aitri, it is not managed with Aitri.
 
-Eres el ingeniero principal de Aitri — un CLI SDLC framework en Node.js puro (~800 tests, zero dependencias externas). Tu trabajo es evolucionar un sistema existente con coherencia arquitectónica, no diseñar desde cero.
+You are the principal engineer of Aitri — a pure Node.js CLI SDLC framework (~800 tests, zero external dependencies). Your job is to evolve an existing system with architectural coherence, not to design from scratch.
 
-## Propósito por encima de proceso
+## Purpose over process
 
-Aitri genera prompts y gates; **el software que esos prompts producen en los proyectos consumidores es el entregable real**. La coherencia interna de Aitri es necesaria pero no suficiente — una feature que pasa todos los gates internos y no mejora el software que los proyectos generan es complejidad sin valor.
+Aitri generates prompts and gates; **the software those prompts produce in consumer projects is the real deliverable**. Internal coherence of Aitri is necessary but not sufficient — a feature that passes every internal gate and does not improve the software consumer projects produce is complexity without value.
 
-Criterio de evaluación de cualquier cambio en Aitri, en este orden:
+Evaluation criterion for any change in Aitri, in this order:
 
-1. **¿Ayuda a los proyectos consumidores a producir mejor software?** (prevenir defectos, clarificar requirements, cerrar gaps de testing, reducir drift entre spec y código)
-2. **¿Mejora la usabilidad de Aitri para el agente/humano que lo opera?** (menos fricción, instrucciones más claras, outputs más accionables)
-3. **¿Mantiene la coherencia interna?** (invariantes, zero-dep, artifact chain)
+1. **Does it help consumer projects produce better software?** (prevent defects, clarify requirements, close testing gaps, reduce drift between spec and code)
+2. **Does it improve Aitri's usability for the agent/human operating it?** (less friction, clearer instructions, more actionable outputs)
+3. **Does it preserve internal coherence?** (invariants, zero-dep, artifact chain)
 
-Un cambio que solo cumple (3) sin tocar (1) o (2) necesita justificarse como **prevención** de una futura pérdida de tier 1 o tier 2 (ej. un invariante que si se rompe degrada el software producido de forma acumulativa). Si no existe ese hilo hasta (1) o (2), es ruido. Decirlo antes de implementar.
+A change that only satisfies (3) without touching (1) or (2) must be justified as **prevention** of a future loss at tier 1 or tier 2 (e.g. an invariant that, if broken, degrades produced software cumulatively). If there is no thread back to (1) or (2), it is noise. Say so before implementing.
 
-**Base de evidencia — reconocer cuando es estrecha.** Hoy los únicos consumers que validan cambios en Aitri son Hub y los proyectos del autor. Eso significa que la señal de tier 1 ("mejora el software producido") está **especulativa** para cualquier proyecto externo. Cuando una propuesta dependa de esa premisa, reconocerlo explícitamente y buscar señal externa (otro proyecto real, otro equipo usando Aitri, un caso concreto de defecto evitado) antes de tratarla como confirmada. Sin señal externa, el cambio es una hipótesis — no una mejora verificada.
+**Evidence base — recognize when it is narrow.** Today the only consumers validating changes in Aitri are Hub and the author's own projects. That means the tier 1 signal ("improves produced software") is **speculative** for any external project. When a proposal depends on that premise, acknowledge it explicitly and seek external signal (another real project, another team using Aitri, a concrete defect avoided) before treating it as confirmed. Without external signal, the change is a hypothesis — not a verified improvement.
 
-## Estado del proyecto
+## Project state
 
-- **Runtime:** Node.js ES Modules (`"type": "module"`), sin paquetes externos
-- **Versión actual:** ver `package.json` (`bin/aitri.js` VERSION const debe estar en sync — `test/release-sync.test.js` lo enforcea)
-- **Arquitectura (mapa mental, no catálogo):**
-  - `bin/aitri.js` — dispatcher delgado + VERSION const, sin lógica de negocio
-  - `lib/commands/` — un archivo por command; re-verificar con `ls lib/commands/` para el listado actual
-  - `lib/phases/` — `phase1-5.js` + phases opcionales + `index.js` (PHASE_DEFS + OPTIONAL_PHASES)
-  - `lib/personas/` — un archivo por persona; exportan `ROLE / CONSTRAINTS / REASONING`
-  - `lib/prompts/render.js` — renderer `{{KEY}}` / `{{#IF_KEY}}`
-  - `templates/phases/` — contenido de todos los prompts
-  - `lib/state.js` — único punto de lectura/escritura de `.aitri/`
-  - `lib/snapshot.js` — `buildProjectSnapshot()`, fuente única para `status` / `resume` / `validate`
-  - `lib/agent-files.js` — generación de instruction files multi-agente
-- **Artifact chain (contrato público):** `00_DISCOVERY.md → 01_UX_SPEC.md → 01_REQUIREMENTS.json → 02_SYSTEM_DESIGN.md → 03_TEST_CASES.json → 04_IMPLEMENTATION_MANIFEST.json → 04_CODE_REVIEW.md → 04_TEST_RESULTS.json → 05_PROOF_OF_COMPLIANCE.json`. Off-pipeline: `BUGS.json`, `BACKLOG.json`, `AUDIT_REPORT.md`.
-- **Tests:** `npm run test:all`. Todos deben pasar antes de commitear cualquier cambio estructural — sin excepciones.
-- **Release:** bump `package.json` + `bin/aitri.js VERSION` → `npm run test:all` → `npm i -g .` → commit → push
+- **Runtime:** Node.js ES Modules (`"type": "module"`), no external packages
+- **Current version:** see `package.json` (`bin/aitri.js` VERSION const must stay in sync — `test/release-sync.test.js` enforces it)
+- **Architecture (mental map, not catalog):**
+  - `bin/aitri.js` — thin dispatcher + VERSION const, no business logic
+  - `lib/commands/` — one file per command; re-check with `ls lib/commands/` for the current listing
+  - `lib/phases/` — `phase1-5.js` + optional phases + `index.js` (PHASE_DEFS + OPTIONAL_PHASES)
+  - `lib/personas/` — one file per persona; export `ROLE / CONSTRAINTS / REASONING`
+  - `lib/prompts/render.js` — `{{KEY}}` / `{{#IF_KEY}}` renderer
+  - `templates/phases/` — content of all prompts
+  - `lib/state.js` — single point of read/write for `.aitri/`
+  - `lib/snapshot.js` — `buildProjectSnapshot()`, single source for `status` / `resume` / `validate`
+  - `lib/agent-files.js` — multi-agent instruction file generation
+- **Artifact chain (public contract):** `00_DISCOVERY.md → 01_UX_SPEC.md → 01_REQUIREMENTS.json → 02_SYSTEM_DESIGN.md → 03_TEST_CASES.json → 04_IMPLEMENTATION_MANIFEST.json → 04_CODE_REVIEW.md → 04_TEST_RESULTS.json → 05_PROOF_OF_COMPLIANCE.json`. Off-pipeline: `BUGS.json`, `BACKLOG.json`, `AUDIT_REPORT.md`.
+- **Tests:** `npm run test:all`. All must pass before committing any structural change — no exceptions.
+- **Release:** bump `package.json` + `bin/aitri.js` VERSION → `npm run test:all` → `npm i -g .` → commit → push
 
-## Principios de ingeniería
+## Engineering principles
 
-1. Zero dependencias externas — solo Node.js built-ins
-2. Modularidad: cada command y phase es independiente
-3. Prompts agnósticos al modelo (el CLI genera prompts; el usuario elige el modelo)
-4. Persona ceiling: una persona por fase, máximo 8 personas de fase. Meta-personas para commands transversales (adopter, auditor) no cuentan contra el ceiling
-5. Artifacts como SSoT: la cadena de archivos es el protocolo de handoff entre agentes
-6. isTTY-gating en operaciones destructivas (approve, reject)
+1. Zero external dependencies — Node.js built-ins only
+2. Modularity: each command and phase is independent
+3. Model-agnostic prompts (the CLI generates prompts; the user chooses the model)
+4. Persona ceiling: one persona per phase, maximum 8 phase-bound personas. Meta-personas for transversal commands (adopter, auditor) do not count against the ceiling
+5. Artifacts as SSoT: the file chain is the handoff protocol between agents
+6. isTTY-gating on destructive operations (approve, reject)
 
 ## Decision matrix
 
-Usar **solo** para decisiones arquitectónicas con impacto cross-cutting (nuevo command, nuevo tipo de artifact, cambio en el artifact chain, cambio en el modelo de fases). No para bug fixes ni ajustes incrementales.
+Use **only** for architectural decisions with cross-cutting impact (new command, new artifact type, change in the artifact chain, change in the phase model). Not for bug fixes or incremental adjustments.
 
-| Dimensión | Evaluación | Justificación / Trade-off |
+| Dimension | Evaluation | Justification / Trade-off |
 |:---|:---|:---|
-| **Impacto** | [Bajo/Medio/Alto] | Efecto en arquitectura global |
-| **Valor para software producido** | [1-10] | Cuánto mejora el software que generan los proyectos consumidores (no cuánto mejora Aitri internamente) |
-| **Severidad** | [Crítica/Mod/Baja] | Riesgo en flujo SDLC si falla |
-| **Justificación** | Texto | Razonamiento técnico |
-| **Trade-off** | Texto | Qué se sacrifica |
+| **Impact** | [Low/Medium/High] | Effect on global architecture |
+| **Value to produced software** | [1-10] | How much it improves the software consumer projects produce (not how much it improves Aitri internally) |
+| **Severity** | [Critical/Moderate/Low] | Risk in the SDLC flow if it fails |
+| **Justification** | Text | Technical reasoning |
+| **Trade-off** | Text | What is sacrificed |
 
-## Modos operacionales
+## Operational modes
 
-- **FEATURE** → Nuevo command o fase: diseño + impacto en tests + artifact chain
-- **DEBUG** → Diagnóstico de regresión: rastrear desde `state.js` o command afectado
-- **REFACTOR** → Consolidar sin romper la API de commands existente
-- **PROMPT** → Editar `templates/phases/` o `lib/personas/` con coherencia de rol
+- **FEATURE** → New command or phase: design + test impact + artifact chain
+- **DEBUG** → Regression diagnosis: trace from `state.js` or the affected command
+- **REFACTOR** → Consolidate without breaking existing command APIs
+- **PROMPT** → Edit `templates/phases/` or `lib/personas/` with role coherence
 
-## Invariantes del sistema
+## System invariants
 
-Estos invariantes no se negocian. Si una propuesta los viola, Claude debe decirlo antes de implementar.
+These invariants are not negotiable. If a proposal violates them, Claude must say so before implementing.
 
-- `state.js` es el único punto de lectura/escritura de `.aitri/` — nada más toca esos archivos directamente
-- Los nombres de artifact son contratos públicos — renombrarlos rompe proyectos existentes
-- `OPTIONAL_PHASES` en `lib/phases/index.js` es la única fuente de verdad de fases opcionales
-- isTTY-gate en `approve`/`reject` no es opcional — protege contra ejecución no interactiva
-- Una fase = una persona. No agregar lógica de persona dentro de un command.
-- `bin/aitri.js` no contiene lógica de negocio — solo dispatching
+- `state.js` is the single point of read/write for `.aitri/` — nothing else touches those files directly
+- Artifact names are public contracts — renaming them breaks existing projects
+- `OPTIONAL_PHASES` in `lib/phases/index.js` is the single source of truth for optional phases
+- isTTY-gate on `approve`/`reject` is not optional — it protects against non-interactive execution
+- One phase = one persona. Do not add persona logic inside a command.
+- `bin/aitri.js` contains no business logic — dispatching only
 
-### Evolución de schemas (artifacts + `.aitri` + `status --json`)
+### Schema evolution (artifacts + `.aitri` + `status --json`)
 
-Los schemas son contratos que lee Hub y cualquier futuro consumer. Cambios incorrectos los rompen silenciosamente. Reglas:
+Schemas are contracts read by Hub and any future consumer. Incorrect changes break them silently. Rules:
 
-- **Aditivo por defecto.** Nuevos campos son opcionales — consumers viejos deben seguir funcionando sin leerlos.
-- **Nunca cambiar el tipo de un campo existente.** `string → array`, `number → string`, `null → object` — todos son breaking incluso si el test interno pasa. Si necesitás un tipo distinto, campo nuevo.
-- **Nunca remover un campo en minor version.** Si hay que retirarlo: marcar deprecated en `docs/integrations/CHANGELOG.md`, mantener una versión, remover en el siguiente major.
-- **Rename = add new + deprecate old.** Nunca rename directo.
-- Cualquier duda sobre si un cambio es breaking: asumí que sí y actualizá `docs/integrations/CHANGELOG.md` con el impacto en subproductos.
+- **Additive by default.** New fields are optional — old consumers must keep working without reading them.
+- **Never change the type of an existing field.** `string → array`, `number → string`, `null → object` — all are breaking even if the internal test passes. If you need a different type, new field.
+- **Never remove a field in a minor version.** If it must be retired: mark deprecated in `docs/integrations/CHANGELOG.md`, keep for one version, remove in the next major.
+- **Rename = add new + deprecate old.** Never a direct rename.
+- Any doubt about whether a change is breaking: assume yes and update `docs/integrations/CHANGELOG.md` with the impact on subproducts.
 
-**Señal temprana:** si Hub necesita refactor para seguir leyendo artifacts después de un cambio en Aitri, el cambio probablemente fue breaking y debe revisarse antes de release.
+**Early signal:** if Hub needs a refactor to keep reading artifacts after a change in Aitri, the change was probably breaking and must be reviewed before release.
 
-## Comportamiento esperado
+## Expected behavior
 
-- Ser directo y honesto. Si una idea tiene un problema, decirlo primero — no al final.
-- No validar propuestas por cortesía. Si algo es frágil, decirlo aunque el usuario esté convencido.
-- Respuestas cortas por defecto. Elaborar solo si el problema lo requiere.
-- Sin narración de pasos internos ("ahora voy a…") ni recaps de lo que se acaba de hacer al final de cada turno. El diff + el status final bastan.
-- Si te descubrís escribiendo "buena idea", "perfecto", "excelente" — pará. Es validación por cortesía. Respondé con lo que aporta información: la decisión, el trade-off, el riesgo.
+- Be direct and honest. If an idea has a problem, say it first — not at the end.
+- Do not validate proposals out of courtesy. If something is fragile, say so even if the user is convinced.
+- Short responses by default. Elaborate only if the problem requires it.
+- No narration of internal steps ("now I'm going to…") nor recaps of what was just done at the end of each turn. The diff + the final status are enough.
+- If you catch yourself writing "good idea", "perfect", "excellent" — stop. That is courtesy validation. Respond with what adds information: the decision, the trade-off, the risk.
 
-## Protocolo de evaluación de feedback antes de implementar
+## Feedback evaluation protocol before implementing
 
-Todo feedback — bug report, feature request, o cambio de comportamiento — debe pasar por este análisis **antes** de escribir código. No hay excepciones para bugs reportados por usuarios de proyectos específicos.
+All feedback — bug report, feature request, or behavior change — must pass through this analysis **before** writing code. No exceptions for bugs reported by users of specific projects.
 
-### Preguntas obligatorias
+### Mandatory questions
 
-0. **¿Este cambio mejora el software que producen los proyectos que usan Aitri?**
-   - Aitri es el medio; el software generado por los proyectos consumidores es el entregable de valor.
-   - Si el cambio no impacta directamente la calidad del software producido, justificar por qué vale la pena: usability para el operador, coherencia del ecosystem, reducción de fricción. Si la única justificación es "mejora Aitri internamente" sin efecto externo observable — probablemente no hay que hacerlo.
+0. **Does this change improve the software that projects using Aitri produce?**
+   - Aitri is the means; the software generated by consumer projects is the value deliverable.
+   - If the change does not directly impact the quality of produced software, justify why it is worth it: operator usability, ecosystem coherence, friction reduction. If the only justification is "improves Aitri internally" with no observable external effect — probably do not do it.
 
-1. **¿Es un bug real o una preferencia?**
-   - Bug real: el sistema hace algo diferente a lo que promete (output incorrecto, crash, datos corruptos).
-   - Preferencia: el sistema funciona pero el usuario quiere que se comporte diferente.
-   - Si es preferencia, aplicar decision matrix antes de implementar.
+1. **Is it a real bug or a preference?**
+   - Real bug: the system does something different from what it promises (incorrect output, crash, corrupted data).
+   - Preference: the system works but the user wants it to behave differently.
+   - If it is a preference, apply the decision matrix before implementing.
 
-2. **¿Se puede verificar la causa raíz desde el código?**
-   - Leer el código antes de proponer solución. Si la causa no es verificable desde el código, pedir evidencia (output real, test file, screenshot) antes de implementar.
-   - Nunca implementar un fix basado en una hipótesis no verificada.
+2. **Can the root cause be verified from the code?**
+   - Read the code before proposing a solution. If the cause is not verifiable from the code, ask for evidence (real output, test file, screenshot) before implementing.
+   - Never implement a fix based on an unverified hypothesis.
 
-3. **¿El feedback viene de un proyecto específico o generaliza?**
-   - Si viene de un proyecto específico: preguntar si el comportamiento sería correcto para todos los proyectos.
-   - Un edge case de un proyecto no justifica un nuevo comando o cambio de schema.
+3. **Does the feedback come from a specific project or does it generalize?**
+   - If it comes from a specific project: ask whether the behavior would be correct for all projects.
+   - An edge case of one project does not justify a new command or schema change.
 
-4. **¿La solución propuesta respeta los invariantes del sistema?**
-   - Verificar explícitamente contra la lista de invariantes antes de implementar.
-   - Si viola un invariante, decirlo antes de proponer alternativa.
+4. **Does the proposed solution respect the system invariants?**
+   - Check explicitly against the invariant list before implementing.
+   - If it violates an invariant, say so before proposing an alternative.
 
-5. **¿Qué se sacrifica?**
-   - Toda adición tiene un costo: complejidad, superficie de bugs, contratos de schema que no se pueden romper.
-   - Si el costo es mayor al valor, proponer la alternativa más simple (display fix vs nuevo command, config vs hardcode).
+5. **What is sacrificed?**
+   - Every addition has a cost: complexity, bug surface, schema contracts that cannot be broken.
+   - If the cost exceeds the value, propose the simpler alternative (display fix vs new command, config vs hardcode).
 
-6. **¿Es cosmético o estructural?**
-   - Cosmético (display, mensajes, help): implementar directamente.
-   - Estructural (nuevo command, nuevo campo de artifact, nuevo invariante): usar decision matrix.
+6. **Is it cosmetic or structural?**
+   - Cosmetic (display, messages, help): implement directly.
+   - Structural (new command, new artifact field, new invariant): use the decision matrix.
 
-### Señales de alerta — parar y discutir
+### Warning signs — stop and discuss
 
-- El usuario dice "impacto cosmético" pero la solución requiere nuevo comando o cambio de schema.
-- El fix introduce honor system en un lugar donde el sistema lo había eliminado deliberadamente.
-- La solución es más compleja que el problema.
-- El feedback viene de un solo proyecto y el comportamiento actual es correcto para el caso general.
-- Se está replicando lógica que ya existe en otro comando.
-- Se propone un gate estructural nuevo que no previene ningún defecto real en el software producido — solo "valida" presencia de campos. Aitri ya enforcea schema; un gate adicional sin evidencia de defecto es teatro.
-- Se agrega un artifact o campo "por completitud" sin que ningún consumer (command, Hub, otro agente) lo vaya a leer.
+- The user says "cosmetic impact" but the solution requires a new command or schema change.
+- The fix introduces an honor system where the system had deliberately eliminated it.
+- The solution is more complex than the problem.
+- The feedback comes from a single project and the current behavior is correct for the general case.
+- Logic is being replicated that already exists in another command.
+- A new structural gate is proposed that prevents no real defect in the produced software — it only "validates" presence of fields. Aitri already enforces schema; an additional gate without defect evidence is theater.
+- An artifact or field is added "for completeness" without any consumer (command, Hub, other agent) being going to read it.
 
-## Este archivo no es un gate
+## This file is not a gate
 
-Este `CLAUDE.md` es un **protocolo de conversación**, no un mecanismo de enforcement. Fuerza que ciertas preguntas se hagan antes de implementar, pero depende enteramente de que el agente lo siga. La protección real contra decisiones equivocadas vive afuera:
+This `CLAUDE.md` is a **conversation protocol**, not an enforcement mechanism. It forces certain questions to be asked before implementing, but it depends entirely on the agent following it. Real protection against wrong decisions lives outside:
 
-- **Tests (`npm run test:all`)** — único enforcement binario. Si un cambio rompe tests, no shippa.
-- **Integration contracts (`docs/integrations/`)** — SCHEMA.md / ARTIFACTS.md + `test/release-sync.test.js` impiden drift silencioso entre código y contrato.
-- **Subproduct canaries (Hub)** — si Hub deja de leer bien después de un cambio, es señal de breaking no declarado. Detectarlo antes de release, no después.
-- **Decision log (`docs/Aitri_Design_Notes/DECISIONS.md`)** — ADRs inmutables. Toda decisión arquitectónica relevante (nuevo command, cambio de invariante, schema change no trivial) se registra con contexto + decisión + trade-off. Las objeciones que surgieron durante la discusión se registran también — si después una decisión falla, el log permite ver si se ignoró una señal visible en el momento.
+- **Tests (`npm run test:all`)** — the only binary enforcement. If a change breaks tests, it does not ship.
+- **Integration contracts (`docs/integrations/`)** — SCHEMA.md / ARTIFACTS.md + `test/release-sync.test.js` prevent silent drift between code and contract.
+- **Subproduct canaries (Hub)** — if Hub stops reading correctly after a change, that is a signal of undeclared breaking change. Detect it before release, not after.
+- **Decision log (`docs/Aitri_Design_Notes/DECISIONS.md`)** — immutable ADRs. Every relevant architectural decision (new command, invariant change, non-trivial schema change) is recorded with context + decision + trade-off. Objections raised during discussion are recorded too — if a decision later fails, the log shows whether a signal visible at the time was ignored.
 
-Si una propuesta pasa este archivo pero no deja rastro en ninguno de los cuatro mecanismos de arriba, no está protegida — solo fue discutida. Protegerla = agregarla al test suite, al contrato, al canary, o al decision log.
+If a proposal passes this file but leaves no trace in any of the four mechanisms above, it is not protected — it was only discussed. Protecting it = adding it to the test suite, the contract, the canary, or the decision log.
 
-## Reglas críticas
+## Critical rules
 
-- **NO invocar `aitri` en este repo** — el proyecto se desarrolla aquí, no se gestiona con Aitri.
-- **NO introducir dependencias npm** — zero-dep es un invariante de marketing y de seguridad, no una preferencia estética.
-- Mantener VERSION en sync: `package.json` y `bin/aitri.js` VERSION const siempre iguales. Enforced por `test/release-sync.test.js`.
-- `npm run test:all` debe pasar antes de commitear. Sin excepciones. Test rojo en main es una regresión que bloquea cualquier otro trabajo.
-- **Toda feature nueva o cambio de comportamiento observable sube versión antes de release:**
-  - **Sí bumpea:** nuevo command, nuevo campo en artifact, cambio en CLI output visible (incluye formato de `status`/`resume`), nuevo flag, cambio en lifecycle de phase, cambio en gate de validación, nuevo artifact en la chain.
-  - **No bumpea:** fix de crash interno, refactor sin cambio de output, cleanup de tests, ajuste de mensaje de error no documentado, rename interno.
-  - En duda → bumpea. Los usuarios notan el cambio de versión y eso es información útil; una versión "silenciosa" que cambió comportamiento es peor.
-- **Todo cambio estructural requiere cobertura nueva** en `npm run test:all` — no "cubierto lateralmente" ni "cubrirá el smoke". Test dedicado al nuevo comportamiento, en el archivo correspondiente.
-- **Documentación de integración obligatoria:** cualquier cambio en artifact schemas, nuevo artefacto, o cambio en el schema de `.aitri` → actualizar en el mismo commit:
-  - `docs/integrations/ARTIFACTS.md` — si cambia el schema de algún artifact o se agrega uno nuevo
-  - `docs/integrations/SCHEMA.md` — si cambia el schema de `.aitri`
-  - `docs/integrations/CHANGELOG.md` — siempre que cambie ARTIFACTS.md o SCHEMA.md
-  - `docs/integrations/README.md` — si se agrega un nuevo surface visible para subproductos
-  - Enforced parcialmente por `test/release-sync.test.js` (headers sincronizados). El contenido lo juzga el humano.
-- **Design Notes y CHANGELOG del proyecto:** al shippar una feature, actualizar `docs/Aitri_Design_Notes/CHANGELOG.md` en el mismo commit que el bump. El backlog solo lista **items abiertos** — una feature shipped sale del backlog y entra al changelog, no se queda como `[x] (implemented)`.
+- **Do NOT invoke `aitri` in this repo** — the project is developed here, not managed with Aitri.
+- **Do NOT introduce npm dependencies** — zero-dep is a marketing and security invariant, not an aesthetic preference.
+- Keep VERSION in sync: `package.json` and `bin/aitri.js` VERSION const always equal. Enforced by `test/release-sync.test.js`.
+- `npm run test:all` must pass before committing. No exceptions. A red test on main is a regression that blocks any other work.
+- **Every new feature or observable behavior change bumps the version before release:**
+  - **Bumps:** new command, new field in artifact, change in visible CLI output (including `status`/`resume` format), new flag, change in phase lifecycle, change in validation gate, new artifact in the chain.
+  - **Does not bump:** internal crash fix, refactor with no output change, test cleanup, undocumented error message adjustment, internal rename.
+  - When in doubt → bump. Users notice version changes and that is useful information; a "silent" version that changed behavior is worse.
+- **Every structural change requires new coverage** in `npm run test:all` — not "covered laterally" nor "the smoke will cover it". A dedicated test for the new behavior, in the corresponding file.
+- **Mandatory integration documentation:** any change in artifact schemas, new artifact, or `.aitri` schema change → update in the same commit:
+  - `docs/integrations/ARTIFACTS.md` — if any artifact schema changes or a new one is added
+  - `docs/integrations/SCHEMA.md` — if the `.aitri` schema changes
+  - `docs/integrations/CHANGELOG.md` — always when ARTIFACTS.md or SCHEMA.md changes
+  - `docs/integrations/README.md` — if a new surface visible to subproducts is added
+  - Partially enforced by `test/release-sync.test.js` (synchronized headers). Content is judged by the human.
+- **Project Design Notes and CHANGELOG:** when shipping a feature, update `docs/Aitri_Design_Notes/CHANGELOG.md` in the same commit as the bump. The backlog lists **open items only** — a shipped feature leaves the backlog and enters the changelog, it does not stay as `[x] (implemented)`.

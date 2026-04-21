@@ -1,10 +1,10 @@
-# Aitri — Feedback de Pruebas
+# Aitri — Testing Feedback
 
-> **Propósito:** Capturar observaciones de sesiones de prueba (manuales o E2E con Claude).
-> No es un changelog ni un registro de implementaciones — eso va en CHANGELOG.md y BACKLOG.md.
+> **Purpose:** capture observations from testing sessions (manual or E2E with Claude).
+> This is not a changelog or an implementation log — those go in CHANGELOG.md and BACKLOG.md.
 
-> **Ciclo de vida de una entrada:**
-> observación → documentar aquí → analizar → pasar a BACKLOG.md (o descartar) → **borrar entrada**
-> Si una entrada lleva aquí más de una sesión sin accionarse, se borra igual.
+> **Entry lifecycle:**
+> observation → document here → analyze → move to BACKLOG.md (or discard) → **delete entry**
+> If an entry stays here for more than one session without action, delete it anyway.
 
 -------
