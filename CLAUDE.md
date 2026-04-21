@@ -75,7 +75,7 @@ Estos invariantes no se negocian. Si una propuesta los viola, Claude debe decirl
 
 ### Evolución de schemas (artifacts + `.aitri` + `status --json`)
 
-Los schemas son contratos que lee Hub, Graph, y cualquier futuro consumer. Cambios incorrectos los rompen silenciosamente. Reglas:
+Los schemas son contratos que lee Hub y cualquier futuro consumer. Cambios incorrectos los rompen silenciosamente. Reglas:
 
 - **Aditivo por defecto.** Nuevos campos son opcionales — consumers viejos deben seguir funcionando sin leerlos.
 - **Nunca cambiar el tipo de un campo existente.** `string → array`, `number → string`, `null → object` — todos son breaking incluso si el test interno pasa. Si necesitás un tipo distinto, campo nuevo.
@@ -83,7 +83,7 @@ Los schemas son contratos que lee Hub, Graph, y cualquier futuro consumer. Cambi
 - **Rename = add new + deprecate old.** Nunca rename directo.
 - Cualquier duda sobre si un cambio es breaking: asumí que sí y actualizá `docs/integrations/CHANGELOG.md` con el impacto en subproductos.
 
-**Señal temprana:** si Hub o Graph necesitan refactor para seguir leyendo artifacts después de un cambio en Aitri, el cambio probablemente fue breaking y debe revisarse antes de release.
+**Señal temprana:** si Hub necesita refactor para seguir leyendo artifacts después de un cambio en Aitri, el cambio probablemente fue breaking y debe revisarse antes de release.
 
 ## Comportamiento esperado
 
@@ -136,7 +136,7 @@ Todo feedback — bug report, feature request, o cambio de comportamiento — de
 - El feedback viene de un solo proyecto y el comportamiento actual es correcto para el caso general.
 - Se está replicando lógica que ya existe en otro comando.
 - Se propone un gate estructural nuevo que no previene ningún defecto real en el software producido — solo "valida" presencia de campos. Aitri ya enforcea schema; un gate adicional sin evidencia de defecto es teatro.
-- Se agrega un artifact o campo "por completitud" sin que ningún consumer (command, Hub, Graph, otro agente) lo vaya a leer.
+- Se agrega un artifact o campo "por completitud" sin que ningún consumer (command, Hub, otro agente) lo vaya a leer.
 
 ## Reglas críticas
 

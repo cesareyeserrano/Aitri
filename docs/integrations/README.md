@@ -7,7 +7,7 @@
 
 ## Core principle
 
-Aitri is a **passive producer**. It writes structured files to disk and commits them to git. It does not know about any subproduct — Hub, Graph, or any future tool. Subproducts are **autonomous consumers** that read those files independently.
+Aitri is a **passive producer**. It writes structured files to disk and commits them to git. It does not know about any subproduct — Hub or any future tool. Subproducts are **autonomous consumers** that read those files independently.
 
 ```
 Aitri Core
@@ -19,7 +19,7 @@ Aitri Core
                 docs/integrations/ARTIFACTS.md (schema of spec/ files)
                 docs/integrations/CHANGELOG.md (contract change history)
 
-Subproducts (Hub, Graph, CI, IDE, ...)
+Subproducts (Hub, future tools)
   │  read .aitri    → per SCHEMA.md
   │  read spec/     → per ARTIFACTS.md
   │  read git log   → per their own implementation

@@ -369,7 +369,7 @@ Project-level tech-debt / deferred-work registry. Separate from `BUGS.json` — 
 ## AUDIT_REPORT.md
 
 **Written by:** agent (instructed by `aitri audit` briefing). **Not** written by Aitri Core.
-**Read by:** `aitri audit plan` (generates action plan from findings). Hub/Graph may surface it.
+**Read by:** `aitri audit plan` (generates action plan from findings). Hub may surface it.
 **Optional:** off-pipeline artifact — no pipeline phase depends on it. Never blocks validate, approve, or drift detection.
 
 This file is produced on demand at any point in the pipeline. It contains the agent's findings from a holistic technical audit of the codebase across five dimensions: code quality, architecture, logic, security, and stack.
@@ -495,9 +495,9 @@ Run this script in CI or as a pre-commit hook. Hub picks it up on the next poll 
 
 ---
 
-## Node hierarchy for graph consumers
+## Node hierarchy for visualization consumers
 
-Aitri artifacts form a natural hierarchy for visualization:
+Aitri artifacts form a natural hierarchy for visualization (used by Hub and any future visual consumer):
 
 ```
 FR (FR-xxx)  [priority, type]
