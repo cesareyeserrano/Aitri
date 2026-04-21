@@ -5,6 +5,14 @@
 
 ---
 
+## [0.1.83] — 2026-04-20
+
+- **fix(status):** `aitri status` Features section now surfaces failing verify runs. Previously, a feature with tests failing rendered as `verify ⬜` — visually indistinguishable from "not run" — and hid the pass/fail counts. Now: passed → `verify ✅ (p/t)`, failed → `verify ❌ (p/t)`, not run → `verify ⬜`. Counts are always shown when a verify summary exists.
+- **fix(status):** Features section is now sorted by attention priority: features with test failures appear first, then incomplete / not-run, then passed. Surfaces the pipelines requiring action without requiring the user to scan an alphabetical list.
+- **docs:** Integration contract — no schema change (verify.passed / verify.summary already exposed per SCHEMA.md). Only rendering changed.
+
+---
+
 ## [0.1.82] — 2026-04-20
 
 - **feat(phase1):** Reject MUST FRs with fully-vague titles (e.g. `"La app debe funcionar correctamente"`, `"System must work properly"`). Rule: title matches `BROAD_VAGUE` regex AND fewer than 2 substantive tokens remain after stopword/vague-word removal. Closes a gap where vague ACs were caught but vague titles passed.

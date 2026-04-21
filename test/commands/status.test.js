@@ -239,6 +239,59 @@ describe('cmdStatus --json', () => {
     assert.ok(scopes.includes('feature:alpha'));
   });
 
+  it('text features section — failing features first, counts shown for both pass and fail (v0.1.83+)', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.83' });
+
+    // Mark root fully approved so features are visible / pipeline rendering is stable
+    const rootCfg = loadConfig(dir);
+    rootCfg.approvedPhases = [1, 2, 3, 4, 5];
+    rootCfg.completedPhases = [1, 2, 3, 4, 5];
+    rootCfg.currentPhase = 5;
+    rootCfg.verifyPassed = true;
+    rootCfg.verifySummary = { passed: 30, failed: 0, skipped: 0, total: 30 };
+    saveConfig(dir, rootCfg);
+
+    const mkFeature = (name, cfg) => {
+      const fDir = path.join(dir, 'features', name);
+      fs.mkdirSync(path.join(fDir, 'spec'), { recursive: true });
+      saveConfig(fDir, {
+        projectName:    name,
+        artifactsDir:   'spec',
+        approvedPhases: [1, 2, 3, 4, 5],
+        completedPhases:[1, 2, 3, 4, 5],
+        currentPhase:   5,
+        ...cfg,
+      });
+    };
+
+    mkFeature('alpha-passed', {
+      verifyPassed:  true,
+      verifySummary: { passed: 38, failed: 0, skipped: 0, total: 38 },
+      verifyRanAt:   new Date().toISOString(),
+    });
+    mkFeature('beta-failing', {
+      verifyPassed:  false,
+      verifySummary: { passed: 53, failed: 8, skipped: 0, total: 61 },
+      verifyRanAt:   new Date().toISOString(),
+    });
+
+    let out = '';
+    const orig = console.log.bind(console);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { cmdStatus({ dir, VERSION: '0.1.83', args: [] }); } finally { console.log = orig; }
+
+    // Fix 1: counts shown even when verify failed
+    assert.ok(out.includes('verify ❌ (53/61)'), 'failed feature must show ❌ with counts');
+    assert.ok(out.includes('verify ✅ (38/38)'), 'passed feature must show ✅ with counts');
+
+    // Fix 2: failing feature appears before passing feature
+    const idxFailing = out.indexOf('beta-failing');
+    const idxPassed  = out.indexOf('alpha-passed');
+    assert.ok(idxFailing >= 0 && idxPassed >= 0);
+    assert.ok(idxFailing < idxPassed, 'failing features must be sorted before passing ones');
+  });
+
   it('text output unaffected when --json flag absent', () => {
     const dir = tmpDir();
     cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
