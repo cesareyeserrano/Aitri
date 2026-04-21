@@ -155,6 +155,7 @@ If a proposal passes this file but leaves no trace in any of the four mechanisms
 
 - **Do NOT invoke `aitri` in this repo** — the project is developed here, not managed with Aitri.
 - **Do NOT introduce npm dependencies** — zero-dep is a marketing and security invariant, not an aesthetic preference.
+- **Repo content is 100% English.** Code, comments, docs, commit messages, prompts, templates, tests — all English. Chat with the user may happen in any language; written artifacts in the repo do not. Exceptions: (1) immutable historical records (existing ADR quotes, past CHANGELOG entries), (2) intentional non-English test inputs (e.g. Spanish vague-title examples for bilingual regex gates). New exceptions must be justified inline.
 - Keep VERSION in sync: `package.json` and `bin/aitri.js` VERSION const always equal. Enforced by `test/release-sync.test.js`.
 - `npm run test:all` must pass before committing. No exceptions. A red test on main is a regression that blocks any other work.
 - **Every new feature or observable behavior change bumps the version before release:**
