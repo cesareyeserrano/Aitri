@@ -5,6 +5,18 @@
 
 ---
 
+## [0.1.88] — 2026-04-22
+
+- **docs(prompt):** [templates/phases/tests.md](templates/phases/tests.md) TC ID convention now documents the canonical shape `TC[-NAMESPACE]*-<digits><suffix>` with namespaced examples (`TC-FE-001h`, `TC-API-USER-010f`) and explicit anti-patterns (`TC-FE001h` glued, `TC-E01` no separator) — both fail [verify.js extractTCId](lib/commands/verify.js#L29) silently. Partial mitigation for the canonical-format gate still pending in BACKLOG. Phase 3 prompt output is the only observable change.
+- **docs(backlog):** Cleanup pass after deeper code-verification of every open item:
+  - Discarded: `tc verify recomputes fr_coverage` (verified `verify-complete` blocks via `d.results[].status`, not `fr_coverage` counts; no consumer reads per-FR counts for decisions).
+  - Discarded: `Rename checkpoint` (verified `--name` snapshot mode is not duplicated by `writeLastSession` auto; no user complaint in 18 versions).
+  - Discarded: `NFR traceability Phase 2` (Design Study, no real case in 2 weeks since opened).
+  - Reviewed + kept: `wizard` and `checkpoint` excluded from future command-surface audits with reason recorded.
+- **no code change** beyond the template and version bumps.
+
+---
+
 ## [0.1.87] — 2026-04-22
 
 - **feat(health):** New deploy-gate reason `feature_verify_failed` — `computeHealth()` now blocks `deployable` when any feature sub-pipeline at phases 5/5 has `verify.ran && !verify.passed`. Real case (Cesar 2026-04-22): `frontend-remediation` sat at `5/5 verify ✅ (0/44)` for multiple sessions; pipeline declared done, tests never matched, `validate` said green. Now the inconsistency blocks the gate instead of silently passing it.

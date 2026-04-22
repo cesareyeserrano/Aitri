@@ -37,31 +37,6 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 > Ecosystem items (Hub, Graph, future subproducts) live in their own repos' backlogs.
 > Core only tracks items that require changes to Aitri Core itself.
 
-### Core — Reporting accuracy
-
-- [ ] P3 — **`aitri tc verify` recomputes `fr_coverage` alongside `summary`** — `tc.js:64-77` recomputes `summary` after flipping a manual TC's status but does not recompute `fr_coverage`. The two fields drift: after `tc verify TC-XXX --result pass` on a manual TC, `summary.passed` goes up but `fr_coverage[entry].tests_manual` still counts that TC as manual and `tests_passing` stays too low.
-
-  Problem: Today the gate logic uses `fr_coverage[].status === 'covered'` which is boolean (any passing test = covered), so the stale counts don't block deploy. But the artifact's own internal consistency is violated — any consumer reading both `summary` and `fr_coverage` sees contradiction. Hub currently ignores per-FR counts; future consumers or an auditor command reading this would be misled. No known break case today; latent risk.
-
-  Files:
-  - `lib/commands/tc.js` — after updating the entry + recomputing `summary`, rebuild `fr_coverage` by calling `buildFRCoverage()` (exported from `verify.js`) with current `results`, Phase 3 `test_cases`, and Phase 1 FR ids. Write the rebuilt array back to the artifact.
-  - `test/commands/tc.test.js` — add a case: start with manual TC counted in `fr_coverage.tests_manual`, run `aitri tc verify --result pass`, assert `tests_manual` decreases by 1 and `tests_passing` increases by 1 in the affected FR row.
-
-  Behavior:
-  - `aitri tc verify TC-XXX --result pass` → `fr_coverage[tc→fr].tests_manual` decreases, `tests_passing` increases by 1.
-  - `aitri tc verify TC-XXX --result fail` → `tests_manual` decreases, `tests_failing` increases by 1.
-  - `status` of the FR row (covered / partial / uncovered) recomputed — only matters if the flip was the last remaining passing test for an FR.
-  - Re-run idempotent.
-
-  Decisions:
-  - Rebuild the whole `fr_coverage` array rather than surgically updating one row. Simpler; aligned with how `verify-run` already builds it from scratch. Avoids a second code path that can drift.
-  - No version bump on its own — ship bundled with any other tc-related change. Current behavior is latent-only, not actively breaking.
-
-  Acceptance:
-  - Test above passes.
-  - `status` + `validate` output unchanged in projects that never ran `tc verify` (additive fix).
-  - No change to `.aitri` schema or artifact schema (only corrects values that should already have been correct).
-
 ### Core — API cleanup
 
 - [ ] P3 — **Phase 3: enforce canonical TC ID format** — `03_TEST_CASES.json` accepts any `id` string; only presence of trailing `h` / `f` on MUST-FR coverage is checked. A project can ship non-canonical IDs like `TC-E01` (namespace letter glued to digits, no suffix) and everything downstream — conftest helpers, verify parsers, fr_coverage — silently mismatches.
@@ -86,34 +61,9 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
   - ARTIFACTS.md has the regex documented alongside the h/f/e convention.
 
   Related:
-  - v0.1.85 fixed the parser side (multi-segment IDs) — the format-validation gate is the missing preventive counterpart.
+  - v0.1.85 fixed the parser side (multi-segment IDs).
+  - v0.1.88 updated `templates/phases/tests.md` with namespaced examples + anti-glue warning — partial mitigation. The format-validation gate at Phase 3 complete is the missing preventive counterpart.
   - This would catch silent drift earlier (Phase 3 complete) instead of days later (verify-run showing unexplained skips).
-
-- [ ] P3 — **Rename `checkpoint` to `note` (or simplify)** — The `checkpoint` command's original "save session state" role was absorbed by auto-`writeLastSession` in v0.1.70. Today it only adds manual annotation (`--context`) and named markdown snapshots (`--name`) on top of what `resume` already surfaces.
-
-  Problem: The name `checkpoint` suggests "save state so I can restore later" — but every `complete` / `approve` / `verify-run` / `verify-complete` / `feature init` / `normalize` already writes `lastSession` automatically. Running `aitri resume` surfaces pipeline state + last-session metadata + next action without ever invoking `checkpoint`. Users who designed the command for "long project retaken days later" or "multi-user handoff" cases don't reach for it because `resume` already covers those cases. The command is mostly dormant — the name over-promises.
-
-  Files:
-  - `lib/commands/checkpoint.js` — rename and/or simplify (bare mode is redundant — `writeLastSession` with no `--context` and no `--name` duplicates auto-checkpoint)
-  - `bin/aitri.js` — dispatch table + deprecation alias if renaming
-  - `lib/commands/help.js` — update command help; clarify that `lastSession` is auto-written by structural commands
-  - `test/commands/checkpoint.test.js` — rename or update
-  - `docs/integrations/CHANGELOG.md` — breaking API change entry if renamed
-  - `README.md` — command list
-
-  Behavior (one of two paths — pick at implementation time):
-  - **Path A (rename):** `aitri note "text"` replaces `aitri checkpoint --context "text"`. `--name` snapshot mode becomes `aitri snapshot --name "..."` or folds into `aitri note --snapshot`. Bare `aitri checkpoint` is dropped (redundant with auto). Keep `checkpoint` as a deprecated alias for one minor version.
-  - **Path B (keep, simplify):** drop bare mode only — running `aitri checkpoint` with neither `--context` nor `--name` prints a short message pointing to `aitri resume`. `--context` and `--name` continue working. No rename, no deprecation.
-
-  Decisions:
-  - **Do not touch now (2026-04-21):** not broken, covers real edge cases (`--context` for free-text annotation, `--name` for pre-refactor snapshots). Revisit only if (a) a real user complains about the command's purpose being unclear, or (b) we're already doing a wider command-surface cleanup.
-  - Deprecation-with-alias is mandatory if renaming — `checkpoint` has been in the public API since v0.1.70.
-  - Path B is strictly safer than Path A; Path A is only justified if we see evidence the name confuses users.
-
-  Acceptance:
-  - If Path A: `aitri checkpoint --context "x"` prints a deprecation notice and still works; `aitri note "x"` writes `lastSession.context = "x"`; smoke + unit tests pass.
-  - If Path B: `aitri checkpoint` with no flags prints a hint; `--context` and `--name` continue working unchanged; unit tests updated.
-  - In both cases: `aitri resume` output under "Last Session" is unchanged.
 
 ### Core — Breaking changes for v0.2.0
 
@@ -156,12 +106,14 @@ Aitri exposes 20 top-level commands today (`lib/commands/*.js`). Over successive
 
 | Pair / Group | Suspected overlap |
 | :--- | :--- |
-| `checkpoint` vs auto-`writeLastSession` + `resume` | Already captured — see P3 entry above |
 | `resume` vs `status` vs `status --json` vs `validate` vs `validate --explain` | Four commands project the same `buildProjectSnapshot()` with different verbosity / framing |
 | `audit` vs `review` | Both are evaluative read-only passes with personas (auditor, reviewer). Different scope (audit = whole project, review = per-phase) but same shape |
 | `feature verify-run` vs `verify-run` | Same logic, scoped to a feature sub-pipeline. Candidate for `verify-run --feature <name>` |
 | `tc verify` vs `verify-run` | Manual TC recording vs automated runner — correct split today, but worth confirming against use |
-| `wizard` vs `init` + `adopt scan` | Wizard predates the `init`/`adopt` surface maturing. Does it still add value? |
+
+**Already reviewed (excluded from future audits):**
+- `wizard` vs `init` + `adopt scan` — reviewed 2026-04-22, **kept**. Distinct surfaces: `init` bootstraps `.aitri` config (no IDEA.md), `adopt scan` derives IDEA.md from existing code, `wizard` interactively builds IDEA.md for greenfield projects. Plus `wizard` exports `runDiscoveryInterview()` consumed by `run-phase discovery --guided` ([run-phase.js:148](../../lib/commands/run-phase.js#L148)) — load-bearing.
+- `checkpoint` vs auto-`writeLastSession` + `resume` — reviewed 2026-04-22, **kept**. `--name` writes frozen resume snapshots to `checkpoints/` (no other command does this); `--context` adds free-text annotation to `lastSession`. Bare mode is the only redundant path (~5 lines of overhead). Not worth a breaking rename.
 
 **Open question:** For each suspected overlap, is the split reinforcing a real distinction (different user intent, different invariant), or is it incidental history (command added before the collapsing path existed)?
 
@@ -186,28 +138,6 @@ Aitri exposes 20 top-level commands today (`lib/commands/*.js`). Over successive
 
 ---
 
-### NFR traceability in system design (Phase 2)
-
-Phase 2 (`02_SYSTEM_DESIGN.md`) today validates section presence and minimum length, but does not verify that the NFRs declared in Phase 1 are *addressed* by the design. A design can have every required section and still completely ignore the performance/security/availability NFRs.
-
-**Open question:** Is it worth attempting prose↔NFR matching in Phase 2?
-
-**Why it is a Design Study and not a ticket:**
-- NFR→design matching requires lightweight NLP over Markdown — high risk of false positives.
-- An NFR like "p95 latency <200ms" could be addressed in the "Performance & Scalability" section without mentioning the exact number, but with a valid architectural decision (cache layer, CDN).
-- An overly strict validator would reject good designs.
-
-**Criterion to mature into a ticket:**
-- A real case where an approved design ignored a critical NFR and broke production.
-- Without that case, the hypothesis (agents ignore NFRs) is not verified.
-
-**Cheaper alternative if the case emerges:**
-- No automatic validator. Extend `aitri review` with a check that lists Phase 1 NFRs and asks the agent/human "is each one addressed in the design? Answer yes/no per NFR." Honor-system, but visible.
-
-**Resolved partially (2026-04-20):** the Design Study's original question ("how far should Aitri go in validating semantics?") was answered de facto by the validation model (2026-03-14) + existing semantic gates (BROAD_VAGUE in Phase 1, placeholder detection in Phase 3, FR-MUST coverage in Phase 3/5). The concrete cases of title vagueness and duplicate ACs were closed in v0.1.82. Only the NFR traceability question remains open.
-
----
-
 ## Discarded
 
 Items analyzed and explicitly rejected.
@@ -219,3 +149,6 @@ Items analyzed and explicitly rejected.
 | Aitri IDE (VSCode extension) | Discarded 2026-04-17 | Separate product with its own release cycle. Not incremental over the CLI; will be reconsidered if the CLI stabilizes across multiple external teams. |
 | Aitri Report (PDF/HTML compliance report) | Discarded 2026-04-17 | User declined the surface. Compliance evidence already lives in `05_PROOF_OF_COMPLIANCE.json` + git history; rendering is a separate concern. |
 | Aitri Audit (ecosystem-level cross-project aggregator) | Discarded 2026-04-17 | Functionally duplicates Hub's dashboard. Aitri Core does not maintain a global registry — adding one to support an aggregator violates the passive-producer model. Name also collides with the per-project `aitri audit` command (v0.1.71). |
+| `aitri tc verify` recomputes `fr_coverage` | Discarded 2026-04-22 | Verified end-to-end: `verify-complete` blocks failures via `d.results[].status` ([verify.js:732](../../lib/commands/verify.js#L732)), not via `fr_coverage` counts. The `fr_coverage` gate at [verify.js:805-811](../../lib/commands/verify.js#L805-L811) only fires when `tests_passing === 0 && status !== 'manual'` — manual TCs never reach this branch. No active consumer reads per-FR `tests_passing/tests_manual` for any decision. Internal field drift is real but has no observable effect. Re-open if a future consumer (audit, Hub) starts reading per-FR counts. |
+| Rename `checkpoint` to `note` (or simplify) | Discarded 2026-04-22 | Verified [checkpoint.js](../../lib/commands/checkpoint.js): `--name` writes frozen resume snapshots to `checkpoints/` (unique surface, not duplicated by `writeLastSession` auto), `--context` adds free-text annotation to `lastSession`. Bare mode is the only redundant path (~5 lines overhead). No user complaint in 18 versions since v0.1.70. Breaking rename for cosmetic improvement is not justified. |
+| NFR traceability in Phase 2 (Design Study) | Discarded 2026-04-22 | Open since 2026-04-20 with explicit criterion "real case where approved design ignored a critical NFR and broke production". No such case has emerged in any Aitri-managed project. NLP-over-Markdown matching is high false-positive; honor-system review-list extension is untested. Persecuting a hypothetical defect. Re-open if a real case appears. |

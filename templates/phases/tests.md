@@ -25,9 +25,14 @@
 {{SYSTEM_DESIGN}}
 
 ## TC ID naming convention
+- Canonical shape: `TC[-NAMESPACE]*-<digits><suffix>` — namespace segments are letters only, digits and suffix sit in the LAST segment.
 - Happy-path TCs: suffix ID with `h` — e.g., `TC-001h: user logs in with valid credentials`
 - Failure/negative TCs: suffix ID with `f` — e.g., `TC-001f: login rejected when password is wrong`
 - Edge cases: any other suffix — e.g., `TC-001e`
+- Namespaced (feature sub-pipelines, multi-area projects): keep the suffix on the LAST segment.
+  - ✅ `TC-FE-001h`, `TC-API-USER-010f`, `TC-E2E-007e`
+  - ❌ `TC-FE001h` (digits glued to namespace letter — verify-run cannot parse)
+  - ❌ `TC-E01` (no separator between namespace and digits, no suffix — silently dropped to skipped_no_marker)
 - **Gate**: `aitri complete 3` requires every FR to have ≥1 TC id ending in `h` and ≥1 ending in `f`
 
 ## Output: `{{ARTIFACTS_BASE}}/03_TEST_CASES.json`
