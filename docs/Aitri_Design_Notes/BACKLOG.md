@@ -37,60 +37,86 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 > Ecosystem items (Hub, Graph, future subproducts) live in their own repos' backlogs.
 > Core only tracks items that require changes to Aitri Core itself.
 
-### Core — API cleanup
+### Core — v2.0.0 — `adopt --upgrade` as reconciliation protocol (HEADLINE)
 
-- [ ] P3 — **Phase 3: enforce canonical TC ID format** — `03_TEST_CASES.json` accepts any `id` string; only presence of trailing `h` / `f` on MUST-FR coverage is checked. A project can ship non-canonical IDs like `TC-E01` (namespace letter glued to digits, no suffix) and everything downstream — conftest helpers, verify parsers, fr_coverage — silently mismatches.
+Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200). Redesign of `aitri adopt --upgrade` from version-bump stub into a five-phase protocol (diagnose → plan → confirm → migrate → report). Headline change of v2.0.0. The previously-targeted "v0.2.0 breaking batch" is re-scoped under v2.0.0.
 
-  Problem: Convention is documented in `docs/integrations/ARTIFACTS.md:148` and `templates/phases/tests.md:27-30` (suffix `h`/`f`/`e`, canonical shape `TC(-<NS>)*-<digits><letter>`), but not mechanically enforced. Consumer projects discover the drift as "verify shows TCs as skipped despite pytest passing" — days of debugging to trace back to a naming typo. Real case surfaced in Cesar 2026-04-22: `TC-E01`/`TC-E02` smoke tests silently dropped to `skipped_no_marker`; root cause was ID format, not the parser.
+#### Execution plan (next-session entry point)
 
-  Files:
-  - `lib/phases/phase3.js` — add format validation against `/^TC(-[A-Z][A-Za-z0-9]*)*-\d+[a-z]?$/` (or similar — calibrate against existing valid IDs in internal tests + Hub). Throw with actionable message: the offending `id`, the pattern it must match, and a canonical rewrite suggestion (`TC-E01` → `TC-E-01e`).
-  - `test/phases/phase3.test.js` — add coverage for accept-canonical / reject-noncanonical cases.
-  - `docs/integrations/ARTIFACTS.md` — formalize the regex next to the existing convention paragraph.
+**Branch:** `v2.0.0` (or `feat/upgrade-protocol`) — dedicated branch, not main. Merges to `main` after end-to-end validation including a re-run of the Ultron brownfield scenario.
 
-  Behavior:
-  - Phase 3 complete throws on any non-canonical `id`. Migration path for existing projects: either rename IDs (surfaces the real cost of the deviation) or we ship with a one-version grace period (warn, then throw).
+**Delivery tandas (pre-releases against Ultron before promoting):**
 
-  Decisions:
-  - Do **not** ship reactively (single case = Cesar). Wait for a second real case before scheduling, unless an architectural review finds this a systemic gap.
-  - If scheduled: coordinate with the checkpoint-rename cycle — breaking/strict changes are easier to batch in one minor.
+| Alpha | Scope | Canary check |
+|:---|:---|:---|
+| `v2.0.0-alpha.1` | Module scaffold (`lib/upgrade/`) + BLOCKING migrations only (TC rename, NFR rewrite, artifactsDir recovery) | Ultron: upgrade runs clean, verify-run works post-upgrade without needing the A2 precondition fallback. |
+| `v2.0.0-alpha.2` | Adds STATE-MISSING (normalizeState, verifyRanAt, auditLastAt, lastSession, updatedAt backfill) | Ultron: `aitri normalize` works post-upgrade without `--init`. |
+| `v2.0.0-alpha.3` | Adds VALIDATOR-GAP reporting (non-migrating, agent-flagged) | Ultron: report surfaces known gaps; no auto-mutation. |
+| `v2.0.0-alpha.4` | Adds CAPABILITY-NEW + STRUCTURE migrations | Ultron: `original_brief` archival, agent files regen, path-case normalization. |
+| `v2.0.0` | Promotion of last alpha. Final message rewrite of `adopt --upgrade` banner in `resume.js` replaces the v0.1.90 honest-intermediary text. | Full E2E re-run on Ultron + at least one other real project. |
 
-  Acceptance:
-  - Running Phase 3 validation against a fixture with `TC-E01` throws with the exact regex + rewrite suggestion.
-  - Existing valid IDs (`TC-001h`, `TC-FE-001h`, `TC-API-USER-010f`) continue to pass.
-  - ARTIFACTS.md has the regex documented alongside the h/f/e convention.
+**Commit discipline:** each migration module = its own commit. No squash at merge. Each commit includes code + tests + doc update in `docs/integrations/CHANGELOG.md` and `docs/integrations/ARTIFACTS.md` where applicable.
 
-  Related:
-  - v0.1.85 fixed the parser side (multi-segment IDs).
-  - v0.1.88 updated `templates/phases/tests.md` with namespaced examples + anti-glue warning — partial mitigation. The format-validation gate at Phase 3 complete is the missing preventive counterpart.
-  - This would catch silent drift earlier (Phase 3 complete) instead of days later (verify-run showing unexplained skips).
+**Invariant not to break during implementation:**
+- v0.1.90 defensive layers (reader tolerance, verify-run precondition, normalize --init flag, deployable banner, bug SHA audit, Docker deagnostic validate, agent-files guidance) stay in place unchanged. The upgrade protocol runs alongside them; they remain the fallback for users who run CLI commands before running upgrade.
+- `adopt scan` / `adopt apply` / `aitri init` are untouched.
+- The `status.js` priority ladder already hints `adopt --upgrade` on version mismatch. No change needed there — the new upgrade just does more work when invoked.
 
-### Core — Breaking changes for v0.2.0
+#### Scope
 
-- [ ] P3 — **`IDEA.md` and `ADOPTION_SCAN.md` at the root of the user's project** — Both files land at the root after `adopt scan`, polluting the user's directory and exposing them to accidental deletion.
+#### Scope
 
-  Problem: The user's project root is not the right place for Aitri-generated files. The user can delete them by mistake or confuse them with their own files. Also, `spec/` already exists as the artifacts folder — semantically `IDEA.md` belongs there.
+- [ ] **Module: `lib/upgrade/`** — new directory. Entry point `lib/upgrade/index.js` exports `runUpgrade(dir, config, flags)`. `adopt --upgrade` becomes a thin dispatcher that calls it.
+- [ ] **Diagnostic catalog** — `lib/upgrade/diagnose.js` returns `{ blocking: [], stateMissing: [], validatorGap: [], capabilityNew: [], structure: [] }`. Each entry: `{ version, target, before, after, reversible }`.
+- [ ] **Migration modules** — `lib/upgrade/migrations/from-<version>.js`. Each exports `{ diagnose, migrate }`. Composition: upgrade walks from `config.aitriVersion` → CLI VERSION, invokes every applicable module in order.
+- [ ] **Atomic commit point** — `aitriVersion` written LAST. Rollback on mid-run failure (restore from `before_hash`).
+- [ ] **Event logging** — every migration emits `{ type: 'upgrade_migration', from, to, category, target, before_hash, after_hash, timestamp }` into `.aitri.events[]`.
+- [ ] **CLI flags** — `--dry-run` (diagnose only, no writes), `--yes` (non-interactive CI path), `--only <categories>` (comma-separated filter), `--verbose` (per-migration detail).
+- [ ] **Coverage gate** — new test `test/upgrade-coverage.test.js` analogous to `release-sync.test.js`. Enforces: any change to `lib/phases/phase*.js::validate()`, artifact schemas, or `.aitri` field set requires an entry in the most recent `from-*.js` migration module. CI blocks otherwise.
 
-  Files:
-  - `lib/commands/adopt.js` — change write paths from `path.join(dir, 'IDEA.md')` and `ADOPTION_SCAN.md` to `path.join(dir, 'spec', ...)`; create `spec/` in `adoptScan` instead of only in `adoptApply`
-  - `lib/commands/run-phase.js` — line 68: change `adir = ''` to `adir = artifactsDir` for `IDEA.md`
-  - `templates/adopt/scan.md` — update output paths (`{{PROJECT_DIR}}/spec/IDEA.md`, `{{PROJECT_DIR}}/spec/ADOPTION_SCAN.md`)
-  - `test/smoke.js` — update smoke tests that check for `IDEA.md` at the root
+#### Initial migration catalog (from Ultron session + schema history)
 
-  Behavior:
-  - `adopt scan` creates `spec/` if missing, writes `spec/IDEA.md` and `spec/ADOPTION_SCAN.md`
-  - `run-phase 1/2/discovery` looks up `IDEA.md` in `spec/` (via `artifactsDir`)
-  - `adopt apply` assumes `spec/IDEA.md`
+**🔴 BLOCKING (from-0.1.65.js et al.):**
+- [ ] TC schema rename: `test_cases[].requirement` (string) → `requirement_id` (string) or `frs` (array if comma-separated).
+- [ ] NFR schema rewrite: `non_functional_requirements[].{title, constraint}` → `{category, requirement}`.
+- [ ] `artifactsDir` recovery: if config points to empty dir but artifacts at root, correct to `''` (partially already in current adopt --upgrade).
 
-  Decisions:
-  - **Defer to v0.2.0 as an explicit breaking change** (decided 2026-03-17): no dual-path fallback — it would add permanent debt in run-phase.js. In v0.2.0: the user moves IDEA.md manually, or Aitri detects the file at root and aborts with a clear instruction.
-  - `ADOPTION_SCAN.md` moves too — same semantic group, low individual risk (only written by agent, never read by code)
+**🟡 STATE-MISSING (from-0.1.65.js through from-0.1.89.js):**
+- [ ] `normalizeState` (from-0.1.79.js): if Phase 4 approved without baseline, stamp `{baseRef: HEAD || ISO, method, status: 'resolved', lastRun}`.
+- [ ] `verifyRanAt` (from-0.1.78.js): if `verifyPassed=true` but no `verifyRanAt`, backfill from newest `04_TEST_RESULTS.json` mtime.
+- [ ] `auditLastAt` (from-0.1.78.js): backfill from `AUDIT_REPORT.md` mtime if present.
+- [ ] `lastSession` (from-0.1.69.js): backfill from the most recent `events[].when` of type `complete|approve|verify`.
+- [ ] `updatedAt` (from-0.1.63.js): stamp to current time if missing.
 
-  Acceptance:
-  - `adopt scan` in a new project: `IDEA.md` and `ADOPTION_SCAN.md` land in `spec/`, not at root
-  - `run-phase 1` in a project with `spec/IDEA.md`: works without warning
-  - Legacy project with `IDEA.md` at root: Aitri aborts with explicit migration instruction
-  - Smoke tests pass with 0 failures
+**🟠 VALIDATOR-GAP (report-only, no auto-migrate — requires agent):**
+- [ ] v0.1.82 Phase 1 vagueness: flag FRs with titles that would fail current `BROAD_VAGUE` check.
+- [ ] v0.1.82 Phase 1 duplicate ACs: flag FR pairs with Jaccard ≥0.9.
+- [ ] v2.0.0 Phase 3 TC canonical regex (see breaking item below): flag non-canonical `tc.id` values.
+
+**🔵 CAPABILITY-NEW (opt-in, advisory):**
+- [ ] `files_modified` (from-0.1.75.js): if `04_IMPLEMENTATION_MANIFEST.json` has only `files_created`, advisory only — cannot infer modifications retroactively.
+- [ ] Bug audit trail (from-0.1.89.js): bugs in state `closed` without `close_commit_sha` cannot be backfilled (no known close commit). Advisory. Future bugs auto-populate.
+- [ ] Agent instruction files (from-0.1.69.js): regenerate `CLAUDE.md`, `GEMINI.md`, `.codex/instructions.md` if missing.
+- [ ] `original_brief` (from-0.1.88.js): if `IDEA.md` still exists alongside approved Phase 1, offer to archive into `01_REQUIREMENTS.json.original_brief` and remove.
+
+**⚪ STRUCTURE:**
+- [ ] (covered in 🔴) `artifactsDir` recovery — same migration.
+- [ ] Case-mismatch detection for internal paths (Aitri-owned only; Hub registry is out of scope per FEEDBACK A6 resolution).
+
+### Core — v2.0.0 — Breaking changes batched with the upgrade protocol
+
+With the upgrade protocol in place, these breaking changes become tractable — each ships with its own `from-*.js` migration that handles the legacy shape.
+
+- [ ] **`IDEA.md` and `ADOPTION_SCAN.md` move from project root to `spec/`** — previously blocked on "no dual-path fallback" because the protocol had no migration surface. Now: v2.0.0 migration module detects root-level `IDEA.md`/`ADOPTION_SCAN.md` and offers to move them into `spec/`.
+  Files: `lib/commands/adopt.js`, `lib/commands/run-phase.js`, `templates/adopt/scan.md`, `test/smoke.js`.
+  Migration: `lib/upgrade/migrations/from-0.1.89.js` offers move as STRUCTURE category.
+  Acceptance: new projects land files in `spec/`; legacy projects get moved on upgrade.
+
+- [ ] **Phase 3 canonical TC ID regex** (previously P3, waiting for second case) — v2.0.0 enforces `/^TC(-[A-Z][A-Za-z0-9]*)*-\d+[a-z]?$/` at `complete 3`. Migration reports non-canonical IDs as VALIDATOR-GAP (agent re-runs Phase 3 or renames manually — cannot be auto-renamed safely because consumers reference by id).
+  Files: `lib/phases/phase3.js`, `test/phases/phase3.test.js`, `docs/integrations/ARTIFACTS.md`.
+  Migration: `lib/upgrade/migrations/from-0.1.89.js` detects and reports.
+
+- [ ] **Command-surface audit outcomes** — Design Study promotes to tickets. Any collapse/rename goes through v2.0.0 batch with a migration in `from-*.js` that rewrites command references in agent instruction files (if any).
 
 ---
 

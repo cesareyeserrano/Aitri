@@ -5,6 +5,18 @@
 
 ---
 
+## Upcoming — v2.0.0 — `adopt --upgrade` as reconciliation protocol (design accepted)
+
+See [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200) and the v2.0.0 catalog in [BACKLOG.md](BACKLOG.md).
+
+**Intent:** the current `adopt --upgrade` command only bumps `aitriVersion` and infers completed phases from artifacts. That does not match its design purpose — to keep existing Aitri-managed projects **functionally and technically current** as Aitri Core evolves. v2.0.0 redesigns the command into a five-phase reconciliation protocol (diagnose → plan → confirm → migrate → report) with versioned migration modules in `lib/upgrade/migrations/`.
+
+**Not a blocker for v0.1.x.** v0.1.90 ships the individual defensive fixes (A1 reader tolerance, A2 verify-run precondition, A4 normalize --init, A3 honest message, F1 deployable banner, F6/F12 bug SHA audit, A5 docker deagnostic, F13 agent-files guidance). Those remain in place under v2.0.0 as the fallback layer for cases where the upgrade protocol does not run.
+
+**Implementation gate:** ADR acceptance is not authorization. A dedicated v2.0.0 feature branch, migration catalog, and staged delivery plan (one module at a time, with its own tests) are prerequisites. No code written yet.
+
+---
+
 ## [0.1.90] — 2026-04-23
 
 Brownfield-integrity pass driven by the 2026-04-22 Ultron E2E session. Focused on data-destruction bugs and escape hatches for projects adopted before v0.1.80 — the class of drift that only appears on real adopters, not on Aitri's own test fixtures.

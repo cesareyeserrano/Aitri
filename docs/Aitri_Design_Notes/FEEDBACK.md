@@ -19,6 +19,41 @@
 
 ---
 
+## 2026-04-23 — Re-analysis under v2.0.0 design lens
+
+After v0.1.90 shipped the individual fixes below, the user surfaced the underlying design intent: `adopt --upgrade` was meant to be a **reconciliation protocol** that keeps projects functionally and technically current as Aitri evolves — not the cosmetic version-sync the code has always been. [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200) captures that redesign as the headline of v2.0.0.
+
+**Re-classification of items below under the v2.0.0 lens:**
+
+| Ítem | v0.1.90 action | v2.0.0 reclassification | False positive? |
+|:---|:---|:---|:---|
+| **A1** | Reader tolerance (staged) | Still correct as defensive layer. The v2.0.0 upgrade protocol migrates legacy `{title, constraint}` → `{category, requirement}` automatically (BLOCKING category); the reader fallback covers the transient window before upgrade runs. | **No.** |
+| **A2** | verify-run precondition (staged) | Defensive layer; upgrade protocol rewrites `tc.requirement` → `tc.requirement_id` as a migration, so the precondition rarely fires but stays as safety net for users who ran `verify-run` before upgrade. | **No.** |
+| **A3** | Honest upgrade message (staged) | Message was a band-aid for the command not doing what it claimed. In v2.0.0 the command actually does it — message will be rewritten again to describe the real protocol, not this cosmetic intermediary. | **No** — but short-lived. |
+| **A4** | `normalize --init` flag (staged) | Becomes a STATE-MISSING migration step INSIDE the upgrade protocol. Standalone flag stays for power users. The common path shifts from "upgrade + normalize --init" to just "upgrade". | **No.** |
+| **A5** | Validate Docker deagnostic (staged) | Unrelated to upgrade protocol. Stands alone. | **No.** |
+| **A6** | Not Aitri (Hub concern) | Unchanged. Still not Aitri's problem. | **No** (and never was). |
+| **F1** | Deployable banner in resume (staged) | Unrelated to upgrade protocol. Stands alone. | **No.** |
+| **F2** | Already-fixed regression lock (staged) | Unrelated. Stands. | **No.** |
+| **F3** | Audit quality honor-system (not acted) | Unchanged decision: violates passive-producer invariant. | **No** (correctly discarded). |
+| **F4** | Output shape inconsistency (not acted) | Unchanged. Cosmetic, low value. | **No** (correctly deferred). |
+| **F5** | audit + audit plan fusion (deferred to Command-surface audit) | Unchanged — Design Study. | **No.** |
+| **F6** | Bug SHA audit trail partial (staged) | Unrelated to upgrade protocol (it's a lifecycle improvement). The missing `--verified-by` gate remains correctly discarded (invariant). | **No.** |
+| **F7** | Meta (folds into A1/A2/A4) | Confirmed: the "Aitri doesn't detect its own legacy drift" observation is exactly what the v2.0.0 upgrade protocol solves systematically. F7 is the abstract statement of the design gap that ADR-027 closes. | **No** — validated as meta-signal. |
+| **F8** | Resume 220 lines (deferred) | Still deferred. Not related to upgrade protocol. | **No.** |
+| **F9** | Dup of A1 | Same fix. | **No.** |
+| **F10** | Folds into A2 | Same fix. | **No.** |
+| **F11** | Persistent next action on stable (deferred) | Still deferred. Not related. | **No.** |
+| **F12** | Bug close SHA (staged) | Lifecycle improvement. Independent of upgrade. | **No.** |
+| **F13** | Agent files guidance (staged) | In v2.0.0 this becomes part of the upgrade protocol REPORT phase. The standalone print in `adopt --upgrade` is absorbed. | **No** — reframed, not wrong. |
+| **F14** | Not acted on (crosses boundary) | Unchanged. Upgrade protocol does not consult git either. | **No** (correctly discarded). |
+
+**Conclusion of re-analysis:** **no false positives.** Every v0.1.90 action stands — either as (a) defensive layer under the new protocol, (b) independent improvement unrelated to upgrade, or (c) correctly-rejected item. The redesign in ADR-027 does not invalidate prior work; it **elevates it** from a set of disconnected fixes into the orchestrated protocol the command was always supposed to be.
+
+**What changes in FEEDBACK's framing:** the section below (original entries) now reads as the symptom catalog that motivated ADR-027. Items marked "shipped (staged)" remain true statements of what v0.1.90 did. When v2.0.0 ships, these annotations should be collapsed into a single reference to ADR-027 plus the migration catalog in BACKLOG.md.
+
+---
+
 ### A1 — ✅ shipped (staged). Renderer tolerance for legacy NFR `{title, constraint}`; null-safe FR `type`; `resume` drops `(must-have, undefined): undefined` strings.
 ### A2 — ✅ shipped (staged). `verify-run` precondition blocks write on legacy TC schema before spawning the runner; `frs[]` array accepted as multi-FR shape.
 
