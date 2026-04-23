@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { execSync } from 'child_process';
 import { openBugCount, autoVerifyBugs, getBlockingBugs, getOpenBugs, cmdBug } from '../../lib/commands/bug.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -294,6 +295,95 @@ describe('cmdBug lifecycle', () => {
   it('errors when bug id not found', () => {
     const dir = setup();
     assert.throws(() => cmdBug({ dir, args: ['fix', 'BG-999'], err }), /BG-999 not found/);
+  });
+});
+
+// ── cmdBug — git audit trail (F6/F12) ────────────────────────────────────────
+
+describe('cmdBug lifecycle — git audit trail', () => {
+  function gitSetup() {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    writeBugs(dir, [{ id: 'BG-001', title: 't', status: 'open', fr: null, tc_reference: null }]);
+    const run = (cmd) => execSync(cmd, { cwd: dir, stdio: 'ignore' });
+    run('git init -q');
+    run('git config user.email aitri@test');
+    run('git config user.name Aitri');
+    // initial commit
+    fs.writeFileSync(path.join(dir, 'README'), 'x');
+    run('git add -A');
+    run('git commit -q -m init');
+    return dir;
+  }
+
+  it('fix captures fix_commit_sha when project is a git repo', () => {
+    const dir = gitSetup();
+    cmdBug({ dir, args: ['fix', 'BG-001'], err });
+    const bug = readBugs(dir).bugs[0];
+    assert.match(bug.fix_commit_sha || '', /^[0-9a-f]{40}$/);
+    assert.ok(bug.fix_at);
+  });
+
+  it('close captures close_commit_sha + files_changed across fix→close range', () => {
+    const dir = gitSetup();
+    cmdBug({ dir, args: ['fix', 'BG-001'], err });
+    // second commit representing the actual fix
+    fs.writeFileSync(path.join(dir, 'src.js'), 'fixed code');
+    execSync('git add -A && git commit -q -m fix', { cwd: dir, stdio: 'ignore' });
+    cmdBug({ dir, args: ['close', 'BG-001'], err });
+    const bug = readBugs(dir).bugs[0];
+    assert.match(bug.close_commit_sha, /^[0-9a-f]{40}$/);
+    assert.notEqual(bug.close_commit_sha, bug.fix_commit_sha);
+    assert.deepEqual(bug.files_changed, ['src.js']);
+  });
+
+  it('close omits files_changed when fix and close land on same SHA', () => {
+    const dir = gitSetup();
+    cmdBug({ dir, args: ['fix', 'BG-001'], err });
+    cmdBug({ dir, args: ['close', 'BG-001'], err });
+    const bug = readBugs(dir).bugs[0];
+    assert.equal(bug.close_commit_sha, bug.fix_commit_sha);
+    assert.equal(bug.files_changed, undefined);
+  });
+
+  it('files_changed excludes spec/ and .aitri paths', () => {
+    const dir = gitSetup();
+    cmdBug({ dir, args: ['fix', 'BG-001'], err });
+    fs.writeFileSync(path.join(dir, 'src.js'), 'fix');
+    fs.writeFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), '{}');
+    execSync('git add -A && git commit -q -m mix', { cwd: dir, stdio: 'ignore' });
+    cmdBug({ dir, args: ['close', 'BG-001'], err });
+    const bug = readBugs(dir).bugs[0];
+    assert.deepEqual(bug.files_changed, ['src.js']);
+  });
+});
+
+describe('cmdBug lifecycle — non-git project (graceful)', () => {
+  function setup() {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    writeBugs(dir, [{ id: 'BG-001', title: 't', status: 'open', fr: null, tc_reference: null }]);
+    return dir;
+  }
+
+  it('fix succeeds without git; no fix_commit_sha field added', () => {
+    const dir = setup();
+    cmdBug({ dir, args: ['fix', 'BG-001'], err });
+    const bug = readBugs(dir).bugs[0];
+    assert.equal(bug.status, 'fixed');
+    assert.equal(bug.fix_commit_sha, undefined);
+  });
+
+  it('close succeeds without git; no SHA or files_changed fields added', () => {
+    const dir = setup();
+    cmdBug({ dir, args: ['fix', 'BG-001'], err });
+    cmdBug({ dir, args: ['close', 'BG-001'], err });
+    const bug = readBugs(dir).bugs[0];
+    assert.equal(bug.status, 'closed');
+    assert.equal(bug.close_commit_sha, undefined);
+    assert.equal(bug.files_changed, undefined);
   });
 });
 

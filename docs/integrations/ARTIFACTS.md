@@ -316,16 +316,23 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
       "reported_by": "string | null",
       "created_at": "ISO8601",
       "updated_at": "ISO8601",
-      "resolution": "string | null"
+      "resolution":       "string | null",
+      "fix_commit_sha":   "string (optional, v0.1.90+) — HEAD at the moment of `aitri bug fix`",
+      "fix_at":           "ISO8601 (optional, v0.1.90+) — timestamp paired with fix_commit_sha",
+      "close_commit_sha": "string (optional, v0.1.90+) — HEAD at the moment of `aitri bug close`",
+      "close_at":         "ISO8601 (optional, v0.1.90+) — timestamp paired with close_commit_sha",
+      "files_changed":    "string[] (optional, v0.1.90+) — paths modified between fix_commit_sha..close_commit_sha, excluding spec/ and .aitri"
     }
   ]
 }
 ```
 
 **Lifecycle:** `open → fixed → verified → closed`
-- `fixed`: developer marks resolved (`aitri bug fix`) — optionally links a TC
+- `fixed`: developer marks resolved (`aitri bug fix`) — optionally links a TC. If the project is a git repo, `fix_commit_sha` + `fix_at` are captured automatically.
 - `verified`: auto-set by `verify-run` when linked TC passes, or manually via `aitri bug verify`
-- `closed`: archived
+- `closed`: archived. If the project is a git repo, `close_commit_sha` + `close_at` are captured. When both `fix_commit_sha` and `close_commit_sha` are present and differ, `files_changed` records the diff (filtered, excludes `spec/` and `.aitri`).
+
+**Audit trail (v0.1.90+):** the fix/close SHA pair plus `files_changed` provides a non-honor-system record of which commit range resolved each bug. Missing if the project has no git repo or HEAD is unreadable — behaviour degrades silently, lifecycle still works.
 
 **Blocking rule:** bugs with `status: "open"` and `severity: "critical"` or `"high"` block `verify-complete`.
 **Playwright integration:** when Playwright runs in `verify-run` and a TC fails, `evidence` is auto-populated from `test-results/<folder>/screenshot.png` if the folder exists.
