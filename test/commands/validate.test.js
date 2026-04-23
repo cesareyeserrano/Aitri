@@ -203,6 +203,84 @@ describe('cmdValidate() — feature at 5/5 with verify failed blocks deploy', ()
   });
 });
 
+describe('cmdValidate() — deploy files are informational, not required (A5)', () => {
+  let dir;
+  let output;
+
+  before(() => {
+    dir = tmpDir();
+    seedDeployableRoot(dir);
+    // No Dockerfile, no docker-compose.yml — project targets e.g. systemd/Pi/lambda.
+    output = captureLog(() => cmdValidate({ dir, args: [] }));
+  });
+
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('does NOT warn about missing Dockerfile / docker-compose.yml', () => {
+    assert.doesNotMatch(output, /Dockerfile.*not found/);
+    assert.doesNotMatch(output, /docker-compose\.yml.*not found/);
+    assert.doesNotMatch(output, /check Phase 5 output/);
+  });
+
+  it('prints the non-containerized hint when no deploy files exist', () => {
+    assert.match(output, /No standard deployment files detected/);
+    assert.match(output, /systemd, lambda, Pi/);
+  });
+});
+
+describe('cmdValidate() — deploy files listing when present', () => {
+  it('lists existing deploy files with ✅', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      writeFile(dir, 'Dockerfile', 'FROM node:20\n');
+      writeFile(dir, 'DEPLOYMENT.md', '# deploy\n');
+      const out = captureLog(() => cmdValidate({ dir, args: [] }));
+      assert.match(out, /Deployment files detected/);
+      assert.match(out, /✅ Dockerfile/);
+      assert.match(out, /✅ DEPLOYMENT\.md/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('cmdValidate() — blocking bug defers to priority ladder (F2 regression)', () => {
+  // FEEDBACK.md F2 reported validate saying "ready to ship" while status said
+  // "resolve blocking bug first". In current code both paths share bugs.blocking
+  // via computeHealth; this test locks that coupling so it cannot regress.
+  let dir;
+  let output;
+
+  before(() => {
+    dir = tmpDir();
+    seedDeployableRoot(dir);
+    writeFile(dir, 'spec/BUGS.json', JSON.stringify({
+      bugs: [{
+        id: 'BG-001',
+        title: 'SQL injection in login',
+        severity: 'critical',
+        status: 'open',
+        description: 'x',
+        created_at: new Date().toISOString(),
+      }],
+    }));
+    output = captureLog(() => cmdValidate({ dir, args: [] }));
+  });
+
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('does NOT claim ready-to-ship when a critical bug is open', () => {
+    assert.ok(
+      !/Pipeline complete\. Deployment artifacts are ready/.test(output),
+      'validate must not contradict the priority ladder when bugs.blocking > 0'
+    );
+  });
+
+  it('surfaces the blocking bug in the deploy-blocked reasons', () => {
+    assert.match(output, /deploy is blocked/);
+    assert.match(output, /critical\/high bug/);
+  });
+});
+
 describe('cmdValidate() — features without verify ran', () => {
   let dir;
   let output;

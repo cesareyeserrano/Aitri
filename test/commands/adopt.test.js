@@ -532,6 +532,36 @@ describe('aitri adopt --upgrade', () => {
       /adopt: unknown subcommand/
     );
   });
+
+  it('prints agent-files guidance when upgrade generates them (F13)', () => {
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      // cmdInit already writes agent files, so delete them first so --upgrade
+      // has something to regenerate.
+      for (const f of ['CLAUDE.md', 'GEMINI.md', '.codex/instructions.md']) {
+        const p = path.join(dir, f);
+        if (fs.existsSync(p)) fs.rmSync(p);
+      }
+      const out = captureLog(() =>
+        cmdAdopt({ dir, args: ['--upgrade'], VERSION: '0.1.90', rootDir: ROOT_DIR, err: makeErr().fn })
+      );
+      assert.match(out, /Agent instruction files written/);
+      assert.match(out, /meant to be committed/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('omits agent-files guidance when no new files were generated', () => {
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      // cmdInit already wrote agent files, so --upgrade creates nothing new.
+      const out = captureLog(() =>
+        cmdAdopt({ dir, args: ['--upgrade'], VERSION: '0.1.90', rootDir: ROOT_DIR, err: makeErr().fn })
+      );
+      assert.doesNotMatch(out, /Agent instruction files written/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // ── verify-spec ───────────────────────────────────────────────────────────────
