@@ -5,6 +5,36 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## (unreleased — v2.0.0 branch) — adopt --upgrade as reconciliation protocol — additive
+
+Work-in-progress on branch `feat/upgrade-protocol`. Landing target: `v2.0.0-alpha.1`. Governed by ADR-027.
+
+**`.aitri.events[]` — new event type `upgrade_migration`**
+- Emitted once per migration applied by `aitri adopt --upgrade`. Fields: `from_version`, `to_version`, `category` (`blocking` | `stateMissing` | `validatorGap` | `capabilityNew` | `structure`), `target` (artifact filename or `.aitri#<field>` anchor), `transform`, and optional `before_hash` / `after_hash` for artifact writes.
+- **Subproduct impact:** the event array gains a type Hub does not yet understand. The contract already requires readers to tolerate unknown event types (see SCHEMA.md "Reader guidance"). No change needed to continue working; Hub can now render upgrade audit trails if it adds a renderer for this type.
+
+**Schema migrations run automatically by `adopt --upgrade`**
+- `test_cases[].requirement` → `test_cases[].requirement_id` (single-FR values only; multi-FR comma-separated values are flagged for agent review, never auto-split).
+- `non_functional_requirements[].constraint` → `non_functional_requirements[].requirement` (mechanical rename).
+- `non_functional_requirements[].title` → `non_functional_requirements[].category` only when `title` is a case-insensitive match of `Performance` | `Security` | `Reliability` | `Scalability` | `Usability`. Free-text titles are flagged, not inferred.
+- **Subproduct impact:** projects previously readable only via the v0.1.90 defensive fallback layers (snapshot.js NFR tolerance, TC reader tolerance) will migrate to the canonical shape after an upgrade. Hub's fallback readers continue to work for projects that have not yet run upgrade.
+
+**`.aitri` field backfills run automatically by `adopt --upgrade`**
+- `updatedAt`, `lastSession`, `verifyRanAt`, `auditLastAt`, `normalizeState` are stamped when missing and a deterministic source exists (event log, artifact mtime, git HEAD).
+- **Subproduct impact:** post-upgrade, projects previously missing these fields expose them. Readers that guarded behind `if (config.X)` now enter the populated branch.
+
+**`artifactHashes[phase]` preserved across shape-only migrations**
+- When a shape-only migration rewrites an approved artifact, the stored hash is updated to match the new content. Preserves the approval across the migration (§2 guarantees the agent-approved content did not change, only the serialization). `driftPhases[]` is NOT touched — pre-existing drift stays.
+- **Subproduct impact:** Hub's `hasDrift` reads stay consistent across an upgrade. Without this, every migrated project would show drift on every approved phase immediately after upgrade.
+
+**`adopt --upgrade` CLI output — new sections**
+- "Schema migrations applied" — per-artifact mechanical changes.
+- "Flagged for agent review" — VALIDATOR-GAP findings that require content-level decisions (multi-FR TCs, free-text NFR titles, Phase 1 vagueness).
+- Existing sections ("Phases inferred", "Already tracked", agent-files guidance) unchanged.
+- **Subproduct impact:** none. Output is for human/agent consumption, not parsed by Hub.
+
+---
+
 ## v0.1.90 (2026-04-23) — Brownfield integrity + audit trail — additive
 
 **`03_TEST_CASES.json` — alternative multi-FR shape**

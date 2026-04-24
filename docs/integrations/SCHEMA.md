@@ -94,11 +94,46 @@ Written automatically by `complete`, `approve`, `verify-run`, `verify-complete`,
 }
 ```
 
-Valid `event` values: `"started"`, `"completed"`, `"approved"`, `"rejected"`
+Valid `event` values: `"started"`, `"completed"`, `"approved"`, `"rejected"`, `"upgrade_migration"` (v2.0.0+)
 
 Optional fields by type:
 - `"rejected"` → includes `"feedback": "text"`
 - `"approved"` → includes `"afterDrift": true` when approved after detected drift (v0.1.60+)
+- `"upgrade_migration"` → see schema below (v2.0.0+)
+
+**Reader guidance:** unknown event types MUST be tolerated. New types are added without warning; a reader that filters the event log should use an allow-list of types it understands, not a deny-list.
+
+### upgrade_migration event (v2.0.0+)
+
+Emitted once per migration applied by `aitri adopt --upgrade`. The event log is the audit trail for the reconciliation protocol — Hub can surface it to show what an upgrade did to a project.
+
+```json
+{
+  "at": "2026-04-24T01:56:55.385Z",
+  "event": "upgrade_migration",
+  "phase": "upgrade",
+  "from_version": "0.1.65",
+  "to_version": "2.0.0-alpha.1",
+  "category": "blocking",
+  "target": "03_TEST_CASES.json",
+  "transform": "rename test_cases[*].requirement → requirement_id (16 TCs)",
+  "before_hash": "a19d25a7...",
+  "after_hash":  "02efaf94..."
+}
+```
+
+| Field | Type | Always present | Description |
+|---|---|---|---|
+| `at` | `string` ISO 8601 | yes | Timestamp of the migration |
+| `event` | `string` | yes | Literal `"upgrade_migration"` |
+| `phase` | `string` | yes | Literal `"upgrade"` (disambiguates from phase-bound events) |
+| `from_version` | `string` | yes | Source-version anchor of the migration module (e.g. `"0.1.65"`) |
+| `to_version` | `string` | yes | Aitri CLI version at the time of migration |
+| `category` | `string` | yes | One of: `"blocking"`, `"stateMissing"`, `"validatorGap"`, `"capabilityNew"`, `"structure"` |
+| `target` | `string` | yes | Artifact filename (`"03_TEST_CASES.json"`) or config field anchor (`".aitri#normalizeState"`) |
+| `transform` | `string` | yes | Human-readable summary of what changed |
+| `before_hash` | `string` SHA-256 | no | Content hash before write (artifact migrations only; absent for state backfills) |
+| `after_hash` | `string` SHA-256 | no | Content hash after write (paired with `before_hash`) |
 
 ---
 
