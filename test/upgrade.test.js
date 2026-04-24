@@ -368,3 +368,197 @@ describe('lib/upgrade — diagnose composer surfaces module findings', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// ── Corte C: STATE-MISSING backfills ──────────────────────────────────────────
+
+/**
+ * Write a legacy-style .aitri (root file, not dir) bypassing saveConfig to
+ * avoid the automatic updatedAt stamp. Mirrors how a real brownfield project
+ * looks before upgrade.
+ */
+function writeLegacyConfig(dir, overrides = {}) {
+  const base = {
+    projectName: 'legacy',
+    aitriVersion: '0.1.65',
+    createdAt: '2026-03-01T00:00:00.000Z',
+    artifactsDir: 'spec',
+    completedPhases: [],
+    approvedPhases: [],
+    events: [],
+    artifactHashes: {},
+    driftPhases: [],
+    rejections: [],
+    ...overrides,
+  };
+  fs.mkdirSync(dir, { recursive: true });
+  fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify(base, null, 2));
+  return base;
+}
+
+describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: updatedAt', () => {
+  it('backfills updatedAt when missing', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir);
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.ok(c.updatedAt, 'updatedAt must be set after upgrade');
+      assert.ok(!isNaN(Date.parse(c.updatedAt)), 'updatedAt must be a valid ISO timestamp');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not override existing updatedAt from the upgrade itself', () => {
+    // saveConfig always stamps updatedAt on write, so after the first upgrade
+    // the field exists. A second upgrade must not emit a stateMissing finding.
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir);
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c1 = loadConfig(dir);
+      const ev1 = (c1.events || []).filter(e => e.target === '.aitri#updatedAt').length;
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c2 = loadConfig(dir);
+      const ev2 = (c2.events || []).filter(e => e.target === '.aitri#updatedAt').length;
+      assert.equal(ev1, 1, 'first run backfills once');
+      assert.equal(ev2, 1, 'second run is a no-op — no new updatedAt event');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: lastSession', () => {
+  it('backfills from most recent complete|approve|verify event', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, {
+        events: [
+          { at: '2026-03-05T10:00:00.000Z', event: 'complete', phase: 1 },
+          { at: '2026-03-10T12:00:00.000Z', event: 'approve',  phase: 1 },
+          { at: '2026-03-11T09:00:00.000Z', event: 'note',     phase: null }, // irrelevant
+        ],
+      });
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.ok(c.lastSession);
+      assert.equal(c.lastSession.event, 'approve');
+      assert.equal(c.lastSession.at,    '2026-03-10T12:00:00.000Z');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('skips when there is no relevant event to derive from', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { events: [{ at: '2026-03-01T00:00:00.000Z', event: 'note', phase: null }] });
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.equal(c.lastSession, undefined, 'must not synthesize lastSession without a source event');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: verifyRanAt', () => {
+  it('backfills from 04_TEST_RESULTS.json mtime when verifyPassed is true', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { verifyPassed: true });
+      fs.writeFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), '{"results":[]}');
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.ok(c.verifyRanAt, 'verifyRanAt must be set');
+      assert.ok(!isNaN(Date.parse(c.verifyRanAt)));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('skips when verifyPassed is not true', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir);
+      fs.writeFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), '{"results":[]}');
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.equal(c.verifyRanAt, undefined);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: auditLastAt', () => {
+  it('backfills from AUDIT_REPORT.md mtime when present', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir);
+      fs.writeFileSync(path.join(dir, 'spec', 'AUDIT_REPORT.md'), '# Audit\n');
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.ok(c.auditLastAt, 'auditLastAt must be set');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('skips when AUDIT_REPORT.md is absent', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir);
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.equal(c.auditLastAt, undefined);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: normalizeState', () => {
+  it('stamps a baseline when Phase 4 is approved without one', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1, 2, 3, 4] });
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.ok(c.normalizeState);
+      assert.equal(c.normalizeState.status, 'resolved');
+      assert.ok(['git', 'initial'].includes(c.normalizeState.method));
+      assert.ok(c.normalizeState.baseRef);
+      assert.ok(c.normalizeState.lastRun);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('skips when Phase 4 is not approved', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1, 2, 3] });
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.equal(c.normalizeState, undefined);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('skips when normalizeState already exists', () => {
+    const dir = tmpDir();
+    try {
+      const existing = { baseRef: 'abc123', method: 'git', status: 'resolved', lastRun: '2026-04-01T00:00:00.000Z' };
+      writeLegacyConfig(dir, { approvedPhases: [1, 2, 3, 4], normalizeState: existing });
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.deepEqual(c.normalizeState, existing);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('lib/upgrade — state backfill event log', () => {
+  it('logs upgrade_migration events for state backfills without hashes', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, {
+        events: [{ at: '2026-03-10T12:00:00.000Z', event: 'approve', phase: 1 }],
+      });
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      const stateEvents = (c.events || []).filter(
+        e => e.event === 'upgrade_migration' && e.category === 'stateMissing'
+      );
+      assert.ok(stateEvents.length >= 2, 'at least updatedAt + lastSession backfills logged');
+      for (const e of stateEvents) {
+        assert.equal(e.before_hash, undefined, 'state backfills must not carry a before_hash');
+        assert.equal(e.after_hash,  undefined, 'state backfills must not carry an after_hash');
+        assert.ok(e.target.startsWith('.aitri#'));
+      }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
