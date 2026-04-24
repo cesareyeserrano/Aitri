@@ -875,6 +875,10 @@ describe('nextActions — unresolved upgrade findings (A1)', () => {
       assert.ok(findingAction, 'must surface findings as next-action');
       assert.equal(findingAction.priority, 3);
       assert.equal(findingAction.severity, 'warn');
+      // B1 fix (alpha.3 post-release): root action points to `aitri resume`
+      // so the operator sees the full findings section in one hop instead of
+      // being bounced through status first.
+      assert.equal(findingAction.command, 'aitri resume');
     } finally { cleanup(dir); }
   });
 
