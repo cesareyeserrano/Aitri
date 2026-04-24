@@ -84,7 +84,7 @@ describe('Aitri CLI — Smoke Test', () => {
 
   it('aitri --version returns version string', () => {
     const out = aitri('--version', tmpDir);
-    assert.match(out.trim(), /^Aitri v\d+\.\d+\.\d+$/);
+    assert.match(out.trim(), /^Aitri v\d+\.\d+\.\d+(?:-[\w.]+)?$/);
   });
 
   it('aitri init creates IDEA.md and .aitri config', () => {

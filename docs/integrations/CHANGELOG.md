@@ -5,9 +5,9 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
-## (unreleased — v2.0.0 branch) — adopt --upgrade as reconciliation protocol — additive
+## v2.0.0-alpha.1 (2026-04-24) — adopt --upgrade as reconciliation protocol — additive
 
-Work-in-progress on branch `feat/upgrade-protocol`. Landing target: `v2.0.0-alpha.1`. Governed by ADR-027.
+First staged pre-release of the v2.0.0 upgrade protocol. Shipped on branch `feat/upgrade-protocol` (not merged to main). Governed by ADR-027. Validated against two real brownfield projects: Ultron (v0.1.89 → v0.1.90, drift present) and Aitri Hub (v0.1.89 → v0.1.90, already current). Catalog evidence base remains narrow — third-project canary post-adoption will inform whether to broaden the catalog before promoting to stable.
 
 **`.aitri.events[]` — new event type `upgrade_migration`**
 - Emitted once per migration applied by `aitri adopt --upgrade`. Fields: `from_version`, `to_version`, `category` (`blocking` | `stateMissing` | `validatorGap` | `capabilityNew` | `structure`), `target` (artifact filename or `.aitri#<field>` anchor), `transform`, and optional `before_hash` / `after_hash` for artifact writes.

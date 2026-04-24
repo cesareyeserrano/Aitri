@@ -5,15 +5,32 @@
 
 ---
 
-## Upcoming — v2.0.0 — `adopt --upgrade` as reconciliation protocol (design accepted)
+## [2.0.0-alpha.1] — 2026-04-24 — `adopt --upgrade` as reconciliation protocol (staged pre-release)
 
-See [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200) and the v2.0.0 catalog in [BACKLOG.md](BACKLOG.md).
+Staged first pre-release on branch `feat/upgrade-protocol` (not merged to main). Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200).
 
-**Intent:** the current `adopt --upgrade` command only bumps `aitriVersion` and infers completed phases from artifacts. That does not match its design purpose — to keep existing Aitri-managed projects **functionally and technically current** as Aitri Core evolves. v2.0.0 redesigns the command into a five-phase reconciliation protocol (diagnose → plan → confirm → migrate → report) with versioned migration modules in `lib/upgrade/migrations/`.
+`adopt --upgrade` now implements the five-phase reconciliation protocol: **diagnose → plan → confirm → migrate → report**. Replaces the pre-v2 stub that only bumped `aitriVersion` and inferred completed phases. Versioned migration modules in `lib/upgrade/migrations/` encode the deltas between Aitri versions.
 
-**Not a blocker for v0.1.x.** v0.1.90 ships the individual defensive fixes (A1 reader tolerance, A2 verify-run precondition, A4 normalize --init, A3 honest message, F1 deployable banner, F6/F12 bug SHA audit, A5 docker deagnostic, F13 agent-files guidance). Those remain in place under v2.0.0 as the fallback layer for cases where the upgrade protocol does not run.
+**Scope of alpha.1:**
+- `lib/upgrade/` module with `runUpgrade`, `diagnose`, and `migrateAll` composer.
+- First migration module `lib/upgrade/migrations/from-0.1.65.js` covering the Ultron baseline:
+  - **BLOCKING:** `test_cases[].requirement` → `requirement_id`; `non_functional_requirements[].{title, constraint}` → `{category, requirement}` (mechanical, shape-only).
+  - **STATE-MISSING:** backfills for `updatedAt`, `lastSession`, `verifyRanAt`, `auditLastAt`, `normalizeState`.
+  - **VALIDATOR-GAP** (report-only): v0.1.82 title vagueness + duplicate AC detection.
+- **Option B fix:** shape-only migrations preserve `artifactHashes[phase]` to avoid post-upgrade drift on approved phases (discovered by Ultron canary).
+- **Clean-project UX:** when nothing migrates, a single `✅ Project is already current` line replaces the noisy "Already tracked" list (discovered by Hub canary).
+- New event type `.aitri.events[].upgrade_migration` in the event log (additive; Hub readers tolerate unknown types per integration contract).
+- `lib/phases/phase1-checks.js` — shared source of truth for the v0.1.82 vagueness regexes, consumed by both `phase1.js::validate()` and the VALIDATOR-GAP reporter.
 
-**Implementation gate:** ADR acceptance is not authorization. A dedicated v2.0.0 feature branch, migration catalog, and staged delivery plan (one module at a time, with its own tests) are prerequisites. No code written yet.
+**ADR-027 addendum (binding invariants):** §1 no transactional rollback — ordered writes + aitriVersion last + recovery message on mid-run failure. §2 migrations transform shape, never meaning; semantic content flagged for agent. §3 clean replacement of legacy `adoptUpgrade` body; single entry point in `lib/upgrade/`. §4 shape-only migrations preserve approval via `artifactHashes[phase]` update. §5 `test/upgrade-coverage.test.js` gate NOT implemented — doc discipline + real-project canary carry the load.
+
+**v0.1.90 defensive layers kept.** Reader tolerance (snapshot NFR/FR fallbacks), `verify-run` precondition, `normalize --init`, honest messages — all stay as the fallback for cases where the upgrade protocol did not run.
+
+**Canaries.** Two real brownfield projects: Ultron (v0.1.89 → v0.1.90, drift present — 16 TC renames + 4 NFR rewrites + normalizeState stamp) and Aitri Hub (v0.1.89 → v0.1.90, already current — zero migrations, clean status post-run). Catalog remains founded on Ultron; Hub validated the "no invasion on clean projects" property. Third-project canary (external adopter) will inform whether to broaden the catalog before promoting to stable v2.0.0.
+
+**Not included (by decision):** `test/upgrade-coverage.test.js` gate (§5 of addendum); Corte E (CAPABILITY-NEW + STRUCTURE migrations deferred pending evidence); breaking changes originally batched with v2.0.0 (IDEA.md → spec/ move; canonical TC id regex) — both removed from batch per session 2026-04-23 decision.
+
+**Distribution.** Pre-release on the feature branch. `npm i -g .` on this branch installs locally for testing. Not published, not tagged to main, not merged to main. Promote to stable only after a third brownfield canary surfaces no new drift class, or after evidence motivates catalog expansion.
 
 ---
 

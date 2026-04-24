@@ -42,7 +42,8 @@ describe('release sync guard', () => {
     it(`${doc} version header matches package.json`, () => {
       const pkg = pkgVersion();
       const content = read(doc);
-      const m = content.match(/\*\*(?:Aitri version|Version):\*\*\s*v?([\d.]+)\+?/);
+      // Accepts stable (1.2.3) and pre-release (2.0.0-alpha.1) semver strings.
+      const m = content.match(/\*\*(?:Aitri version|Version):\*\*\s*v?([\d.]+(?:-[\w.]+)?)\+?/);
       assert.ok(m, `${doc} — missing "**Version:** v0.x.y+" header at top of file`);
       assert.equal(
         m[1],

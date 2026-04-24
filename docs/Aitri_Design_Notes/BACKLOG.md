@@ -37,86 +37,42 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 > Ecosystem items (Hub, Graph, future subproducts) live in their own repos' backlogs.
 > Core only tracks items that require changes to Aitri Core itself.
 
-### Core — v2.0.0 — `adopt --upgrade` as reconciliation protocol (HEADLINE)
+### Core — v2.0.0 — `adopt --upgrade` as reconciliation protocol (shipped in alpha.1, pending promotion)
 
-Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200). Redesign of `aitri adopt --upgrade` from version-bump stub into a five-phase protocol (diagnose → plan → confirm → migrate → report). Headline change of v2.0.0. The previously-targeted "v0.2.0 breaking batch" is re-scoped under v2.0.0.
+Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200) + five-point addendum.
 
-#### Execution plan (next-session entry point)
+**Status 2026-04-24:** `v2.0.0-alpha.1` shipped on branch `feat/upgrade-protocol` (not merged to main, not published). Two real canaries passed: Ultron (drift present, 21 migrations applied) + Aitri Hub (already current, zero migrations). Catalog remains founded on a single drift case (Ultron); Hub validated the "no invasion on clean projects" property without widening it.
 
-**Branch:** `v2.0.0` (or `feat/upgrade-protocol`) — dedicated branch, not main. Merges to `main` after end-to-end validation including a re-run of the Ultron brownfield scenario.
+**Promotion to stable v2.0.0 gated on:** a third-project canary (external adopter) runs cleanly, OR evidence motivates catalog expansion. Default path is direct promotion; alphas 2–4 collapsed into alpha.1 because the ADR's original staging (one category per alpha) turned out to be unnecessary — all categories shipped together without regression.
 
-**Delivery tandas (pre-releases against Ultron before promoting):**
+#### What shipped in alpha.1
 
-| Alpha | Scope | Canary check |
-|:---|:---|:---|
-| `v2.0.0-alpha.1` | Module scaffold (`lib/upgrade/`) + BLOCKING migrations only (TC rename, NFR rewrite, artifactsDir recovery) | Ultron: upgrade runs clean, verify-run works post-upgrade without needing the A2 precondition fallback. |
-| `v2.0.0-alpha.2` | Adds STATE-MISSING (normalizeState, verifyRanAt, auditLastAt, lastSession, updatedAt backfill) | Ultron: `aitri normalize` works post-upgrade without `--init`. |
-| `v2.0.0-alpha.3` | Adds VALIDATOR-GAP reporting (non-migrating, agent-flagged) | Ultron: report surfaces known gaps; no auto-mutation. |
-| `v2.0.0-alpha.4` | Adds CAPABILITY-NEW + STRUCTURE migrations | Ultron: `original_brief` archival, agent files regen, path-case normalization. |
-| `v2.0.0` | Promotion of last alpha. Final message rewrite of `adopt --upgrade` banner in `resume.js` replaces the v0.1.90 honest-intermediary text. | Full E2E re-run on Ultron + at least one other real project. |
+- [x] **Module `lib/upgrade/`** — `runUpgrade` + `diagnose.js` composer + `migrations/from-0.1.65.js`.
+- [x] **`adopt --upgrade` as thin dispatcher** — no upgrade logic in `lib/commands/adopt.js` after refactor.
+- [x] **BLOCKING:** TC `requirement` → `requirement_id` (single-FR only; multi-FR flagged); NFR `{title, constraint}` → `{category, requirement}` (constraint rename mechanical; title-to-category via finite lookup); artifactsDir recovery.
+- [x] **STATE-MISSING:** `updatedAt`, `lastSession`, `verifyRanAt`, `auditLastAt`, `normalizeState` backfills (field-presence gated, deterministic sources only).
+- [x] **VALIDATOR-GAP** (report-only): v0.1.82 Phase 1 title vagueness + all-vague ACs + duplicate AC pairs. Uses shared regex source in `lib/phases/phase1-checks.js`.
+- [x] **Option B:** shape-only migrations update `artifactHashes[phase]` to preserve approval across the upgrade. Post-upgrade `aitri status` shows no drift on migrated phases.
+- [x] **Clean-project UX:** `✅ Project is already current — nothing to migrate.` replaces the noisy "Already tracked" list when no work fires.
+- [x] **Event type `upgrade_migration`** in `.aitri.events[]` with `before_hash`/`after_hash` for artifact writes (absent for state backfills). Documented in `docs/integrations/SCHEMA.md`.
+- [x] **ADR-027 addendum §4** (approval preservation) + **§5** (coverage gate NOT implemented, by decision).
 
-**Commit discipline:** each migration module = its own commit. No squash at merge. Each commit includes code + tests + doc update in `docs/integrations/CHANGELOG.md` and `docs/integrations/ARTIFACTS.md` where applicable.
+#### Deferred out of alpha.1 (by decision)
 
-**Invariant not to break during implementation:**
-- v0.1.90 defensive layers (reader tolerance, verify-run precondition, normalize --init flag, deployable banner, bug SHA audit, Docker deagnostic validate, agent-files guidance) stay in place unchanged. The upgrade protocol runs alongside them; they remain the fallback for users who run CLI commands before running upgrade.
-- `adopt scan` / `adopt apply` / `aitri init` are untouched.
-- The `status.js` priority ladder already hints `adopt --upgrade` on version mismatch. No change needed there — the new upgrade just does more work when invoked.
+- [ ] **CLI flags** `--dry-run`, `--yes`, `--only <categories>`, `--verbose` — not implemented. Today the full protocol runs when invoked; no granular control. Not required by canaries; re-open when a real adopter asks.
+- [ ] **Corte E — CAPABILITY-NEW + STRUCTURE** — `files_modified` advisory, bug audit trail advisory, agent-files regen (already inherited from Corte A), `original_brief` archival, case-mismatch detection. None have evidence of needed; all are preventive. Re-open when a canary surfaces a concrete case.
+- [ ] **`test/upgrade-coverage.test.js` gate** — explicitly NOT written. Rationale in ADR-027 addendum §5.
+- [ ] **Smoke test E2E in `test/smoke.js`** — optional, unit tests + two real canaries cover current shape. Re-open if a non-trivial upgrade path lacks coverage.
 
-#### Scope
+#### Dropped from v2.0.0 breaking batch (by decision)
 
-#### Scope
+- [ ] **`IDEA.md` → `spec/` move** — dropped 2026-04-23. Not motivated by "keep projects current" (the ADR intent); was opportunistic colado in the breaking-version window. Re-open with its own evidence.
+- [ ] **Phase 3 canonical TC id regex** — dropped 2026-04-23. Still waiting for the second evidence case that was the original gate; forcing it through the v2 batch inverted the evidence-before-breakage logic.
+- [ ] **Command-surface audit outcomes** — remains a Design Study below. No trigger.
 
-- [ ] **Module: `lib/upgrade/`** — new directory. Entry point `lib/upgrade/index.js` exports `runUpgrade(dir, config, flags)`. `adopt --upgrade` becomes a thin dispatcher that calls it.
-- [ ] **Diagnostic catalog** — `lib/upgrade/diagnose.js` returns `{ blocking: [], stateMissing: [], validatorGap: [], capabilityNew: [], structure: [] }`. Each entry: `{ version, target, before, after, reversible }`.
-- [ ] **Migration modules** — `lib/upgrade/migrations/from-<version>.js`. Each exports `{ diagnose, migrate }`. Composition: upgrade walks from `config.aitriVersion` → CLI VERSION, invokes every applicable module in order.
-- [ ] **Atomic commit point** — `aitriVersion` written LAST. Rollback on mid-run failure (restore from `before_hash`).
-- [ ] **Event logging** — every migration emits `{ type: 'upgrade_migration', from, to, category, target, before_hash, after_hash, timestamp }` into `.aitri.events[]`.
-- [ ] **CLI flags** — `--dry-run` (diagnose only, no writes), `--yes` (non-interactive CI path), `--only <categories>` (comma-separated filter), `--verbose` (per-migration detail).
-- [ ] **Coverage gate** — new test `test/upgrade-coverage.test.js` analogous to `release-sync.test.js`. Enforces: any change to `lib/phases/phase*.js::validate()`, artifact schemas, or `.aitri` field set requires an entry in the most recent `from-*.js` migration module. CI blocks otherwise.
+### Core — Post-promotion housekeeping
 
-#### Initial migration catalog (from Ultron session + schema history)
-
-**🔴 BLOCKING (from-0.1.65.js et al.):**
-- [ ] TC schema rename: `test_cases[].requirement` (string) → `requirement_id` (string) or `frs` (array if comma-separated).
-- [ ] NFR schema rewrite: `non_functional_requirements[].{title, constraint}` → `{category, requirement}`.
-- [ ] `artifactsDir` recovery: if config points to empty dir but artifacts at root, correct to `''` (partially already in current adopt --upgrade).
-
-**🟡 STATE-MISSING (from-0.1.65.js through from-0.1.89.js):**
-- [ ] `normalizeState` (from-0.1.79.js): if Phase 4 approved without baseline, stamp `{baseRef: HEAD || ISO, method, status: 'resolved', lastRun}`.
-- [ ] `verifyRanAt` (from-0.1.78.js): if `verifyPassed=true` but no `verifyRanAt`, backfill from newest `04_TEST_RESULTS.json` mtime.
-- [ ] `auditLastAt` (from-0.1.78.js): backfill from `AUDIT_REPORT.md` mtime if present.
-- [ ] `lastSession` (from-0.1.69.js): backfill from the most recent `events[].when` of type `complete|approve|verify`.
-- [ ] `updatedAt` (from-0.1.63.js): stamp to current time if missing.
-
-**🟠 VALIDATOR-GAP (report-only, no auto-migrate — requires agent):**
-- [ ] v0.1.82 Phase 1 vagueness: flag FRs with titles that would fail current `BROAD_VAGUE` check.
-- [ ] v0.1.82 Phase 1 duplicate ACs: flag FR pairs with Jaccard ≥0.9.
-- [ ] v2.0.0 Phase 3 TC canonical regex (see breaking item below): flag non-canonical `tc.id` values.
-
-**🔵 CAPABILITY-NEW (opt-in, advisory):**
-- [ ] `files_modified` (from-0.1.75.js): if `04_IMPLEMENTATION_MANIFEST.json` has only `files_created`, advisory only — cannot infer modifications retroactively.
-- [ ] Bug audit trail (from-0.1.89.js): bugs in state `closed` without `close_commit_sha` cannot be backfilled (no known close commit). Advisory. Future bugs auto-populate.
-- [ ] Agent instruction files (from-0.1.69.js): regenerate `CLAUDE.md`, `GEMINI.md`, `.codex/instructions.md` if missing.
-- [ ] `original_brief` (from-0.1.88.js): if `IDEA.md` still exists alongside approved Phase 1, offer to archive into `01_REQUIREMENTS.json.original_brief` and remove.
-
-**⚪ STRUCTURE:**
-- [ ] (covered in 🔴) `artifactsDir` recovery — same migration.
-- [ ] Case-mismatch detection for internal paths (Aitri-owned only; Hub registry is out of scope per FEEDBACK A6 resolution).
-
-### Core — v2.0.0 — Breaking changes batched with the upgrade protocol
-
-With the upgrade protocol in place, these breaking changes become tractable — each ships with its own `from-*.js` migration that handles the legacy shape.
-
-- [ ] **`IDEA.md` and `ADOPTION_SCAN.md` move from project root to `spec/`** — previously blocked on "no dual-path fallback" because the protocol had no migration surface. Now: v2.0.0 migration module detects root-level `IDEA.md`/`ADOPTION_SCAN.md` and offers to move them into `spec/`.
-  Files: `lib/commands/adopt.js`, `lib/commands/run-phase.js`, `templates/adopt/scan.md`, `test/smoke.js`.
-  Migration: `lib/upgrade/migrations/from-0.1.89.js` offers move as STRUCTURE category.
-  Acceptance: new projects land files in `spec/`; legacy projects get moved on upgrade.
-
-- [ ] **Phase 3 canonical TC ID regex** (previously P3, waiting for second case) — v2.0.0 enforces `/^TC(-[A-Z][A-Za-z0-9]*)*-\d+[a-z]?$/` at `complete 3`. Migration reports non-canonical IDs as VALIDATOR-GAP (agent re-runs Phase 3 or renames manually — cannot be auto-renamed safely because consumers reference by id).
-  Files: `lib/phases/phase3.js`, `test/phases/phase3.test.js`, `docs/integrations/ARTIFACTS.md`.
-  Migration: `lib/upgrade/migrations/from-0.1.89.js` detects and reports.
-
-- [ ] **Command-surface audit outcomes** — Design Study promotes to tickets. Any collapse/rename goes through v2.0.0 batch with a migration in `from-*.js` that rewrites command references in agent instruction files (if any).
+- [ ] **Rename `from-0.1.65.js` or adjust ADR to match implementation.** The module currently covers migrations introduced across v0.1.63–v0.1.82, which diverges from the ADR's per-version-boundary implication. Works today via field-presence gating. Revisit when a second brownfield at a higher baseline (e.g. `from-0.1.80.js`) splits the file naturally.
 
 ---
 

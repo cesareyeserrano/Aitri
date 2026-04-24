@@ -37,7 +37,7 @@ import { cmdNormalize }     from '../lib/commands/normalize.js';
 import { cmdAudit }        from '../lib/commands/audit.js';
 import { cmdTC }           from '../lib/commands/tc.js';
 
-const VERSION   = '0.1.90';
+const VERSION   = '2.0.0-alpha.1';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
