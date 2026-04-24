@@ -911,6 +911,88 @@ describe('lib/upgrade — dry-run preview', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('persists flagged findings in .aitri.upgradeFindings[] (A1, alpha.3+)', () => {
+    // Seed a multi-FR TC (non-canonical requirement) that the migrator flags
+    // but does not auto-migrate. The flag must survive to .aitri so the
+    // next-action ladder can surface it beyond the upgrade report.
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+      const specDir = path.join(dir, 'spec');
+      fs.mkdirSync(specDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(specDir, '03_TEST_CASES.json'),
+        JSON.stringify({
+          test_cases: [{ id: 'TC-001', requirement: 'FR-001, FR-002', title: 'x', expected_result: 'y' }],
+        }, null, 2),
+      );
+
+      silence(() => runUpgrade({ dir, VERSION: '9.9.9', rootDir: ROOT_DIR }));
+
+      const c = loadConfig(dir);
+      assert.ok(Array.isArray(c.upgradeFindings), 'upgradeFindings must be an array');
+      assert.ok(c.upgradeFindings.length >= 1, 'multi-FR TC must produce at least one finding');
+      const finding = c.upgradeFindings[0];
+      assert.ok(finding.target, 'finding must carry target');
+      assert.ok(finding.transform, 'finding must carry transform description');
+      assert.ok(finding.reason, 'flagged finding must carry reason');
+      assert.ok(finding.recordedAt, 'finding must carry recordedAt timestamp');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('clears .aitri.upgradeFindings on subsequent run when drift is resolved (A1)', () => {
+    // Snapshot model: the array is replaced every upgrade, so stale items
+    // disappear automatically once the agent has re-authored the artifacts.
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+      const specDir = path.join(dir, 'spec');
+      fs.mkdirSync(specDir, { recursive: true });
+      const tcPath = path.join(specDir, '03_TEST_CASES.json');
+      fs.writeFileSync(
+        tcPath,
+        JSON.stringify({
+          test_cases: [{ id: 'TC-001', requirement: 'FR-001, FR-002', title: 'x', expected_result: 'y' }],
+        }, null, 2),
+      );
+
+      silence(() => runUpgrade({ dir, VERSION: '9.9.9', rootDir: ROOT_DIR }));
+      assert.ok(loadConfig(dir).upgradeFindings.length >= 1);
+
+      // Agent re-authors: single-FR requirement_id, no more flags.
+      fs.writeFileSync(
+        tcPath,
+        JSON.stringify({
+          test_cases: [{ id: 'TC-001', requirement_id: 'FR-001', title: 'x', expected_result: 'y' }],
+        }, null, 2),
+      );
+      silence(() => runUpgrade({ dir, VERSION: '9.9.9', rootDir: ROOT_DIR }));
+      assert.equal(loadConfig(dir).upgradeFindings.length, 0,
+        'findings must be cleared when diagnose() returns empty');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('dryRun=true does NOT mutate .aitri.upgradeFindings (preview must not persist)', () => {
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+      const specDir = path.join(dir, 'spec');
+      fs.mkdirSync(specDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(specDir, '03_TEST_CASES.json'),
+        JSON.stringify({
+          test_cases: [{ id: 'TC-001', requirement: 'FR-001, FR-002', title: 'x', expected_result: 'y' }],
+        }, null, 2),
+      );
+      silence(() => runUpgrade({ dir, VERSION: '9.9.9', rootDir: ROOT_DIR, dryRun: true }));
+      const c = loadConfig(dir);
+      // dryRun skips saveConfig, so upgradeFindings is whatever cmdInit wrote
+      // (undefined on a fresh project) — never mutated by the preview.
+      assert.ok(!c.upgradeFindings || c.upgradeFindings.length === 0,
+        'dry-run must not persist findings');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('migrateAll({ dryRun: true }) returns the same findings as a real migrate without mutating', () => {
     const dir = tmpDir();
     try {

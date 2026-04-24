@@ -5,6 +5,26 @@
 
 ---
 
+## [2.0.0-alpha.3] — 2026-04-24 — upgrade findings persistence + `aitri rehash`
+
+Third staged pre-release on `feat/upgrade-protocol`. Closes the three findings from the three-canary session (Hub, Ultron, Zombite) — with honest scope corrections against the earlier alpha.2 proposal.
+
+**A1 — `.aitri.upgradeFindings[]` (persist flagged upgrade work).** Previously the flags from `adopt --upgrade` only lived in the report output and scrolled past. Now they survive in `.aitri` and drive a priority-3 next-action per pipeline until the agent re-authors the flagged items and a subsequent upgrade run produces no findings. Snapshot model — overwritten each run, cleared automatically. `resume` (brief) renders a warning section; `status` text renders a count line. Found on Ultron canary (8 flags lost to scroll).
+
+**A5 — `aitri rehash <phase>` (+ `aitri feature rehash <name> <phase>`).** New command for the exact case Zombite surfaced: a legacy hash mismatch where the artifact's current content matches its committed state but the stored hash is from an older Aitri version (hash algorithm change, commit that touched the artifact without going through `approve`). Re-approving to fix the bookkeeping cascades invalidation to every downstream phase — on Zombite, that was 8 extra `complete + approve` operations just to fix a stale hash. `rehash` updates the hash in place, preserves approval state, appends a `rehash` event. Guardrails: refuses when the phase was never approved, no-ops when hashes match, refuses when git is unavailable or the artifact has uncommitted changes (that's real drift — `approve` is the right tool there). `isTTY`-gated: agents cannot auto-rehash.
+
+**A5b — `approve` drift prompt hints at `rehash`.** When drift is detected and `git diff HEAD` shows the artifact has no uncommitted changes, the re-approval prompt now surfaces `aitri rehash <phase>` as the right alternative. Default flow preserved for cases where the operator genuinely wants to re-approve (and accept cascade).
+
+**A3 — Upgrade banner message clarified.** `"Already current"` was ambiguous when the header showed a version bump (schema was current, version was not). New message: `"Schema already on canonical shape — only the version string will change"` when version is bumping on a no-migration run.
+
+**Test coverage.** +16 tests. Upgrade: persistence (A1), snapshot rendering (A1), resume + status rendering (A1), dry-run preserves non-mutation (A1). Rehash: refusal gates (no stored hash, hashes match, git unavailable, uncommitted changes, non-TTY), post-gate write simulation. Total 961/961 green.
+
+**Honest scope correction vs the alpha.2 proposal.** A2 (features sub-pipelines upgrade) was proposed for alpha.3 but deferred. After implementing A1 + A5, recursing `adopt --upgrade` across features became clearly out-of-scope for a point release — it requires a redesign of how the protocol discovers pipelines and whether upgrade mixes per-scope migrations. Remains open in BACKLOG for v2.0.0 pre-stable or v2.0.1. Evidence (Zombite's untouched feature) still stands.
+
+**Canary protocol observed.** The three-project canary (Hub, Ultron, Zombite) now covers: (a) clean project (Hub), (b) modern drift (Ultron, flagged semantics), (c) legacy drift (Zombite, hash mismatch). Catalog of cases the protocol handles grows; explicitly NOT broadened to include Zombite-specific hash-algo drift migration (no evidence a second project needs that migration — A5 `rehash` is the escape hatch, not a migration).
+
+---
+
 ## [2.0.0-alpha.2] — 2026-04-24 — operator ergonomics + `.aitri` contract doc
 
 Second staged pre-release on `feat/upgrade-protocol`. No schema changes; closes the three deferred items surfaced during the post-canary review.

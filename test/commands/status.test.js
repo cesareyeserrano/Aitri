@@ -302,4 +302,34 @@ describe('cmdStatus --json', () => {
     assert.ok(out.includes('Aitri'));
     assert.doesNotThrow(() => { if (out.startsWith('{')) throw new Error('should not be JSON'); });
   });
+
+  // A1 (alpha.3) — upgrade findings count line
+  it('shows unresolved upgrade findings line when findings exist', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    const cfg = loadConfig(dir);
+    cfg.upgradeFindings = [
+      { target: '03_TEST_CASES.json', transform: 'TCs with non-canonical requirement (2)', reason: 'multi-FR', recordedAt: '2026-04-24T00:00:00Z' },
+      { target: '01_REQUIREMENTS.json', transform: 'NFRs with free-text title (3)', reason: 'free-text', recordedAt: '2026-04-24T00:00:00Z' },
+    ];
+    saveConfig(dir, cfg);
+
+    let out = '';
+    const orig = console.log.bind(console);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { cmdStatus({ dir, VERSION: '0.1.52', args: [] }); } finally { console.log = orig; }
+    assert.ok(/upgrade: 2 unresolved findings/.test(out),
+      'status must surface count of upgrade findings');
+  });
+
+  it('does not show upgrade findings line when none exist', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    let out = '';
+    const orig = console.log.bind(console);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { cmdStatus({ dir, VERSION: '0.1.52', args: [] }); } finally { console.log = orig; }
+    assert.ok(!/upgrade:.*unresolved finding/.test(out),
+      'status must not mention findings when empty');
+  });
 });

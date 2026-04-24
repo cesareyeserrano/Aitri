@@ -854,6 +854,57 @@ describe('buildPipelineEntry()', () => {
   });
 });
 
+// ── A1 (alpha.3): .aitri.upgradeFindings surfaces via nextActions ────────────
+
+describe('nextActions — unresolved upgrade findings (A1)', () => {
+  // Findings must drive a priority-3 next-action so operators can not ignore
+  // them. Previously the findings only appeared in the upgrade report and
+  // scrolled past; the project stayed dirty under a "clean" status view.
+
+  it('emits a P3 action per pipeline with non-empty upgradeFindings', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, {
+        projectName: 'x', artifactsDir: 'spec',
+        upgradeFindings: [
+          { target: '03_TEST_CASES.json', transform: 'TCs with non-canonical requirement (2)', reason: 'multi-FR', recordedAt: '2026-04-24T00:00:00Z' },
+        ],
+      });
+      const snap = buildProjectSnapshot(dir);
+      const findingAction = snap.nextActions.find(a => a.reason.includes('unresolved upgrade finding'));
+      assert.ok(findingAction, 'must surface findings as next-action');
+      assert.equal(findingAction.priority, 3);
+      assert.equal(findingAction.severity, 'warn');
+    } finally { cleanup(dir); }
+  });
+
+  it('does not emit action when upgradeFindings is empty or absent', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'x', artifactsDir: 'spec', upgradeFindings: [] });
+      const snap = buildProjectSnapshot(dir);
+      const findingAction = snap.nextActions.find(a => a.reason.includes('unresolved upgrade finding'));
+      assert.equal(findingAction, undefined);
+    } finally { cleanup(dir); }
+  });
+
+  it('pipeline entry exposes upgradeFindings array', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, {
+        projectName: 'x', artifactsDir: 'spec',
+        upgradeFindings: [
+          { target: '01_REQUIREMENTS.json', transform: 'NFRs with free-text title', reason: 'needs category', recordedAt: '2026-04-24T00:00:00Z' },
+        ],
+      });
+      const snap = buildProjectSnapshot(dir);
+      const root = snap.pipelines.find(p => p.scopeType === 'root');
+      assert.equal(root.upgradeFindings.length, 1);
+      assert.equal(root.upgradeFindings[0].target, '01_REQUIREMENTS.json');
+    } finally { cleanup(dir); }
+  });
+});
+
 // ── F11: terminal state — suppress P7 `aitri validate` when fully stable ─────
 
 describe('nextActions — terminal state (F11)', () => {

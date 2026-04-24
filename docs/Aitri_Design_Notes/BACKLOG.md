@@ -41,7 +41,7 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200) + five-point addendum. `.aitri` schema asymmetry tracked separately as [ADR-028](DECISIONS.md#adr-028--2026-04-24--open-question-aitri-mixes-shared-and-per-machine-state).
 
-**Status 2026-04-24 (alpha.2):** `v2.0.0-alpha.2` staged on `feat/upgrade-protocol`. Two real canaries passed in alpha.1: Ultron (drift present, 21 migrations applied) + Aitri Hub (already current, zero migrations). Alpha.2 did not add migrations — it closed three deferred operator-ergonomics items confronted in the post-canary review (`--dry-run`, `resume` brief default, terminal-state next-action) and documented the `.aitri` mixed-state contract (SCHEMA.md + ADR-028). Catalog still founded on Ultron.
+**Status 2026-04-24 (alpha.3):** `v2.0.0-alpha.3` staged on `feat/upgrade-protocol`. Three real canaries passed across alphas 1–3: Ultron (modern drift, 21 migrations + 8 flags), Aitri Hub (already current), Zombite (legacy drift at v0.1.70, 2 state backfills + feature with legacy hash drift resolved via new `rehash` command). Alpha.3 added `.aitri.upgradeFindings[]` persistence (A1), `aitri rehash <phase>` escape hatch (A5) + `approve` drift-prompt hint (A5b), and A3 banner clarification. Catalog of supported drift classes now covers: modern schema drift, state backfills across v0.1.65 → v0.1.82, and legacy hash bookkeeping (via rehash, not as a migration).
 
 **Promotion to stable v2.0.0 gated on:** a third-project canary (external adopter) runs cleanly, OR evidence motivates catalog expansion. Default path is direct promotion; alphas 2–4 collapsed into alpha.1 + alpha.2 because the ADR's original staging (one category per alpha) turned out to be unnecessary — all categories shipped together without regression.
 
@@ -64,12 +64,20 @@ Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-recon
 - [x] **Terminal-state next-action** (FEEDBACK F11) — shipped. P7 `aitri validate` suppressed when deployable + fresh audit + fresh verify.
 - [x] **`.aitri` commit-vs-gitignore contract doc** (FEEDBACK H3) — shipped in SCHEMA.md + ADR-028. No code change; explicit contract.
 
-#### Deferred out of alpha.1 / alpha.2 (by decision)
+#### Shipped in alpha.3 (2026-04-24)
 
+- [x] **A1 — `.aitri.upgradeFindings[]` persistence** — flagged upgrade findings now survive the upgrade report and drive a priority-3 next-action until resolved. Rendered in `resume` (brief warning section) and `status` (count line). Snapshot model — cleared on next clean upgrade run.
+- [x] **A5 — `aitri rehash <phase>`** (+ `aitri feature rehash`) — escape hatch for legacy hash drift where artifact content matches HEAD but stored hash is stale. Updates the hash in place without cascading invalidation to downstream phases. Clean-git gate + isTTY gate.
+- [x] **A5b — `approve` drift prompt hints at `rehash` when git is clean** — helps operators pick the right tool for bookkeeping-only drift.
+- [x] **A3 — Upgrade "already current" banner clarified** when version is bumping on a no-migration run.
+
+#### Deferred out of alpha.1 / alpha.2 / alpha.3 (by decision)
+
+- [ ] **A2 — Features sub-pipelines not upgraded by root `adopt --upgrade`** — evidence stands (Zombite's `stabilizacion` feature kept `aitriVersion: null` after root upgrade). Reconsidered for alpha.3 and deferred: implementing it requires deciding whether migrations apply per-scope (root-only vs cascading to features) and how diagnose composes findings across scopes. Not a point-release change. Re-open for v2.0.0 pre-stable or v2.0.1.
 - [ ] **CLI flags** `--yes`, `--only <categories>`, `--verbose` — not implemented. No adopter asked; re-open when one does. (`--dry-run` landed in alpha.2.)
 - [ ] **Corte E — CAPABILITY-NEW + STRUCTURE** — `files_modified` advisory, bug audit trail advisory, agent-files regen (already inherited from Corte A), `original_brief` archival, case-mismatch detection. None have evidence of needed; all are preventive. Re-open when a canary surfaces a concrete case.
 - [ ] **`test/upgrade-coverage.test.js` gate** — explicitly NOT written. Rationale in ADR-027 addendum §5.
-- [ ] **Smoke test E2E in `test/smoke.js`** — optional, unit tests + two real canaries cover current shape. Re-open if a non-trivial upgrade path lacks coverage.
+- [ ] **Smoke test E2E in `test/smoke.js`** — optional, unit tests + three real canaries cover current shape. Re-open if a non-trivial upgrade path lacks coverage.
 - [ ] **`.aitri/local.json` split** — tracked in ADR-028 as open question. One real signal (Hub) is insufficient; need a second before taking the breaking-change hit.
 
 #### Dropped from v2.0.0 breaking batch (by decision)

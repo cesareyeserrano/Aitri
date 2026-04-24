@@ -5,6 +5,45 @@ Subproducts should check this file when upgrading their Aitri reader implementat
 
 ---
 
+## v2.0.0-alpha.3 (2026-04-24) — upgrade findings persistence + rehash command — additive
+
+Third staged pre-release on branch `feat/upgrade-protocol`. Closes the three findings surfaced by the three-canary session (Hub, Ultron, Zombite).
+
+**`.aitri.upgradeFindings[]` — new array field (A1)**
+- Populated by `aitri adopt --upgrade` with the flagged findings that diagnose cannot auto-migrate (multi-FR TCs, free-text NFR titles, VALIDATOR-GAPs, etc.). Previously these findings only appeared in the upgrade report output and scrolled past, leaving projects dirty under a "clean" status view.
+- Snapshot model: overwritten on every upgrade run. When the agent re-authors the flagged items and a subsequent `adopt --upgrade` produces no findings, the array is cleared automatically. No history semantics — the event log (`.aitri.events[]`) remains the history channel.
+- Each entry: `{ target, transform, reason, module, category, recordedAt }`.
+- **Subproduct impact:** **additive**. Readers that did not know this field continue to work. Readers that want to surface unresolved upgrade work can render the array directly — count on dashboard, list in detail view.
+
+**`nextActions` — new priority-3 entry: unresolved upgrade findings**
+- Emitted once per pipeline whose `upgradeFindings` is non-empty. Command: `aitri resume` (root) or `aitri feature status <name>` (feature). Reason: `"N unresolved upgrade finding(s) in <scope> — artifacts need agent re-authoring"`.
+- Sits alongside the existing priority-3 "blocking bugs" entry. Both represent "known-dirty state that must be resolved before pipeline work".
+- **Subproduct impact:** Hub and any reader of `status --json`'s `nextActions[]` may observe new priority-3 entries with this shape. Priority ordering is preserved; the new entries never change the priority of existing entries.
+
+**`aitri rehash <phase>` — new CLI command (A5)**
+- Updates `artifactHashes[phase]` to match the current artifact content without touching `approvedPhases` / `completedPhases`. Narrow escape hatch for legacy projects where an old Aitri version stored a hash that no longer matches current content, even though the artifact was not modified since its last approval (e.g. a commit that updated the artifact without going through `aitri approve`).
+- Guardrails:
+  - Refuses if the phase has no stored hash (nothing to rehash).
+  - No-op when stored and current hashes already match.
+  - Refuses if git is not available (cannot verify cleanness).
+  - Refuses if `git diff HEAD -- <artifact>` reports uncommitted changes — in that case `rehash` is the wrong tool, `approve` is (with its cascade).
+  - `isTTY`-gated: an agent cannot auto-rehash.
+- Also available as `aitri feature rehash <feature> <phase>` for feature sub-pipelines.
+- **Subproduct impact:** none directly. Subproducts that observe `artifactHashes[phase]` may see it change on projects where rehash ran; `driftPhases` clears in the same transaction. No schema change.
+
+**`.aitri.events[]` — new event type `"rehash"` (A5)**
+- Emitted by `aitri rehash`. Fields: `artifact`, `before_hash`, `after_hash`. No content drift — bookkeeping only.
+- **Subproduct impact:** event log is contract-tolerant to unknown types (per SCHEMA.md §"Reader guidance"). Existing readers keep working; consumers that want to render rehash audit trails can filter for `event === "rehash"`.
+
+**`aitri approve` drift prompt — adds rehash hint when git is clean (A5b)**
+- When drift is detected but `git diff HEAD -- <artifact>` reports no uncommitted changes, the prompt now suggests `aitri rehash <phase>` as an alternative that preserves downstream phases. Default flow (re-approve with cascade) unchanged if the operator chooses to proceed.
+- **Subproduct impact:** cosmetic — affects prompt text only, no contract surface.
+
+**`adopt --upgrade` report — A3 message fix**
+- When the upgrade would change only the version string (schema already canonical), the banner now reads `"Schema already on canonical shape — only the version string will change"` instead of the previously ambiguous `"Project is already current — nothing to migrate"` combined with a visible version bump arrow.
+
+---
+
 ## v2.0.0-alpha.2 (2026-04-24) — operator ergonomics + `.aitri` contract doc — additive
 
 Second staged pre-release on branch `feat/upgrade-protocol`. No schema field changes — the `.aitri` and artifact schemas are unchanged from alpha.1. Ergonomics and documentation only.

@@ -354,6 +354,37 @@ describe('cmdResume() — next action logic', () => {
   });
 });
 
+// ── A1 (alpha.3): unresolved upgrade findings render in brief ────────────────
+
+describe('cmdResume() — unresolved upgrade findings (A1)', () => {
+  // The findings section is one of the few pieces of content that must NOT
+  // be gated behind --full. Forgetting them perpetuates legacy drift; the
+  // whole point of persisting them is to make them hard to miss.
+  it('renders a warning section with finding details in brief mode', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, '.aitri', minimalConfig({
+        upgradeFindings: [
+          { target: '03_TEST_CASES.json', transform: 'TCs with non-canonical requirement (2)', reason: 'multi-FR TCs need agent re-authoring', recordedAt: '2026-04-24T00:00:00Z' },
+        ],
+      }));
+      const out = captureStdout(() => cmdResume({ dir }));
+      assert.match(out, /Unresolved Upgrade Findings/);
+      assert.match(out, /03_TEST_CASES\.json/);
+      assert.match(out, /multi-FR TCs need agent re-authoring/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not render the section when findings are empty', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, '.aitri', minimalConfig({ upgradeFindings: [] }));
+      const out = captureStdout(() => cmdResume({ dir }));
+      assert.doesNotMatch(out, /Unresolved Upgrade Findings/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── F8: brief default vs --full (reference sections gated) ───────────────────
 
 describe('cmdResume() — brief default (F8)', () => {

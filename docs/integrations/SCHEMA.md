@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-alpha.2+
+**Aitri version:** v2.0.0-alpha.3+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -56,6 +56,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `rejections` | `object<string, Rejection>` | `{}` | Map of phase key → last rejection. Key is phase as string (`"1"`, `"2"`, etc.) |
 | `lastSession` | `object\|null` | `null` | Session checkpoint — see schema below. Written automatically by state-mutating commands |
 | `normalizeState` | `object\|null` | `null` | Off-pipeline change baseline. Set on `approve 4`, by `aitri normalize`, and by `aitri normalize --resolve`. Schema: `{ status: "pending" \| "resolved", baseRef: "<git-sha>" \| "<ISO>", method: "git" \| "mtime", lastRun: "ISO" }` (v0.1.80+; `--resolve` flag added v0.1.84) |
+| `upgradeFindings` | `array<object>` | `[]` | Unresolved flagged findings from the last `aitri adopt --upgrade`. Snapshot model — overwritten on every run; cleared when diagnose returns empty. Each entry: `{ target, transform, reason, module, category, recordedAt }`. (v2.0.0-alpha.3+) |
 
 ---
 
@@ -100,6 +101,7 @@ Optional fields by type:
 - `"rejected"` → includes `"feedback": "text"`
 - `"approved"` → includes `"afterDrift": true` when approved after detected drift (v0.1.60+)
 - `"upgrade_migration"` → see schema below (v2.0.0+)
+- `"rehash"` → includes `artifact`, `before_hash`, `after_hash` (v2.0.0-alpha.3+). Emitted by `aitri rehash <phase>` when an operator updates the stored hash for a phase whose artifact content has not changed from its committed state. No content drift — bookkeeping only.
 
 **Reader guidance:** unknown event types MUST be tolerated. New types are added without warning; a reader that filters the event log should use an allow-list of types it understands, not a deny-list.
 

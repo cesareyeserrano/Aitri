@@ -36,8 +36,9 @@ import { cmdBug }           from '../lib/commands/bug.js';
 import { cmdNormalize }     from '../lib/commands/normalize.js';
 import { cmdAudit }        from '../lib/commands/audit.js';
 import { cmdTC }           from '../lib/commands/tc.js';
+import { cmdRehash }       from '../lib/commands/rehash.js';
 
-const VERSION   = '2.0.0-alpha.2';
+const VERSION   = '2.0.0-alpha.3';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -113,6 +114,7 @@ switch (cmd) {
   case 'normalize':        cmdNormalize(ctx);       break;
   case 'audit':            cmdAudit(ctx);           break;
   case 'tc':               cmdTC(ctx);              break;
+  case 'rehash':           cmdRehash(ctx);          break;
   case '--version':        console.log(`Aitri v${VERSION}`); break;
   // No command given: if we're inside an Aitri project, run status;
   // otherwise fall through to help. An unknown command always shows help.
