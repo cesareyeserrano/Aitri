@@ -50,7 +50,37 @@ integration-compat-manifest   verify ✅ (25/34)
 Σ  all pipelines  Aggregated  Passed (17/66)
 stabilizacion                 verify ✅ (2/51)
 ```
-**4% (2/51) labelled with ✅** is jarring. A reader inspecting Zombite for the first time would reasonably conclude "verify ✅" is wrong or that the project is broken. The ratio is technically correct under the current semantics ("tests with explicit FR coverage"), but the visual contract is misleading enough that an honest skim produces a wrong mental model. Two canaries now confirm; on the worse one (Zombite) the tension is severe enough to justify cheap polish in alpha.5 rather than waiting for the original "≥20 features OR agent confusion" trigger. Suggested relabel: `tests N covered / M total` or move the ratio to a separate column with an explanatory header.
+**4% (2/51) labelled with ✅** is jarring. A reader inspecting Zombite for the first time would reasonably conclude "verify ✅" is wrong or that the project is broken. The ratio is technically correct under the current semantics ("tests with explicit FR coverage"), but the visual contract is misleading enough that an honest skim produces a wrong mental model.
+
+**Third canary 2026-04-27 (alpha.4 on Cesar — confirms full spectrum).** Cesar (9 features, deployable, mature project) shows the same pattern across the full range:
+```
+Σ  all pipelines  Aggregated  Passed (269/291)        →  92%
+frontend-remediation          verify ✅ (29/44)        →  66%
+ux-ui-upgrade                 verify ✅ (40/47)        →  85%
+ui-conversation-redesign      verify ✅ (38/38)        → 100%
+```
+Three canaries now span the dissonance: Zombite (4%, jarring), Hub (70-84%, noticeable), Cesar (66-100%, mixed within a single project's feature list). The issue is universal, not edge-case. Two of nine Cesar features are sub-90% with ✅. Fix justified for alpha.5 polish.
+
+### H7 — `Re-approved After Drift` guidance does not mention `aitri rehash` (alpha.4 canary on Cesar)
+
+`aitri resume` for a project with drift re-approvals (Cesar, Phase 3 re-approved 4/22/2026) emits:
+
+```
+## ⚠ Re-approved After Drift — Verify Content
+The following phases were re-approved after their artifact changed.
+A human approved the change interactively, but content correctness is not guaranteed.
+- Phase 3 — re-approved on 4/22/2026
+
+If you are unsure, run: `aitri run-phase N` to regenerate the artifact from scratch.
+```
+
+The recommendation in [resume.js:254](../../lib/commands/resume.js#L254) only mentions `run-phase N` (which cascade-invalidates downstream phases — the heavy hammer). Since v2.0.0-alpha.3 we have `aitri rehash N` for the lighter case: artifact content matches HEAD, only the stored hash is stale. Operators reading this guidance get directed to the wrong tool when the right one (rehash) would preserve downstream phases.
+
+**Fix shape (one-line addition to the note):** mention rehash conditionally — when the relevant artifact has no uncommitted changes vs HEAD (same condition `aitri rehash` itself checks), include a hint like: `If the drift was a stale hash on already-correct content, see also: aitri rehash <phase>`.
+
+**Why kept (not in BACKLOG yet):** small fix, no schema implication. Bundle into the alpha.5 polish round alongside H5 if that ships.
+
+**Reopen criterion:** any operator ever uses `aitri run-phase N` over `aitri rehash N` and cascade-invalidates unnecessarily. Cesar's 4/22 re-approval predates alpha.3 so it doesn't count, but future ones will.
 
 ---
 
