@@ -170,8 +170,20 @@ Reflects the off-pipeline code-change baseline recorded when build (phase 4) is 
 
 Semantics of `uncountedFiles`:
 - `null` when no baseline exists, the baseline is `mtime` (skipped to keep snapshot cheap), `state === 'pending'` (already known, no need to re-count), or git failed.
-- `0` when the git baseline matches HEAD (no new off-pipeline changes).
-- `N > 0` when N source files (excluding `spec/`, `.aitri`, `node_modules/`) have changed since the recorded baseline. Surfaces `aitri normalize` as a priority-4 next-action with reason `"N file(s) changed outside pipeline since last build approval"`.
+- `0` when the git baseline matches HEAD, **or** when every changed file matches the non-behavioral allowlist (build manifests, docs, dotfiles, CI configs, generated assets — see [exclusions](#allowlist) below).
+- `N > 0` when N **behavioral** files (excluding `spec/`, `.aitri`, `node_modules/`, plus the allowlist) have changed since the recorded baseline. Surfaces `aitri normalize` as a priority-4 next-action with reason `"N file(s) changed outside pipeline since last build approval"`.
+
+### Allowlist
+
+Since v2.0.0-alpha.4, the off-pipeline drift detector treats the following file patterns as **non-behavioral** — they are not counted in `uncountedFiles` and do not trigger the priority-4 normalize next-action. Single source of truth: `lib/normalize-patterns.js::isBehavioralFile()`.
+
+- **Build / dependency manifests:** `go.mod`, `go.sum`, `package.json`, `package-lock.json`, `yarn.lock`, `Cargo.toml`, `Cargo.lock`, `Pipfile`, `Pipfile.lock`, `poetry.lock`, `pyproject.toml`, `Gemfile`, `Gemfile.lock`, `composer.lock`, `pom.xml`, `build.gradle`, any `*.lock`.
+- **Documentation:** `*.md`, `*.markdown`, `*.rst`, `*.txt`, `*.adoc`, plus the variants `README*`, `LICENSE*`, `LICENCE*`, `AUTHORS*`, `NOTICE*`, `CONTRIBUTING*`, `CHANGELOG*`, `CODE_OF_CONDUCT*`, `SECURITY*`, `MAINTAINERS*`.
+- **Dotfiles / config:** `.env`, `.env.*`, `.gitignore`, `.gitattributes`, `.dockerignore`, `.editorconfig`, `.npmrc`, `.nvmrc`, `.node-version`, `.python-version`, `.ruby-version`.
+- **CI / infra:** `Dockerfile*`, `docker-compose*.yml/yaml`, `Makefile*`, `GNUmakefile`, `.github/**`, `.gitlab/**`, `.circleci/**`, `ci/**`, `.travis.yml`, `.gitlab-ci.yml`, `azure-pipelines.yml`, `cloudbuild.yaml`.
+- **Generated assets:** `**/*.min.js`, `**/*.min.css`, `**/*.bundle.js`, `**/*.bundle.css`, `**/*.map`, anything inside `/dist/`, `/build/`, `/.next/`, `/.nuxt/`, `/out/`.
+
+**Subproduct guidance:** consumers reading `uncountedFiles` will see lower counts on projects with documentation/build-manifest churn after upgrading to v2.0.0-alpha.4 — this is the contract change shipping with that release. No reader behavior changes; the count is more accurate.
 
 ---
 
