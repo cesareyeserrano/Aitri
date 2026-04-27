@@ -37,14 +37,6 @@ Features:
 
 **Reopen criterion:** first project with ≥20 features where the list becomes unreadable, OR agent confusion about the `N/M` ratio surfaces in a real session.
 
-### H6 — Catalog evidence base still narrow (not actionable, discipline-only)
-
-Two-project canary (Ultron dirty + Hub clean) validates the protocol against two real states, but not three. All current migrations originate from Ultron's baseline; Hub added "no-op on clean" confirmation, not new drift classes.
-
-**Why kept:** informational discipline. When `v2.0.0-alpha.2` or later is applied to a third real project, monitor for: crashes, silent no-ops that should have migrated, VALIDATOR-GAPs that are false positives. Each surprise becomes catalog evidence.
-
-**Reopen criterion:** third-project canary surfaces an unhandled drift class → new migration module (or extension to `from-0.1.65.js`).
-
 ---
 
 ## History
@@ -54,6 +46,7 @@ This file previously held ~270 lines of per-session observations (Ultron 2026-04
 - **v0.1.90** — A1, A2, A3, A4, A5, F1, F2, F6, F12, F13 (individual fixes).
 - **v2.0.0-alpha.1** — ADR-027 protocol redesign absorbing A1–A4 / F7 into the upgrade module; H1, H2 shipped as clean-project UX.
 - **v2.0.0-alpha.2** — H3 (documented in SCHEMA.md + ADR-028), plus the three deferred items confronted in the 2026-04-24 review: `--dry-run` flag, `resume` brief default / F8, terminal-state next-action / F11.
+- **v2.0.0-alpha.3** — H6 (third-project canary completed): Zombite ran cleanly, surfaced legacy hash drift class, resolved via new `aitri rehash` command (A5). Catalog of supported drift classes now covers modern schema drift, state backfills v0.1.65 → v0.1.82, and legacy hash bookkeeping.
 
 Items correctly rejected with rationale (F3 audit-quality honor system, F14 git boundary, etc.) are recorded in BACKLOG.md under "Discarded" or absorbed into ADR-027 addendum §5.
 

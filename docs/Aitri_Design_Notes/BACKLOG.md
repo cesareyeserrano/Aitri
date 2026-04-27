@@ -37,7 +37,7 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 > Ecosystem items (Hub, Graph, future subproducts) live in their own repos' backlogs.
 > Core only tracks items that require changes to Aitri Core itself.
 
-### Core — v2.0.0 — `adopt --upgrade` as reconciliation protocol (shipped in alpha.1 + alpha.2 ergonomics, pending promotion)
+### Core — v2.0.0 — `adopt --upgrade` as reconciliation protocol (shipped in alpha.1 + alpha.2 + alpha.3, pending promotion)
 
 Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200) + five-point addendum. `.aitri` schema asymmetry tracked separately as [ADR-028](DECISIONS.md#adr-028--2026-04-24--open-question-aitri-mixes-shared-and-per-machine-state).
 
