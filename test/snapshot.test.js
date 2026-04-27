@@ -792,6 +792,60 @@ describe('detectUncountedChanges()', () => {
       assert.equal(detectUncountedChanges(pl).uncountedFiles, null);
     } finally { cleanup(dir); }
   });
+
+  it('excludes non-behavioral files (allowlist) — Ultron canary regression', () => {
+    // Regression guard for the cycle reported on Ultron 2026-04-27:
+    // a one-line go.mod toolchain bump was counted as off-pipeline drift,
+    // forcing a 70KB Senior Code Reviewer briefing for trivial maintenance.
+    // After the allowlist filter, build/dep manifests + docs do not count.
+    const dir = tmpDir();
+    try {
+      gitInit(dir);
+      fs.writeFileSync(path.join(dir, 'go.mod'),         'module x\n\ngo 1.25.5\n');
+      fs.writeFileSync(path.join(dir, 'DEPLOYMENT.md'),  '# Deploy\n');
+      fs.writeFileSync(path.join(dir, '.env.example'),   'KEY=value\n');
+      gitAddCommit(dir, 'init');
+      const baseSha = gitHead(dir);
+
+      // Post-baseline: only non-behavioral changes (mirrors Ultron's case).
+      fs.writeFileSync(path.join(dir, 'go.mod'),         'module x\n\ngo 1.25.9\n');
+      fs.writeFileSync(path.join(dir, 'DEPLOYMENT.md'),  '# Deploy\n\n## Pi\n');
+      fs.writeFileSync(path.join(dir, '.env.example'),   'KEY=value\nNEW_KEY=v\n');
+      gitAddCommit(dir, 'cve bumps + docs');
+
+      saveConfig(dir, {
+        projectName: 'p', artifactsDir: 'spec',
+        normalizeState: { status: 'resolved', baseRef: baseSha, method: 'git' },
+      });
+      const pl = buildPipelineEntry(dir, 'root');
+      assert.equal(detectUncountedChanges(pl).uncountedFiles, 0,
+        'allowlist files (go.mod, *.md, .env.*) must not count as off-pipeline drift');
+    } finally { cleanup(dir); }
+  });
+
+  it('counts only behavioral files in mixed change set', () => {
+    // One source file + one allowlisted file — count must be 1, not 2.
+    const dir = tmpDir();
+    try {
+      gitInit(dir);
+      fs.writeFileSync(path.join(dir, 'main.js'),   'console.log("a");');
+      fs.writeFileSync(path.join(dir, 'README.md'), '# Project');
+      gitAddCommit(dir, 'init');
+      const baseSha = gitHead(dir);
+
+      fs.writeFileSync(path.join(dir, 'main.js'),   'console.log("b");');
+      fs.writeFileSync(path.join(dir, 'README.md'), '# Project v2');
+      gitAddCommit(dir, 'edits');
+
+      saveConfig(dir, {
+        projectName: 'p', artifactsDir: 'spec',
+        normalizeState: { status: 'resolved', baseRef: baseSha, method: 'git' },
+      });
+      const pl = buildPipelineEntry(dir, 'root');
+      assert.equal(detectUncountedChanges(pl).uncountedFiles, 1,
+        'mixed change set must count only the behavioral file');
+    } finally { cleanup(dir); }
+  });
 });
 
 // ── snapshot.normalize integration ───────────────────────────────────────────

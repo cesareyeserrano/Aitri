@@ -5,6 +5,22 @@
 
 ---
 
+## [2.0.0-alpha.4] — 2026-04-27 — `aitri normalize` allowlist (Ultron canary fix)
+
+Fourth staged pre-release on `feat/upgrade-protocol`. Closes the proportionality bug (N1 from BACKLOG entry "Core — `aitri normalize` proportionality") reported by the Ultron canary 2026-04-27.
+
+**Behavioral allowlist for off-pipeline drift detection.** `aitri normalize`, `aitri status`, and `status --json` no longer treat build/dependency manifests (`go.mod`, `package.json`, lockfiles), documentation (`*.md`, `LICENSE`, `CONTRIBUTING`), dotfiles (`.env*`, `.gitignore`), CI/infra files (`Dockerfile*`, `Makefile*`, `.github/**`), and generated assets (`*.min.js`, `/dist/**`, `/build/**`) as off-pipeline drift. Single source of truth: `lib/normalize-patterns.js::isBehavioralFile()`.
+
+**The cycle that motivated this.** Ultron's git history contains three previous workaround commits — `9b68709 chore: advance aitri normalize baseline to current HEAD`, `0e6786a chore: advance aitri normalize baseline past CSS regeneration commit`, `35a9a95 chore: advance aitri normalize baseline past PR #1` — each manually compensating for the same broken contract. Most recent trigger: a one-line `go.mod` toolchain bump from 1.25.5 → 1.25.9 (CVE fix) caused the full normalize ceremony: 70,390-byte Senior Code Reviewer briefing + forced `verify-run` (45 tests) + TTY-gated confirmation. After this fix, the same diff produces zero off-pipeline-drift signal.
+
+**Test coverage.** +31 tests (993/993 green). `test/normalize-patterns.test.js` (new file) covers the allowlist semantics across build manifests, docs, dotfiles, CI configs, and generated assets, with an explicit Ultron regression case. Integration tests added to `test/snapshot.test.js::detectUncountedChanges()` and `test/commands/normalize.test.js`.
+
+**Honest scope.** Ships N1 only. N2 (briefing scope reduced from full-spec embedding to per-file diff + cross-ref) and N3 (`verify-complete` priority ladder unified with `aitri status` snapshot) deferred to a later alpha — N1 may absorb the perceived friction by itself, in which case N2/N3 become optional polish. Will reassess after Ultron canary on alpha.4.
+
+**Subproduct impact:** additive. Hub readers see lower `health.uncountedFiles` counts on projects with documentation/build-manifest churn, and fewer priority-4 `aitri normalize` next-actions. No schema field changes, no event log additions.
+
+---
+
 ## [2.0.0-alpha.3] — 2026-04-24 — upgrade findings persistence + `aitri rehash`
 
 Third staged pre-release on `feat/upgrade-protocol`. Closes the three findings from the three-canary session (Hub, Ultron, Zombite) — with honest scope corrections against the earlier alpha.2 proposal.

@@ -18,6 +18,36 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-alpha.4 (2026-04-27) — normalize allowlist for non-behavioral files — additive
+
+Fourth staged pre-release on branch `feat/upgrade-protocol`. Closes the proportionality bug (N1) reported by the Ultron canary 2026-04-27.
+
+**Behavior change in `aitri normalize` and `status --json::nextActions[]`**
+
+`aitri normalize`, `aitri status`, and `status --json` now treat the following file patterns as **non-behavioral** and exclude them from off-pipeline drift detection. A diff containing only allowlisted files no longer fires the normalize warning, no longer counts toward `health.uncountedFiles`, and no longer emits the priority-4 `aitri normalize` next-action.
+
+**Allowlist (`lib/normalize-patterns.js`):**
+- Build / dependency manifests: `go.mod`, `go.sum`, `package.json`, `package-lock.json`, `yarn.lock`, `Cargo.toml`, `Cargo.lock`, `Pipfile`, `Pipfile.lock`, `poetry.lock`, `pyproject.toml`, `Gemfile`, `Gemfile.lock`, `composer.lock`, `pom.xml`, `build.gradle`, any `*.lock`
+- Documentation: `*.md`, `*.markdown`, `*.rst`, `*.txt`, `*.adoc`, `README*`, `LICENSE*`, `LICENCE*`, `AUTHORS*`, `NOTICE*`, `CONTRIBUTING*`, `CHANGELOG*`, `CODE_OF_CONDUCT*`, `SECURITY*`, `MAINTAINERS*`
+- Dotfiles: `.env`, `.env.*`, `.gitignore`, `.gitattributes`, `.dockerignore`, `.editorconfig`, `.npmrc`, `.nvmrc`, `.node-version`, `.python-version`, `.ruby-version`
+- CI / infra: `Dockerfile*`, `docker-compose*.yml/yaml`, `Makefile*`, `GNUmakefile`, `.github/**`, `.gitlab/**`, `.circleci/**`, `ci/**`, `.travis.yml`, `.gitlab-ci.yml`, `azure-pipelines.yml`, `cloudbuild.yaml`
+- Generated assets: `**/*.min.js`, `**/*.min.css`, `**/*.bundle.js`, `**/*.bundle.css`, `**/*.map`, anything inside `/dist/`, `/build/`, `/.next/`, `/.nuxt/`, `/out/`
+
+**Subproduct impact:** **additive**.
+- Hub readers that consume `status --json::health.uncountedFiles` or `nextActions[]` will see lower counts on projects with documentation/build-manifest churn. No reader behavior changes; the count is more accurate.
+- Hub readers that observed the priority-4 `aitri normalize` next-action firing on doc-only PRs will see fewer such entries.
+- No schema field changes. No event log additions. The change is purely in how the diff is filtered before counting.
+
+**Evidence / motivation:** Ultron canary 2026-04-27. Three previous workaround commits already in Ultron git history (`9b68709`, `0e6786a`, `35a9a95`), each titled `chore: advance aitri normalize baseline ...` — manual compensation for the same broken contract. Latest cycle triggered by a one-line `go.mod` toolchain bump (CVE fix). Normalize briefing measured at 70,390 bytes regardless of change size, plus required full `verify-run` (45 tests) + TTY confirmation to clear the warning.
+
+**Test coverage.** +31 tests (993/993 green). New file `test/normalize-patterns.test.js` (29 tests covering allowlist semantics + Ultron regression case). 2 tests added to `test/snapshot.test.js::detectUncountedChanges()` (Ultron regression + mixed change set). 2 tests added to `test/commands/normalize.test.js` (mtime path filters minified bundles + `/dist/`, all-allowlist diff stays in resolved state).
+
+**Deferred from alpha.4 (by decision):**
+- **N2** — proportional briefing (full spec embedded in 70KB output regardless of change size). Will reassess after Ultron confirms N1 absorbs the perceived friction.
+- **N3** — `verify-complete` consults `buildProjectSnapshot()` for next-action instead of hardcoding "Phase 5 next" ([verify.js:864](../../lib/commands/verify.js#L864)). Independent bug, separate fix.
+
+---
+
 ## v2.0.0-alpha.3 (2026-04-24) — upgrade findings persistence + rehash command — additive
 
 Third staged pre-release on branch `feat/upgrade-protocol`. Closes the three findings surfaced by the three-canary session (Hub, Ultron, Zombite).

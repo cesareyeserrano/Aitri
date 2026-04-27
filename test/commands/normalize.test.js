@@ -164,6 +164,52 @@ describe('cmdNormalize() — changes detected (mtime)', () => {
       assert.ok(!out.includes('spec/01_REQUIREMENTS.json'), 'spec/ files must not appear in change list');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  it('does not include allowlisted files (regenerated bundles, /dist/) in the change list (mtime path)', () => {
+    // mtime path: SOURCE_EXTS already filters for .js/.go/etc., but .min.js
+    // matches and /dist/ paths can contain regular .js. The allowlist filter
+    // catches both before the briefing renders.
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion:   '0.1.70',
+        artifactsDir:   'spec',
+        normalizeState: { baseRef: pastRef, method: 'mtime', status: 'resolved' },
+      }));
+      writeFile(dir, 'src/feature.js', 'function newThing() {}');
+      writeFile(dir, 'web/static/dist/app.min.js', '/* generated */ var x=1;');
+      writeFile(dir, 'web/static/dist/main.js',     '/* generated */ var y=2;');
+      writeFile(dir, 'spec/01_REQUIREMENTS.json',   '{}');
+
+      const out = captureStdout(() => cmdNormalize({ dir, err: noopErr }));
+      assert.ok(out.includes('src/feature.js'),       'behavioral file must appear');
+      assert.ok(!out.includes('app.min.js'),          'minified bundle must be excluded');
+      assert.ok(!out.includes('web/static/dist/'),    '/dist/ contents must be excluded');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('treats all-allowlist diff as no-op (no pending state) — Ultron canary regression', () => {
+    // mtime can detect a .min.js bump (extension is in SOURCE_EXTS) but the
+    // allowlist excludes it. Result: status stays 'resolved', no briefing.
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion:   '0.1.70',
+        artifactsDir:   'spec',
+        normalizeState: { baseRef: pastRef, method: 'mtime', status: 'resolved' },
+      }));
+      writeFile(dir, 'web/static/dist/bundle.min.js', '/* regen */');
+
+      const out = captureLog(() => cmdNormalize({ dir, err: noopErr }));
+      const config = loadConfig(dir);
+      assert.equal(config.normalizeState.status, 'resolved',
+        'pure allowlist diff must NOT flip status to pending');
+      assert.ok(out.includes('No code changes detected'),
+        'must print clean message when only non-behavioral changes detected');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // ── approve build records normalizeState ─────────────────────────────────────
