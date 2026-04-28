@@ -40,7 +40,7 @@ Required sections (in order):
    Handoff decision: ready | blocked — <one-line reason>
    ```
 
-   Gate rules (enforced by `aitri {{SCOPE_PREFIX}}complete discovery`):
+   Gate rules (enforced by `aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} discovery`):
    - `Confidence: low`           → BLOCKED — clarify evidence gaps before Phase 1
    - `Confidence: medium`        → WARNING — flag gaps to stakeholders, may proceed
    - `Confidence: high`          → PASS
@@ -56,7 +56,7 @@ Required sections (in order):
 1. Generate complete 00_DISCOVERY.md
 2. Save to: {{ARTIFACTS_BASE}}/00_DISCOVERY.md
 3. Present the Delivery Summary below to the user
-4. Run: aitri {{SCOPE_PREFIX}}complete discovery
+4. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} discovery
 
 ## Delivery Summary
 After saving 00_DISCOVERY.md, present this report to the user:
@@ -76,5 +76,5 @@ Key assumptions flagged:
 Evidence gaps (if any):
   - [gap 1]
 ──────────────────────────────────────────────────────────────
-Next: aitri {{SCOPE_PREFIX}}complete discovery   →   aitri {{SCOPE_PREFIX}}approve discovery
+Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} discovery   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} discovery
 ```

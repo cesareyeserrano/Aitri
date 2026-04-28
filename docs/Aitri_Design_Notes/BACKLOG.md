@@ -86,6 +86,44 @@ Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-recon
 - [ ] **Phase 3 canonical TC id regex** — dropped 2026-04-23. Still waiting for the second evidence case that was the original gate; forcing it through the v2 batch inverted the evidence-before-breakage logic.
 - [ ] **Command-surface audit outcomes** — remains a Design Study below. No trigger.
 
+### Core — Secondary findings from Ultron canary 2026-04-27 (alpha.6/7 session)
+
+Three independent issues surfaced by the Ultron canary that validated the alpha.6 → alpha.7 scope-grammar fix. Tracked separately because each has its own evidence and fix shape; bundling would muddy the diagnosis.
+
+- [ ] **P2 — Approve UX next-action routes to `requirements` instead of `architecture` when Phase 1 is already approved.**
+
+  Evidence: Ultron canary feature `network-monitoring`, alpha.6. State at the time: `.aitri.approvedPhases` contained at minimum the value Aitri wrote on Phase 1 approve (verified via prior canary handoff). After `aitri feature approve network-monitoring ux`, the post-action banner emitted: `→ Continue with optional phases or run: aitri feature run-phase network-monitoring requirements` (re-grammared as alpha.7 form). The expected branch was `aitri feature run-phase network-monitoring architecture`, gated by `phase === 'ux' && approved.has(1)` in [approve.js:305](../../lib/commands/approve.js#L305).
+
+  Hypothesis: `approved.has(1)` returned `false` despite Phase 1 being approved. Possible causes — (a) `config.approvedPhases` stored as strings (`['1']`) not numbers (`[1]`), making `Set.has(1)` miss; (b) feature `.aitri` lost Phase 1 entry between alpha.4 (when canary started) and alpha.6 (when this branch was hit) due to some intervening write path; (c) the `approved` Set was rebuilt after the cascade-invalidate path stripped Phase 1.
+
+  Files to investigate: `lib/commands/approve.js:248,304` (Set construction + has check), `lib/state.js` saveConfig (type coercion), `lib/commands/feature.js` cascade behavior. Reproduce by running `aitri feature run-phase <name> ux` after Phase 1 was approved; capture `.aitri.approvedPhases` raw JSON before/after.
+
+  Behavior: when Phase 1 is approved, UX-after-1 must route to architecture. Acceptance: a unit test that seeds `.aitri.approvedPhases = [1]` (number), runs `cmdApprove({ args: ['ux'] })`, and asserts the next-action emits `aitri ${sv}run-phase${sa} architecture`, not `requirements`.
+
+  Why P2 not P1: not destructive; the user can manually run `aitri feature run-phase <name> architecture` and it works (canary did exactly that and continued cleanly). But it confuses the agent's "PIPELINE INSTRUCTION is your only next action" rule, which is supposed to be authoritative.
+
+- [ ] **P3 — `aitri feature list` does not traverse upward to find the project root.**
+
+  Evidence: Ultron canary, after `cd features/network-monitoring/spec/`, running `aitri feature list` returned `No features yet. Run: aitri feature init <name>`. The agent reasonably believed the feature was lost.
+
+  Files: [lib/commands/feature.js:173-200](../../lib/commands/feature.js#L173-L200) `featureList()` reads `path.join(dir, 'features')` from cwd only.
+
+  Behavior options: (a) walk parents looking for `.aitri/` then run featureList from there; (b) keep cwd-only behavior but emit a more honest message: `No features in current directory (cwd is not a project root). Run from <project root>` with the discovered project root if any. (b) is simpler and avoids surprising upward-walk behavior in nested workspaces; acceptable trade-off if the message names the actual reason.
+
+  Acceptance: from any sub-directory of an Aitri project, `aitri feature list` either lists the features or prints a message that names "not at project root" as the reason. Test: create a project with `features/foo`, cd into a deep subdir, assert output mentions either the features or the project-root reason.
+
+- [ ] **P3 — Phase 3 validator rejects `requirement_id: NFR-XXX` despite `type_coverage_matrix` accepting NFR keys.**
+
+  Evidence: Ultron canary on Phase 3 of `network-monitoring`. The agent assigned 14 TCs to NFR ids; `aitri feature complete tests` rejected each with "requirement_id must be FR-*". Workaround: reassigned all 14 TCs to FR ids manually.
+
+  Files: [lib/phases/phase3.js](../../lib/phases/phase3.js) `validate()` — likely checks `requirement_id` matches `^FR-` regex while `type_coverage_matrix` schema accepts both FR and NFR keys.
+
+  Behavior: either (a) accept NFR-* in `requirement_id` (consistent with matrix), or (b) explicitly reject NFR-* in BOTH places with a clear message. Current state is internally inconsistent.
+
+  Decision: lean toward (a). NFRs are first-class requirements; testing them is legitimate (e.g. an NFR for response time can have a TC that asserts the threshold). The matrix already encodes that. Phase 1 schema lets you write NFRs with `acceptance_criteria` — those criteria deserve TCs.
+
+  Acceptance: `aitri complete 3` accepts a TC with `requirement_id: NFR-001` when `type_coverage_matrix['NFR-001']` exists. New test in `test/phases/phase3.test.js` covering the NFR coverage case.
+
 ### Core — `aitri normalize` proportionality (Ultron canary 2026-04-27)
 
 - [ ] **P1 — Normalize fires on non-behavioral file changes (root cause of friction cycle).** Three separable bugs surfaced by Ultron canary on alpha.3.

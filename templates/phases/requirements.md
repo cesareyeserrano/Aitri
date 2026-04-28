@@ -166,7 +166,7 @@ reuse IDs from the list below.
    - MUST FRs of type security/persistence/logic/reporting each have ≥2 ACs
 6. Save to: {{ARTIFACTS_BASE}}/01_REQUIREMENTS.json
 7. Present the Delivery Summary below to the user
-8. Run: aitri {{SCOPE_PREFIX}}complete 1
+8. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 1
 
 ## Delivery Summary
 After saving 01_REQUIREMENTS.json, present this report to the user:
@@ -186,7 +186,7 @@ No-go zone ([N] items):
 
 Assumptions flagged: [N] — review before approving
 ──────────────────────────────────────────────────────────────
-Next: aitri {{SCOPE_PREFIX}}complete 1   →   aitri {{SCOPE_PREFIX}}approve 1
+Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 1   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 1
 ```
 
 ## Human Review — Before approving phase 1

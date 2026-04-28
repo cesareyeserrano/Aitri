@@ -192,22 +192,27 @@ describe('Phase UX — buildBriefing()', () => {
     assert.ok(!b.includes('UX/UI Standards'), 'UX/UI Standards header must not appear when bestPractices is empty');
   });
 
-  // alpha.6: scopePrefix threads through {{SCOPE_PREFIX}} in instruction lines.
-  // Same shape applies to every phase template — phaseUX is the canary used by
-  // the Ultron 2026-04-27 incident, so it carries the explicit assertion.
-  it('feature-scope: instruction lines render with `feature <name> ` infix', () => {
+  // alpha.7: scopeVerb + scopeArg thread through {{SCOPE_VERB}}/{{SCOPE_ARG}}
+  // in instruction lines. The two-token shape matches the actual CLI grammar
+  // `aitri feature <verb> <name> <phase>` enforced by feature.js. alpha.6
+  // attempted a single `commandPrefix` placed before the verb, which Ultron
+  // canary 2026-04-27 caught as grammatically broken (8/8 handoffs).
+  it('feature-scope: instruction lines render with `feature <verb> <name>` grammar', () => {
     const b = PHASE_DEFS['ux'].buildBriefing({
       dir: '/tmp/test',
       inputs: { 'IDEA.md': 'A simple app idea.', '01_REQUIREMENTS.json': validRequirements },
       feedback: null,
-      scopePrefix: 'feature network-monitoring ',
+      scopeVerb: 'feature ',
+      scopeArg:  ' network-monitoring',
     });
-    assert.ok(b.includes('aitri feature network-monitoring complete ux'),
-      'briefing must instruct feature-scoped complete');
-    assert.ok(b.includes('aitri feature network-monitoring approve ux'),
-      'briefing must instruct feature-scoped approve');
+    assert.ok(b.includes('aitri feature complete network-monitoring ux'),
+      'briefing must use verb-then-name grammar for complete');
+    assert.ok(b.includes('aitri feature approve network-monitoring ux'),
+      'briefing must use verb-then-name grammar for approve');
+    assert.ok(!/aitri feature network-monitoring (complete|approve)\b/.test(b),
+      'briefing must NOT use the alpha.6-broken name-then-verb order');
     assert.ok(!/aitri complete ux\b/.test(b),
-      'root-style "aitri complete ux" must NOT appear when scopePrefix is set');
+      'root-style "aitri complete ux" must NOT appear when scope tokens are set');
   });
 
   it('root scope: instruction lines render without any feature infix', () => {

@@ -662,7 +662,7 @@ describe('cmdVerifyRun() — A2 schema precondition', () => {
 // ── Feature-context emission (alpha.6) ───────────────────────────────────────
 
 describe('cmdVerifyRun() — feature-context emits prefixed approve hint on missing Phase 4', () => {
-  it('feature scope: error message points to `aitri feature foo approve 4`', () => {
+  it('feature scope: error message points to `aitri feature approve foo 4`', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-vr-fctx-'));
     try {
       fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
@@ -677,7 +677,7 @@ describe('cmdVerifyRun() — feature-context emits prefixed approve hint on miss
           featureRoot: '/parent', scopeName: 'foo',
         });
       } catch { /* expected */ }
-      assert.ok(captured.includes('aitri feature foo approve 4'),
+      assert.ok(captured.includes('aitri feature approve foo 4'),
         `expected feature-prefixed approve hint, got: ${captured}`);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
@@ -703,7 +703,7 @@ describe('cmdVerifyRun() — feature-context emits prefixed approve hint on miss
 });
 
 describe('cmdVerifyComplete() — feature-context emits prefixed verify-run hint on missing results', () => {
-  it('feature scope: error message points to `aitri feature foo verify-run`', () => {
+  it('feature scope: error message points to `aitri feature verify-run foo`', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-vc-fctx-'));
     try {
       fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
@@ -716,7 +716,7 @@ describe('cmdVerifyComplete() — feature-context emits prefixed verify-run hint
       try {
         cmdVerifyComplete({ dir, err, featureRoot: '/parent', scopeName: 'foo' });
       } catch { /* expected */ }
-      assert.ok(captured.includes('aitri feature foo verify-run'),
+      assert.ok(captured.includes('aitri feature verify-run foo'),
         `expected feature-prefixed verify-run hint, got: ${captured}`);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });

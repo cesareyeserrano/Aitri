@@ -548,7 +548,7 @@ describe('cmdApprove() — phase 5 shows completion message', () => {
 // byte-for-byte identical to root behavior.
 
 describe('cmdApprove() — feature-context PIPELINE INSTRUCTION carries `feature <name> ` prefix', () => {
-  // Phase 1 → Phase 2 transition (no UX FRs): "aitri feature foo run-phase architecture"
+  // Phase 1 → Phase 2 transition (no UX FRs): "aitri feature run-phase foo architecture"
   it('phase 1 → architecture next-action', () => {
     const dir = tmpDir();
     try {
@@ -557,14 +557,14 @@ describe('cmdApprove() — feature-context PIPELINE INSTRUCTION carries `feature
       const output = captureAll(() =>
         cmdApprove({ dir, args: ['requirements'], err: noopErr, featureRoot: '/parent', scopeName: 'foo' })
       );
-      assert.ok(output.includes('aitri feature foo run-phase architecture'),
+      assert.ok(output.includes('aitri feature run-phase foo architecture'),
         `expected feature-prefixed run-phase, got:\n${output}`);
       assert.ok(!/aitri run-phase architecture\b/.test(output),
         'must not emit root-style command in feature context');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  // Phase 1 with UX FRs detected → "aitri feature foo run-phase ux"
+  // Phase 1 with UX FRs detected → "aitri feature run-phase foo ux"
   // (this is the exact path the Ultron canary triggered)
   it('phase 1 → ux next-action when UX/visual FRs are present', () => {
     const dir = tmpDir();
@@ -580,14 +580,14 @@ describe('cmdApprove() — feature-context PIPELINE INSTRUCTION carries `feature
       const output = captureAll(() =>
         cmdApprove({ dir, args: ['requirements'], err: noopErr, featureRoot: '/parent', scopeName: 'foo' })
       );
-      assert.ok(output.includes('aitri feature foo run-phase ux'),
+      assert.ok(output.includes('aitri feature run-phase foo ux'),
         `expected feature-prefixed UX run-phase (Ultron canary regression), got:\n${output}`);
-      assert.ok(output.includes('aitri feature foo approve ux'),
+      assert.ok(output.includes('aitri feature approve foo ux'),
         `expected feature-prefixed approve hint, got:\n${output}`);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  // Phase 4 build approved → "aitri feature foo verify-run"
+  // Phase 4 build approved → "aitri feature verify-run foo"
   it('phase 4 → verify-run next-action', () => {
     const dir = tmpDir();
     try {
@@ -599,12 +599,12 @@ describe('cmdApprove() — feature-context PIPELINE INSTRUCTION carries `feature
       const output = captureAll(() =>
         cmdApprove({ dir, args: ['build'], err: noopErr, featureRoot: '/parent', scopeName: 'foo' })
       );
-      assert.ok(output.includes('aitri feature foo verify-run'),
+      assert.ok(output.includes('aitri feature verify-run foo'),
         `expected feature-prefixed verify-run, got:\n${output}`);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  // UX phase approved → "aitri feature foo run-phase architecture"
+  // UX phase approved → "aitri feature run-phase foo architecture"
   it('UX → architecture next-action', () => {
     const dir = tmpDir();
     try {
@@ -617,7 +617,7 @@ describe('cmdApprove() — feature-context PIPELINE INSTRUCTION carries `feature
       const output = captureAll(() =>
         cmdApprove({ dir, args: ['ux'], err: noopErr, featureRoot: '/parent', scopeName: 'foo' })
       );
-      assert.ok(output.includes('aitri feature foo run-phase architecture'),
+      assert.ok(output.includes('aitri feature run-phase foo architecture'),
         `expected feature-prefixed architecture run-phase after UX, got:\n${output}`);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });

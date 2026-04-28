@@ -23,7 +23,7 @@ Debug protocol — follow this order, do NOT rewrite working code:
 2. Find the exact function/handler responsible for that TC
 3. Identify the gap: what the code does vs what 'then' requires
 4. Write the minimal fix — one function, one file if possible
-5. Re-run only the failing TCs to confirm the fix before calling aitri {{SCOPE_PREFIX}}complete 4
+5. Re-run only the failing TCs to confirm the fix before calling aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4
 {{/IF_DEBUG}}
 
 {{#IF_FR_SNAPSHOT}}
@@ -57,11 +57,11 @@ You MUST implement tests for EXACTLY these TC ids — no more, no fewer:
 
 PROHIBITED: creating new TC ids, renaming existing ones, or skipping any of the above.
 
-Test naming convention (REQUIRED for aitri {{SCOPE_PREFIX}}verify-run auto-detection):
+Test naming convention (REQUIRED for aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} auto-detection):
   1. Test name MUST start with TC id:  it('TC-XXX: description of what is tested', ...)
   2. Test body MUST include marker:     // @aitri-tc TC-XXX
 
-aitri {{SCOPE_PREFIX}}verify-run parses TC-XXX patterns directly from runner output:
+aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} parses TC-XXX patterns directly from runner output:
   - node:test / mocha / TAP: ✔/✖ TC-XXX — auto-detected
   - Vitest:                  run with --reporter verbose — ✓/× TC-XXX detected automatically
   - Jest:                    run with --verbose flag     — ✓/✕ TC-XXX detected automatically
@@ -88,7 +88,7 @@ If `01_REQUIREMENTS.json` contains an NFR for CI/CD (category: "CI/CD" or keywor
 - If CI/CD NFR is MUST priority and you cannot create the workflow → declare it as technical debt with reason
 
 ## Technical Definition of Done
-You MUST verify ALL of the following before calling aitri {{SCOPE_PREFIX}}complete 4:
+You MUST verify ALL of the following before calling aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4:
   [ ] Linter/type checks pass (zero errors — use the linter declared in System Design)
   [ ] Tests pass — no failures, no skipped tests (use test_runner from manifest)
   [ ] technical_debt in manifest is complete — every simplification is declared
@@ -96,7 +96,7 @@ You MUST verify ALL of the following before calling aitri {{SCOPE_PREFIX}}comple
   [ ] No TODO/FIXME/PLACEHOLDER comments remain in production code
   [ ] .env.example includes all required environment variables
 
-If any item above fails, fix it before completing. Calling aitri {{SCOPE_PREFIX}}complete 4 with a failing checklist item is a defect.
+If any item above fails, fix it before completing. Calling aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4 with a failing checklist item is a defect.
 
 ## Self-Evaluation Checklist — FR types
 For each MUST FR, confirm:
@@ -129,7 +129,7 @@ In 04_IMPLEMENTATION_MANIFEST.json, you MUST declare every simplification made v
     Go:                    "go test ./... -v"
     Rust:                  "cargo test -- --nocapture"
     Java:                  "./mvnw test" | "./gradlew test"
-  test_files: every file that contains @aitri-tc markers — required for aitri {{SCOPE_PREFIX}}verify-run
+  test_files: every file that contains @aitri-tc markers — required for aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}
 
 {{#IF_BEST_PRACTICES}}
 {{BEST_PRACTICES}}
@@ -143,7 +143,7 @@ In 04_IMPLEMENTATION_MANIFEST.json, you MUST declare every simplification made v
 5. Verify Technical Definition of Done checklist
 6. Save manifest (with technical_debt) to: {{ARTIFACTS_BASE}}/04_IMPLEMENTATION_MANIFEST.json
 7. Present the Delivery Summary below to the user
-8. Run: aitri {{SCOPE_PREFIX}}complete 4
+8. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4
 
 ## Delivery Summary
 After saving all files + 04_IMPLEMENTATION_MANIFEST.json, present this report to the user:
@@ -161,7 +161,7 @@ Technical debt ([N] items):
 
 Environment variables required: [N] — [list names]
 ──────────────────────────────────────────────────────────────
-Next: aitri {{SCOPE_PREFIX}}verify-run   →   aitri {{SCOPE_PREFIX}}verify-complete   →   aitri {{SCOPE_PREFIX}}approve 4
+Next: aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}   →   aitri {{SCOPE_VERB}}verify-complete{{SCOPE_ARG}}   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 4
 ```
 
 {{#IF_TDD_RECOMMENDATION}}
@@ -176,6 +176,6 @@ Next: aitri {{SCOPE_PREFIX}}verify-run   →   aitri {{SCOPE_PREFIX}}verify-comp
   [ ] @aitri-trace headers on key functions reference real FR/US/AC/TC IDs
   [ ] Tech stack matches 02_SYSTEM_DESIGN.md exactly — no unrequested substitutions
   [ ] Open each file in test_files[]: verify every TC assertion tests REAL behavior — not assert.ok(true), assert.equal(1,1), or constant expressions
-  [ ] aitri {{SCOPE_PREFIX}}verify-run assertion density warnings reviewed — investigate any TC with ≤1 assertion
+  [ ] aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} assertion density warnings reviewed — investigate any TC with ≤1 assertion
   [ ] If CI/CD NFR exists: .github/workflows/ci.yml created and listed in implementation_files
   [ ] No test fixture uses hardcoded absolute paths — all paths relative or os.tmpdir()

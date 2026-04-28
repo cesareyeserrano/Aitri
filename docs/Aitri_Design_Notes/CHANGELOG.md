@@ -5,7 +5,30 @@
 
 ---
 
-## [2.0.0-alpha.6] — 2026-04-27 — scope-aware command emission across CLI + phase templates
+## [2.0.0-alpha.7] — 2026-04-27 — scope grammar correction (alpha.6 regression fix)
+
+Seventh staged pre-release on `feat/upgrade-protocol`. Fixes the regression introduced by alpha.6 — same root bug class as the bug alpha.6 was meant to close, just at a different layer.
+
+**What alpha.6 got wrong.** alpha.6 introduced `commandPrefix(featureRoot, scopeName) → 'feature <name> '` placed before the verb, producing strings like `aitri feature network-monitoring complete ux`. This passed every internal test and looked plausible — but `feature.js` parses the first token after `feature` as the **verb**, not the name. Literal copy-paste of any emitted command produced `❌ Feature "complete" not found`.
+
+**Ultron canary 2026-04-27 caught it at handoff #1.** 8/8 handoffs through Phases UX → architecture → tests → build (briefing only) confirmed the pattern was universal: original destructive bug closed (paths feature-correct, no scope-less commands surviving) but every emitted command was grammatically broken under literal execution. Internal tests missed it because they asserted "the output matches the string I designed" instead of "the output parses through feature.js".
+
+**alpha.7 fix.** Replace `commandPrefix(...) → string` with `scopeTokens(...) → { verb, arg }`. The verb prefix (`'feature '`) is spliced before the verb token; the arg suffix (`' <name>'`) after it. Templates expose two placeholders `{{SCOPE_VERB}}` and `{{SCOPE_ARG}}` instead of one. Result: `aitri ${sv}complete${sa} 1` produces `aitri complete 1` (root) or `aitri feature complete <name> 1` (feature) — matching the actual CLI grammar in `feature.js`.
+
+**Round-trip test added.** New `test/scope.test.js` block extracts every `aitri feature <X> <Y>` pattern from a representative output stream and verifies `<X>` is one of the verbs `feature.js` actually routes (`run-phase`, `complete`, `approve`, `reject`, `verify-run`, `verify-complete`, `rehash`, `status`). If the alpha.6 wrong order ever creeps back, this test fails on the first occurrence — no more "wait for the canary".
+
+**Test coverage.** +2 tests vs alpha.6 (1014/1014 green). Existing feature-context assertions in `approve.test.js` / `complete.test.js` / `reject.test.js` / `verify.test.js` / `phaseUX.test.js` were updated to match the corrected grammar.
+
+**Subproduct impact: none.** Same as alpha.6 — display-only fix on the human terminal surface.
+
+**Three secondary findings** from the same canary registered in BACKLOG (not fixed in alpha.7):
+1. After `approve ux`, next-action emits `run-phase requirements` instead of `architecture` even when Phase 1 is approved. P2.
+2. `aitri feature list` returns "No features" when run from a sub-directory of the project. P3.
+3. Phase 3 validator rejects `requirement_id: NFR-XXX` even though `type_coverage_matrix` accepts NFR keys. P3.
+
+---
+
+## [2.0.0-alpha.6] — 2026-04-27 — scope-aware command emission across CLI + phase templates (REGRESSION — see alpha.7)
 
 Sixth staged pre-release on `feat/upgrade-protocol`. Closes the destructive-risk bug surfaced by Ultron canary 2026-04-27 mid-feature: the `aitri feature approve <name> requirements` post-action banner emitted `PIPELINE INSTRUCTION ... aitri run-phase ux`, directing the agent to overwrite the parent project's already-approved `01_UX_SPEC.md`. The user paused before saving; the literal command would have clobbered an approved root artifact with feature-scope content.
 

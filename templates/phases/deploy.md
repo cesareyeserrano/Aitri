@@ -69,7 +69,7 @@ If `01_REQUIREMENTS.json` contains a CI/CD NFR:
 4. Save 05_PROOF_OF_COMPLIANCE.json to: {{ARTIFACTS_BASE}}/05_PROOF_OF_COMPLIANCE.json
 5. Document setup commands in DEPLOYMENT.md — do NOT run npm install or start the app
 6. Present the Delivery Summary below to the user
-7. Run: aitri {{SCOPE_PREFIX}}complete 5
+7. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 5
 
 ## Delivery Summary
 After saving all deployment files + 05_PROOF_OF_COMPLIANCE.json, present this report to the user:
@@ -86,7 +86,7 @@ FR compliance:
 
 Technical debt inherited: [N] items from Phase 4
 ──────────────────────────────────────────────────────────────
-Next: aitri {{SCOPE_PREFIX}}complete 5   →   aitri {{SCOPE_PREFIX}}approve 5   →   DONE
+Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 5   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 5   →   DONE
 ```
 
 ## Human Review — Before approving phase 5

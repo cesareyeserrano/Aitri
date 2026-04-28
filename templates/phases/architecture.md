@@ -24,7 +24,7 @@
 {{/IF_UX_SPEC}}
 
 ## Output: `{{ARTIFACTS_BASE}}/02_SYSTEM_DESIGN.md`
-Required sections — use these EXACT names as `##` level-2 headers (aitri {{SCOPE_PREFIX}}complete 2 validates by exact match):
+Required sections — use these EXACT names as `##` level-2 headers (aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 2 validates by exact match):
 1. `## Executive Summary` — tech choices with justification
 2. `## System Architecture` — ASCII/Mermaid diagram + components
 3. `## Data Model` — schema with field constraints; for frontend-only apps: localStorage/file structure
@@ -60,7 +60,7 @@ Patterns to actively check — do not skip any:
 
 If after thorough analysis zero incompatibilities exist:
   Write: `None detected — <one sentence justifying why the stack is compatible with all constraints.>`
-  An empty section or missing section is rejected by aitri {{SCOPE_PREFIX}}complete 2.
+  An empty section or missing section is rejected by aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 2.
 
 ## Architectural Decision Records (ADRs)
 For every significant tech choice, write an ADR using this format:
@@ -112,7 +112,7 @@ Before completing this phase, verify:
 4. Generate complete 02_SYSTEM_DESIGN.md
 5. Save to: {{ARTIFACTS_BASE}}/02_SYSTEM_DESIGN.md
 6. Present the Delivery Summary below to the user
-7. Run: aitri {{SCOPE_PREFIX}}complete 2
+7. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 2
 
 ## Delivery Summary
 After saving 02_SYSTEM_DESIGN.md, present this report to the user:
@@ -138,7 +138,7 @@ Top risks:
   - [risk 1]
   - [risk 2]
 ──────────────────────────────────────────────────────────────
-Next: aitri {{SCOPE_PREFIX}}complete 2   →   aitri {{SCOPE_PREFIX}}approve 2
+Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 2   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 2
 ```
 
 ## Human Review — Before approving phase 2

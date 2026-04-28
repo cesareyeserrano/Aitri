@@ -46,7 +46,7 @@ Required sections (in order):
 1. Generate complete 01_UX_SPEC.md
 2. Save to: {{ARTIFACTS_BASE}}/01_UX_SPEC.md
 3. Present the Delivery Summary below to the user
-4. Run: aitri {{SCOPE_PREFIX}}complete ux
+4. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} ux
 
 ## Delivery Summary
 After saving 01_UX_SPEC.md, present this report to the user:
@@ -69,5 +69,5 @@ Responsive breakpoints: [375px · 768px · 1440px — behavior per screen]
 Nielsen compliance:    [N/10 heuristics applied]
 Nielsen violations:    [N found · N corrected · N accepted trade-off]
 ──────────────────────────────────────────────────────────────
-Next: aitri {{SCOPE_PREFIX}}complete ux   →   aitri {{SCOPE_PREFIX}}approve ux
+Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} ux   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} ux
 ```

@@ -33,7 +33,7 @@
   - ✅ `TC-FE-001h`, `TC-API-USER-010f`, `TC-E2E-007e`
   - ❌ `TC-FE001h` (digits glued to namespace letter — verify-run cannot parse)
   - ❌ `TC-E01` (no separator between namespace and digits, no suffix — silently dropped to skipped_no_marker)
-- **Gate**: `aitri {{SCOPE_PREFIX}}complete 3` requires every FR to have ≥1 TC id ending in `h` and ≥1 ending in `f`
+- **Gate**: `aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3` requires every FR to have ≥1 TC id ending in `h` and ≥1 ending in `f`
 
 ## Output: `{{ARTIFACTS_BASE}}/03_TEST_CASES.json`
 Schema:
@@ -116,7 +116,7 @@ If a behavior is genuinely hard to verify observationally → document it as `"m
 - Min 2 test cases with type "e2e" — each assigned to a single requirement_id
 - Steps specific enough for a developer to implement directly
 - E2E tests run via Playwright MUST follow the same TC-XXX: naming: test('TC-XXX: description', ...)
-  This allows aitri {{SCOPE_PREFIX}}verify-run --e2e to auto-detect them from Playwright output
+  This allows aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} --e2e to auto-detect them from Playwright output
 
 ## Mandatory gates by FR type (test LEVEL of implementation, not just presence)
 - FR type UX:          must include test for responsive layout at 375px viewport AND visual component rendering
@@ -201,7 +201,7 @@ These TCs use `type: "e2e"` and `scenario: "happy_path"` unless testing a failur
 3. Generate complete 03_TEST_CASES.json
 4. Save to: {{ARTIFACTS_BASE}}/03_TEST_CASES.json
 5. Present the Delivery Summary below to the user
-6. Run: aitri {{SCOPE_PREFIX}}complete 3
+6. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3
 
 ## Delivery Summary
 After saving 03_TEST_CASES.json, present this report to the user:
@@ -218,7 +218,7 @@ Coverage by FR:
 
 FRs with gaps (< 3 TCs): [list or "none"]
 ──────────────────────────────────────────────────────────────
-Next: aitri {{SCOPE_PREFIX}}complete 3   →   aitri {{SCOPE_PREFIX}}approve 3
+Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 3
 ```
 
 ## Human Review — Before approving phase 3

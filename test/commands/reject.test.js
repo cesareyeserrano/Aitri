@@ -251,7 +251,7 @@ describe('cmdReject() — feature-context Rerun hint carries `feature <name> ` p
           scopeName:   'foo',
         })
       );
-      assert.ok(out.includes('aitri feature foo run-phase requirements --feedback'),
+      assert.ok(out.includes('aitri feature run-phase foo requirements --feedback'),
         `expected feature-prefixed run-phase rerun hint, got:\n${out}`);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });

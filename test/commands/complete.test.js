@@ -270,9 +270,9 @@ describe('cmdComplete() — feature-context "Approved →" hint carries `feature
       const out = captureStdout(() =>
         cmdComplete({ dir, args: ['requirements'], err: noopErr, featureRoot: '/parent', scopeName: 'foo' })
       );
-      assert.ok(out.includes('aitri feature foo approve requirements'),
+      assert.ok(out.includes('aitri feature approve foo requirements'),
         `expected feature-prefixed approve hint, got:\n${out}`);
-      assert.ok(out.includes('aitri feature foo reject requirements'),
+      assert.ok(out.includes('aitri feature reject foo requirements'),
         `expected feature-prefixed reject hint, got:\n${out}`);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
