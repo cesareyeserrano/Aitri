@@ -37,13 +37,15 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 > Ecosystem items (Hub, Graph, future subproducts) live in their own repos' backlogs.
 > Core only tracks items that require changes to Aitri Core itself.
 
-### Core — v2.0.0 — `adopt --upgrade` as reconciliation protocol (shipped in alpha.1 + alpha.2 + alpha.3, pending promotion)
+### Core — v2.0.0 — `adopt --upgrade` as reconciliation protocol (shipped through alpha.8, pending promotion)
 
-Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200) + five-point addendum. `.aitri` schema asymmetry tracked separately as [ADR-028](DECISIONS.md#adr-028--2026-04-24--open-question-aitri-mixes-shared-and-per-machine-state).
+Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-reconciliation-protocol-v200) + five-point addendum. `.aitri` schema asymmetry tracked separately as [ADR-028](DECISIONS.md#adr-028--2026-04-24--open-question-aitri-mixes-shared-and-per-machine-state). Test-discipline lessons from alpha.6 regression in [ADR-029](DECISIONS.md#adr-029--2026-04-28--output-contract-tests-must-execute-against-the-consumer-not-string-match-a-designed-shape).
 
-**Status 2026-04-24 (alpha.3):** `v2.0.0-alpha.3` staged on `feat/upgrade-protocol`. Three real canaries passed across alphas 1–3: Ultron (modern drift, 21 migrations + 8 flags), Aitri Hub (already current), Zombite (legacy drift at v0.1.70, 2 state backfills + feature with legacy hash drift resolved via new `rehash` command). Alpha.3 added `.aitri.upgradeFindings[]` persistence (A1), `aitri rehash <phase>` escape hatch (A5) + `approve` drift-prompt hint (A5b), and A3 banner clarification. Catalog of supported drift classes now covers: modern schema drift, state backfills across v0.1.65 → v0.1.82, and legacy hash bookkeeping (via rehash, not as a migration).
+**Current status (2026-04-28, alpha.8):** `v2.0.0-alpha.8` is the latest staged pre-release. The reconciliation protocol core landed in alphas 1+2+3. Subsequent alphas closed gaps surfaced by canaries — alpha.4 normalize allowlist, alpha.5 verify display, alpha.6 scope-aware commands (regression), alpha.7 grammar fix + ADR-029, alpha.8 Go runner parser. See `CHANGELOG.md` for per-release detail.
 
-**Promotion to stable v2.0.0 gated on:** a third-project canary (external adopter) runs cleanly, OR evidence motivates catalog expansion. Default path is direct promotion; alphas 2–4 collapsed into alpha.1 + alpha.2 because the ADR's original staging (one category per alpha) turned out to be unnecessary — all categories shipped together without regression.
+**Canaries to date (all author's own projects — not the third-party gate):** Ultron (modern drift + new feature pipeline), Aitri Hub (already current), Zombite (legacy hash drift, resolved via `rehash`). Ultron canary on alphas 6 and 7 is what surfaced the scope-grammar regression class and the Go-parser gap.
+
+**Promotion to stable v2.0.0 gated on:** a third-project canary (external adopter) runs cleanly, OR evidence motivates catalog expansion. The internal canaries above are necessary but not sufficient — alpha.6 was a regression that internal tests did not catch. Promotion before an external real-project signal repeats that risk. See ADR-029 for the test-discipline counter, but ADR-029 itself is preventive — does not substitute for an external canary.
 
 #### What shipped in alpha.1
 
@@ -71,6 +73,29 @@ Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-recon
 - [x] **A5b — `approve` drift prompt hints at `rehash` when git is clean** — helps operators pick the right tool for bookkeeping-only drift.
 - [x] **A3 — Upgrade "already current" banner clarified** when version is bumping on a no-migration run.
 
+#### Shipped in alpha.4 (2026-04-27)
+
+- [x] **N1 — Behavioral allowlist for `aitri normalize` and `detectUncountedChanges`** — Build/dependency manifests, documentation, dotfiles, CI configs, and generated assets are excluded from off-pipeline drift detection. Single source: `lib/normalize-patterns.js::isBehavioralFile()`. Closes the friction cycle Ultron canary 2026-04-27 documented (3 prior workaround commits in Ultron history).
+
+#### Shipped in alpha.5 (2026-04-27)
+
+- [x] **H5 — Verify counts three-bucket display** — `verify ✅ (P ✓ F ✗ D ⊘)` replaces the misleading `verify ✅ (P/T)` ratio that read as a low passing rate when most TCs were skipped/manual. SSoT: `lib/verify-display.js::formatVerifyCounts()`. Applied to status / resume / validate.
+- [x] **H7 — Discarded** as redundant with A5b.
+
+#### Shipped in alpha.6 (2026-04-27, REGRESSION — corrected in alpha.7)
+
+- [x] **Scope-aware command emission (initial attempt)** — Threaded `featureRoot` + `scopeName` through approve/complete/reject/verify-run/verify-complete; added `{{SCOPE_PREFIX}}` to 11 phase templates. Closed the destructive-risk bug from the Ultron canary 2026-04-27 (PIPELINE INSTRUCTION emitted scope-less commands that would overwrite parent artifacts).
+- [⚠] **Regression introduced**: helper `commandPrefix()` returned `'feature <name> '` placed BEFORE the verb, producing strings like `aitri feature network-monitoring complete ux`. CLI grammar in `feature.js` parses first-token-after-`feature` as the verb, so literal copy-paste failed with `Feature "complete" not found`. Caught at handoff #1 of Ultron canary on alpha.6. ADR-029 documents the test-discipline lesson.
+
+#### Shipped in alpha.7 (2026-04-27)
+
+- [x] **Scope grammar correction** — Replaced single-string `commandPrefix(...) → 'feature <name> '` with two-token `scopeTokens(...) → { verb, arg }` that splice as `aitri ${verb}<verb-token>${arg} <phase>`. Templates use `{{SCOPE_VERB}}` + `{{SCOPE_ARG}}`. Round-trip test in `test/scope.test.js` extracts every `aitri feature <X> <Y>` from synthetic output and verifies `<X>` is a verb feature.js routes — blocks the alpha.6 inversion in CI.
+- [x] **ADR-029** — output-contract tests must execute against the consumer, not string-match a designed shape.
+
+#### Shipped in alpha.8 (2026-04-28)
+
+- [x] **Go test runner output parser** — `parseGoOutput()` in verify.js consumes `go test -v` output (`--- PASS|FAIL|SKIP: TestTC_XXX`); reuses existing `extractTCId()` for normalization (`TC_NM_001h` → canonical `TC-NM-001h`). Subtests excluded by column-0 anchor + char class. Stderr warning when `runnerHint` is `go test` without `-v`. Templates updated. Closes one of the 5 alpha.7 canary findings; the other 4 remain open below.
+
 #### Deferred out of alpha.1 / alpha.2 / alpha.3 (by decision)
 
 - [ ] **A2 — Features sub-pipelines not upgraded by root `adopt --upgrade`** — evidence stands (Zombite's `stabilizacion` feature kept `aitriVersion: null` after root upgrade). Reconsidered for alpha.3 and deferred: implementing it requires deciding whether migrations apply per-scope (root-only vs cascading to features) and how diagnose composes findings across scopes. Not a point-release change. Re-open for v2.0.0 pre-stable or v2.0.1.
@@ -86,9 +111,9 @@ Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-recon
 - [ ] **Phase 3 canonical TC id regex** — dropped 2026-04-23. Still waiting for the second evidence case that was the original gate; forcing it through the v2 batch inverted the evidence-before-breakage logic.
 - [ ] **Command-surface audit outcomes** — remains a Design Study below. No trigger.
 
-### Core — alpha.7 canary findings (Ultron 2026-04-28)
+### Core — alpha.7 canary findings (Ultron 2026-04-28) — open items
 
-Canary on v2.0.0-alpha.7 validated the grammar fix end-to-end (6/6 emissions copy-paste literal, no regression of alpha.6's inverted-order bug). Five secondary findings surfaced — none are blockers, none are destructive. Each tracked separately.
+Canary on v2.0.0-alpha.7 validated the grammar fix end-to-end (6/6 emissions copy-paste literal, no regression of alpha.6's inverted-order bug). Five secondary findings surfaced. **The Go runner parser shipped in alpha.8** (see CHANGELOG). Four remain open — none are blockers, none are destructive.
 
 - [ ] **P2 — Manifest schema drift between briefing (lists fields as optional) and validator (rejects when missing).**
 
@@ -114,18 +139,6 @@ Canary on v2.0.0-alpha.7 validated the grammar fix end-to-end (6/6 emissions cop
   Lean toward (a). Simplest, most predictable. Feature pipelines own their own test scope. If a feature needs to test something at the parent level, it can override `test_runner`.
 
   Acceptance: feature canary run on a project where parent has a `_test.go` file with a TC-ID that matches a feature TC-ID — verify-run picks the FEATURE's test, not the parent's, and the parent's TC is reported as "not in feature scope" (or simply not seen).
-
-- [ ] **P2 — Go runner output not parsed by `aitri verify-run`.**
-
-  Evidence: Ultron canary. Go test output uses `--- PASS: TestName (0.01s)` and `--- FAIL: TestName (0.02s)` — the existing parsers in `verify.js` cover Vitest (`✓/×`), Jest (`✓/✕`), pytest (`PASSED/FAILED`), node:test/mocha (`✔/✖`), Playwright (`✓ N tests/path > TC-XXX`). Go is the gap. A test like `TestTC_NM_001h` would print `--- PASS: TestTC_NM_001h` which today is auto-classified as skip → verify-complete blocks on 0 passing tests.
-
-  Files: `lib/commands/verify.js` parsers (around line 87+). Add a `parseGoOutput()` matching `^--- (PASS|FAIL): Test(?:TC[_-])?(\w+)` and feeding into the same pipeline.
-
-  Naming convention: `TestTC_001h` or `TestTC001h` — the `Test` prefix is mandatory in Go. The parser needs to strip it and recognize the canonical TC id pattern.
-
-  Decision: ship Go parser. Document the test naming convention in the build briefing and `templates/phases/tests.md` ("Go: `func TestTC_001h(t *testing.T)` — the Test prefix is mandatory; the parser strips it"). Without this, Go projects under Aitri are second-class citizens.
-
-  Acceptance: a Go project with `func TestTC_NM_001h(t *testing.T) { ... }` runs through `aitri verify-run` → `04_TEST_RESULTS.json` shows `tc_id: "TC-NM-001h"`, `status: "pass"`. Test in `test/commands/verify.test.js` parameterized over Go output.
 
 - [ ] **P3 — Upgrade banner does not warn that in-flight briefings emitted by an older Aitri are still cached in agent terminals.**
 
