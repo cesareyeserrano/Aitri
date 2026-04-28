@@ -86,6 +86,67 @@ Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-recon
 - [ ] **Phase 3 canonical TC id regex** — dropped 2026-04-23. Still waiting for the second evidence case that was the original gate; forcing it through the v2 batch inverted the evidence-before-breakage logic.
 - [ ] **Command-surface audit outcomes** — remains a Design Study below. No trigger.
 
+### Core — alpha.7 canary findings (Ultron 2026-04-28)
+
+Canary on v2.0.0-alpha.7 validated the grammar fix end-to-end (6/6 emissions copy-paste literal, no regression of alpha.6's inverted-order bug). Five secondary findings surfaced — none are blockers, none are destructive. Each tracked separately.
+
+- [ ] **P2 — Manifest schema drift between briefing (lists fields as optional) and validator (rejects when missing).**
+
+  Evidence: Ultron canary on Phase 4 with skeleton manifest. Validator rejected sequentially on: `setup_commands` missing, `environment_variables` missing, `test_files` empty. The build briefing ([templates/phases/build.md](../../templates/phases/build.md)) presents these fields as optional (`{ files_created:[], files_modified:[], setup_commands:[], environment_variables:[{name, default}], ... }` reads as a shape, not a contract). Agent following the briefing literally produces an artifact the validator rejects three times in a row.
+
+  Files: `lib/phases/phase4.js` `validate()` for the actual gate; `templates/phases/build.md` for the briefing shape. One must align with the other.
+
+  Decision pending: relax validator to accept empty `setup_commands` + `environment_variables`, OR update briefing to mark them required. Empty-but-required is also acceptable if the briefing says so. Lean toward (a) — these fields are scaffolding, not behavioral. A project with no env vars or no setup is legitimate.
+
+  Acceptance: a manifest with only `files_created` + `test_runner` + `technical_debt` either (a) passes validate() with a documentation update, or (b) fails with a single error message that lists ALL missing fields at once, not three sequential errors.
+
+- [ ] **P2 — `aitri feature verify-run` runs tests from project root, picks up parent project tests too.**
+
+  Evidence: Ultron canary on `network-monitoring` feature. `verify-run` executed `go test ./...` from `cwd = /Ultron` (parent), recording 78 skipped tests — 52 of which were the parent project's own tests with `no marker detected`. Did not contaminate counts in this case (0 TCs auto-detected anyway), but a feature whose TC ids overlap with the parent's would inflate or deflate results unpredictably.
+
+  Files: [lib/commands/verify.js:355-360](../../lib/commands/verify.js#L355-L360) `spawnSync` uses `cwd: featureRoot || dir`. For feature scope, `featureRoot` is the parent — so it runs FROM the parent. That's the bug.
+
+  Behavior options:
+    - (a) Run from `dir` (feature dir) instead of `featureRoot` for feature scope. Tests local to the feature get picked up; parent's tests are excluded by default.
+    - (b) Keep current behavior but require `test_runner` in feature manifest to include a path filter (`go test ./internal/network/... -v`).
+    - (c) Detect feature scope and inject a path filter automatically based on `files_created` paths in the manifest.
+
+  Lean toward (a). Simplest, most predictable. Feature pipelines own their own test scope. If a feature needs to test something at the parent level, it can override `test_runner`.
+
+  Acceptance: feature canary run on a project where parent has a `_test.go` file with a TC-ID that matches a feature TC-ID — verify-run picks the FEATURE's test, not the parent's, and the parent's TC is reported as "not in feature scope" (or simply not seen).
+
+- [ ] **P2 — Go runner output not parsed by `aitri verify-run`.**
+
+  Evidence: Ultron canary. Go test output uses `--- PASS: TestName (0.01s)` and `--- FAIL: TestName (0.02s)` — the existing parsers in `verify.js` cover Vitest (`✓/×`), Jest (`✓/✕`), pytest (`PASSED/FAILED`), node:test/mocha (`✔/✖`), Playwright (`✓ N tests/path > TC-XXX`). Go is the gap. A test like `TestTC_NM_001h` would print `--- PASS: TestTC_NM_001h` which today is auto-classified as skip → verify-complete blocks on 0 passing tests.
+
+  Files: `lib/commands/verify.js` parsers (around line 87+). Add a `parseGoOutput()` matching `^--- (PASS|FAIL): Test(?:TC[_-])?(\w+)` and feeding into the same pipeline.
+
+  Naming convention: `TestTC_001h` or `TestTC001h` — the `Test` prefix is mandatory in Go. The parser needs to strip it and recognize the canonical TC id pattern.
+
+  Decision: ship Go parser. Document the test naming convention in the build briefing and `templates/phases/tests.md` ("Go: `func TestTC_001h(t *testing.T)` — the Test prefix is mandatory; the parser strips it"). Without this, Go projects under Aitri are second-class citizens.
+
+  Acceptance: a Go project with `func TestTC_NM_001h(t *testing.T) { ... }` runs through `aitri verify-run` → `04_TEST_RESULTS.json` shows `tc_id: "TC-NM-001h"`, `status: "pass"`. Test in `test/commands/verify.test.js` parameterized over Go output.
+
+- [ ] **P3 — Upgrade banner does not warn that in-flight briefings emitted by an older Aitri are still cached in agent terminals.**
+
+  Evidence: Ultron canary tried `aitri feature network-monitoring complete 4` (literal copy from a briefing emitted by alpha.6 before the upgrade). Failed with `Feature "complete" not found`. The fix in alpha.7 is forward-only — it corrects future emissions, but cannot reach back into the agent's terminal context to refresh stale briefings.
+
+  Files: [lib/upgrade/](../../lib/upgrade/) — banner emission. When upgrade transition is from alpha.6 (or earlier) to anything newer, append a one-line warning: `If you have any open agent terminals with cached briefings, re-run aitri run-phase <phase> to refresh — older briefings emitted commands in a different grammar.`
+
+  Decision: scope-tighten the warning. Most upgrades don't need it. Trigger condition: `before.semver < 2.0.0-alpha.7 && after.semver >= 2.0.0-alpha.7`.
+
+  Acceptance: `adopt --upgrade` from a project pinned to alpha.6 emits the warning. From a project pinned to alpha.7 → alpha.8, no warning.
+
+- [ ] **P3 — `aitri feature verify-run --cmd` flag may not be wired (unverified).**
+
+  Evidence: canary noted that root `aitri verify-run --cmd "..."` works but the feature sub-help does not list `--cmd`. Not tested. If the feature dispatch passes through to `cmdVerifyRun` then `--cmd` should be honored automatically — but the help string in `feature.js` USAGE doesn't document it.
+
+  Files: [lib/commands/feature.js](../../lib/commands/feature.js) USAGE block.
+
+  Behavior: if the flag is wired (smoke test), update the feature USAGE to document it. If not, decide whether to wire it (likely yes — overriding test_runner per-invocation is useful in feature scope too).
+
+  Acceptance: `aitri feature verify-run <name> --cmd "go test ./internal/network/... -v"` runs the override command from the feature dir, not the manifest's test_runner. USAGE in `feature.js` lists `--cmd`.
+
 ### Core — Secondary findings from Ultron canary 2026-04-27 (alpha.6/7 session)
 
 Three independent issues surfaced by the Ultron canary that validated the alpha.6 → alpha.7 scope-grammar fix. Tracked separately because each has its own evidence and fix shape; bundling would muddy the diagnosis.
