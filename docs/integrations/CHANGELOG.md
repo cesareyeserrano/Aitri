@@ -18,6 +18,26 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-alpha.10 (2026-04-29) — `adopt --upgrade` preserves operator intent — additive
+
+Fixes the P1 surfaced by the Ultron canary on alpha.9 (BACKLOG: "Core — Ultron canary findings against alpha.9"). Aitri Hub did not surface the defect because all of its phases were approved; Ultron is the first project encountered with `in_progress` and `rejections` state present at upgrade time.
+
+**Producer-side behaviour change in `aitri adopt --upgrade`:**
+
+- The STATE-MISSING phase-inference step now skips a phase when:
+  1. The phase has an entry in `config.rejections` (the operator deliberately rejected the artifact). Auto-completing it would orphan the rejection record and corrupt operator intent — symmetric with how ADR-027 §3 preserves approvals.
+  2. `config.events[]` shows a `started` event for the phase without a matching later `completed` or `approved` event (the operator ran `aitri run-phase` but never `aitri complete`). Auto-completing it would bypass `validate()` on a possibly-malformed artifact.
+- Skipped phases are surfaced under a new `Preserved (operator action required)` section in the upgrade report, both in `--dry-run` and real runs. The operator must run `aitri complete` / `aitri approve` deliberately, or re-run the phase if the rejection feedback applies.
+- Legacy projects whose `events[]` buffer is empty (older Aitri versions, or events evicted past the 20-entry cap) continue to be inferred from artifact presence — absence of a `started` event is not treated as evidence of in-progress.
+
+**`.aitri` schema changes:** none. `rejections` and `events[]` are unchanged. The change is purely in how `lib/upgrade/index.js::inferCompletedPhases` reads them.
+
+**Reader impact:** none for Hub. The change makes `config.completedPhases` *more accurate* after an upgrade — phases the operator did not consciously close are no longer included. Hub already tolerates phases being absent from `completedPhases`.
+
+**No subproduct migration needed.**
+
+---
+
 ## v2.0.0-alpha.9 (2026-04-28) — round-trip fixes from canary + diagnosis — additive
 
 Closes the four code defects + two presentation defects surfaced by the audit + canary + diagnosis sequence on alpha.8. All changes are additive or relaxations — old readers continue to work unchanged. Hub readers see no behavioural difference; the only producer-side change visible in artifacts is the relaxed `04_IMPLEMENTATION_MANIFEST.json` schema (see below).

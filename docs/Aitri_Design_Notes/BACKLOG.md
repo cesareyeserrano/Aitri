@@ -160,28 +160,6 @@ Originally three independent issues surfaced by the Ultron canary that validated
 
   Acceptance: from any sub-directory of an Aitri project, `aitri feature list` either lists the features or prints a message that names "not at project root" as the reason. Test: create a project with `features/foo`, cd into a deep subdir, assert output mentions either the features or the project-root reason.
 
-### Core — Ultron canary findings against alpha.9 (2026-04-28)
-
-- [ ] **P1 — `adopt --upgrade` infers `completedPhases` without respecting `in_progress` state or pre-existing rejections.**
-
-  Evidence: Ultron canary against alpha.9 on 2026-04-28. State pre-upgrade: `.aitri.aitriVersion` = `2.0.0-alpha.4`, Phase 1 approved, phases `ux/2/3/4/5` `in_progress` with artifacts on disk, Phase 5 with a rejection on file (`Docker→systemd, 2026-03-18`). `aitri adopt --upgrade --dry-run` proposed stamping `ux/2/3/4/5` as completed. Operator halted at dry-run; real upgrade NOT executed. Findings file: `/tmp/ultron-canary-alpha9/FINDINGS.md` + raw outputs `01_*.txt – 03_*.txt`.
-
-  Problem: STATE-MISSING inference (in `lib/upgrade/diagnose.js`) treats artifact-presence-on-disk as sufficient evidence to mark a phase `completed`. Two cases where this is wrong:
-  - **`in_progress`**: artifact exists but `aitri complete` has not been run. Marking it `completed` bypasses `validate()` entirely — a malformed artifact that would have been caught now flows downstream.
-  - **Rejected**: a human operator deliberately said "this artifact is not acceptable, redo." The rejection record stays in `config.rejections` but the pipeline state moves forward as if approved. Corrupts operator intent. Asymmetric with ADR-027 §3 which preserves approvals — by symmetry it must preserve rejections.
-
-  Files: `lib/upgrade/diagnose.js` (the inference catalog), `lib/upgrade/index.js` (where `inferred[]` is applied to `config.completedPhases`), `lib/state.js` (where `config.rejections` is read).
-
-  Behavior: phase inference must skip a phase when (a) it is currently `in_progress` (artifact present without a corresponding `complete` event), or (b) it has an entry in `config.rejections`. In both cases, the phase stays as it was — the upgrade reports the skip in the dry-run preview and the real run, so the operator knows the phase needs explicit attention.
-
-  Decisions pre-resolved: do NOT auto-clear rejections during upgrade — that is the operator's call (re-run the phase, inspect, re-approve). Do NOT auto-complete in_progress — same reason.
-
-  Acceptance: a project seeded with `approvedPhases: [1]`, artifacts on disk for phases 2–5, an `in_progress` event on phase 4, and a `rejections.5` entry — running `runUpgrade()` produces `completedPhases: [1]` (unchanged), reports phase 4 as "in progress, not auto-completed" and phase 5 as "rejected, not auto-completed" in the upgrade report, and the dry-run preview matches the real run output.
-
-  Why P1: this is destructive in the "corrupts operator intent" sense — the canary explicitly halted because executing the upgrade would have stamped a rejected phase as completed. ADR-027 framed `adopt --upgrade` as "non-destructive reconciliation"; this defect breaks that contract.
-
-  Pre-existing across alpha.X: NOT introduced by alpha.9. Hub canary did not surface it because Hub had all phases approved (no in_progress, no rejections). Ultron is the first project encountered with both states. Likely present since alpha.1 or earlier.
-
 ### Core — `aitri normalize` proportionality (Ultron canary 2026-04-27)
 
 - [ ] **P1 — Normalize fires on non-behavioral file changes (root cause of friction cycle).** Three separable bugs surfaced by Ultron canary on alpha.3.

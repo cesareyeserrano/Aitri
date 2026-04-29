@@ -5,6 +5,37 @@
 
 ---
 
+## [2.0.0-alpha.10] — 2026-04-29 — `adopt --upgrade` preserves operator intent
+
+Tenth staged pre-release on `feat/upgrade-protocol`. Closes the single P1 surfaced by the Ultron canary against alpha.9 (BACKLOG: "Core — Ultron canary findings against alpha.9"). The canary halted at dry-run; no destructive run reached real Ultron state.
+
+**The defect.** `aitri adopt --upgrade` infers `completedPhases` from on-disk artifacts. Two pre-existing operator-intent states were being silently overwritten:
+
+1. `in_progress` — artifact written by `aitri run-phase` but never closed via `aitri complete`. Auto-completing it bypasses `validate()` on what may be a malformed artifact.
+2. `rejections` — operator deliberately ran `aitri reject <phase> --feedback "…"`. Auto-completing it orphans the rejection record and corrupts the operator's deliberate "redo this" signal. ADR-027 §3 preserves approvals on upgrade by symmetry; rejections must follow the same rule.
+
+Hub did not surface this in earlier canaries because Hub had no `in_progress` and no `rejections` at upgrade time. Ultron is the first project encountered with both.
+
+**Code defects fixed:**
+
+1. `lib/upgrade/index.js::inferCompletedPhases` — phase inference now skips a phase when `config.rejections[<num>]` exists, or when `config.events[]` shows a `started` event for the phase without a matching later `completed`/`approved`. The skip is reported with reason `rejected, not auto-completed` or `in progress, not auto-completed` accordingly.
+2. `lib/upgrade/index.js::printReport` — the upgrade report (dry-run and real) gains a new `Preserved (operator action required)` section that surfaces these phases, with a pointer to `aitri complete` / `aitri approve` / re-run. The pre-existing `Already tracked (unchanged)` section is unchanged for already-approved/completed phases.
+3. Legacy projects whose `events[]` buffer is empty (older versions, or events past the 20-entry cap) still infer from artifact presence — absence of a `started` event is not treated as evidence of in-progress, preserving the upgrade path for very old projects.
+
+**Tests added (5 new in `test/upgrade.test.js`):**
+
+- Phase with only a `started` event is NOT auto-completed (negative — the bug case).
+- Phase with an entry in `config.rejections` is NOT auto-completed; rejection record survives upgrade. Round-trip via `cmdReject` per ADR-029.
+- Full Ultron-canary scenario: `approvedPhases:[1]` + ux/2/3/4 in_progress + 5 rejected → `completedPhases` stays `[]`, `approvedPhases` stays `[1]`, both dry-run and real run print the "Preserved" section.
+- Phase with `started` AND `completed` events still infers (positive — guards against over-firing the new detector).
+- Empty `events[]` buffer still infers from artifact presence (legacy upgrade path — guards against regressing very old projects).
+
+**No subproduct migration needed.** Hub already tolerates phases being absent from `completedPhases`. The change makes `config.completedPhases` *more accurate* after upgrade, never less.
+
+**Canary plan:** alpha.10 is canareed against Ultron (the project that surfaced the defect). Hub remains pinned at alpha.4 by deliberate decision unless a Hub-specific signal emerges.
+
+---
+
 ## [2.0.0-alpha.9] — 2026-04-28 — round-trip fixes from audit + canary + diagnosis
 
 Ninth staged pre-release on `feat/upgrade-protocol`. Closes six defects surfaced by the audit (4) + Hub canary diagnosis (2). All accepted as `FIX-IN-ALPHA` per the audit triage; none required `BLOCKER-2.0` carve-outs except via straightforward code changes. 1038 tests pass, zero skipped, zero todo.
