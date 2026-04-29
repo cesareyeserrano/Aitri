@@ -26,7 +26,8 @@ import { runUpgrade } from '../lib/upgrade/index.js';
 import { diagnose, migrateAll } from '../lib/upgrade/diagnose.js';
 import * as from065 from '../lib/upgrade/migrations/from-0.1.65.js';
 import { cmdInit }    from '../lib/commands/init.js';
-import { loadConfig, saveConfig, hashArtifact, hasDrift } from '../lib/state.js';
+import { cmdReject }  from '../lib/commands/reject.js';
+import { loadConfig, saveConfig, appendEvent, hashArtifact, hasDrift } from '../lib/state.js';
 
 const ROOT_DIR = path.resolve(process.cwd());
 
@@ -144,6 +145,184 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
       const c = loadConfig(dir);
       assert.equal(c.aitriVersion, '0.1.99');
       assert.deepEqual(c.completedPhases, []);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+// ── STATE-MISSING — preserve operator intent (Ultron canary 2026-04-28) ───────
+//
+// Round-trip per ADR-029: state is seeded by the actual producers
+// (`cmdReject` for rejections; `appendEvent('started', …)` mirrors what
+// `run-phase` writes at run-phase.js:178). Inference is consumed via the
+// public `runUpgrade` entry point. Assertions read post-state through the
+// real `loadConfig`. No string-matched fixtures of internal shape.
+describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
+  // Helper: seed an artifact on disk so the inference loop sees it.
+  function writeArtifact(dir, relPath, content = '{}') {
+    const full = path.join(dir, 'spec', relPath);
+    fs.mkdirSync(path.dirname(full), { recursive: true });
+    fs.writeFileSync(full, content);
+  }
+
+  // Helper: simulate `aitri run-phase <phase>` having been started but never
+  // completed. Mirrors run-phase.js:178 — `appendEvent(config, 'started', phase)`.
+  function seedInProgress(dir, phase) {
+    const c = loadConfig(dir);
+    appendEvent(c, 'started', phase);
+    saveConfig(dir, c);
+  }
+
+  it('skips a phase whose artifact is on disk but only has a `started` event (in_progress)', () => {
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      writeArtifact(dir, '01_REQUIREMENTS.json');
+      writeArtifact(dir, '02_SYSTEM_DESIGN.md', '# Design\n'.repeat(5));
+      seedInProgress(dir, 2);
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
+
+      const c = loadConfig(dir);
+      assert.ok(c.completedPhases.includes(1), 'phase 1 (no in_progress signal) must still infer');
+      assert.ok(!c.completedPhases.includes(2), 'phase 2 (started, not completed) must NOT be auto-completed');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('skips a phase that has an entry in config.rejections — round-trip through cmdReject', () => {
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      writeArtifact(dir, '01_REQUIREMENTS.json');
+      writeArtifact(dir, '03_TEST_CASES.json');
+
+      // Round-trip: reach `config.rejections` through the actual reject command,
+      // not by hand-writing the JSON. If reject's storage shape ever changes,
+      // this test discovers the drift instead of testing a stale fixture.
+      silence(() => cmdReject({
+        dir,
+        args: ['tests', '--feedback', 'Coverage gap on FR-002'],
+        flagValue: (name) => name === '--feedback' ? 'Coverage gap on FR-002' : null,
+        err: (msg) => { throw new Error(msg); },
+      }));
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
+
+      const c = loadConfig(dir);
+      assert.ok(c.completedPhases.includes(1), 'phase 1 (clean) must still infer');
+      assert.ok(!c.completedPhases.includes(3), 'phase 3 (rejected) must NOT be auto-completed');
+      assert.ok(c.rejections[3], 'rejection record must survive the upgrade');
+      assert.equal(c.rejections[3].feedback, 'Coverage gap on FR-002');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('Ultron canary scenario: phase-1 approved + phases ux/2/3/4/5 in_progress + phase 5 rejected', () => {
+    // Reproduces the exact pre-upgrade state captured in /tmp/ultron-canary-alpha9.
+    // Acceptance criterion (BACKLOG): completedPhases stays [1] (i.e. unchanged
+    // beyond what was already there), rejections survive, in_progress phases
+    // are not auto-completed. Real run output must equal dry-run output.
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+
+      // Phase 1 approved.
+      const c0 = loadConfig(dir);
+      c0.approvedPhases = [1];
+      saveConfig(dir, c0);
+
+      // Artifacts on disk for phases ux, 2, 3, 4, 5.
+      writeArtifact(dir, '01_UX_SPEC.md',                   '# UX\n'.repeat(5));
+      writeArtifact(dir, '01_REQUIREMENTS.json');           // phase 1, already approved → skipped as already-tracked
+      writeArtifact(dir, '02_SYSTEM_DESIGN.md',             '# Design\n'.repeat(5));
+      writeArtifact(dir, '03_TEST_CASES.json');
+      writeArtifact(dir, '04_IMPLEMENTATION_MANIFEST.json');
+      writeArtifact(dir, '05_PROOF_OF_COMPLIANCE.json');
+
+      // ux, 2, 3, 4 in_progress (started but not completed).
+      seedInProgress(dir, 'ux');
+      seedInProgress(dir, 2);
+      seedInProgress(dir, 3);
+      seedInProgress(dir, 4);
+
+      // Phase 5 rejected via the real producer.
+      silence(() => cmdReject({
+        dir,
+        args: ['deploy', '--feedback', 'Docker→systemd'],
+        flagValue: (name) => name === '--feedback' ? 'Docker→systemd' : null,
+        err: (msg) => { throw new Error(msg); },
+      }));
+
+      // Capture dry-run output.
+      let dryOut = '';
+      const origLog = console.log;
+      const origErr = process.stderr.write.bind(process.stderr);
+      console.log = (...a) => { dryOut += a.join(' ') + '\n'; };
+      process.stderr.write = () => true;
+      try { runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR, dryRun: true }); }
+      finally { console.log = origLog; process.stderr.write = origErr; }
+
+      // Dry-run must not have written.
+      assert.equal(loadConfig(dir).aitriVersion, '0.1.10', 'dry-run must not advance version');
+
+      // Real run.
+      let realOut = '';
+      console.log = (...a) => { realOut += a.join(' ') + '\n'; };
+      process.stderr.write = () => true;
+      try { runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }); }
+      finally { console.log = origLog; process.stderr.write = origErr; }
+
+      const c = loadConfig(dir);
+      assert.deepEqual(c.completedPhases, [], 'no phase must be auto-completed in this scenario');
+      assert.deepEqual(c.approvedPhases,  [1], 'pre-existing approval must survive');
+      assert.ok(c.rejections[5],          'phase 5 rejection must survive upgrade');
+
+      // Both runs must report the same preserved phases (real ≈ dry-run on
+      // the rejected/in_progress sections — only the ◻️/⚠️ markers differ).
+      const preserved = /Preserved \(operator action required\)/;
+      assert.match(dryOut,  preserved, 'dry-run report must surface preserved phases');
+      assert.match(realOut, preserved, 'real-run report must surface preserved phases');
+      assert.match(realOut, /rejected, not auto-completed/);
+      assert.match(realOut, /in progress, not auto-completed/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('positive path: started + completed events → phase IS inferred (events do not block legitimate completes)', () => {
+    // Negative-of-the-negative per ADR-029 round-trip: ensure the in_progress
+    // detector does not over-fire. A phase that was started AND completed in
+    // the buffer must still be inferred when missing from completedPhases.
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      writeArtifact(dir, '01_REQUIREMENTS.json');
+
+      const c0 = loadConfig(dir);
+      appendEvent(c0, 'started',   1);
+      appendEvent(c0, 'completed', 1);
+      saveConfig(dir, c0);
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
+
+      assert.ok(loadConfig(dir).completedPhases.includes(1),
+        'phase 1 with started+completed events must still be inferred');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('legacy fallback: artifact on disk with empty events buffer is still inferred (no buffer = no signal)', () => {
+    // Old projects upgraded from before the events log was meaningful must
+    // continue to work — absence of a `started` event means "no positive
+    // evidence of in_progress", which is different from "in_progress".
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      writeArtifact(dir, '01_REQUIREMENTS.json');
+      // Force an empty events buffer — represents a legacy project.
+      const c0 = loadConfig(dir);
+      c0.events = [];
+      saveConfig(dir, c0);
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
+
+      assert.ok(loadConfig(dir).completedPhases.includes(1),
+        'legacy project (no events) must continue to be inferred — no regression');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
