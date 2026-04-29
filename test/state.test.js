@@ -105,6 +105,51 @@ describe('saveConfig()', () => {
   });
 });
 
+describe('phase-key canonicalisation (state.js)', () => {
+  // Defect: canary saw `approve ux` route to `requirements` instead of
+  // `architecture` when phase 1 was approved. Hypothesis: an upstream write
+  // path persisted `approvedPhases` as `["1"]` (string), making `Set.has(1)`
+  // miss in approve.js. saveConfig + loadConfig now coerce numeric strings
+  // back to numbers; alias keys ('ux', 'discovery', 'review') are preserved.
+
+  it('loadConfig coerces numeric phase strings to numbers in approvedPhases', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      approvedPhases: ['1', 2, 'ux', '3'],
+    }));
+    const cfg = loadConfig(dir);
+    assert.deepEqual(cfg.approvedPhases, [1, 2, 'ux', 3]);
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('loadConfig preserves alias keys for optional phases', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      approvedPhases: ['ux', 'discovery', 'review'],
+    }));
+    const cfg = loadConfig(dir);
+    assert.deepEqual(cfg.approvedPhases, ['ux', 'discovery', 'review']);
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('saveConfig canonicalises numeric phase strings before persisting', () => {
+    const dir = tmpDir();
+    saveConfig(dir, { approvedPhases: ['1', '2', 'ux'], completedPhases: ['1', '2', 'ux', '3'] });
+    const onDisk = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    assert.deepEqual(onDisk.approvedPhases,  [1, 2, 'ux']);
+    assert.deepEqual(onDisk.completedPhases, [1, 2, 'ux', 3]);
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('canonicalisation also covers driftPhases', () => {
+    const dir = tmpDir();
+    saveConfig(dir, { driftPhases: ['1', '2', 'ux'] });
+    const cfg = loadConfig(dir);
+    assert.deepEqual(cfg.driftPhases, [1, 2, 'ux']);
+    fs.rmSync(dir, { recursive: true });
+  });
+});
+
 describe('saveConfig() — file locking', () => {
 
   it('releases lock after successful save (no leftover .aitri.lock)', () => {

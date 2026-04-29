@@ -622,6 +622,29 @@ describe('cmdApprove() — feature-context PIPELINE INSTRUCTION carries `feature
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  // Regression guard for the Ultron alpha.6 canary finding (BACKLOG P2):
+  // even when `.aitri` was persisted with `approvedPhases: ["1"]` (string)
+  // by some upstream write path, approving UX must still route to
+  // `architecture`, not `requirements`. loadConfig canonicalises the type.
+  it('UX → architecture even when approvedPhases on disk is ["1"] (string)', () => {
+    const dir = tmpDir();
+    try {
+      const uxContent = '## User Flows\nstuff\n## Component Inventory\nstuff\n## Nielsen Compliance\nstuff\n## Design Tokens\nstuff\n' + 'x\n'.repeat(30);
+      writeFile(dir, 'spec/01_UX_SPEC.md', uxContent);
+      writeFile(dir, '.aitri', minimalConfig({
+        approvedPhases: ['1'],
+        completedPhases: ['ux'],
+      }));
+      const output = captureAll(() =>
+        cmdApprove({ dir, args: ['ux'], err: noopErr, featureRoot: '/parent', scopeName: 'foo' })
+      );
+      assert.ok(output.includes('aitri feature run-phase foo architecture'),
+        `string phase key must still route to architecture, got:\n${output}`);
+      assert.ok(!/run-phase foo requirements\b/.test(output),
+        'must not route to requirements when phase 1 is approved');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   // Root context (no featureRoot) → output is unchanged. Regression guard.
   it('root context emits no `feature <name> ` infix (regression guard)', () => {
     const dir = tmpDir();

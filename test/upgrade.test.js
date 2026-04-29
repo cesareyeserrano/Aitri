@@ -692,13 +692,13 @@ describe('lib/upgrade — approval preservation (Option B)', () => {
       cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [{ id: 'TC-001', requirement: 'FR-001' }]);
       const c0 = loadConfig(dir);
-      c0.driftPhases = ['3'];
+      c0.driftPhases = ['3']; // legacy on-disk form; canonicalised to [3]
       saveConfig(dir, c0);
 
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
 
       const c = loadConfig(dir);
-      assert.deepEqual(c.driftPhases, ['3'], 'pre-existing drift stays — agent decides');
+      assert.deepEqual(c.driftPhases, [3], 'pre-existing drift stays — agent decides');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
