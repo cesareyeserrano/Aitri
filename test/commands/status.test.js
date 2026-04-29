@@ -332,4 +332,35 @@ describe('cmdStatus --json', () => {
     assert.ok(!/upgrade:.*unresolved finding/.test(out),
       'status must not mention findings when empty');
   });
+
+  // Defect: the per-phase line "deploy Approved" was the only deploy-related
+  // signal in text output. When `health.deployable` was false (e.g. version
+  // mismatch), the user saw a row of green checks plus a small warning at the
+  // top — easy to misread as "ready to ship". Surface deployable explicitly.
+  it('shows "deployable Not ready" when deploy gate is blocked by version mismatch', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.50' });
+    const cfg = loadConfig(dir);
+    cfg.approvedPhases = [1];
+    saveConfig(dir, cfg);
+
+    let out = '';
+    const orig = console.log.bind(console);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { cmdStatus({ dir, VERSION: '0.1.99', args: [] }); } finally { console.log = orig; }
+
+    assert.ok(/❌\s+deployable\s+Deploy readiness\s+Not ready/.test(out),
+      'status text must surface deployable=false next to phase table');
+  });
+
+  it('does not show deployable line on a fresh project with no progress', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.99' });
+    let out = '';
+    const orig = console.log.bind(console);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { cmdStatus({ dir, VERSION: '0.1.99', args: [] }); } finally { console.log = orig; }
+    assert.ok(!/deployable\s+Deploy readiness/.test(out),
+      'fresh projects with no phase progress should not advertise deployable status');
+  });
 });
