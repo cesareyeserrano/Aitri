@@ -254,25 +254,61 @@ describe('Phase 3 — validate()', () => {
     }
   });
 
-  it('[NFR check] throws when TC requirement_id references a non-FR id', () => {
+  // Defect (canary 2026-04-28): the gate previously rejected any NFR-* id on a
+  // TC, forcing the agent to either invent an FR wrapper or misclassify the
+  // requirement. NFRs are testable (perf, security, accessibility, …) and now
+  // accepted when declared in 01_REQUIREMENTS.json::non_functional_requirements.
+  it('[NFR check] passes when TC requirement_id references a declared NFR', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-'));
     try {
+      // FR-002 lowered to SHOULD so the FR-MUST gap check ignores it after we
+      // re-route its TCs to NFR-001. The point of the test is the NFR id gate,
+      // not the orthogonal FR-MUST coverage rule.
       const reqs = {
         functional_requirements: [
-          { id: 'FR-001', priority: 'MUST', acceptance_criteria: [] },
-          { id: 'FR-002', priority: 'MUST', acceptance_criteria: [] },
+          { id: 'FR-001', priority: 'MUST',   acceptance_criteria: [] },
+          { id: 'FR-002', priority: 'SHOULD', acceptance_criteria: [] },
+        ],
+        non_functional_requirements: [
+          { id: 'NFR-001', title: 'p95 < 200ms', acceptance_criteria: [] },
         ],
         user_stories: [],
       };
       fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
       const d = JSON.parse(validP3());
-      // Replace FR-002 TCs with NFR-001 — agent mistake: NFRs are not valid TC targets
       d.test_cases = d.test_cases.map(tc =>
         tc.requirement_id === 'FR-002' ? { ...tc, requirement_id: 'NFR-001' } : tc
       );
+      assert.doesNotThrow(
+        () => PHASE_DEFS[3].validate(JSON.stringify(d), { dir, config: {} })
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('[NFR check] throws when requirement_id references an undeclared id (FR or NFR)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-'));
+    try {
+      const reqs = {
+        functional_requirements: [
+          { id: 'FR-001', priority: 'MUST',   acceptance_criteria: [] },
+          { id: 'FR-002', priority: 'SHOULD', acceptance_criteria: [] },
+        ],
+        non_functional_requirements: [
+          { id: 'NFR-001', title: 'p95 < 200ms', acceptance_criteria: [] },
+        ],
+        user_stories: [],
+      };
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
+      const d = JSON.parse(validP3());
+      // NFR-099 is not declared anywhere — must still be rejected.
+      d.test_cases = d.test_cases.map(tc =>
+        tc.requirement_id === 'FR-002' ? { ...tc, requirement_id: 'NFR-099' } : tc
+      );
       assert.throws(
         () => PHASE_DEFS[3].validate(JSON.stringify(d), { dir, config: {} }),
-        /NFR-001.*does not match any functional requirement/
+        /NFR-099.*does not match any requirement/
       );
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });

@@ -88,7 +88,7 @@ Rules:
 Include the coverage matrix as `type_coverage_matrix` field in the JSON output.
 
 ## Schema contract — CRITICAL
-- `requirement_id` MUST be a single FR id (e.g. "FR-001") — NEVER comma-separated ("FR-001,FR-002")
+- `requirement_id` MUST be a single id from `01_REQUIREMENTS.json` — either a functional requirement (`FR-001`) or a non-functional requirement (`NFR-001`). NFRs (perf, security, accessibility, …) are testable and accepted as TC targets when declared. NEVER comma-separated (`"FR-001,FR-002"`).
 - `type` MUST be exactly one of: "unit" | "integration" | "e2e" — this is how aitri counts E2E tests
 - `scenario` (separate field) is where you classify: "happy_path" | "edge_case" | "negative"
 - `test_plan` is required — the artifact is invalid without it
