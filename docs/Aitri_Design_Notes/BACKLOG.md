@@ -107,6 +107,16 @@ Six defects closed — 4 from the alpha.8 audit, 2 from the Hub canary diagnosis
 - [x] **Phase 3 accepts NFR ids** (commit `48ac68f`) — closes "P3 — Phase 3 validator rejects `requirement_id: NFR-XXX`" (Ultron canary 2026-04-28, 14 TCs reassigned by hand). `requirement_id` is valid if it matches either `functional_requirements[].id` or `non_functional_requirements[].id`. Briefing in `templates/phases/tests.md` updated to match.
 - [x] **Phase 4 manifest schema relaxed** (commit `9e3802c`) — closes "P2 — Manifest schema drift between briefing and validator" (Ultron canary alpha.7, 3 sequential rejections). `setup_commands` and `environment_variables` are now optional in `04_IMPLEMENTATION_MANIFEST.json`. Absent ≡ `[]`. When present, must be an array. Per-entry shape stays in the briefing (`templates/phases/build.md`), keeping the validator gate shape-only — avoids re-creating the same drift.
 
+#### Shipped in alpha.13 (2026-04-29)
+
+Five defects from the Zombite canary (third-project external sweep, alpha.4 → alpha.12 upgrade). All closed in a single release. Tests 1051 → 1073, zero failures. Full reproduction steps and decisions in `CHANGELOG.md` § alpha.13 and the `84cd23a` commit message.
+
+- [x] **Z1 — `verify-run` invalidates stale `verifyPassed`** (`lib/commands/verify.js::cmdVerifyRun`). Re-running with degraded results (`passed === 0 && skipped > 0` OR `failed > 0`) now resets `config.verifyPassed = false` and clears `verifySummary`. Healthy results untouched.
+- [x] **Z2 — `adopt --upgrade` backfills missing `artifactHashes`** (`lib/upgrade/migrations/from-0.1.65.js`). New STATE-MISSING migration; idempotent; per-phase `upgrade_migration` events. Closes silent drift-detection failure on projects upgraded from pre-alpha schemas.
+- [x] **Z3 — `verify-complete` PIPELINE INSTRUCTION respects phase 5 state**. State-aware emission instead of hardcoded "next: run-phase 5"; feature scope with phase 5 approved emits no PIPELINE INSTRUCTION.
+- [x] **Z4 — Phase 3 validate rejects duplicate TC ids** (`lib/phases/phase3.js`). `complete 3` now throws when `test_cases[]` has repeated `id`s; error message lists each duplicate with count.
+- [x] **Z5 — `adopt --upgrade` flags legacy `04_TEST_RESULTS.json` schema** (Option A — flag-only). New VALIDATOR-GAP finding when `verifyPassed: true` and artifact lacks `results[]`/`summary`. Operator regenerates via `aitri verify-run`.
+
 #### Deferred out of alpha.1 / alpha.2 / alpha.3 (by decision)
 
 - [ ] **A2 — Features sub-pipelines not upgraded by root `adopt --upgrade`** — evidence stands (Zombite's `stabilizacion` feature kept `aitriVersion: null` after root upgrade). Reconsidered for alpha.3 and deferred: implementing it requires deciding whether migrations apply per-scope (root-only vs cascading to features) and how diagnose composes findings across scopes. Not a point-release change. Re-open for v2.0.0 pre-stable or v2.0.1.
@@ -292,11 +302,160 @@ Originally three independent issues surfaced by the Ultron canary that validated
 
   Evidence / source: surfaced during the v2.0.0-alpha.3 canary on Hub. Hub's hand-written BACKLOG.md format is qualitatively better than Aitri's defaults; the gap is that Aitri never shipped that quality as a template for downstream projects. Explicit user request 2026-04-24.
 
+### Core — Web bias removal (stack-agnostic test runner)
+
+Aitri assumes "web app with browser UI" as the default project shape. The assumption is hardcoded in at least 6 places and bites any non-web project (Go service on Raspberry Pi, CLI tool, library, daemon, embedded firmware) at Phase 4 verify-complete. The system tells the operator to falsify the TC `type` to dodge the gate — an honor-system patch that contradicts Aitri's own validation philosophy.
+
+**Where the bias lives:**
+
+| File | Bias |
+| :--- | :--- |
+| `lib/commands/verify.js:909-927` | Gate `type:e2e ⇒ Playwright`; failure message suggests "change their type in Phase 3" |
+| `lib/commands/verify.js:501-529` | E2E runner only activates when `playwright.config.{js,ts}` exists |
+| `lib/commands/verify.js:598-606` | Skipped TC classification labels e2e as "browser" |
+| `templates/phases/tests.md:118-119,179,189,227` | QA persona prescribes Playwright naming + "user flows" framing |
+| `templates/phases/requirements.md:127` | Phase 1 NFR example names Playwright |
+| `templates/phases/deploy.md:61,99` + `build.md:87` | Phase 5 CI checklist prescribes Playwright verification |
+
+**Conceptual fix:** decouple test **scope** (`unit | integration | e2e` — what the test covers) from test **runner** (Playwright, `go test`, pytest, jest — the tool that executes it). A TC declares its scope; the project declares its runner; `aitri verify-run` dispatches to the runner the project has. E2E is a coverage category, not a browser requirement. A Go service test that boots the binary and hits its endpoint via HTTP is e2e — no Playwright involved.
+
+**Evidence / source:** Go-on-RaspberryPi project (2026-04-29) — first non-web canary that hit the bias. Aitri blocked verify-complete for 26 e2e TCs and the in-product remediation suggested falsifying the TC type. User session surfaced the systemic nature of the bias — confirmed by code reading across 6 files. Tier-1 signal: every non-web consumer project today produces lower-quality test specs because the QA persona prescribes a runner that does not apply to its stack.
+
+**Update 2026-04-30 — deep verification narrowed the scope.** Unit/integration dispatch already works: `verify.js:457-485` routes to `parseGoOutput` / `parsePytestOutput` / `parsePlaywrightOutput` based on `manifest.test_runner` (Go parser shipped in alpha.8). The bias is specifically in the **e2e auto-run** path (`verify.js:501-529`, Playwright-only) and the **e2e gate** (`verify.js:909-927`). The original "runner dispatch in priority order" framing in L1 below conflated already-working unit/integration dispatch with the actual e2e gap. L1 split into L1a (shipped — gate accepts manual + stack-aware advice) and L1b (open — auto-run for non-Playwright e2e). Note: the `runnerHint` referenced in earlier drafts is a `manifest.test_runner`-derived local variable, NOT a `.aitri` field; that line was inaccurate.
+
+---
+
+- [x] **L1a — e2e gate accepts `automation: "manual"` + stack-aware advice** (alpha.14). `verify.js::cmdVerifyComplete` e2e gate now treats `status === 'manual'` as covered (consistent with FR coverage policy in `ARTIFACTS.md:249`). Failure message branches on whether `playwright.config.{js,ts}` is present and explicitly says: *"Do NOT change the TC type to bypass this gate — the type field describes intent, not runner availability."* Removes the honor-system bypass advice the prior message had. Tests +4 in `test/commands/verify.test.js` covering: skip+noPW, skip+PW, manual, pass.
+
+  Why this is L1a (and not the full L1): the manual escape unblocks Go-on-RPi today. Auto-run for non-Playwright e2e (L1b) becomes quality-of-life rather than a blocker.
+
+---
+
+- [ ] P2 — **L1b — e2e auto-run for non-Playwright runners.** When `manifest.test_runner` is `go test` / `pytest` / `vitest` / etc, allow that runner's output to satisfy the e2e gate without requiring `automation: "manual"` on every e2e TC.
+
+  Problem: `verify.js:501-529` only invokes the e2e auto-run path when `playwright.config.{js,ts}` exists. For a Go service whose e2e TCs are exercised by `go test` via HTTP probes, the runner already executes them but its pass markers are not credited toward the e2e gate. The operator either marks each e2e TC `automation: "manual"` (L1a escape) or watches the gate fail.
+
+  Why P2 (not P1): with L1a shipped, no consumer is blocked. Auto-run is ergonomic, not load-bearing. Promote to P1 only when (a) a real consumer demands automated e2e coverage on a non-Playwright stack AND the manual escape proves operationally insufficient, OR (b) the per-TC verification trail loss from "everything manual" is causing observable harm.
+
+  Files:
+  - `lib/commands/verify.js:501-529` — the e2e auto-run branch is hardcoded to `npx playwright test`. Generalise to use the runner already chosen by `manifest.test_runner` (the unit/integration dispatch). The pass markers it parses already include e2e TC ids when the test names follow the convention.
+  - `lib/commands/verify.js:598` — comment `Classify skipped TCs: e2e type (require browser)` reframed: "e2e type with no runner-detected marker". Cosmetic but reinforces the conceptual fix.
+
+  Decisions:
+  - **No new schema field, no `.aitri.runnerHint`.** `manifest.test_runner` (Phase 4 artifact) is the existing runner declaration. Re-use it.
+  - **One runner per project.** Per-TC runner field stays in the Stack-aware Design Study below; not promoted to a ticket without a real two-runner project.
+
+  Acceptance:
+  - Go-only project, `manifest.test_runner: "go test ./... -v"`, 2 e2e TCs named `TestTC_001_*` / `TestTC_002_*`, no `automation: "manual"` declared: e2e gate passes from `go test` output alone.
+  - Existing Playwright path: unchanged (smoke fixture stays green).
+  - `npm run test:all` passes.
+
+  Risks:
+  - Smoke fixtures assume Playwright as the e2e runner; verify they remain green. The change is additive (new acceptance path), not subtractive.
+
+  Bump: yes (observable behavior change). Target a future alpha when promoted.
+
+---
+
+- [ ] P3 — **`aitri tc mark-manual <TC-ID> [--all-of-type e2e]` CLI helper.** Replaces hand-editing `03_TEST_CASES.json` to add `"automation": "manual"`.
+
+  Problem: with L1a, the manual escape is the documented path for projects without an automatable e2e runner. But marking 26 TCs (Go-on-RPi case) requires hand-editing the JSON. Friction defeats the purpose of having an escape — surfaced 2026-04-30 in deep-review of L1a.
+
+  Files:
+  - `lib/commands/tc.js` — new `mark-manual` subcommand alongside existing `verify`.
+  - `bin/aitri.js` — dispatcher entry.
+  - `test/commands/tc.test.js` — coverage.
+
+  Behavior:
+  - `aitri tc mark-manual <TC-ID>` → adds `"automation": "manual"` to that TC in `03_TEST_CASES.json`.
+  - `aitri tc mark-manual --all-of-type e2e` → bulk-marks every TC where `type === 'e2e'`.
+  - Idempotent: re-running on an already-manual TC is a no-op with a friendly message.
+  - Editing `03_TEST_CASES.json` invalidates the Phase 3 hash. Decision deferred to implementation: auto-`rehash 3` (consistent with `aitri tc verify` writing to results without invalidating) vs require explicit operator step (preserves drift gate).
+
+  Acceptance:
+  - Single-TC mode and `--all-of-type` mode both write the field correctly.
+  - Idempotent re-run does not duplicate or corrupt the file.
+  - Tests cover: missing TC ID error, non-existent type error, `03_TEST_CASES.json` not present error.
+  - `npm run test:all` passes.
+
+  Bump: yes (new CLI subcommand). Target a future alpha when promoted.
+
+---
+
+- [ ] P2 — **L2 — Templates stop prescribing Playwright as the default e2e runner.** Phase 1, 3, and 5 templates become runner-neutral; the QA persona teaches "e2e is a scope, not a tool".
+
+  Problem: `templates/phases/tests.md:118-119` literally instructs the QA persona that "E2E tests run via Playwright MUST follow the same TC-XXX: naming". Phase 1 (`requirements.md:127`) embeds Playwright in an NFR example. Phase 5 (`deploy.md:61,99` + `build.md:87`) prescribes verifying `playwright.config.js` in CI. Result: every non-web consumer project has a QA persona pushing it toward a runner that does not apply, and a deploy persona checking for a config file that will never exist. Even after L1 fixes the gate, the prompts themselves still teach the wrong shape.
+
+  Files:
+  - `templates/phases/tests.md` — lines 92, 116-119, 179, 189, 227. Replace prescriptive "MUST use Playwright" with descriptive "use the naming the project's runner detects (e.g. Playwright `test('TC-XXX: …', …)`, Go `func TestTC_001_*(t …)`, pytest `def test_TC_001_*():`)". Reframe "user flows" as "end-to-end flows (user journey, request-response cycle, integration boundary, etc.)".
+  - `templates/phases/requirements.md` — line 127. NFR example becomes runner-agnostic ("the CI pipeline runs the project's full test suite on every push").
+  - `templates/phases/deploy.md` — lines 61, 99. Conditional Playwright check ("if the project declares Playwright as a runner…").
+  - `templates/phases/build.md` — line 87. Same conditional.
+  - `lib/phases/phase3.js:141-142` — keep the `e2eCount < 2` rule unchanged. The rule is good (≥2 end-to-end flows is a universal practice). Only the **language** in the template changes.
+
+  Behavior:
+  - QA persona output stops naming Playwright unless the project actually declares Playwright as runner. The Phase 3 prompt receives the project's detected runner via the existing render context and interpolates a single example block matching that runner.
+  - PM persona's NFR example talks about "the project's test runner" instead of Playwright by name.
+  - Phase 5 deploy persona asks "is the CI pipeline running the project's declared runner(s)?" instead of checking for `playwright.config.js`.
+
+  Decisions:
+  - **Examples per-stack, not per-template.** A single template block carries 3 example flavors (web/Go/Python) with a comment "delete the ones that do not apply". Less plumbing than threading a `detectedRunner` variable through the renderer.
+  - **`e2eCount >= 2` rule stays.** It does not assume browser; it asserts coverage breadth. L2 only changes the language taught; the gate remains.
+  - **Phase 1 NFR example reformulation is bounded.** Keep the example's *content* (CI runs full suite on push) — only remove the named tool. No new NFR taxonomy.
+
+  Acceptance:
+  - `grep -ri playwright templates/phases/` returns ≤2 occurrences total: the conditional check in `deploy.md` ("if Playwright is declared") and one example label in `tests.md` ("Playwright: …"). No imperative "MUST use Playwright" anywhere.
+  - New test: render Phase 3 prompt for a project without Playwright → output does not contain "MUST use Playwright" or imperative Playwright naming. Output contains the multi-runner example block.
+  - Existing prompt-rendering tests pass.
+  - `npm run test:all` passes.
+
+  Risks:
+  - **Prompt regression on existing projects.** A project mid-pipeline will see a different Phase 3 briefing on the next `run-phase` invocation. Acceptable: prompt text changes are not breaking (no artifact schema affected). Document in CHANGELOG.
+  - **Test snapshot drift.** If any test snapshots prompt output verbatim, they need refresh. Update in the same commit.
+
+  Bump: yes (observable change in generated prompt content). Target alpha.15 (separate from L1 so each can be tested in isolation in a real project before bundling).
+
 ---
 
 ## Design Studies
 
 > Not implementation items. Open questions that inform future architectural decisions.
+
+### Stack-aware project profile (post-L1/L2 question)
+
+After L1 (runner dispatch) + L2 (neutralized prompts) ship, an open question remains: should `.aitri` carry a `profile` field (`web | cli | service | library | embedded`) that conditionally enables/disables phase rules, NFR templates, and runner expectations?
+
+**Open because:** today the runner-dispatch + neutralized-prompts approach covers the known cases without introducing a profile axis. A profile is justified ONLY if a second dimension of variation appears that runner dispatch alone cannot express. Examples that would trigger promotion to an implementation ticket:
+
+- A project where Phase 1 NFR templates are wrong by stack (e.g. embedded firmware has no "user" actor, needs "operator" or "host system" — language drift, not runner drift).
+- A project where the artifact chain itself should differ (e.g. firmware needs a hardware test plan that does not fit `03_TEST_CASES.json` schema; library needs an "API surface" artifact that does not exist today).
+- Phase 5 deploy-readiness criteria that diverge structurally between stacks (a Go binary release ≠ a web deploy ≠ an npm publish — currently squeezed into one template).
+- A real project with two simultaneous runners (Playwright for UI + `go test` for backend) where the L1 "first runner wins" rule is genuinely insufficient. This case alone might justify a `runner` field per TC instead of a project-wide profile — investigate which axis the evidence points to.
+
+**Promotion criterion:** when ≥2 of the above appear in real projects, design the abstraction. Until then, runner dispatch is enough.
+
+**Cost of premature implementation:**
+- Profile becomes a leaky abstraction: profiles overlap (a CLI tool may ship a small web dashboard; a service has both API and admin UI), edge cases multiply, and `init`/`adopt` has to ask the operator a question they cannot answer reliably.
+- Adding a `profile` field to `.aitri` schema is a contract change consumers (Hub, future subproducts) must absorb. Doing it twice (once now wrongly, once later correctly) is more expensive than waiting.
+- The dimension we eventually need may not be `profile` at all — it could be `runner` (per-TC), `platform` (target environment), or composition of several. Picking too early locks the abstraction to whatever the first non-web project happened to look like.
+
+**What would make this a ticket:**
+- Two non-web canaries surface diverging needs in **different categories** (one in Phase 1 language, one in artifact chain, etc. — not two with the same gap).
+- A real consumer project with two simultaneous runners where the L1 dispatch produces the wrong answer.
+- After 6 months of L1+L2 in production, an audit finds that operators of non-web projects are systematically removing/editing template content in ways that suggest a missing axis.
+
+**Why it is a Design Study and not a ticket:**
+- The right abstraction depends on the second and third non-web project's shape, not on hypothesis from one. Picking it now is design-by-imagination.
+- L1 + L2 are independently valuable and unblock the current case. They do not block this study; they generate evidence for it.
+- A premature `profile` field would either be ignored (operators leave it `unknown`) or wrong (the categories don't fit). Both outcomes degrade trust in the schema.
+
+**What NOT to do in this study:**
+- Don't enumerate profiles speculatively (`web | cli | service | library | embedded | mobile | …`) and design templates per profile. That's catalog growth without evidence.
+- Don't fold this into L1 or L2. Each is independently testable against a real project; profile is not.
+
+**Evidence / source:** raised during 2026-04-29 session diagnosing the Go-on-RaspberryPi web-bias case. User explicitly authorized revisiting the "evidence narrow" principle from CLAUDE.md if it was blocking real evolution. Decision: relax the principle (not eliminate it) — verifiable bugs in code can ship without external canaries; speculative abstractions still need them. This study is the speculative half.
+
+---
 
 ### Command-surface audit
 

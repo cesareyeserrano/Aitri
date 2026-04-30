@@ -1121,3 +1121,100 @@ describe('cmdVerifyComplete() — feature-context emits prefixed verify-run hint
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+describe('cmdVerifyComplete() — e2e gate honours automation: "manual" and runner availability', () => {
+  function seedE2EProject(dir, { e2eResultStatus, hasPlaywright = false } = {}) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [
+        { id: 'TC-U1', title: 'unit', requirement_id: 'FR-001', type: 'unit', expected_result: 'r' },
+        { id: 'TC-E1', title: 'e2e',  requirement_id: 'FR-001', type: 'e2e',  expected_result: 'r' },
+      ],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+      files_created: [{ path: 'x.js' }], test_runner: 'node --test',
+    }));
+    const e2ePass = e2eResultStatus === 'pass' ? 1 : 0;
+    const e2eMan  = e2eResultStatus === 'manual' ? 1 : 0;
+    const e2eSkip = (e2eResultStatus === 'pass' || e2eResultStatus === 'manual') ? 0 : 1;
+    // FR-001 always has the unit TC passing → never blocked by FR coverage gate;
+    // e2e gate is what we're isolating in these tests.
+    const tests_passing = 1 + e2ePass;
+    const tests_manual  = e2eMan;
+    const tests_skipped = e2eSkip;
+    const frStatus = tests_passing > 0 ? 'covered' : 'partial';
+    fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
+      executed_at: new Date().toISOString(),
+      test_runner: 'node --test',
+      exit_code: 0,
+      results: [
+        { tc_id: 'TC-U1', status: 'pass', notes: 'ok' },
+        { tc_id: 'TC-E1', status: e2eResultStatus, notes: e2eResultStatus === 'skip' ? 'no runner' : 'ok' },
+      ],
+      fr_coverage: [{
+        fr_id: 'FR-001', tests_passing, tests_failing: 0,
+        tests_skipped, tests_manual, status: frStatus,
+      }],
+      summary: { total: 2, passed: tests_passing, failed: 0, skipped: tests_skipped },
+    }));
+    if (hasPlaywright) {
+      fs.writeFileSync(path.join(dir, 'playwright.config.js'), '// stub');
+    }
+  }
+
+  it('blocks when e2e TC is skip and recommends automation:"manual" (no Playwright)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-e2e-skip-nopw-'));
+    try {
+      seedE2EProject(dir, { e2eResultStatus: 'skip', hasPlaywright: false });
+      let captured = '';
+      const err = (m) => { captured = m; throw new Error(m); };
+      try { cmdVerifyComplete({ dir, err }); } catch { /* expected */ }
+      assert.match(captured, /E2E tests required but none covered/);
+      assert.match(captured, /No e2e runner detected/);
+      assert.match(captured, /automation: "manual"/);
+      assert.doesNotMatch(captured, /change their type/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('blocks when e2e TC is skip and recommends Playwright fixes (config present)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-e2e-skip-pw-'));
+    try {
+      seedE2EProject(dir, { e2eResultStatus: 'skip', hasPlaywright: true });
+      let captured = '';
+      const err = (m) => { captured = m; throw new Error(m); };
+      try { cmdVerifyComplete({ dir, err }); } catch { /* expected */ }
+      assert.match(captured, /Playwright config detected but no e2e TC passed/);
+      assert.match(captured, /npx playwright install/);
+      assert.doesNotMatch(captured, /change their type/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('passes the e2e gate when the TC has status:"manual" (automation: "manual")', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-e2e-manual-'));
+    try {
+      seedE2EProject(dir, { e2eResultStatus: 'manual', hasPlaywright: false });
+      let captured = '';
+      const err = (m) => { captured = m; throw new Error(m); };
+      try { cmdVerifyComplete({ dir, err }); } catch { /* may fail later checks; only assert e2e gate not hit */ }
+      assert.doesNotMatch(captured, /E2E tests required but none covered/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('passes the e2e gate when the TC has status:"pass"', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-e2e-pass-'));
+    try {
+      seedE2EProject(dir, { e2eResultStatus: 'pass', hasPlaywright: true });
+      let captured = '';
+      const err = (m) => { captured = m; throw new Error(m); };
+      try { cmdVerifyComplete({ dir, err }); } catch { /* may fail later checks; only assert e2e gate not hit */ }
+      assert.doesNotMatch(captured, /E2E tests required but none covered/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

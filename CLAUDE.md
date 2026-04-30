@@ -16,7 +16,14 @@ Evaluation criterion for any change in Aitri, in this order:
 
 A change that only satisfies (3) without touching (1) or (2) must be justified as **prevention** of a future loss at tier 1 or tier 2 (e.g. an invariant that, if broken, degrades produced software cumulatively). If there is no thread back to (1) or (2), it is noise. Say so before implementing.
 
-**Evidence base — recognize when it is narrow.** Today the only consumers validating changes in Aitri are Hub and the author's own projects. That means the tier 1 signal ("improves produced software") is **speculative** for any external project. When a proposal depends on that premise, acknowledge it explicitly and seek external signal (another real project, another team using Aitri, a concrete defect avoided) before treating it as confirmed. Without external signal, the change is a hypothesis — not a verified improvement.
+**Evidence base — recognize when it is narrow, but only where it actually applies.** Today the only consumers validating changes in Aitri are Hub and the author's own projects. That narrowness matters in one specific case: **a proposal whose value depends on a user or project that does not yet exist**. For those — speculative abstractions, "what if someone needs X", new axes added "for completeness" — acknowledge the speculation explicitly and seek external signal (another real project, another team using Aitri, a concrete defect avoided) before treating tier 1 as confirmed.
+
+The principle does **not** apply when:
+- A bug, sesgo, or limitation is verifiable from the code today (grep'able, not hypothesized).
+- A real project (even an internal one) is currently blocked or producing degraded output because of it.
+- The fix is a removal of an incorrect assumption rather than the addition of a new abstraction.
+
+In those cases the evidence is the code plus the present case, and "wait for more consumers" is the wrong reflex — it confuses caution with paralysis. Apply the principle as a filter against design-by-imagination, not as a brake on fixing what is demonstrably broken.
 
 ## Project state
 

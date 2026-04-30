@@ -5,6 +5,81 @@
 
 ---
 
+## [2.0.0-alpha.14] — 2026-04-30 — e2e gate accepts `automation: "manual"` (web-bias removal — partial L1)
+
+Fourteenth staged pre-release on `feat/upgrade-protocol`. Surfaced by Go-on-RaspberryPi canary on 2026-04-29: a non-web project with 26 e2e TCs was blocked by `verify-complete`, and the in-product remediation suggested falsifying the TC `type` to bypass the gate — an honor-system patch contradicting Aitri's own validation philosophy. This release closes the immediate block; the broader runner-dispatch work is tracked as L1b in `BACKLOG.md` and deferred to P2 (no consumer is blocked once L1a is in).
+
+**L1a — e2e gate accepts `status === 'manual'` as covered.** `lib/commands/verify.js::cmdVerifyComplete` e2e gate now treats a TC with `automation: "manual"` (recorded as `status: "manual"` by `verify-run`) as satisfying the gate, consistent with `ARTIFACTS.md:249` policy already applied to FR coverage. The previous behaviour required at least one e2e TC to `status: "pass"` from a Playwright run, leaving non-Playwright projects with a forced "lie about the schema" path.
+
+**Stack-aware failure message.** When the gate does block, the message now branches on whether `playwright.config.{js,ts}` exists at the project root:
+- **Playwright config present:** suggests `npx playwright install`, verifying `@aitri-tc` markers, and marking environment-bound TCs `automation: "manual"`.
+- **No Playwright config:** explicitly states *"No e2e runner detected"* and offers three honest paths — install Playwright, mark `automation: "manual"`, or remove the TCs if they are not real requirements.
+- **Both branches** end with: *"Do NOT change the TC type to bypass this gate — the type field describes intent, not runner availability."*
+
+**What did not change.** The `e2eCount >= 2` Phase 3 rule stays — it asserts coverage breadth, not browser dependency. TC `type` schema (`unit | integration | e2e`) unchanged. No new schema fields, no `.aitri` migration, no artifact contract change. The failure message is the only operator-visible string change in this release.
+
+**Tests added (4 new in `test/commands/verify.test.js`):** seed an e2e TC with each of the four states (skip+noPW, skip+PW, manual, pass) and assert (a) the gate fires only when expected, (b) the new advice block matches the runner detection, (c) the *"change their type"* phrase is gone from the no-PW path. Total suite: 1073 → 1077 passing, 0 failures.
+
+**What this does NOT close.** L1b (auto-run e2e for non-Playwright runners — let `go test` / `pytest` output cover the e2e gate without `automation: "manual"`) and the `aitri tc mark-manual` CLI helper remain open in `BACKLOG.md`. With L1a in, neither is a blocker for any current consumer; both are quality-of-life. L2 (templates stop prescribing Playwright as the default e2e runner) also remains open and is independent.
+
+**Why a bump and not a silent fix.** The e2e-gate failure message is an observable behavior change, and the gate's acceptance criterion (now treats `manual` as covered) directly affects whether `verify-complete` blocks. Per CLAUDE.md: visible behavior change → bump.
+
+**Pre-stable status.** v2.0.0 stable promotion remains gated. Each external canary is still surfacing real defects (alpha.13 = Zombite Z1-Z5 yesterday; alpha.14 = Go-on-RPi web-bias today). Promotion deferred until ≥2 weeks pass without a canary-driven fix.
+
+---
+
+## [2.0.0-alpha.13] — 2026-04-29 — Zombite canary fixes (Z1-Z5)
+
+Thirteenth staged pre-release on `feat/upgrade-protocol`. Five defects surfaced by Zombite canary on alpha.12 — third-project external canary, alpha.4 → alpha.12 upgrade. Each entry tracked as a self-contained backlog item (Z1-Z5 in `BACKLOG.md`); see backlog for full reproduction steps and decisions.
+
+**Z1 (P1) — `verify-run` invalidates stale `verifyPassed`.** Re-running verify-run with degraded results (passed === 0 with skips, OR any failures) now resets `config.verifyPassed = false` and clears `verifySummary`. Healthy results untouched. Closes the deploy-gate lie where `validate` reported "ready" while latest verify-run was 0/0/N skipped. `lib/commands/verify.js::cmdVerifyRun` adds the reset before `saveConfig`.
+
+**Z2 (P1) — `adopt --upgrade` backfills missing `artifactHashes`.** New STATE-MISSING migration in `from-0.1.65.js`: when approvedPhases is non-empty and artifactHashes is absent/empty, hash each approved artifact on disk and stamp the field. Idempotent (preserves existing entries). Per-phase `upgrade_migration` events. Closes silent drift-detection failure on Zombite root (alpha.4 baseline + approvedPhases populated + artifactHashes absent → `hasDrift()` always returned false).
+
+**Z3 (P2) — `verify-complete` PIPELINE INSTRUCTION respects phase 5 state.** Replaced hardcoded "next: run-phase 5" with state-aware emission: phase 5 not approved → run-phase 5 (current behaviour); phase 5 approved (root) → `aitri validate`; phase 5 approved (feature) → no PIPELINE INSTRUCTION (feature pipelines do not deploy independently).
+
+**Z4 (P2) — Phase 3 validate rejects duplicate TC ids.** `complete 3` now throws when `test_cases[]` contains repeated `id`s. Error message lists each duplicate with count (`TC-001 (×3)`). Closes the cardinality drift on Zombite's `stabilizacion` feature where `TC-STB-006h` appeared 6 times across 51 entries (46 unique), causing `summary.manual = 46` while `results.length = 51`.
+
+**Z5 (P2) — `adopt --upgrade` flags legacy 04_TEST_RESULTS.json schema.** New VALIDATOR-GAP finding when `verifyPassed: true` and artifact lacks `results[]` and/or `summary` (pre-alpha `suite_summary` shape). Flag-only per backlog Option A — operator runs `aitri verify-run` to regenerate honestly. Cross-cuts with Z1: regenerated results may have degraded values; Z1 then resets `verifyPassed` consistently.
+
+**Tests added (22 new in 3 files):** 4 in `test/commands/verify.test.js` (Z1 verify-run reset paths) + 4 in `test/commands/verify.test.js` (Z3 phase-5-state emission) + 7 in `test/upgrade.test.js` (Z2 artifactHashes backfill + idempotency + edge cases) + 5 in `test/upgrade.test.js` (Z5 legacy schema flagging) + 2 in `test/phases/phase3.test.js` (Z4 duplicate detection). Total suite: 1051 → 1073 passing, 0 failures.
+
+**Why this is alpha.13, not five separate alphas.** Z1-Z5 surfaced in a single canary sweep, share the same root context (Zombite alpha.4 → alpha.12 upgrade), and several cross-cut: Z1 + Z5 together close the verifyPassed-lying-about-deploy-readiness loop; Z2 + Z3 + Z4 are independent but bundled to keep the canary-driven fix cohort together. Per CLAUDE.md: when a coherent set of fixes ships, one bump is fine — splitting would dilute the changelog signal.
+
+**Pre-stable status:** v2.0.0 stable promotion remains gated. The streak-of-quietness counter resets — alpha.12 was 2026-04-29 morning, alpha.13 is 2026-04-29 afternoon. The canary protocol is working: each external sweep is finding real defects. Promotion deferred until ≥2 weeks pass without a canary-driven fix.
+
+---
+
+## [2.0.0-alpha.12] — 2026-04-29 — no-op verify-run loop guard in `resume`/`status`
+
+Twelfth staged pre-release on `feat/upgrade-protocol`. Independent of the upgrade-protocol thread — surfaced by the same Ultron canary cycle but is a `lib/snapshot.js` fix, not an upgrade migration.
+
+**The bug.** When Phase 4 was approved and verify had not passed, `nextPhaseAction` always recommended `aitri verify-run` regardless of what verify-run had already produced. A project that approved Phase 4 with skeleton tests, missing `@aitri-tc` markers, or a misconfigured runner would loop on identical no-op `verify-run` recommendations: run it, get 0 passed + 0 failed + N skipped, return to `resume`, get told to run it again. The actionable diagnostic ("All N test(s) are skipped — at least 1 must pass") lives in `verify-complete`, but `resume` never sent the operator there.
+
+**Surfaced where.** Ultron's `network-monitoring` feature: Phase 4 manifest declares `technical_debt: skeleton-only — feature pipeline used as Aitri canary`, single test file with `t.Skip("canary skeleton")`, two `verify-run` events two days apart with identical 0/0/78 counts. `resume` kept pointing back at `verify-run`. Generalises to any project with the same shape — not Ultron-specific.
+
+**Fix scope.** `lib/snapshot.js` only. The fix is at the root: the next-action ladder. No new schema field, no gate, no command. Prior layers (`complete 4` accepting honest skeleton manifest, `verify-run` reporting all-skip, `verify-complete` blocking with the diagnostic) all behave correctly — only the ladder routing was wrong.
+
+**Code change:**
+
+- `buildPipeline()` derives `verify.lastRunSummary` from the latest `verify-run` event in `config.events[]`. `verifySummary` is only persisted on `verify-complete` success; the ladder needs to know what `verify-run` produced even when verify-complete has not passed yet. Internal field — not exposed in `status --json` payload.
+- `nextPhaseAction()` Phase-4-approved branch: when `lastRunSummary.passed === 0 && failed === 0 && skipped > 0`, return `aitri verify-complete` (severity `warn`, reason cites the skip count) instead of `aitri verify-run`. All other states (never ran, has failures, all-manual, mixed) remain on `verify-run`.
+- Priority bucket: `isVerify` now matches `verify-run` OR `verify-complete`, keeping the new path at priority 5 (verify-stage) rather than dropping to 6 (ordinary phase work).
+
+**Tests added (4 new in `test/snapshot.test.js`):**
+
+- positive: Phase 4 approved + last verify-run was 0/0/78 skipped → action is `aitri verify-complete`, severity `warn`.
+- negative: verify never ran → still `aitri verify-run`.
+- negative: last run had failures → still `aitri verify-run` (re-run may help if flaky).
+- negative: last run was all-manual (skipped === 0, manual > 0) → still `aitri verify-run`.
+- feature scope: produces `aitri feature verify-complete <name>`.
+
+**Consumer impact.** Hub-style readers that string-match the priority-5 command on `"verify-run"` may want to also recognise `"verify-complete"` at the same priority. Documented additively in `docs/integrations/CHANGELOG.md`.
+
+**Why this is alpha.12, not a silent internal fix.** The recommended command in `nextActions[]` changed for an entire class of project states. Operators see a different command on the next `resume`. Per CLAUDE.md: when in doubt → bump.
+
+---
+
 ## [2.0.0-alpha.11] — 2026-04-29 — `adopt --upgrade` skips cascade-stale phases (alpha.10 follow-up)
 
 Eleventh staged pre-release on `feat/upgrade-protocol`. Tightens the alpha.10 fix after the Ultron canary against alpha.10 surfaced a third edge case the inference logic did not cover.
