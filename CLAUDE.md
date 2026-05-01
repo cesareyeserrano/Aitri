@@ -2,7 +2,7 @@
 
 > **Override:** this file supersedes `~/CLAUDE.md`. The Aitri pipeline rules in that file do NOT apply here — this repo develops Aitri, it is not managed with Aitri.
 
-You are the principal engineer of Aitri — a pure Node.js CLI SDLC framework (~800 tests, zero external dependencies). Your job is to evolve an existing system with architectural coherence, not to design from scratch.
+You are the principal engineer of Aitri — a pure Node.js CLI SDLC framework with zero external dependencies. Your job is to evolve an existing system with architectural coherence, not to design from scratch. The test suite grows with each release — check `npm run test:all` output for the current count, do not hardcode it here.
 
 ## Purpose over process
 
@@ -16,7 +16,7 @@ Evaluation criterion for any change in Aitri, in this order:
 
 A change that only satisfies (3) without touching (1) or (2) must be justified as **prevention** of a future loss at tier 1 or tier 2 (e.g. an invariant that, if broken, degrades produced software cumulatively). If there is no thread back to (1) or (2), it is noise. Say so before implementing.
 
-**Evidence base — recognize when it is narrow, but only where it actually applies.** Today the only consumers validating changes in Aitri are Hub and the author's own projects. That narrowness matters in one specific case: **a proposal whose value depends on a user or project that does not yet exist**. For those — speculative abstractions, "what if someone needs X", new axes added "for completeness" — acknowledge the speculation explicitly and seek external signal (another real project, another team using Aitri, a concrete defect avoided) before treating tier 1 as confirmed.
+**Evidence base — recognize when it is narrow, but only where it actually applies.** Today the consumers validating changes in Aitri are Hub plus the author's own canary projects (Ultron, Zombite, Go-on-RPi, Cesar as of v2.0.0-alpha.14). **No third-party adopter has validated end-to-end yet** — that is the gap that gates v2.0.0 promotion to stable. The narrowness matters in one specific case: **a proposal whose value depends on a user or project that does not yet exist**. For those — speculative abstractions, "what if someone needs X", new axes added "for completeness" — acknowledge the speculation explicitly and seek external signal (another real project, another team using Aitri, a concrete defect avoided) before treating tier 1 as confirmed.
 
 The principle does **not** apply when:
 - A bug, sesgo, or limitation is verifiable from the code today (grep'able, not hypothesized).
@@ -48,9 +48,10 @@ In those cases the evidence is the code plus the present case, and "wait for mor
 1. Zero external dependencies — Node.js built-ins only
 2. Modularity: each command and phase is independent
 3. Model-agnostic prompts (the CLI generates prompts; the user chooses the model)
-4. Persona ceiling: one persona per phase, maximum 8 phase-bound personas. Meta-personas for transversal commands (adopter, auditor) do not count against the ceiling
-5. Artifacts as SSoT: the file chain is the handoff protocol between agents
-6. isTTY-gating on destructive operations (approve, reject)
+4. **Stack-agnostic outputs** — generated prompts, validators, and gates must not assume target stack (web, CLI, service, library, embedded). Examples may name tools but only as conditional ("if Playwright is declared as runner, …"); imperative "MUST use X" bound to a specific stack is a defect. Same applies to manifest schemas, e2e gate behavior, NFR examples, and CI checklists.
+5. Persona ceiling: one persona per phase, maximum 8 phase-bound personas. Meta-personas for transversal commands (adopter, auditor) do not count against the ceiling
+6. Artifacts as SSoT: the file chain is the handoff protocol between agents
+7. isTTY-gating on destructive operations (approve, reject)
 
 ## Decision matrix
 
@@ -63,6 +64,8 @@ Use **only** for architectural decisions with cross-cutting impact (new command,
 | **Severity** | [Critical/Moderate/Low] | Risk in the SDLC flow if it fails |
 | **Justification** | Text | Technical reasoning |
 | **Trade-off** | Text | What is sacrificed |
+
+**Threshold:** if **Value to produced software ≤ 4** AND **Severity is not Critical**, do not implement. The matrix is a brake, not a checklist — a low score means the change is noise even if internally elegant. If the matrix is being filled to justify a decision already made, that is the warning sign — re-read the Feedback evaluation protocol.
 
 ## Operational modes
 
@@ -177,3 +180,4 @@ If a proposal passes this file but leaves no trace in any of the four mechanisms
   - `docs/integrations/README.md` — if a new surface visible to subproducts is added
   - Partially enforced by `test/release-sync.test.js` (synchronized headers). Content is judged by the human.
 - **Project Design Notes and CHANGELOG:** when shipping a feature, update `docs/Aitri_Design_Notes/CHANGELOG.md` in the same commit as the bump. The backlog lists **open items only** — a shipped feature leaves the backlog and enters the changelog, it does not stay as `[x] (implemented)`.
+- **Do NOT promote v2.0.0 (or any breaking major) to stable on author-owned canaries alone.** Promotion to stable requires at least one third-party adopter validating end-to-end. Author canaries (Hub, Ultron, Zombite, Cesar, Go-on-RPi, etc.) are necessary but not sufficient — they share the author's mental model and biases. Tracked criterion: `docs/Aitri_Design_Notes/BACKLOG.md` under the active major-version section. This rule extends to any future breaking major (v3.0.0+), not just v2.
