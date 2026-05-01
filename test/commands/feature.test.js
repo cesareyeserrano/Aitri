@@ -154,6 +154,64 @@ describe('aitri feature list', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  // Ultron canary 2026-04-27 surfaced the silent "No features yet" message
+  // when the agent ran `aitri feature list` from a sub-directory of the
+  // project. The agent reasonably believed features were lost. The fix:
+  // walk parents, name the actual project root.
+  it('names project root when invoked from a sub-directory of an Aitri project', () => {
+    const dir = makeProjectDir();
+    try {
+      const { fn: err } = makeErr();
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'feat-x'], err, rootDir: ROOT_DIR }));
+      // Pretend cwd is a deep sub-dir of the project (no .aitri here, no features/)
+      const subDir = path.join(dir, 'spec');
+
+      const out = captureStdout(() => {
+        const { fn: err2 } = makeErr();
+        cmdFeature({ dir: subDir, args: ['list'], err: err2, rootDir: ROOT_DIR });
+      });
+      assert.ok(out.includes('cwd is not the project root'),
+        'must explain why the cwd-only lookup failed (got: ' + out + ')');
+      assert.ok(out.includes(dir),
+        'must name the discovered project root (got: ' + out + ')');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps "No features yet" message when no ancestor is an Aitri project', () => {
+    const standalone = tmpDir(); // no .aitri anywhere up the tree
+    try {
+      const out = captureStdout(() => {
+        const { fn: err } = makeErr();
+        cmdFeature({ dir: standalone, args: ['list'], err, rootDir: ROOT_DIR });
+      });
+      assert.ok(out.includes('No features yet'),
+        'must print original message when no project root is found upward');
+      assert.ok(!out.includes('cwd is not the project root'),
+        'must NOT print the project-root hint outside an Aitri project');
+    } finally {
+      fs.rmSync(standalone, { recursive: true, force: true });
+    }
+  });
+});
+
+// ── feature USAGE block ──────────────────────────────────────────────────────
+
+describe('aitri feature — USAGE documents --cmd flag', () => {
+  it('USAGE block mentions --cmd flag for verify-run', () => {
+    // Reading the source file directly is the cheapest way to assert on USAGE
+    // without reproducing the err-throw plumbing. The flag is wired via
+    // cmdVerifyRun (verify.js:391), but the operator only finds it if the
+    // sub-help documents it.
+    const src = fs.readFileSync(
+      path.join(ROOT_DIR, 'lib', 'commands', 'feature.js'),
+      'utf8'
+    );
+    assert.ok(/feature verify-run.*--cmd/s.test(src),
+      'USAGE block must document --cmd on the verify-run line');
+  });
 });
 
 // ── feature error handling ────────────────────────────────────────────────────
