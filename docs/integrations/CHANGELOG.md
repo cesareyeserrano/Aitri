@@ -18,6 +18,21 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-alpha.14 (2026-04-30) — e2e gate accepts `automation: "manual"` as covered — additive
+
+Surfaced by Go-on-RaspberryPi canary (non-web project, 26 e2e TCs, no Playwright). The `verify-complete` e2e gate now treats a TC with `automation: "manual"` (recorded as `status: "manual"` by `verify-run`) as satisfying the gate, consistent with the policy already applied to FR coverage (ARTIFACTS.md `manual` semantics, alpha.4+).
+
+**Why additive (not breaking):** no schema field changed shape, no event was renamed, no command signature changed. The change is an expansion of the conditions under which `.aitri.verifyPassed` can become `true` — it now flips to `true` on projects whose only e2e coverage is manual, where it was previously stuck at `false`. Hub-style readers tracking `verifyPassed` continue to read the same boolean with the same meaning. No reader code needs to change. The pre-alpha.14 inference "`verifyPassed=true` implies every e2e TC ran in an automated runner" was already false for FR coverage; alpha.14 closes that asymmetry on the e2e gate.
+
+**Operator-visible behaviour change** (not a contract change, but worth knowing for any subproduct that surfaces gate-failure messages from `verify-complete` stdout):
+- The "e2e gate failed" message is now stack-aware. It branches on whether `playwright.config.{js,ts}` exists at the project root and offers different remediation paths. Both branches end with `"Do NOT change the TC type to bypass this gate — the type field describes intent, not runner availability."` — replacing prior remediation that effectively suggested falsifying the TC `type`.
+
+**What did NOT change.** Phase 3's `e2eCount >= 2` rule. TC `type` schema (`unit | integration | e2e`). The `automation` enum (`auto | manual`). The `status` enum on TC results. No `.aitri` migration. No artifact contract change.
+
+**Hub impact:** none required. Projects that were previously blocked at `verifyPassed: false` because of unautomatable e2e TCs may now flip to `true` after a `verify-run` + `verify-complete` cycle once the operator marks those TCs `automation: "manual"` in `03_TEST_CASES.json`. The flip is honest — the previous block was a stack assumption, not a real coverage gap.
+
+---
+
 ## v2.0.0-alpha.13 (2026-04-29) — Zombite canary fixes Z1-Z5 — breaking
 
 Five defects surfaced by Zombite canary on alpha.12 (third-project external canary, alpha.4 → alpha.12 upgrade). Two of the five (Z1, Z2) change observable producer behaviour that subproduct readers must adopt; the others fix bugs without contract impact but are bundled here for cohesion.

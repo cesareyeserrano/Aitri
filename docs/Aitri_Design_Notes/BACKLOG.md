@@ -254,6 +254,23 @@ Originally three independent issues surfaced by the Ultron canary that validated
 
 - [ ] **Rename `from-0.1.65.js` or adjust ADR to match implementation.** The module currently covers migrations introduced across v0.1.63–v0.1.82, which diverges from the ADR's per-version-boundary implication. Works today via field-presence gating. Revisit when a second brownfield at a higher baseline (e.g. `from-0.1.80.js`) splits the file naturally.
 
+- [ ] **P3 — Strengthen `test/release-sync.test.js` to detect missing `docs/integrations/CHANGELOG.md` entries.** Today the guard validates (a) `package.json` ↔ `bin/aitri.js VERSION`, (b) integration doc headers match `package.json`, (c) every `## v...` heading in integrations CHANGELOG carries an `— additive` / `— breaking` marker. It does **not** validate that every released version (or every contract-affecting version) has an entry. alpha.14 was released and the integration docs header bumped to alpha.14+ without an entry — the guard stayed green. Caught manually 2026-05-01 (post-alpha.15 audit); closed in the same session by writing the alpha.14 entry retroactively.
+
+  Proposal (open — design decision required before implementing):
+  - Cross-check the version in `bin/aitri.js VERSION` against the most recent heading in `docs/integrations/CHANGELOG.md`. If the bin version is newer, fail unless the new version is explicitly opted out.
+  - Opt-out mechanism is the open design question. Two extremes:
+    1. **Strict — every bump requires an entry** (with an "intentionally no-op for subproducts" entry as the escape). Cost: friction on every cosmetic bump (alpha.15-style: CLI USAGE doc fix, no contract impact). Risk: operators write boilerplate entries to satisfy the linter, eroding the signal/noise of the file.
+    2. **Lax — version list with explicit exclusions** (e.g. a sibling `INTEGRATIONS_NO_CONTRACT_BUMPS.md` or a JSON list). Cost: one more file to keep in sync. Risk: forgotten entries (the original failure mode) become forgotten exclusions instead.
+  - Either choice needs the same human judgment that failed in the alpha.14 case — the linter only catches the symptom (missing entry), not the underlying call ("does this bump affect subproduct readers?"). That judgment cannot be automated, so the guard's value is reminder, not enforcement.
+
+  Why P3 (not P2): the present case is closed by writing the alpha.14 entry. The guard prevents recurrence of a class of error that has happened **once** in the alpha.1–alpha.15 sequence. Per CLAUDE.md "narrow-evidence" reformulation: prevention of a future case with no current victim → backlog, not commit. Promote to P2 if a second integrations-CHANGELOG miss occurs in the alpha.16+ sequence.
+
+  Files (when implemented):
+  - `test/release-sync.test.js` — add a new `it()` block in the `release sync guard` describe.
+  - `docs/integrations/CHANGELOG.md` — if opt-out is "explicit no-contract entry", document the format in the existing "Entry format" section.
+
+  Out of scope: validating CHANGELOG **content** quality (whether the entry accurately describes consumer impact). That stays human-judged per the existing "Content is judged by the human" note in CLAUDE.md.
+
 ### Core — Consumer project backlog richness
 
 - [ ] P2 — **Scaffold `BACKLOG.md` + enrich `spec/BACKLOG.json` schema + update `aitri backlog add` to accept rich fields.** Today `aitri backlog` only captures four fields (`id`, `title`, `priority`, `problem`, `fr`). Hub's human-authored `BACKLOG.md` (outside any Aitri template) carries a much richer format — Problem / Files / Behavior / Decisions / Risks / Acceptance / Implementation notes — which produces higher-quality work items that an agent can pick up later with far less ambiguity. That richness should be inherited by every consumer project, not reinvented by each human.
