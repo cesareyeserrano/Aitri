@@ -219,14 +219,14 @@ The morning canary did NOT exercise the load-bearing paths (`adopt --upgrade` re
 
 - [ ] **A2 — Features sub-pipelines not upgraded by root `adopt --upgrade`** — evidence stands (Zombite's `stabilizacion` feature kept `aitriVersion: null` after root upgrade). Reconsidered for alpha.3 and deferred: implementing it requires deciding whether migrations apply per-scope (root-only vs cascading to features) and how diagnose composes findings across scopes. Not a point-release change. Re-open for v2.0.0 pre-stable or v2.0.1.
 - [ ] **CLI flags** `--yes`, `--only <categories>`, `--verbose` — not implemented. No adopter asked; re-open when one does. (`--dry-run` landed in alpha.2.)
-- [ ] **Corte E — CAPABILITY-NEW + STRUCTURE** — `files_modified` advisory, bug audit trail advisory, agent-files regen (already inherited from Corte A), `original_brief` archival, case-mismatch detection. None have evidence of needed; all are preventive. Re-open when a canary surfaces a concrete case.
+- [ ] **Corte E — CAPABILITY-NEW + STRUCTURE** — open: `files_modified` advisory, bug audit trail advisory, case-mismatch detection. **Already shipped:** agent-files regen (inherited from Corte A); `original_brief` archival (shipped alpha.17 as `diagnoseOrphanIdea` — closes the IDEA.md residue case for projects approved before v0.1.89). Remaining items are preventive with no canary signal — re-open when a concrete case surfaces.
 - [ ] **`test/upgrade-coverage.test.js` gate** — explicitly NOT written. Rationale in ADR-027 addendum §5.
 - [ ] **Smoke test E2E in `test/smoke.js`** — optional, unit tests + three real canaries cover current shape. Re-open if a non-trivial upgrade path lacks coverage.
 - [ ] **`.aitri/local.json` split** — tracked in ADR-028 as open question. One real signal (Hub) is insufficient; need a second before taking the breaking-change hit.
 
 #### Dropped from v2.0.0 breaking batch (by decision)
 
-- [ ] **`IDEA.md` → `spec/` move** — dropped 2026-04-23. Not motivated by "keep projects current" (the ADR intent); was opportunistic colado in the breaking-version window. Re-open with its own evidence.
+- [ ] **`IDEA.md` → `spec/` move** — dropped 2026-04-23. Was opportunistic colado in the breaking-version window without its own evidence. **Not closed by alpha.17** (orphan IDEA.md absorption): alpha.17 removes IDEA.md post-approval by absorbing content into `01_REQUIREMENTS.json::original_brief`, while this proposal targets the pre-approval file location (root vs `spec/IDEA.md`). Re-open with its own evidence — a real consumer asking for the relocation, or a concrete defect.
 - [ ] **Phase 3 canonical TC id regex** — dropped 2026-04-23. Still waiting for the second evidence case that was the original gate; forcing it through the v2 batch inverted the evidence-before-breakage logic.
 - [ ] **Command-surface audit outcomes** — remains a Design Study below. No trigger.
 
