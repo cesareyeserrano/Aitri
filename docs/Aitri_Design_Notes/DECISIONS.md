@@ -660,6 +660,18 @@ The main-decision "Trade-off" section (see above) committed to a new CI gate ana
 
 These five points are binding on the implementation. If during alpha.1 any of them proves wrong, a new addendum amends the specific point — none is silently discarded.
 
+### ADR-027 Amendment — 2026-05-02 — Migration module naming is heuristic, not contract
+
+**Context:** The original ADR text describes migration modules as `from-0.1.65.js`, `from-0.1.70.js`, etc. — implying per-source-version boundaries. In practice, a single module (`from-0.1.65.js`) has accumulated migrations introduced across v0.1.63 through v2.0.0-alpha.17. No splits have happened despite multiple version boundaries crossed.
+
+**Why it works without splits:** every diagnose function gates on **field presence** in the current `.aitri` or artifact, not on the source version of the project. A v0.1.65 project and a v0.1.80 project both run through the same diagnose chain; each finding either fires (field absent or shape legacy) or no-ops (field already canonical). The file name `from-0.1.65.js` documents the lowest source version the module aims to lift, not a strict per-version boundary.
+
+**Decision:** the `from-X.Y.Z.js` naming is a heuristic for the lowest source version covered, **not a contract** that each per-version delta gets its own file. Splits happen organically when a new module is naturally cohesive (e.g. a v2.x schema cluster that has no field-presence overlap with the existing module). Splitting prematurely — purely to honor the original per-boundary implication — would be cosmetic and would not improve the gating logic.
+
+**Trade-off:** the naming becomes informational rather than load-bearing. Future readers must know that field-presence gating is the actual contract, not the file name. This amendment makes that explicit so the discrepancy is no longer a recurring backlog item.
+
+**Re-open criterion:** if a future schema cluster (e.g. v0.2.0+ coordinated change) produces a natural split where field-presence patterns no longer overlap with the existing module, create `from-0.2.0.js` (or appropriate name). Until that organic split appears, the existing module is correct as-is.
+
 ---
 
 ## ADR-028 — 2026-04-24 — Open question: `.aitri` mixes shared and per-machine state
@@ -734,3 +746,36 @@ The Ultron canary on alpha.6 caught the regression at handoff #1: literal copy-p
 **Scope of this ADR:** principle binding on future tests. Existing tests are not retroactively rewritten — they migrate to the new shape when their surface produces a defect that the round-trip variant would have caught.
 
 **Evidentiary note:** the alpha.6 → alpha.7 cycle is the third instance in this project where canary signal exposed a defect that internal tests missed (others: ADR-027 §4 hash-preservation, ADR-026 Phase 1 vagueness rule). The pattern — "tests written by the implementer, against fixtures the implementer chose, passing while real-project use exposes the defect" — is now explicit. The round-trip principle is the structural counter to the pattern, but it works only if applied; vigilance over each new test is required.
+
+---
+
+## ADR-030 — 2026-05-02 — A2 (cascading root → features upgrade) deferred indefinitely
+
+**Status:** Active (Deferred indefinitely with explicit re-open criteria).
+
+**Context:** `aitri adopt --upgrade` invoked at the project root operates on the root `.aitri` only. Sub-pipelines under `features/<name>/.aitri` are not touched — their `aitriVersion` and any pending migrations remain at whatever state they were last written. The asymmetry was first observed in the Zombite canary 2026-04-29 (`stabilizacion` feature kept `aitriVersion: null` after root upgrade).
+
+**Three reconfirmations, no consumer signal of harm:**
+
+1. **Zombite (2026-04-29, alpha.4 → alpha.13):** root upgrade produced normal results; `stabilizacion` feature `.aitri` left at the pre-upgrade state. Surfaced as A2. Operator was not blocked — feature commands continued to work because the gates the feature actually exercises are state-presence gates, not version-comparison gates.
+2. **Cesar shallow canary (2026-05-02 AM, alpha.4 → alpha.15 dry-run):** same shape — root mutates, 9 features remain INTACT. No defect surfaced; tooling continued to function.
+3. **Cesar deepening canary (2026-05-02 PM, alpha.4 → alpha.15 real):** confirmed for the third time. All 9 feature `.aitri` md5s INTACT after root upgrade. No defect. The N1 finding (legacy `.venv/`-relative manifest paths) was an alpha.9 cwd-change interaction that fired identically on root and on features when each was eventually upgraded — A2 cascading would not have helped the operator catch it earlier.
+
+**Decision:** A2 is deferred indefinitely. The original BACKLOG entry framed it as "Re-open for v2.0.0 pre-stable or v2.0.1" — that timeline came and went without action across alphas 3–18, and the case has accumulated negative evidence ("we keep finding it but no operator gets hurt").
+
+**Why deferral is the correct posture, not implementation:**
+
+- **No consumer harm in three observations.** The asymmetry exists; the consequences do not. Aitri's gates are field-presence based, so a feature `.aitri` at a stale `aitriVersion` continues to satisfy gates as long as the field shapes match what the running CLI expects (which migrations would have ensured at the project root anyway, since features and root share the same `lib/upgrade/migrations/` rules when invoked).
+- **Implementation cost is moderate-to-high.** Cascading requires deciding how `diagnose()` composes findings across scopes, how the report aggregates per-feature output, how `--dry-run` previews multi-scope changes without confusion, and whether per-feature confirmation is required (operators may want to upgrade root but skip a stale feature). None of these decisions has obvious right answers without consumer input.
+- **Premature implementation locks in answers without evidence.** The "right" composition rule depends on what consumers actually want: parallel cascade (all features at once), interactive per-feature, root-only with explicit `--features` flag, etc. Picking now is design-by-imagination per CLAUDE.md.
+
+**Re-open criteria (either condition):**
+
+1. A third-party adopter explicitly requests cascading because the current asymmetry blocks a concrete workflow they need (operator running `--upgrade` once at root and expecting features to follow).
+2. A future migration becomes load-bearing for feature-scope state in a way that the operator cannot reasonably trigger by entering each feature dir manually (e.g. a state field that drives a verify/approve gate in a way that fails silently when stale).
+
+Without either, the asymmetry stays. The BACKLOG entry remains as a tracking pointer to this ADR, not as a pending work item.
+
+**Scope of this ADR:** decision-only. No code change. The BACKLOG entry for A2 is updated to reference this ADR; no other action.
+
+**What this ADR does NOT decide:** if criterion (1) or (2) fires, the implementation strategy (parallel vs interactive vs explicit-flag) is open and must be designed against the actual consumer signal at that time. This ADR closes the question "should we implement now?" — not "how should we implement when triggered?".

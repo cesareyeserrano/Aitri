@@ -217,7 +217,7 @@ The morning canary did NOT exercise the load-bearing paths (`adopt --upgrade` re
 
 #### Deferred out of alpha.1 / alpha.2 / alpha.3 (by decision)
 
-- [ ] **A2 — Features sub-pipelines not upgraded by root `adopt --upgrade`** — evidence stands (Zombite's `stabilizacion` feature kept `aitriVersion: null` after root upgrade). Reconsidered for alpha.3 and deferred: implementing it requires deciding whether migrations apply per-scope (root-only vs cascading to features) and how diagnose composes findings across scopes. Not a point-release change. Re-open for v2.0.0 pre-stable or v2.0.1.
+- [ ] **A2 — Cascading root → features upgrade — DECIDED 2026-05-02 via ADR-030: deferred indefinitely.** Three reconfirmations across canaries (Zombite + Cesar shallow + Cesar deep) confirmed the asymmetry exists but produces no consumer harm — Aitri's gates are field-presence based, so feature `.aitri` at stale `aitriVersion` continues to satisfy gates. Re-open criteria in ADR-030: (1) third-party adopter explicitly requests cascading for a concrete workflow, OR (2) a future migration becomes load-bearing for feature-scope state. Without either, the entry stays as a pointer to the ADR — not a pending work item.
 - [ ] **CLI flags** `--yes`, `--only <categories>`, `--verbose` — not implemented. No adopter asked; re-open when one does. (`--dry-run` landed in alpha.2.)
 - [ ] **Corte E — CAPABILITY-NEW + STRUCTURE** — open: `files_modified` advisory, bug audit trail advisory, case-mismatch detection. **Already shipped:** agent-files regen (inherited from Corte A); `original_brief` archival (shipped alpha.17 as `diagnoseOrphanIdea` — closes the IDEA.md residue case for projects approved before v0.1.89). Remaining items are preventive with no canary signal — re-open when a concrete case surfaces.
 - [ ] **`test/upgrade-coverage.test.js` gate** — explicitly NOT written. Rationale in ADR-027 addendum §5.
@@ -234,15 +234,7 @@ The morning canary did NOT exercise the load-bearing paths (`adopt --upgrade` re
 
 Canary on v2.0.0-alpha.7 validated the grammar fix end-to-end (6/6 emissions copy-paste literal, no regression of alpha.6's inverted-order bug). Five secondary findings surfaced. The Go runner parser shipped in alpha.8; manifest schema drift and feature verify-run cwd shipped in alpha.9; the `--cmd` flag wiring/USAGE was confirmed and documented in alpha.15 (see closed entry below + CHANGELOG). One remains open — not a blocker.
 
-- [ ] **P3 — Upgrade banner does not warn that in-flight briefings emitted by an older Aitri are still cached in agent terminals.**
-
-  Evidence: Ultron canary tried `aitri feature network-monitoring complete 4` (literal copy from a briefing emitted by alpha.6 before the upgrade). Failed with `Feature "complete" not found`. The fix in alpha.7 is forward-only — it corrects future emissions, but cannot reach back into the agent's terminal context to refresh stale briefings.
-
-  Files: [lib/upgrade/](../../lib/upgrade/) — banner emission. When upgrade transition is from alpha.6 (or earlier) to anything newer, append a one-line warning: `If you have any open agent terminals with cached briefings, re-run aitri run-phase <phase> to refresh — older briefings emitted commands in a different grammar.`
-
-  Decision: scope-tighten the warning. Most upgrades don't need it. Trigger condition: `before.semver < 2.0.0-alpha.7 && after.semver >= 2.0.0-alpha.7`.
-
-  Acceptance: `adopt --upgrade` from a project pinned to alpha.6 emits the warning. From a project pinned to alpha.7 → alpha.8, no warning.
+- [ ] **P3 — Upgrade banner cached-briefings warning — DECIDED 2026-05-02: not implementing (trigger window expired).** Originally proposed for the alpha.6→alpha.7 grammar boundary: warn the operator that terminal-cached briefings emitted by alpha.6 used different command grammar. Trigger condition was `before.semver < 2.0.0-alpha.7 && after.semver >= 2.0.0-alpha.7`. As of alpha.18 (2026-05-02) we are 11+ alphas past the boundary — any project upgrading from alpha.6 today is so far behind that the warning would fire for essentially nobody. Re-open only if a future grammar change creates a new boundary that warrants the same protection.
 
 - [x] **P3 — `aitri feature verify-run --cmd` flag wired and documented (alpha.15).** Verified: `lib/commands/feature.js:38` lists `aitri feature verify-run <name> [--cmd "..."]` in USAGE; `featureFlagValue('--cmd')` (alpha.7+) routes the value into `cmdVerifyRun`. The "unverified" note was closed by the alpha.15 USAGE addition.
 
@@ -334,24 +326,9 @@ Originally three independent issues surfaced by the Ultron canary that validated
 
 ### Core — Post-promotion housekeeping
 
-- [ ] **Rename `from-0.1.65.js` or adjust ADR to match implementation.** The module currently covers migrations introduced across v0.1.63–v0.1.82, which diverges from the ADR's per-version-boundary implication. Works today via field-presence gating. Revisit when a second brownfield at a higher baseline (e.g. `from-0.1.80.js`) splits the file naturally.
+- [ ] **Rename `from-0.1.65.js` or adjust ADR — DECIDED 2026-05-02: ADR-027 amended (per-version-boundary is heuristic, not contract).** The module's actual contract is field-presence gating, not the file name. Splitting into `from-0.1.80.js` etc. would be cosmetic — the gating logic carries no version meaning. Re-open if a second brownfield baseline produces a natural split (e.g. a v0.2+ schema change cluster), not before. See ADR-027 amendment for the naming-convention clarification.
 
-- [ ] **P3 — Strengthen `test/release-sync.test.js` to detect missing `docs/integrations/CHANGELOG.md` entries.** Today the guard validates (a) `package.json` ↔ `bin/aitri.js VERSION`, (b) integration doc headers match `package.json`, (c) every `## v...` heading in integrations CHANGELOG carries an `— additive` / `— breaking` marker. It does **not** validate that every released version (or every contract-affecting version) has an entry. alpha.14 was released and the integration docs header bumped to alpha.14+ without an entry — the guard stayed green. Caught manually 2026-05-01 (post-alpha.15 audit); closed in the same session by writing the alpha.14 entry retroactively.
-
-  Proposal (open — design decision required before implementing):
-  - Cross-check the version in `bin/aitri.js VERSION` against the most recent heading in `docs/integrations/CHANGELOG.md`. If the bin version is newer, fail unless the new version is explicitly opted out.
-  - Opt-out mechanism is the open design question. Two extremes:
-    1. **Strict — every bump requires an entry** (with an "intentionally no-op for subproducts" entry as the escape). Cost: friction on every cosmetic bump (alpha.15-style: CLI USAGE doc fix, no contract impact). Risk: operators write boilerplate entries to satisfy the linter, eroding the signal/noise of the file.
-    2. **Lax — version list with explicit exclusions** (e.g. a sibling `INTEGRATIONS_NO_CONTRACT_BUMPS.md` or a JSON list). Cost: one more file to keep in sync. Risk: forgotten entries (the original failure mode) become forgotten exclusions instead.
-  - Either choice needs the same human judgment that failed in the alpha.14 case — the linter only catches the symptom (missing entry), not the underlying call ("does this bump affect subproduct readers?"). That judgment cannot be automated, so the guard's value is reminder, not enforcement.
-
-  Why P3 (not P2): the present case is closed by writing the alpha.14 entry. The guard prevents recurrence of a class of error that has happened **once** in the alpha.1–alpha.15 sequence. Per CLAUDE.md "narrow-evidence" reformulation: prevention of a future case with no current victim → backlog, not commit. Promote to P2 if a second integrations-CHANGELOG miss occurs in the alpha.16+ sequence.
-
-  Files (when implemented):
-  - `test/release-sync.test.js` — add a new `it()` block in the `release sync guard` describe.
-  - `docs/integrations/CHANGELOG.md` — if opt-out is "explicit no-contract entry", document the format in the existing "Entry format" section.
-
-  Out of scope: validating CHANGELOG **content** quality (whether the entry accurately describes consumer impact). That stays human-judged per the existing "Content is judged by the human" note in CLAUDE.md.
+- [ ] **P3 — Strengthen `release-sync.test.js` to detect missing integrations CHANGELOG entries — DECIDED 2026-05-02: not implementing.** Both opt-out designs (strict + lax) shift the failure mode without preventing it — neither replaces the human judgment "does this bump affect subproduct readers?" The single occurrence (alpha.14) was caught by manual audit and closed retroactively; alpha.15 was an intentional skip (no schema change), not a miss. Score: 1 actual miss in 18 alphas. Per CLAUDE.md "prevention with no current victim → backlog, not commit". Re-open criterion: a second **unintentional** miss in the alpha.18+ sequence. The reminder value of a guard does not justify the noise-vs-friction trade-off until the failure recurs.
 
 ### Core — Consumer project backlog richness
 
