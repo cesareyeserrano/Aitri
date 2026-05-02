@@ -226,6 +226,34 @@ describe('aitri adopt apply', () => {
       } finally { process.stdin.isTTY = origIsTTY; }
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  // ── BACKLOG.md scaffold (alpha.21) ──────────────────────────────────────────
+
+  it('[alpha.21] creates BACKLOG.md at project root from templates/BACKLOG.md', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
+      run(dir);
+      const backlogPath = path.join(dir, 'BACKLOG.md');
+      assert.ok(fs.existsSync(backlogPath), 'adopt apply must create BACKLOG.md when absent');
+      const content = fs.readFileSync(backlogPath, 'utf8');
+      assert.ok(/Entry Standard/.test(content), 'scaffold must include the Entry Standard section');
+      assert.ok(/## Open/.test(content), 'scaffold must include the Open section');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('[alpha.21] does NOT overwrite an existing BACKLOG.md', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
+      const backlogPath = path.join(dir, 'BACKLOG.md');
+      fs.writeFileSync(backlogPath, '# project backlog\n- [ ] preserve me\n');
+      run(dir);
+      const content = fs.readFileSync(backlogPath, 'utf8');
+      assert.equal(content, '# project backlog\n- [ ] preserve me\n',
+        'adopt apply must not overwrite a hand-written BACKLOG.md');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // ── apply --from <N> ──────────────────────────────────────────────────────────

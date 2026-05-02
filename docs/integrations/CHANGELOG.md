@@ -18,6 +18,20 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-alpha.21 (2026-05-02) — BACKLOG.md scaffolded by init / adopt apply — additive
+
+**`aitri init` and `aitri adopt apply` now scaffold `BACKLOG.md` at the project root** (additive — new template `templates/BACKLOG.md` copied to `<project>/BACKLOG.md` if absent). Closes the gap where every new consumer project reinvented its backlog format from scratch.
+
+**Surface for subproducts.** `BACKLOG.md` is a hand-written, narrative, project-root file. Aitri does not read or mutate it after the initial scaffold — there is no schema, no validation, no `validate()` hook. Subproducts MAY render or parse `BACKLOG.md` if they choose; old readers that ignore the file continue to work unchanged.
+
+**Coexistence.** Independent of `spec/BACKLOG.json` (the CLI-managed structured backlog driven by `aitri backlog add/list/done`). Both files can coexist; neither references the other.
+
+**Idempotency.** Both `init` and `adopt apply` (regular + `--from N` paths) write the template only when `BACKLOG.md` does not already exist at the project root. Re-running either command never overwrites a hand-written file.
+
+**Hub impact:** none required. Hub readers that already render arbitrary project-root markdown will pick up `BACKLOG.md` automatically; readers that don't are unaffected.
+
+---
+
 ## v2.0.0-alpha.17 (2026-05-02) — orphan IDEA.md absorption at upgrade time — additive
 
 **`adopt --upgrade` absorbs orphan IDEA.md into `01_REQUIREMENTS.json.original_brief`** (additive — new BLOCKING migration in `lib/upgrade/migrations/from-0.1.65.js::diagnoseOrphanIdea`). Closes a long-standing residue: the `aitri approve 1` archive landed in v0.1.89, so projects whose Phase 1 was approved before that release kept `IDEA.md` at the project root indefinitely — every subsequent alpha bumped `aitriVersion` without touching the file.

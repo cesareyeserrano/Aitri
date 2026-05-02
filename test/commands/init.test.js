@@ -139,6 +139,36 @@ describe('aitri init — agent instruction files', () => {
   });
 });
 
+describe('aitri init — BACKLOG.md scaffold (alpha.21)', () => {
+  // The backlog scaffold lands at the project root with the canonical Entry
+  // Standard so consumer projects do not reinvent the format. Idempotent —
+  // re-running init never clobbers a hand-written BACKLOG.md.
+  it('creates BACKLOG.md at the project root from templates/BACKLOG.md', () => {
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-alpha.21' });
+      const backlogPath = path.join(dir, 'BACKLOG.md');
+      assert.ok(fs.existsSync(backlogPath), 'BACKLOG.md must be created at project root');
+      const content = fs.readFileSync(backlogPath, 'utf8');
+      assert.ok(/Entry Standard/.test(content), 'scaffold must include the Entry Standard section');
+      assert.ok(/Minimum entry format/.test(content), 'scaffold must include the format block');
+      assert.ok(/## Open/.test(content), 'scaffold must include the Open section');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not overwrite an existing BACKLOG.md', () => {
+    const dir = tmpDir();
+    try {
+      const backlogPath = path.join(dir, 'BACKLOG.md');
+      fs.writeFileSync(backlogPath, '# my hand-written backlog\n- [ ] one item\n');
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-alpha.21' });
+      const content = fs.readFileSync(backlogPath, 'utf8');
+      assert.equal(content, '# my hand-written backlog\n- [ ] one item\n',
+        're-running init must not overwrite a hand-written BACKLOG.md');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('aitri status — version warnings', () => {
   it('shows no version warning when versions match', () => {
     const dir = tmpDir();

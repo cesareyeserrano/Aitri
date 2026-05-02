@@ -5,6 +5,31 @@
 
 ---
 
+## [2.0.0-alpha.21] — 2026-05-02 — BACKLOG.md scaffold at init/adopt
+
+Twenty-first staged pre-release on `feat/upgrade-protocol`. Single change. Closes the third item in the 2026-05-02 PM Phase 3 cleanup queue (after N3 alpha.19 + L2 alpha.20).
+
+**Aitri now scaffolds a `BACKLOG.md` template at the project root.** New file `templates/BACKLOG.md` mirrors the Entry Standard at the top of `docs/Aitri_Design_Notes/BACKLOG.md` (simplified for consumer projects): explainer of the six-question rubric, the Minimum entry format block (Problem / Files / Behavior / Decisions / Acceptance), and one worked `P3` example under `## Open` that the operator deletes when adding real items. `aitri init` (`lib/commands/init.js`) and `aitri adopt apply` (both the regular path in `adoptApply` and the `--from N` path in `adoptApplyFrom`) write the template if no `BACKLOG.md` exists at the project root. Idempotent — re-running init or adopt apply on a project that already has a hand-written `BACKLOG.md` never overwrites.
+
+**Why a scaffold and not a CLI command.** Hub's hand-written `BACKLOG.md` produces clearly higher-quality work items than the bare backlog the Aitri-managed `aitri backlog add` flow generates against `spec/BACKLOG.json` — but enriching the JSON schema and adding CLI flags is speculative work for a problem that has only one validated consumer (Hub itself) so far. Per CLAUDE.md narrow-evidence rule, schema enrichment + CLI flag work waits until a project distinct from Hub asks for CLI-managed rich entries. The scaffold is the minimum surface that gives every new consumer project the format on day one without committing Aitri to maintain a structured schema.
+
+**Coexistence with `spec/BACKLOG.json`.** Independent. `BACKLOG.md` is hand-written, narrative, lives at project root. `spec/BACKLOG.json` is CLI-managed (`aitri backlog add/list/done`), structured, lives under `spec/`. Aitri does not read or mutate `BACKLOG.md` after scaffolding; it is purely a starter document. Subproducts (Hub) MAY render `BACKLOG.md` if they choose; nothing in core depends on its presence after the initial write.
+
+**Files touched.**
+- `templates/BACKLOG.md` (new) — 47 lines: title + entry-standard rubric + format block + one example.
+- `lib/commands/init.js` — block after the `.gitignore` write that copies `templates/BACKLOG.md` if absent.
+- `lib/commands/adopt.js` — same block in `adoptApply` (after `writeAgentFiles`) and `adoptApplyFrom` (after `saveConfig`); `rootDir` threaded through `adoptApplyFrom` since the legacy `--from N` path did not previously receive it.
+- `test/commands/init.test.js` — new describe block: scaffold lands at root + idempotent re-run preserves a hand-written file.
+- `test/commands/adopt.test.js` — two tests in the existing `aitri adopt apply` describe block: scaffold lands + idempotent.
+
+**Tests added (4 new):** init creates BACKLOG.md (asserts Entry Standard / Minimum entry format / Open section all present); init does not overwrite an existing BACKLOG.md; adopt apply creates BACKLOG.md from absent; adopt apply does not overwrite an existing BACKLOG.md. Total suite: 1102 → 1106 passing, 0 failures.
+
+**Why a bump.** New visible artifact produced by `init` and `adopt apply`. Per CLAUDE.md: new artifact at scaffold time → bump. `docs/integrations/CHANGELOG.md` updated as `— additive` because the new file is a surface subproducts (Hub) may want to read or render; old readers continue working unchanged.
+
+**Pre-stable status.** v2.0.0 stable promotion remains gated on a third-party adopter validating end-to-end. Author canaries clean as of alpha.21 (Hub, Ultron, Zombite, Cesar). Phase 3 of the 2026-05-02 PM cleanup is now complete (N3 + L2 + Backlog richness all shipped). Remaining open items per BACKLOG: third-party adopter canary, A2 disposition, `aitri tc mark-manual` CLI helper (P3), release-sync hardening (P3).
+
+---
+
 ## [2.0.0-alpha.20] — 2026-05-02 — Phase 3-5 templates: runner-neutral e2e wording
 
 Twentieth staged pre-release on `feat/upgrade-protocol`. Single change. Closes the L2 templates piece tracked since alpha.13 and validated independently by Cesar (pytest) and Go-on-RPi canaries.
