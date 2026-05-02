@@ -4,6 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, buildFRCoverage, scanTestContent, parseCoverageOutput, extractTCId, cmdVerifyRun, cmdVerifyComplete } from '../../lib/commands/verify.js';
+import { cmdStatus } from '../../lib/commands/status.js';
 
 describe('parseRunnerOutput()', () => {
 
@@ -1215,14 +1216,17 @@ describe('cmdVerifyComplete() — Z3 next-action respects phase 5 state', () => 
     return lines.join('\n');
   }
 
-  it('phase 5 NOT approved → emits "next: run-phase 5" (regression guard)', () => {
+  it('phase 5 NOT approved → emits "next: run-phase deploy" (regression guard)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-z3-p5no-'));
     try {
       seedReady(dir, { phase5Approved: false });
       const out = captureLog(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } }));
-      assert.match(out, /run-phase 5/);
+      // Snapshot SSoT (alpha.19+): nextPhaseAction emits the alias form
+      // (`run-phase deploy`) — both `5` and `deploy` resolve to phase 5.
+      assert.match(out, /run-phase (5|deploy)/);
       assert.match(out, /PIPELINE INSTRUCTION/);
       assert.doesNotMatch(out, /aitri validate/);
+      assert.doesNotMatch(out, /aitri normalize/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1232,8 +1236,33 @@ describe('cmdVerifyComplete() — Z3 next-action respects phase 5 state', () => 
       seedReady(dir, { phase5Approved: true });
       const out = captureLog(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } }));
       assert.match(out, /aitri validate/);
-      assert.match(out, /already approved/i);
-      assert.doesNotMatch(out, /run-phase 5/);
+      // Snapshot reason — replaces alpha.13's "Phase 5 already approved" line.
+      assert.match(out, /confirm deployment readiness/i);
+      assert.doesNotMatch(out, /run-phase (5|deploy)/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('normalize pending (root scope) → "aitri normalize" matches `aitri status` Next: line (alpha.19)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-z3-norm-'));
+    try {
+      seedReady(dir, { phase5Approved: false });
+      // Inject normalize pending — the canonical case where alpha.13's
+      // hardcoded if/else contradicted status. Status routes to priority 4
+      // `aitri normalize`; verify-complete used to override that with
+      // run-phase 5. Snapshot SSoT consumption removes the contradiction.
+      const cfgPath = path.join(dir, '.aitri');
+      const config = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      config.normalizeState = { status: 'pending', baseRef: 'abc123', method: 'git', lastRun: new Date().toISOString() };
+      fs.writeFileSync(cfgPath, JSON.stringify(config));
+
+      const verifyOut = captureLog(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } }));
+      const statusOut = captureLog(() => cmdStatus({ dir, args: [] }));
+
+      // verify-complete must NOT push past normalize to run-phase 5
+      assert.doesNotMatch(verifyOut, /run-phase (5|deploy)/);
+      // verify-complete and status both emit `aitri normalize` as next
+      assert.match(verifyOut, /aitri normalize/);
+      assert.match(statusOut, /Next: aitri normalize/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

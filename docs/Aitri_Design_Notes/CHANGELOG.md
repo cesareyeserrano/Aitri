@@ -5,6 +5,22 @@
 
 ---
 
+## [2.0.0-alpha.19] — 2026-05-02 — verify-complete next-action via snapshot SSoT
+
+Nineteenth staged pre-release on `feat/upgrade-protocol`. Single change. Closes the N3 contradiction surfaced by the alpha.13–17 audit on 2026-05-02 PM: `verify-complete` and `aitri status` could disagree on the next action.
+
+**Root-scope `verify-complete` now consumes the snapshot priority ladder.** `lib/commands/verify.js::cmdVerifyComplete` previously hardcoded its tail emission as `aitri run-phase 5` (phase 5 not approved) or `aitri validate` (phase 5 approved). When normalize was pending after a clean `verify-run`, that hardcoded branch contradicted `aitri status` / `aitri resume`, both of which correctly route to `aitri normalize` (priority 4). Verify-complete now calls `buildProjectSnapshot(dir)` and emits `nextActions[0]` — same SSoT as `status`, `resume`, and `validate`. Operator-facing format is unchanged (PIPELINE INSTRUCTION header + command + reason). Since the snapshot uses the alias form (v0.1.69+), the suggested command shape moves from `aitri run-phase 5` to `aitri run-phase deploy`; both forms resolve to phase 5 at the dispatcher.
+
+**Feature scope is unchanged.** `lib/scope.js::scopeTokens()` (alpha.7 fix for the `aitri feature <verb> <name> <phase>` grammar) is incompatible with the snapshot rooted at the feature dir, which would treat the feature as `scopeType='root'` and emit unprefixed commands. The alpha.13 feature-scope branches stay intact: prefixed `aitri feature run-phase <name> 5` when phase 5 is not approved, terminal-state message pointing at `aitri feature status <name>` when phase 5 is approved.
+
+**Tests added/updated (1 new + 2 adjusted in `test/commands/verify.test.js`):** new test asserts `cmdVerifyComplete` and `cmdStatus` emit identical `aitri normalize` next-action when normalize is pending (the canonical N3 contradiction). Existing root-scope tests adjusted: phase-5-not-approved now matches `/run-phase (5|deploy)/` (alias form), phase-5-approved now matches `/confirm deployment readiness/i` (snapshot reason replaces alpha.13's "Phase 5 already approved" line). Feature-scope tests untouched. Total suite: 1100 → 1101 passing, 0 failures.
+
+**Why a bump and not a silent fix.** Visible CLI text change (suggested command shape moves from `5` to `deploy`; reason line wording differs) on a load-bearing transition gate. Per CLAUDE.md: visible CLI output change → bump. No artifact / `.aitri` schema change — `docs/integrations/CHANGELOG.md` deliberately not updated (subproducts read `.aitri` + artifact files, not CLI stdout).
+
+**Pre-stable status.** v2.0.0 stable promotion remains gated on a third-party adopter validating end-to-end. Author canaries clean as of alpha.19 (Hub, Ultron, Zombite, Cesar). Audit-driven internal alignment fix; no new external defect surfaced.
+
+---
+
 ## [2.0.0-alpha.18] — 2026-05-02 — Z2 backfill caveat surfaced in upgrade report
 
 Eighteenth staged pre-release on `feat/upgrade-protocol`. Single change. Closes a code/comment honesty gap surfaced by the alpha-13-to-17 audit on 2026-05-02 PM.
