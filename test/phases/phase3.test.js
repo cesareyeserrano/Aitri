@@ -432,4 +432,32 @@ describe('Phase 3 — buildBriefing() (BL-003)', () => {
     });
     assert.ok(!b.includes('Testing Standards'), 'Testing Standards header must not appear when bestPractices is empty');
   });
+
+  it('[L2 alpha.20] briefing is runner-neutral — no imperative Playwright prescription', () => {
+    // Stack-agnostic outputs (CLAUDE.md principle 4): the Phase 3 briefing
+    // must not bind agents to Playwright as the e2e runner. Pre-alpha.20 the
+    // template said "E2E tests run via Playwright MUST follow…" — that read
+    // as imperative for Go / pytest / native node:test projects (Go-on-RPi,
+    // Cesar canary). The new wording cites Playwright only as one example
+    // among Vitest/Jest/Go/pytest, so projects pick whatever runner they
+    // declare in System Design.
+    const b = PHASE_DEFS[3].buildBriefing({
+      dir: '/tmp/test', inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '' }, feedback: null,
+    });
+    // Negation: imperative phrasings must be absent.
+    assert.ok(!/run via Playwright MUST/i.test(b),
+      'briefing must not prescribe Playwright as the mandatory e2e runner');
+    assert.ok(!/MUST use Playwright/i.test(b),
+      'briefing must not contain "MUST use Playwright" or equivalent');
+    assert.ok(!/from Playwright output/.test(b),
+      'briefing must not assume Playwright produces verify-run output');
+    // Positive: the canonical TC-XXX naming rule survives in runner-agnostic form.
+    assert.ok(/TC-XXX/.test(b),
+      'briefing must still teach the canonical TC-XXX prefix convention');
+    assert.ok(/Vitest|Jest|pytest|Go/i.test(b),
+      'briefing must list multiple runners as examples (Playwright is not the only one)');
+    // The verify-run reference stays — runner-neutral wording.
+    assert.ok(/verify-run/.test(b),
+      'briefing must keep the aitri verify-run reference');
+  });
 });

@@ -5,6 +5,32 @@
 
 ---
 
+## [2.0.0-alpha.20] — 2026-05-02 — Phase 3-5 templates: runner-neutral e2e wording
+
+Twentieth staged pre-release on `feat/upgrade-protocol`. Single change. Closes the L2 templates piece tracked since alpha.13 and validated independently by Cesar (pytest) and Go-on-RPi canaries.
+
+**Phase 3 / 4 / 5 templates no longer prescribe Playwright as the default e2e runner.** Five edits, all in `templates/phases/`:
+
+- `tests.md:118-119` — was: "E2E tests run via Playwright MUST follow the same TC-XXX: naming … This allows aitri verify-run --e2e to auto-detect them from Playwright output". Now: the canonical TC-XXX prefix rule applies regardless of runner; example list cites Playwright/Vitest/Jest, Go (`func TestTC_XXX_…`), and pytest (`def test_tc_xxx_…`); `verify-run --e2e` is described as parsing the runner output by TC id, not by framework.
+- `requirements.md:127` (CI/CD NFR minimum) — was: "(including E2E if playwright.config.js exists)". Now: "including any e2e runner the project uses". The Playwright-config conditional was a Web-project-specific hack masquerading as a generic rule.
+- `deploy.md:61` (CI/CD verification step d) — was: "(d) includes Playwright if `playwright.config.js` exists". Now: "(d) runs the project's declared e2e runner if one is configured (e.g. invoking `playwright test` when `playwright.config.js` exists, or the equivalent for whatever framework System Design declares)". Playwright stays as one example among many.
+- `deploy.md:99` (Phase 5 Human Review checklist) — dropped "and Playwright all checked"; replaced with "and any declared e2e runner step all checked".
+- `build.md:87` (Phase 4 CI/CD deliverable) — was: "(4) run Playwright if `playwright.config.js` exists". Now: "(4) run the project's declared e2e runner as a separate step if one is configured (otherwise omit the e2e step — do not invent a runner the project does not use)".
+
+**`lib/phases/phase3.js:141-142` is unchanged.** The `e2eCount >= 2` rule operates on `tc.type === 'e2e'` — already runner-neutral. Nothing in the `validate()` code path mentions Playwright; the prescriptive bias was entirely in the prompt template.
+
+**Verification.** After the edits, `grep -ri playwright templates/phases/` returns exactly two occurrences — both as conditional examples (`tests.md` example list of frameworks, `deploy.md` CI auto-detection check). No imperative "MUST use Playwright" anywhere.
+
+**Tests added (1 new in `test/phases/phase3.test.js`):** asserts the rendered Phase 3 briefing is runner-neutral. Negation guards against three pre-alpha.20 imperative phrasings (`/run via Playwright MUST/`, `/MUST use Playwright/`, `/from Playwright output/`); positive checks confirm the TC-XXX naming rule survives, multiple runners are listed as examples (`Vitest|Jest|pytest|Go`), and the `verify-run` reference is preserved. Total suite: 1101 → 1102 passing, 0 failures.
+
+**Why a bump.** Observable change in generated prompt content. Existing projects mid-pipeline see different briefings on the next `run-phase 3` / `run-phase 4` / `run-phase 5`. Per CLAUDE.md: change in visible CLI output → bump.
+
+**No integrations CHANGELOG entry.** Templates render to CLI stdout; subproducts (Hub) read `.aitri` + artifact files, not prompts. The change does not touch artifact / `.aitri` schema / events / commands.
+
+**Pre-stable status.** v2.0.0 stable promotion remains gated on a third-party adopter validating end-to-end. Author canaries clean as of alpha.20 (Hub, Ultron, Zombite, Cesar). Stack-agnostic principle (CLAUDE.md engineering principle 4) is now consistent across the prompt surface; future projects on non-web stacks (Go-on-RPi included) get briefings that match their reality on the first run.
+
+---
+
 ## [2.0.0-alpha.19] — 2026-05-02 — verify-complete next-action via snapshot SSoT
 
 Nineteenth staged pre-release on `feat/upgrade-protocol`. Single change. Closes the N3 contradiction surfaced by the alpha.13–17 audit on 2026-05-02 PM: `verify-complete` and `aitri status` could disagree on the next action.

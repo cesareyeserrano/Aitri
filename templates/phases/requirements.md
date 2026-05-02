@@ -124,7 +124,7 @@ Include these as comments in project_summary or as a separate "product_analysis"
     **Observability** — applies to: any HTTP server or daemon process
       NFR minimum: every request logs [timestamp] METHOD /path STATUS to stdout/stderr
     **CI/CD** — applies to: any project with a test suite
-      NFR minimum: pipeline runs the full test suite (including E2E if playwright.config.js exists) on every push to the main branch
+      NFR minimum: pipeline runs the full declared test suite — including any e2e runner the project uses — on every push to the main branch
     **API security** — applies to: any endpoint with path or input parameters that reads filesystem, DB, or executes commands
       NFR minimum: accepted values are restricted to a whitelist of allowed directories or resources — blocking `..` alone is insufficient
     **Healthcheck** — applies to: any project with Docker or server deployment

@@ -58,7 +58,7 @@
 ## CI/CD Verification
 If `01_REQUIREMENTS.json` contains a CI/CD NFR:
 1. Check if a workflow file exists (`.github/workflows/*.yml` or equivalent CI config)
-2. If it exists: read the file and verify — (a) trigger fires on push/pull_request to main branch, (b) installs dependencies, (c) runs the same `test_runner` command declared in the manifest, (d) includes Playwright if `playwright.config.js` exists
+2. If it exists: read the file and verify — (a) trigger fires on push/pull_request to main branch, (b) installs dependencies, (c) runs the same `test_runner` command declared in the manifest, (d) runs the project's declared e2e runner if one is configured (e.g. invoking `playwright test` when `playwright.config.js` exists, or the equivalent for whatever framework System Design declares)
 3. Report any gap as a compliance entry with level "partial" and evidence listing what is missing
 4. If the workflow file does not exist and CI/CD NFR is MUST → compliance level is "functionally_present" (pipeline defined but not wired)
 
@@ -96,4 +96,4 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 5   →   aitri {{SCOPE_VERB}}ap
   [ ] Dockerfile present, uses multi-stage build, non-root user, HEALTHCHECK
   [ ] DEPLOYMENT.md includes rollback procedure and health check endpoints
   [ ] overall_status is honest — "compliant" only when all MUST FRs are complete or production_ready
-  [ ] If CI/CD NFR exists: workflow file verified — trigger, dependency install, test command, and Playwright all checked
+  [ ] If CI/CD NFR exists: workflow file verified — trigger, dependency install, test command, and any declared e2e runner step all checked

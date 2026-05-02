@@ -84,7 +84,7 @@ Tests not matching TC-XXX: naming are auto-classified as skip — verify-complet
 ## CI/CD Deliverable (mandatory when NFR requires it)
 If `01_REQUIREMENTS.json` contains an NFR for CI/CD (category: "CI/CD" or keyword "pipeline" or "continuous integration"):
 - Create `.github/workflows/ci.yml` (GitHub Actions) or equivalent for the declared CI platform
-- The workflow MUST: (1) trigger on push and pull_request to the main branch, (2) install dependencies, (3) run the exact `test_runner` command from this manifest, (4) run Playwright if `playwright.config.js` exists in the project
+- The workflow MUST: (1) trigger on push and pull_request to the main branch, (2) install dependencies, (3) run the exact `test_runner` command from this manifest, (4) run the project's declared e2e runner as a separate step if one is configured (otherwise omit the e2e step — do not invent a runner the project does not use)
 - Include `.github/workflows/ci.yml` in `implementation_files` in the manifest
 - If CI/CD NFR is MUST priority and you cannot create the workflow → declare it as technical debt with reason
 

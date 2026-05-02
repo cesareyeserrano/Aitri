@@ -115,8 +115,7 @@ If a behavior is genuinely hard to verify observationally → document it as `"m
 - Every FR-* gets min 3 test cases: one happy_path, one edge_case, one negative
 - Min 2 test cases with type "e2e" — each assigned to a single requirement_id
 - Steps specific enough for a developer to implement directly
-- E2E tests run via Playwright MUST follow the same TC-XXX: naming: test('TC-XXX: description', ...)
-  This allows aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} --e2e to auto-detect them from Playwright output
+- E2E tests MUST embed the canonical TC-XXX prefix in the assertion or function name so the runner output is parseable: e.g. `test('TC-XXX: description', ...)` for Playwright/Vitest/Jest, `func TestTC_XXX_description` for Go, `def test_tc_xxx_description` for pytest. The exact runner is whatever the project declares — `aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} --e2e` reads the runner output and matches on the TC id, not the framework
 - Go test functions MUST use the canonical TC-XXX id with underscores as separators because Go syntax forbids `-` in identifiers: `func TestTC_NS_001h(t *testing.T)`. The `Test` prefix is mandatory. aitri normalizes underscores to dashes on parse — canonical id stored in `03_TEST_CASES.json` stays `TC-NS-001h`. Run `go test -v` so passes are visible in output
 
 ## Mandatory gates by FR type (test LEVEL of implementation, not just presence)
