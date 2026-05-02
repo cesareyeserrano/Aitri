@@ -954,6 +954,55 @@ describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: artifactHashes b
       assert.ok(evs.some(e => e.target === '.aitri#artifactHashes[2]'));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  // alpha.18 — surface the lock-in caveat in the upgrade report. Comment in
+  // diagnoseArtifactHashes had claimed this since alpha.13 but the report
+  // never actually emitted it.
+  function captureStdoutLocal(fn) {
+    let out = '';
+    const origLog = console.log;
+    const origErr = process.stderr.write.bind(process.stderr);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    process.stderr.write = () => true;
+    try { fn(); } finally { console.log = origLog; process.stderr.write = origErr; }
+    return out;
+  }
+
+  it('upgrade report surfaces the lock-in caveat when artifactHashes are backfilled', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1, 2], artifactHashes: {} });
+      seedArtifacts(dir);
+      const out = captureStdoutLocal(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      assert.match(out, /artifactHashes were stamped from current on-disk state/);
+      assert.match(out, /now the approved baseline/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('upgrade report does NOT surface the caveat when no artifactHashes are backfilled', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, {
+        approvedPhases:  [1, 2],
+        artifactHashes: { '1': 'h1', '2': 'h2' },
+      });
+      seedArtifacts(dir);
+      const out = captureStdoutLocal(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      assert.doesNotMatch(out, /artifactHashes were stamped/);
+      assert.doesNotMatch(out, /artifactHashes would be stamped/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('dry-run report shows the caveat in conditional voice ("would be stamped")', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1], artifactHashes: {} });
+      seedArtifacts(dir);
+      const out = captureStdoutLocal(() => runUpgrade({ dir, VERSION: '0.1.99', dryRun: true }));
+      assert.match(out, /artifactHashes would be stamped from current on-disk state/);
+      assert.doesNotMatch(out, /artifactHashes were stamped/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // ── Z5 (alpha.13): legacy 04_TEST_RESULTS.json schema flagging ──────────────

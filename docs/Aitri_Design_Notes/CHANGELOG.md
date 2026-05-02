@@ -5,6 +5,24 @@
 
 ---
 
+## [2.0.0-alpha.18] — 2026-05-02 — Z2 backfill caveat surfaced in upgrade report
+
+Eighteenth staged pre-release on `feat/upgrade-protocol`. Single change. Closes a code/comment honesty gap surfaced by the alpha-13-to-17 audit on 2026-05-02 PM.
+
+**Z2 backfill lock-in caveat now visible to the operator.** When `adopt --upgrade` backfills `artifactHashes` for an approved phase that lacked one (Z2, alpha.13), `lib/upgrade/index.js::printReport` now emits a `⚠️  Note:` immediately after the migration list explaining that the on-disk state has been treated as the approved baseline — and that any artifact change made post-approval but pre-upgrade is now silently locked in as approved (drift detection will report nothing). The note suggests comparing git history if the operator is unsure. Conditional voice in dry-run ("would be stamped") vs real run ("were stamped").
+
+**The honesty gap.** `lib/upgrade/migrations/from-0.1.65.js::diagnoseArtifactHashes` documentation has claimed since alpha.13 that "the upgrade report surfaces this caveat." `printReport` never actually did. The audit traced the comment to the migration's intent at landing, but the surfacing was never implemented. This release implements it and corrects the comment to reference the now-real surface.
+
+**What did not change.** Z2 migration logic itself (the backfill mechanic, idempotency, hash function alignment with `approve.js`) is unchanged. No artifact / `.aitri` schema change. No new gates. The note is operator-visible CLI text only — subproduct readers (Hub) consume `.aitri` and artifact files, not CLI stdout, so `docs/integrations/CHANGELOG.md` is deliberately not updated.
+
+**Tests added (3 new in `test/upgrade.test.js`):** caveat appears when artifactHashes are backfilled; caveat does NOT appear when no backfill happens (idempotent re-run); dry-run uses conditional voice ("would be stamped"). Total suite: 1097 → 1100 passing, 0 failures.
+
+**Why a bump and not a silent fix.** New operator-visible CLI message during a load-bearing flow (`adopt --upgrade` is the primary upgrade path). Per CLAUDE.md: visible CLI output change → bump.
+
+**Pre-stable status.** v2.0.0 stable promotion remains gated on a third-party adopter validating end-to-end. Author canaries clean as of alpha.18 (Hub, Ultron, Zombite, Cesar). This is a documentation-honesty fix, not a canary-driven defect — streak-of-quietness counter is unchanged in spirit (no new external defect surfaced).
+
+---
+
 ## [2.0.0-alpha.17] — 2026-05-02 — orphan IDEA.md absorption at upgrade time
 
 Seventeenth staged pre-release on `feat/upgrade-protocol`. One change. Closes the residue from v0.1.89's `aitri approve 1` archive: projects approved before that release kept `IDEA.md` at the root indefinitely. Surfaced 2026-05-02 by the author noticing the file persisting through several alpha upgrades on his own projects.
