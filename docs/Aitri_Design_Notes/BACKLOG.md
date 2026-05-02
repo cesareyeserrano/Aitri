@@ -181,8 +181,8 @@ Fourth author-owned canary. Cesar = Python web project, 9 sub-pipeline features 
 
 **Follow-ups opened by this canary.**
 
-- [ ] **C1 — Re-run Cesar canary with `--upgrade` for real (no `--dry-run`) on a copy.** Establish that the 9-feature `.aitri` files and `BG-015` survive the root upgrade unchanged. Lightweight; do in next session.
-- [ ] **C2 — Find a non-Playwright project where `verify-run` (not just `verify-complete`) can run end-to-end against alpha.15.** This is what would actually exercise `verify.js:501-529` and either confirm or refute the auto-run Playwright bias. Without it L1b cannot move to P3.
+- [x] **C1 — Re-run Cesar canary with `--upgrade` for real (no `--dry-run`) on a copy.** Closed by the deepening session same day (2026-05-02 PM, see "Deepening session" below): real upgrade non-destructive on Cesar — root `.aitri` mutated as expected, all 9 feature `.aitri` md5s INTACT, agent files untouched.
+- [x] **C2 — Find a non-Playwright project where `verify-run` (not just `verify-complete`) can run end-to-end against alpha.15.** Closed by the deepening session same day (2026-05-02 PM): the `verify.js:509` `if (hasPwConfig) { … }` gate makes the Playwright auto-dispatch dead code on projects without `playwright.config.{js,ts}`. The runtime concern that motivated the canary search does not exist in code. See L1b downgrade in the deepening section.
 
 **Promotion gate status after this canary.** Author-owned canaries: Hub, Ultron, Zombite, Cesar (was planned, now executed). Third-party adopter still required for stable v2.0.0 promotion (per CLAUDE.md Critical rule + this section's earlier paragraph). Cesar increases the n by one but does not unlock promotion.
 
@@ -232,7 +232,7 @@ The morning canary did NOT exercise the load-bearing paths (`adopt --upgrade` re
 
 ### Core — alpha.7 canary findings (Ultron 2026-04-28) — open items
 
-Canary on v2.0.0-alpha.7 validated the grammar fix end-to-end (6/6 emissions copy-paste literal, no regression of alpha.6's inverted-order bug). Five secondary findings surfaced. **The Go runner parser shipped in alpha.8; manifest schema drift and feature verify-run cwd shipped in alpha.9** (see "Shipped in alpha.9" above and CHANGELOG). Two remain open — neither is a blocker.
+Canary on v2.0.0-alpha.7 validated the grammar fix end-to-end (6/6 emissions copy-paste literal, no regression of alpha.6's inverted-order bug). Five secondary findings surfaced. The Go runner parser shipped in alpha.8; manifest schema drift and feature verify-run cwd shipped in alpha.9; the `--cmd` flag wiring/USAGE was confirmed and documented in alpha.15 (see closed entry below + CHANGELOG). One remains open — not a blocker.
 
 - [ ] **P3 — Upgrade banner does not warn that in-flight briefings emitted by an older Aitri are still cached in agent terminals.**
 
@@ -244,29 +244,13 @@ Canary on v2.0.0-alpha.7 validated the grammar fix end-to-end (6/6 emissions cop
 
   Acceptance: `adopt --upgrade` from a project pinned to alpha.6 emits the warning. From a project pinned to alpha.7 → alpha.8, no warning.
 
-- [ ] **P3 — `aitri feature verify-run --cmd` flag may not be wired (unverified).**
-
-  Evidence: canary noted that root `aitri verify-run --cmd "..."` works but the feature sub-help does not list `--cmd`. Not tested. If the feature dispatch passes through to `cmdVerifyRun` then `--cmd` should be honored automatically — but the help string in `feature.js` USAGE doesn't document it.
-
-  Files: [lib/commands/feature.js](../../lib/commands/feature.js) USAGE block.
-
-  Behavior: if the flag is wired (smoke test), update the feature USAGE to document it. If not, decide whether to wire it (likely yes — overriding test_runner per-invocation is useful in feature scope too).
-
-  Acceptance: `aitri feature verify-run <name> --cmd "go test ./internal/network/... -v"` runs the override command from the feature dir, not the manifest's test_runner. USAGE in `feature.js` lists `--cmd`.
+- [x] **P3 — `aitri feature verify-run --cmd` flag wired and documented (alpha.15).** Verified: `lib/commands/feature.js:38` lists `aitri feature verify-run <name> [--cmd "..."]` in USAGE; `featureFlagValue('--cmd')` (alpha.7+) routes the value into `cmdVerifyRun`. The "unverified" note was closed by the alpha.15 USAGE addition.
 
 ### Core — Secondary findings from Ultron canary 2026-04-27 (alpha.6/7 session)
 
-Originally three independent issues surfaced by the Ultron canary that validated the alpha.6 → alpha.7 scope-grammar fix. **The Approve UX routing fix and the Phase 3 NFR acceptance both shipped in alpha.9** (see "Shipped in alpha.9" above and CHANGELOG). One remains open.
+Originally three independent issues surfaced by the Ultron canary that validated the alpha.6 → alpha.7 scope-grammar fix. The Approve UX routing fix and the Phase 3 NFR acceptance shipped in alpha.9; the `feature list` walk-up message shipped in alpha.15 (see closed entry below + CHANGELOG). All three are now closed.
 
-- [ ] **P3 — `aitri feature list` does not traverse upward to find the project root.**
-
-  Evidence: Ultron canary, after `cd features/network-monitoring/spec/`, running `aitri feature list` returned `No features yet. Run: aitri feature init <name>`. The agent reasonably believed the feature was lost.
-
-  Files: [lib/commands/feature.js:173-200](../../lib/commands/feature.js#L173-L200) `featureList()` reads `path.join(dir, 'features')` from cwd only.
-
-  Behavior options: (a) walk parents looking for `.aitri/` then run featureList from there; (b) keep cwd-only behavior but emit a more honest message: `No features in current directory (cwd is not a project root). Run from <project root>` with the discovered project root if any. (b) is simpler and avoids surprising upward-walk behavior in nested workspaces; acceptable trade-off if the message names the actual reason.
-
-  Acceptance: from any sub-directory of an Aitri project, `aitri feature list` either lists the features or prints a message that names "not at project root" as the reason. Test: create a project with `features/foo`, cd into a deep subdir, assert output mentions either the features or the project-root reason.
+- [x] **P3 — `aitri feature list` honest message when cwd is not project root (alpha.15).** Shipped option (b) per the original ticket: `lib/commands/feature.js:172-223` calls `findAncestorProjectRoot()` and prints `No features in current directory (cwd is not the project root). / Project root: <abs> / Run from there: cd <path> && aitri feature list` when an ancestor `.aitri` exists. Cesar canary 2026-05-02 verified the subtlety: from inside a feature dir or `features/<x>/spec/` the command does NOT auto-list — it points to project root; the walk-up only triggers from `spec/` (sibling of `features/`).
 
 ### Core — `aitri normalize` proportionality (Ultron canary 2026-04-27)
 
@@ -285,7 +269,7 @@ Originally three independent issues surfaced by the Ultron canary that validated
 
   Sub-bugs:
 
-  **N1 — Behavioral filter for `aitri normalize` and `detectUncountedChanges` (root cause)**
+  **N1 — Behavioral filter for `aitri normalize` and `detectUncountedChanges` (root cause) — SHIPPED in alpha.4.** Verified in code: `lib/normalize-patterns.js::isBehavioralFile()` is consumed by `normalize.js::gitChangedFiles()` (line 66) and `mtimeChangedFiles()` (line 82), and by `snapshot.js::detectUncountedChanges()` (line 489). Note: planning called the module `lib/upgrade/normalize-patterns.js` but it shipped at `lib/normalize-patterns.js`. **N2 and N3 below remain open** — N1 closing was scoped per the original "ship N1 alone first; verify; then decide" decision; N2/N3 have not been re-evaluated against post-N1 friction. Parent priority unchanged (P1) until that re-evaluation happens.
 
   Files:
   - `lib/commands/normalize.js` — `gitChangedFiles()` (line 54) and `mtimeChangedFiles()` (line 68): apply behavioral allowlist to filter out non-behavioral patterns before counting.
@@ -446,29 +430,7 @@ Aitri assumes "web app with browser UI" as the default project shape. The assump
 
 ---
 
-- [ ] P2 — **L1b — e2e auto-run for non-Playwright runners.** When `manifest.test_runner` is `go test` / `pytest` / `vitest` / etc, allow that runner's output to satisfy the e2e gate without requiring `automation: "manual"` on every e2e TC.
-
-  Problem: `verify.js:501-529` only invokes the e2e auto-run path when `playwright.config.{js,ts}` exists. For a Go service whose e2e TCs are exercised by `go test` via HTTP probes, the runner already executes them but its pass markers are not credited toward the e2e gate. The operator either marks each e2e TC `automation: "manual"` (L1a escape) or watches the gate fail.
-
-  Why P2 (not P1): with L1a shipped, no consumer is blocked. Auto-run is ergonomic, not load-bearing. Promote to P1 only when (a) a real consumer demands automated e2e coverage on a non-Playwright stack AND the manual escape proves operationally insufficient, OR (b) the per-TC verification trail loss from "everything manual" is causing observable harm.
-
-  Files:
-  - `lib/commands/verify.js:501-529` — the e2e auto-run branch is hardcoded to `npx playwright test`. Generalise to use the runner already chosen by `manifest.test_runner` (the unit/integration dispatch). The pass markers it parses already include e2e TC ids when the test names follow the convention.
-  - `lib/commands/verify.js:598` — comment `Classify skipped TCs: e2e type (require browser)` reframed: "e2e type with no runner-detected marker". Cosmetic but reinforces the conceptual fix.
-
-  Decisions:
-  - **No new schema field, no `.aitri.runnerHint`.** `manifest.test_runner` (Phase 4 artifact) is the existing runner declaration. Re-use it.
-  - **One runner per project.** Per-TC runner field stays in the Stack-aware Design Study below; not promoted to a ticket without a real two-runner project.
-
-  Acceptance:
-  - Go-only project, `manifest.test_runner: "go test ./... -v"`, 2 e2e TCs named `TestTC_001_*` / `TestTC_002_*`, no `automation: "manual"` declared: e2e gate passes from `go test` output alone.
-  - Existing Playwright path: unchanged (smoke fixture stays green).
-  - `npm run test:all` passes.
-
-  Risks:
-  - Smoke fixtures assume Playwright as the e2e runner; verify they remain green. The change is additive (new acceptance path), not subtractive.
-
-  Bump: yes (observable behavior change). Target a future alpha when promoted.
+- [x] **L1b — e2e auto-run for non-Playwright runners — collapsed (2026-05-02 PM, see Cesar deepening session above).** Two halves disposed of separately: (a) the **mensajería half** shipped in alpha.16 as part of "L2 (mensajería piece) — runtime wording neutral when no Playwright config" — `verify.js` `SKIP_NOTE` and skipped-summary line are now conditional on `playwright.config.{js,ts}` presence. (b) The **runtime half** (Playwright auto-dispatch generalised to `manifest.test_runner`) has no remaining content in code — `verify.js:509` reads `if (hasPwConfig) { … auto-run Playwright … }`, so on projects without `playwright.config.{js,ts}` the auto-dispatch is dead code. There is no Playwright bias to remove from the runtime path. **What still lives independently is the L2 templates piece** (Phase 1/3/5 templates prescribing Playwright as default e2e runner) — tracked below as a separate ticket. Re-open L1b only if a real consumer surfaces an automated-e2e need that the manual escape + dead-code dispatch cannot cover.
 
 ---
 
