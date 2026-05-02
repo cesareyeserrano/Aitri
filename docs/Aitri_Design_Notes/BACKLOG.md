@@ -43,7 +43,7 @@ Governed by [ADR-027](DECISIONS.md#adr-027--2026-04-23--adopt---upgrade-as-recon
 
 **Current status (2026-04-28, alpha.8):** `v2.0.0-alpha.8` is the latest staged pre-release. The reconciliation protocol core landed in alphas 1+2+3. Subsequent alphas closed gaps surfaced by canaries — alpha.4 normalize allowlist, alpha.5 verify display, alpha.6 scope-aware commands (regression), alpha.7 grammar fix + ADR-029, alpha.8 Go runner parser. See `CHANGELOG.md` for per-release detail.
 
-**Canaries to date (all author's own projects — not the third-party gate):** Ultron (modern drift + new feature pipeline), Aitri Hub (already current), Zombite (legacy hash drift, resolved via `rehash`). Ultron canary on alphas 6 and 7 is what surfaced the scope-grammar regression class and the Go-parser gap.
+**Canaries to date (all author's own projects — not the third-party gate):** Ultron (modern drift + new feature pipeline), Aitri Hub (already current), Zombite (legacy hash drift, resolved via `rehash`), Cesar (alpha.4 → alpha.15 dry-run + verify-complete on 4 e2e features, no defects, 2026-05-02 — see "Canary: Cesar" subsection below). Ultron canary on alphas 6 and 7 is what surfaced the scope-grammar regression class and the Go-parser gap.
 
 **Promotion to stable v2.0.0 gated on:** a third-project canary (external adopter) runs cleanly, OR evidence motivates catalog expansion. The internal canaries above are necessary but not sufficient — alpha.6 was a regression that internal tests did not catch. Promotion before an external real-project signal repeats that risk. See ADR-029 for the test-discipline counter, but ADR-029 itself is preventive — does not substitute for an external canary.
 
@@ -116,6 +116,67 @@ Five defects from the Zombite canary (third-project external sweep, alpha.4 → 
 - [x] **Z3 — `verify-complete` PIPELINE INSTRUCTION respects phase 5 state**. State-aware emission instead of hardcoded "next: run-phase 5"; feature scope with phase 5 approved emits no PIPELINE INSTRUCTION.
 - [x] **Z4 — Phase 3 validate rejects duplicate TC ids** (`lib/phases/phase3.js`). `complete 3` now throws when `test_cases[]` has repeated `id`s; error message lists each duplicate with count.
 - [x] **Z5 — `adopt --upgrade` flags legacy `04_TEST_RESULTS.json` schema** (Option A — flag-only). New VALIDATOR-GAP finding when `verifyPassed: true` and artifact lacks `results[]`/`summary`. Operator regenerates via `aitri verify-run`.
+
+#### Canary: Cesar (alpha.4 → alpha.15) — 2026-05-02
+
+Fourth author-owned canary. Cesar = Python web project, 9 sub-pipeline features (5 with e2e TCs), no Playwright in the toolchain (pytest only). Run on a `tar`-cloned copy at `/tmp/cesar-canary-20260502-132549/` — real Cesar untouched. Predictions written to `/tmp/cesar-predictions-20260502-132549.md` BEFORE any aitri command, per ADR-029 falsifiability discipline (counter-pattern: 2026-05-01 fabricated "Cesar canary outcome" never run, discarded in `c06f177`).
+
+**Method.** `aitri adopt --upgrade --dry-run` (no real upgrade) → `aitri status` → `aitri feature list` from 5 cwds (root, `spec/`, feature dir, feature/spec, outside-project) → `aitri feature verify-complete` on 4 e2e features (centered-layout 2 e2e, code-cleanup 2 e2e + no `automation` field on TCs, groq-fallback 2 e2e, ux-ui-upgrade 21 e2e — the largest e2e surface). Each output captured to `/tmp/cesar-out-NN-*.txt`.
+
+**Predictions vs observations (summary).**
+
+| ID | Prediction | Observed | Verdict |
+|----|---|---|---|
+| P1.1 | `Version: 2.0.0-alpha.4 would bump 2.0.0-alpha.15` | exact match | confirmed |
+| P1.2 | 0 schema migrations at root | no migration section emitted | confirmed |
+| P1.3 | 0 flagged validatorGap findings | no flagged section | confirmed |
+| P1.4 | 0 stateMissing additions at root | banner "schema already on canonical shape" | confirmed |
+| P1.5 | 0 phases inferred | no inference section | confirmed |
+| P1.6 | Banner `✅ Schema already on canonical shape — only the version string would change.` | exact match | confirmed |
+| P1.7 | Features `.aitri` files NOT touched by root dry-run | (no formal pre/post diff captured; dry-run skips `saveConfig` and never recurses — A2 still open) | partial |
+| P2.1 | `health.deployable: true` | **`Not ready — 1 blocker (BG-015 medium open bug)`** | refuted (sloppy prediction; bug-block is known mechanism per MEMORY) |
+| P3.1 | Lists 9 from project root | lists 9 | confirmed |
+| P3.2 | Walk-up from `spec/` lists 9 | lists 9 (alpha.15 walk-up working) | confirmed |
+| P3.3 | Walk-up from feature dir lists 9 | **does NOT list — emits "cwd is not project root", names project root, suggests `cd` command** | refuted-as-prediction, confirmed-as-design (alpha.15 ergonomic was about *naming the root*, not about pretending you're at it) |
+| P3.4 | Walk-up from feature/spec lists 9 | same as P3.3 | refuted-as-prediction, confirmed-as-design |
+| P3.5 | Outside-project → "No features yet" | exact match | confirmed |
+| P4.1 | centered-layout verify-complete may FAIL under alpha.15 e2e gate (no Playwright) | **`✅ Verify passed — 21/21 (19 unit + 2 e2e)`** | refuted |
+| P4.2 | ux-ui-upgrade (21 e2e) likely fails | **`✅ Verify passed — 40/47 (22 unit + 18 e2e), 7 manual`** | refuted |
+| P4.3 | code-cleanup (TCs missing `automation` field) — uncertain | **`✅ Verify passed — 15/15 (13 unit + 2 e2e)`** — undefined `automation` does not crash the gate | refuted-towards-permissive |
+| P4.4 | Non-e2e features re-pass cleanly | groq-fallback re-passes (also has 2 e2e) | confirmed |
+
+**Key findings.**
+
+1. **Root upgrade alpha.4 → alpha.15 is a clean version-only bump for a project authored under alpha.4.** Cesar's root `.aitri` already carries every alpha.79–alpha.80 field (`updatedAt, lastSession, verifyRanAt, auditLastAt, normalizeState, artifactHashes, upgradeFindings`) and its 30 root TCs already use `requirement_id`, 4 NFRs already use `category`. Migration catalog is empty. Confirms ADR-027 §1 "additive by default" — schema added between alpha.4 and alpha.15 was non-blocking for an alpha.4 project.
+
+2. **alpha.15 feature-list ergonomics works as designed but the design is more conservative than the prediction assumed.** From a feature subdirectory the command does NOT auto-resolve and list — it emits `No features in current directory (cwd is not the project root). / Project root: <abs-path> / Run from there: cd <path> && aitri feature list`. From `spec/` (a sibling of `features/`) it DOES walk up and list. The split is intentional: `spec/` is pipeline-root-adjacent, a feature dir is its own scope and listing root features from inside it would conflate scopes.
+
+3. **L1b — the alpha.15 verify-complete gate does NOT auto-fail no-Playwright projects with automated e2e TCs.** Four features with 27 total e2e TCs (18 automated + 9 manual) all pass verify-complete under alpha.15. The alpha.14 stack-aware failure message + manual-acceptance branches do not trigger here because the existing `04_TEST_RESULTS.json` already records passing e2e — the gate accepts pre-recorded results regardless of runner identity. **L1b's hypothesised regression on the gate path is refuted by Cesar.** The verify-run AUTO-RUN dispatcher (`verify.js:501-529` Playwright-only path) was NOT exercised in this canary because `.venv` was excluded from the copy, so no fresh runner invocation happened.
+
+4. **A2 (features sub-pipelines not upgraded by root `adopt --upgrade`) — evidence reconfirmed.** Cesar's 9 features all carry `aitriVersion: undefined`; root upgrade does not propagate. Same shape as the Zombite finding in 2026-04-28. No new urgency surfaced — the features still operate cleanly under alpha.15 because their internal schema is already canonical (modern `requirement_id`, modern NFR `category`). A2 stays Deferred.
+
+5. **3-feature `auditLastAt` and 3-feature `verifyRanAt` gap noted but harmless.** All 9 feature `.aitri` lack `auditLastAt`; centered-layout, code-cleanup, token-limit-ux also lack `verifyRanAt`. These are stateMissing fields the from-0.1.65 migrator would auto-add if features were in scope. Currently dormant because A2.
+
+**L1b disposition decision.**
+
+> **L1b stays at P2 — open.** Justification (evidence-line): `aitri feature verify-complete ux-ui-upgrade` under alpha.15 returned `✅ Verify passed — 40/47 tests passing (22 unit + 18 e2e), 7 manual` for a pytest-only project with 21 declared e2e TCs, demonstrating the GATE path is stack-agnostic when results are pre-recorded.
+>
+> **NOT downgraded to P3** because the AUTO-RUN dispatcher path (`verify.js:501-529`) — the actual location of the Playwright bias per MEMORY — was not exercised. A future canary that runs `aitri feature verify-run` from scratch on a non-Playwright project with declared automated e2e TCs is still required before downgrading.
+>
+> **NOT promoted to P1** because no observed failure or degraded behavior surfaced; no defect to fix.
+
+**What the canary did NOT exercise (gaps, not failures).**
+
+- Fresh `aitri feature verify-run` on a project with no Playwright (toolchain not available in `/tmp` copy). Re-running pre-existing results vs. fresh runner invocation are different code paths.
+- Real `aitri adopt --upgrade` (only dry-run executed). The ARTIFACT WRITES happen on the real run — not validated here.
+- Feature-scoped upgrade behavior (A2 — known deferred).
+
+**Follow-ups opened by this canary.**
+
+- [ ] **C1 — Re-run Cesar canary with `--upgrade` for real (no `--dry-run`) on a copy.** Establish that the 9-feature `.aitri` files and `BG-015` survive the root upgrade unchanged. Lightweight; do in next session.
+- [ ] **C2 — Find a non-Playwright project where `verify-run` (not just `verify-complete`) can run end-to-end against alpha.15.** This is what would actually exercise `verify.js:501-529` and either confirm or refute the auto-run Playwright bias. Without it L1b cannot move to P3.
+
+**Promotion gate status after this canary.** Author-owned canaries: Hub, Ultron, Zombite, Cesar (was planned, now executed). Third-party adopter still required for stable v2.0.0 promotion (per CLAUDE.md Critical rule + this section's earlier paragraph). Cesar increases the n by one but does not unlock promotion.
 
 #### Deferred out of alpha.1 / alpha.2 / alpha.3 (by decision)
 
