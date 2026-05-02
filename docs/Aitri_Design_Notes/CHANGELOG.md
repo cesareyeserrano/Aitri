@@ -5,6 +5,20 @@
 
 ---
 
+## [2.0.0-alpha.17] — 2026-05-02 — orphan IDEA.md absorption at upgrade time
+
+Seventeenth staged pre-release on `feat/upgrade-protocol`. One change. Closes the residue from v0.1.89's `aitri approve 1` archive: projects approved before that release kept `IDEA.md` at the root indefinitely. Surfaced 2026-05-02 by the author noticing the file persisting through several alpha upgrades on his own projects.
+
+**Orphan IDEA.md absorption** (`lib/upgrade/migrations/from-0.1.65.js::diagnoseOrphanIdea`). New BLOCKING migration in the existing per-version module. Triggers when Phase 1 is approved AND `IDEA.md` exists at the project root AND `01_REQUIREMENTS.json` lacks `original_brief`. Auto-migratable: copies `IDEA.md` content into `original_brief`, unlinks the file, re-stamps `artifactHashes[1]` so `status` does not flag drift on the next call. Edge case (flag-only): if `original_brief` is already populated, emit a `validatorGap` finding instead — overwriting a prior approval's archived brief would clobber non-empty data; operator decides which copy is authoritative.
+
+**Cost shape.** Function short-circuits on `fs.existsSync('IDEA.md')` before any JSON parse. After the first successful migration the file is gone, so subsequent upgrades pay one stat() and return immediately. No per-command cost (`status`, `resume`, `verify` etc. never invoke diagnose).
+
+**Tests added (6 new in `test/upgrade.test.js`):** auto-migrate happy path; flag-only when `original_brief` already populated; no flag when Phase 1 not approved; no flag when IDEA.md absent; idempotent across multiple upgrades; `artifactHashes[1]` re-stamped to post-archive content. Total suite: 1091 → 1097 passing, 0 failures.
+
+**Why a bump.** New auto-migration that mutates two artifacts (`01_REQUIREMENTS.json` field add + `IDEA.md` deletion). Operator-visible behaviour change on every legacy project.
+
+---
+
 ## [2.0.0-alpha.16] — 2026-05-02 — Cesar canary fixes (N1 + sub-finding + L2 mensajería)
 
 Sixteenth staged pre-release on `feat/upgrade-protocol`. Three changes ship together because the Cesar canary 2026-05-02 PM (alpha.4 → alpha.15 deepening pass) surfaced them as one defect with two layers plus an absorbed L1b mensajería piece. See `BACKLOG.md` for the full canary entry.

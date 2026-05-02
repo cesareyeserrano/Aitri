@@ -18,6 +18,22 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-alpha.17 (2026-05-02) — orphan IDEA.md absorption at upgrade time — additive
+
+**`adopt --upgrade` absorbs orphan IDEA.md into `01_REQUIREMENTS.json.original_brief`** (additive — new BLOCKING migration in `lib/upgrade/migrations/from-0.1.65.js::diagnoseOrphanIdea`). Closes a long-standing residue: the `aitri approve 1` archive landed in v0.1.89, so projects whose Phase 1 was approved before that release kept `IDEA.md` at the project root indefinitely — every subsequent alpha bumped `aitriVersion` without touching the file.
+
+**Trigger.** Phase 1 is approved (`approvedPhases` contains `1` or `"1"`) AND `IDEA.md` exists at the project root AND `01_REQUIREMENTS.json` lacks a `original_brief` field. The function short-circuits on `fs.existsSync('IDEA.md')` before any JSON parse, so the post-migration cost is one stat() per upgrade run.
+
+**Behaviour.** Auto-migratable (shape-only). Reads `IDEA.md` → writes its content into `01_REQUIREMENTS.json.original_brief` → unlinks `IDEA.md` → re-stamps `artifactHashes[1]` to match the post-archive content (no false drift on next status). One `upgrade_migration` event with `target: 'IDEA.md'` and `transform: 'absorb IDEA.md → 01_REQUIREMENTS.json.original_brief, unlink IDEA.md'`.
+
+**Edge case (flag-only).** When `original_brief` is already populated, the migration becomes a `validatorGap` finding (`autoMigratable: false`). Overwriting a non-empty field would clobber a prior approval's archived brief; Aitri does not guess which copy is authoritative. Operator compares contents and decides.
+
+**Why additive.** `original_brief` is an optional field that Hub-style readers either already consume or ignore. The new migration adds it deterministically; no existing reader breaks. The `upgrade_migration` event shape is unchanged.
+
+**Hub impact:** none required. Projects that long ago lost the archive moment now self-heal on the next `adopt --upgrade`. Hub readers iterating `events[]` will see the new `target: 'IDEA.md'` once per affected project.
+
+---
+
 ## v2.0.0-alpha.16 (2026-05-02) — N1 venv-relative manifest finding + verify-run ENOENT preservation — additive
 
 Surfaced by Cesar canary 2026-05-02 PM (alpha.4 → alpha.15 deepening pass). Two changes ship together because they describe the same defect at two layers — one at upgrade time (flag the legacy state), one at run time (don't propagate a phantom regression when the flagged state is exercised).
