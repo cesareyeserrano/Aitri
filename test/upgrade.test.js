@@ -1035,6 +1035,130 @@ describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy test resu
   });
 });
 
+// ── N1 (alpha.16): legacy venv-relative manifest test_runner flagging ───────
+//
+// Surfaced by Cesar canary 2026-05-02 (deepening pass). Projects authored
+// before alpha.9 (cwd change `3603a49`) whose `04_IMPLEMENTATION_MANIFEST.json::
+// test_runner` is `.venv/bin/pytest …` (relative to project root) silently
+// break once `aitri feature verify-run` runs from the feature directory:
+// the binary is no longer reachable. Symptom is a degraded results file
+// (0 passed / N skipped) plus `verifyPassed: false` per Z1, even though the
+// runner never executed. Decision: flag at upgrade time (VALIDATOR-GAP); do
+// not auto-rewrite (option (ii) would violate ADR-027 §2 shape-only and is
+// fragile across venv layouts) and do not introduce `--cwd` (option (i)
+// undoes the alpha.9 scoping fix). Operator edits the manifest to use an
+// absolute path or a PATH-resolved binary.
+
+describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy venv-relative manifest runner (N1)', () => {
+  function writeRootManifest(dir, runner) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+      JSON.stringify({ files_created: [{ path: 'src/x.py' }], test_runner: runner })
+    );
+  }
+  function writeFeatureManifest(dir, name, runner) {
+    const featDir = path.join(dir, 'features', name, 'spec');
+    fs.mkdirSync(featDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, 'features', name, '.aitri'),
+      JSON.stringify({ projectName: name, artifactsDir: 'spec' })
+    );
+    fs.writeFileSync(
+      path.join(featDir, '04_IMPLEMENTATION_MANIFEST.json'),
+      JSON.stringify({ files_created: [{ path: 'src/x.py' }], test_runner: runner })
+    );
+  }
+
+  it('flags root manifest when test_runner starts with `.venv/`', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir);
+      writeRootManifest(dir, '.venv/bin/pytest tests/ -v');
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      const f = findings.find(x => /legacy venv-relative/.test(x.transform));
+      assert.ok(f, 'expected a venv-relative finding for the root manifest');
+      assert.equal(f.category, 'validatorGap');
+      assert.equal(f.autoMigratable, false);
+      assert.equal(f.target, '04_IMPLEMENTATION_MANIFEST.json');
+      assert.match(f.reason, /alpha\.9|cwd/i);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('flags `venv/` (no leading dot) and `env/` prefixes', () => {
+    for (const runner of ['venv/bin/pytest -v', 'env/bin/pytest -v']) {
+      const dir = tmpDir();
+      try {
+        writeLegacyConfig(dir);
+        writeRootManifest(dir, runner);
+        const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+        assert.ok(
+          findings.find(x => /legacy venv-relative/.test(x.transform)),
+          `expected finding for runner "${runner}"`
+        );
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    }
+  });
+
+  it('does NOT flag absolute test_runner paths', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir);
+      writeRootManifest(dir, '/Users/me/.venv/bin/pytest tests/ -v');
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      assert.equal(findings.find(x => /legacy venv-relative/.test(x.transform)), undefined);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT flag PATH-resolved or unrelated runners (bare pytest, npm test, go test)', () => {
+    for (const runner of ['pytest -v', 'npm test', 'go test ./... -v', 'pipenv run pytest']) {
+      const dir = tmpDir();
+      try {
+        writeLegacyConfig(dir);
+        writeRootManifest(dir, runner);
+        const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+        assert.equal(
+          findings.find(x => /legacy venv-relative/.test(x.transform)), undefined,
+          `did not expect a finding for runner "${runner}"`
+        );
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    }
+  });
+
+  it('emits one finding per offending manifest across root + features/', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir);
+      writeRootManifest(dir, '.venv/bin/pytest -v');
+      writeFeatureManifest(dir, 'alpha-feature', '.venv/bin/pytest -v');
+      writeFeatureManifest(dir, 'beta-feature',  'venv/bin/pytest -v');
+      writeFeatureManifest(dir, 'clean-feature', '/abs/bin/pytest -v');  // not flagged
+
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')))
+        .filter(x => /legacy venv-relative/.test(x.transform));
+
+      assert.equal(findings.length, 3, `expected 3 findings, got ${findings.length}`);
+      const targets = findings.map(f => f.target).sort();
+      assert.deepEqual(targets, [
+        '04_IMPLEMENTATION_MANIFEST.json',
+        'features/alpha-feature/spec/04_IMPLEMENTATION_MANIFEST.json',
+        'features/beta-feature/spec/04_IMPLEMENTATION_MANIFEST.json',
+      ]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('flag survives migrateAll (non-auto-migratable → returned in flagged[])', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir);
+      writeRootManifest(dir, '.venv/bin/pytest tests/ -v');
+      let result;
+      silence(() => { result = migrateAll(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')), '0.1.99'); });
+      assert.ok(result.flagged.find(f => /legacy venv-relative/.test(f.transform)));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── Approval preservation across shape-only migrations (Option B) ────────────
 //
 // §2 guarantees migrations change shape, not content. Therefore an approval
