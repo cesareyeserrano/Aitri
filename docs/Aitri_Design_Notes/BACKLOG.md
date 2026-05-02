@@ -178,6 +178,35 @@ Fourth author-owned canary. Cesar = Python web project, 9 sub-pipeline features 
 
 **Promotion gate status after this canary.** Author-owned canaries: Hub, Ultron, Zombite, Cesar (was planned, now executed). Third-party adopter still required for stable v2.0.0 promotion (per CLAUDE.md Critical rule + this section's earlier paragraph). Cesar increases the n by one but does not unlock promotion.
 
+##### Deepening session — same day, 2026-05-02 PM
+
+The morning canary did NOT exercise the load-bearing paths (`adopt --upgrade` real and `verify-run` real). Re-ran on a fresh `/tmp` copy with `.venv` symlinked to enable pytest. Predictions in `/tmp/cesar-predictions-deep-*.md` (gone after cleanup, content quoted in the commit message). Outputs captured to `/tmp/cesar-out-D1-*.txt` and `/tmp/cesar-out-D2-*.txt`.
+
+**D1 — `aitri adopt --upgrade` REAL (no `--dry-run`):**
+- Banner exactly as predicted: `Version: 2.0.0-alpha.4 → 2.0.0-alpha.15`, "will change" (vs dry-run "would change"), single-line success.
+- Root `.aitri` md5 mutated `75df61a8…` → `74b9828d…`. Diff: `aitriVersion` bumped, `upgradeFindings: []`, `updatedAt` refreshed. **No upgrade event appended to `events[]`** — by design (the commit point is the version field + upgradeFindings, not an event). Worth knowing for Hub: a consumer watching `events[]` cannot detect an upgrade, only a change in `aitriVersion`.
+- All 9 feature `.aitri` md5s INTACT after root upgrade. **A2 reconfirmed for the third time** (Zombite, Cesar shallow, Cesar deep). Stays Deferred but the evidence is now overdetermined — A2 is real and consistent.
+- Agent files (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`, `.codex/instructions.md`) all present pre-upgrade → none regenerated. `writeAgentFiles()` only fills missing files; behavior confirmed.
+- C1 follow-up: **closed by this run.** Real upgrade is non-destructive on Cesar.
+
+**D2 — `aitri feature verify-run` REAL on `centered-layout` (the load-bearing test):**
+- First attempt with default manifest runner `.venv/bin/pytest tests/test_centered_layout.py -v -s`: **FAILED with `Command not found: ".venv/bin/pytest"`**. Root cause: alpha.9 commit `3603a49` changed verify-run cwd from project root to feature dir; manifests authored under alpha.4 (with `.venv/` paths relative to root cwd) silently break.
+- Second attempt with `--cmd` flag and absolute paths: pytest executed but failed at collection (`FileNotFoundError: 'src/web/static/styles.css'`) — the test code itself uses `Path("src/...")` relative to cwd, and there is no flag in `verify-run` to override cwd back to root.
+- Net: pytest never produced TC-tagged output, so `Auto-detected: 0 TC(s) total` and all 21 TCs were marked `skip`.
+
+**This surfaced two findings:**
+
+- [ ] **N1 (P1, NEW) — Legacy `.venv/`-relative manifest paths break silently after alpha.9 cwd change.** Any project authored before alpha.9 whose `04_IMPLEMENTATION_MANIFEST.json::test_runner` is `.venv/bin/pytest …` (relative) will see verify-run fail with `Command not found` once feature scope cwd became the feature dir. The error message is clear (suggests `--cmd`) but: (a) `--cmd` cannot override cwd, so even with absolute pytest path, tests that read files relative to cwd still fail; (b) `verify-run` writes a degraded `04_TEST_RESULTS.json` (0 passed, 21 skipped) AND propagates `verifyPassed: false` per Z1, even though the runner never ran. **A user upgrading alpha.4 → alpha.15 will see ALL their feature pipelines flip to `verify ❌` after the first verify-run attempt — a hard regression of perceived state, even though no Aitri logic is wrong.** Deferred for fix in next session. Likely fix path: either (i) add a `--cwd <path>` flag to `verify-run` so the operator can pin runner cwd to project root, or (ii) detect `.venv/` in manifest runner string and prepend project-root cwd resolution, or (iii) flag this exact pattern during `adopt --upgrade` as a VALIDATOR-GAP finding so the operator updates the manifest deliberately. Decision belongs in next session, not this one.
+
+- [x] **L1b → DOWNGRADE to P3 (was P2).** Code-grounded justification: `lib/commands/verify.js:509` reads `if (hasPwConfig) { … auto-run Playwright … }`. The Playwright auto-dispatch is GATED on `playwright.config.js/ts` existence. Cesar has no such file → the block is dead code for Cesar → no Playwright bias in the runtime dispatcher. **The runtime concern that motivated L1b's P2 status does not exist in code.** What DOES exist is mensajería sesgada in `verify.js:533-536` (`SKIP_NOTE`) and `verify.js:768` (`skipped_e2e/browser` in summary display) — both assume `type:'e2e'` ≡ "browser-driven" in the explanation text. That is L2 territory (templates/messaging prescribing Playwright), not L1b. L1b has been collapsed into L2 for the next sweep. C2 follow-up: **closed** — the verify-run path is verified by code reading + the `hasPwConfig` gate in this canary's runs (zero Playwright invocations occurred).
+
+**What this deepening did NOT do (deliberately).**
+- No code fix for N1 — flagged for next session per ADR-029 round-trip discipline.
+- No second-feature verify-run — N1 affects all 9 features identically; one example is sufficient evidence.
+- No alpha.16 — disciplined separation of canary from release.
+
+**Updated promotion gate status.** Author-owned canaries unchanged in count (Hub, Ultron, Zombite, Cesar). C1 + C2 closed; **N1 is a new P1 blocker** that should be fixed before v2.0.0 stable promotion (legacy projects upgrading from alpha.4 hit it on first verify-run). Third-party adopter gate still open.
+
 #### Deferred out of alpha.1 / alpha.2 / alpha.3 (by decision)
 
 - [ ] **A2 — Features sub-pipelines not upgraded by root `adopt --upgrade`** — evidence stands (Zombite's `stabilizacion` feature kept `aitriVersion: null` after root upgrade). Reconsidered for alpha.3 and deferred: implementing it requires deciding whether migrations apply per-scope (root-only vs cascading to features) and how diagnose composes findings across scopes. Not a point-release change. Re-open for v2.0.0 pre-stable or v2.0.1.
