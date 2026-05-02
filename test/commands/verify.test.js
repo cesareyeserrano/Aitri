@@ -1008,6 +1008,96 @@ describe('cmdVerifyRun() — Z1 verifyPassed invalidation', () => {
   });
 });
 
+// ── N1 sub-finding (alpha.16): runner ENOENT does NOT persist degraded ──────
+//                              04_TEST_RESULTS.json or flip verifyPassed.
+//
+// Distinction: "runner crashed before producing output" vs "runner ran and
+// produced bad results". The first case must be visible (clear error) but
+// must NOT mutate the artifact / .aitri state — otherwise the operator sees
+// a phantom regression (verify ❌, 0/N skipped) on a project where the test
+// suite never executed. Surfaced by Cesar canary 2026-05-02 alongside N1:
+// .venv-relative manifests on alpha.4 → alpha.15 upgrade trip ENOENT and the
+// previous behaviour over-wrote 04_TEST_RESULTS.json + flipped verifyPassed.
+
+describe('cmdVerifyRun() — runner ENOENT does not persist degraded results', () => {
+  function seed(dir, runner) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases:  [1, 2, 3, 4],
+      completedPhases: [1, 2, 3, 4],
+      verifyPassed:    true,
+      verifySummary:   { total: 1, passed: 1, failed: 0, skipped: 0 },
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+      files_created: [{ path: 'src/x.py' }],
+      test_runner:   runner,
+    }));
+  }
+  function silent(fn) {
+    const origLog = console.log; const origErr = process.stderr.write;
+    console.log = () => {}; process.stderr.write = () => true;
+    try { return fn(); } finally { console.log = origLog; process.stderr.write = origErr; }
+  }
+
+  it('does NOT write 04_TEST_RESULTS.json when runner is ENOENT', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-enoent-write-'));
+    try {
+      seed(dir, '.venv/bin/pytest tests/ -v');
+      const errs = [];
+      silent(() => {
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { errs.push(m); throw new Error(m); } }); }
+        catch { /* err() throws, ignore */ }
+      });
+      assert.equal(fs.existsSync(path.join(dir, 'spec/04_TEST_RESULTS.json')), false,
+        '04_TEST_RESULTS.json must NOT be written when runner failed to start');
+      assert.ok(errs.some(m => /Command not found|ENOENT|runner/i.test(m)),
+        'expected an err() message about the missing runner');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT flip verifyPassed when runner is ENOENT', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-enoent-flag-'));
+    try {
+      seed(dir, '.venv/bin/pytest tests/ -v');
+      silent(() => {
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } }); }
+        catch { /* err() throws */ }
+      });
+      const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+      assert.equal(cfg.verifyPassed, true,
+        'verifyPassed must be preserved — the runner never ran, this is not a regression');
+      assert.ok(cfg.verifySummary, 'verifySummary must be preserved');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('preserves a previously written 04_TEST_RESULTS.json on ENOENT', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-enoent-preserve-'));
+    try {
+      seed(dir, '.venv/bin/pytest tests/ -v');
+      const prevResults = {
+        executed_at: '2026-04-01T00:00:00.000Z',
+        test_runner: 'old-runner',
+        results: [{ tc_id: 'TC-001', status: 'pass' }],
+        summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+      };
+      fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify(prevResults));
+      silent(() => {
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } }); }
+        catch { /* err() throws */ }
+      });
+      const after = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8'));
+      assert.deepEqual(after, prevResults, 'previous results must be preserved verbatim');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── Z3 (alpha.13): verify-complete next-action respects phase 5 state ────────
 //
 // Defect: verify-complete always emitted "next: run-phase 5" regardless of
