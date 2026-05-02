@@ -37,6 +37,22 @@ Sixteenth staged pre-release on `feat/upgrade-protocol`. Three changes ship toge
 
 ---
 
+## [2.0.0-alpha.15] — 2026-05-01 — feature scope ergonomics (Cesar canary readiness)
+
+Fifteenth staged pre-release on `feat/upgrade-protocol`. Two long-standing P3 items closed before the Cesar canary (Python web, alpha.4 baseline, 9 sub-pipelines) so that any finding naming either of these has been falsified rather than deferred. Both surfaced by Ultron canary 2026-04-27.
+
+**`aitri feature` USAGE documents `--cmd` flag on `verify-run`.** The flag has been wired since alpha.7 — `lib/commands/feature.js:60-65` `featureFlagValue` reads `--cmd` from the feature args and `verify.js:391` honours it as the override for `manifest.test_runner` — but the USAGE block in `feature.js` did not list it. Operators only found the override by reading source. The USAGE line for `aitri feature verify-run <name>` now reads `[--cmd "..."]` with the inline note `(--cmd overrides manifest.test_runner)`.
+
+**`aitri feature list` from a sub-directory of an Aitri project names the project root explicitly.** Previously the cwd-only lookup printed `No features yet. Run: aitri feature init <name>` regardless of whether an ancestor directory was the actual project root. Ultron canary 2026-04-27 reproduced this: an agent in `features/network-monitoring/spec/` reasonably believed the feature was lost. New private helper `findAncestorProjectRoot()` walks parents looking for `.aitri`; if found, the message names the discovered project root and the `cd` command. Standalone-tmpdir behaviour unchanged. Cesar canary 2026-05-02 verified the boundary: from inside a feature directory itself the message still fires (a feature dir is its own scope) — the walk-up listing only happens from a sibling-of-`features/` directory like `spec/`.
+
+**What did not change.** No artifact / `.aitri` schema change. No new gates. No phase logic touched. Tests added: 3 in `test/commands/feature.test.js` (`names project root when invoked from a sub-directory of an Aitri project`, `keeps 'No features yet' message when no ancestor is an Aitri project`, `USAGE block mentions --cmd flag for verify-run`). Total suite: 1077 → 1080 passing, 0 failures.
+
+**Why a bump and not a silent fix.** The USAGE addition is an operator-visible CLI doc change; the `feature list` message branch is an observable behaviour change on a previously silent failure mode. Per CLAUDE.md: visible CLI output change → bump. `docs/integrations/CHANGELOG.md` was deliberately not updated for this release — neither change touches the schema or artifact contract that subproduct readers consume.
+
+**Pre-stable status.** v2.0.0 stable promotion remains gated on a third-party adopter validating end-to-end. Streak-of-quietness counter advances — alpha.14 was 2026-04-30, alpha.15 is 2026-05-01.
+
+---
+
 ## [2.0.0-alpha.14] — 2026-04-30 — e2e gate accepts `automation: "manual"` (web-bias removal — partial L1)
 
 Fourteenth staged pre-release on `feat/upgrade-protocol`. Surfaced by Go-on-RaspberryPi canary on 2026-04-29: a non-web project with 26 e2e TCs was blocked by `verify-complete`, and the in-product remediation suggested falsifying the TC `type` to bypass the gate — an honor-system patch contradicting Aitri's own validation philosophy. This release closes the immediate block; the broader runner-dispatch work is tracked as L1b in `BACKLOG.md` and deferred to P2 (no consumer is blocked once L1a is in).
