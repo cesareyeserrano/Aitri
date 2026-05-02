@@ -1098,6 +1098,79 @@ describe('cmdVerifyRun() — runner ENOENT does not persist degraded results', (
   });
 });
 
+// ── L2 (alpha.16): runtime mensajería neutral when no Playwright config ─────
+//
+// Pre-alpha.16 SKIP_NOTE always told the operator "E2E tests may also require
+// a browser environment", and the skipped-e2e count was always labeled
+// "e2e/browser" — both prescribe Playwright as the implied runner. On a
+// project without playwright.config.{js,ts} the wording was misleading: the
+// real fix is usually a missing @aitri-tc marker or the wrong runner, not a
+// browser. Reword conditionally — "browser" only when the config is present.
+
+describe('cmdVerifyRun() — L2 mensajería conditional on Playwright config', () => {
+  function seed(dir, withPwConfig) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases:  [1, 2, 3, 4],
+      completedPhases: [1, 2, 3, 4],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r', type: 'e2e' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+      files_created: [{ path: 'runner.js' }],
+      test_runner:   'node runner.js',
+    }));
+    fs.writeFileSync(path.join(dir, 'runner.js'), '// no markers, all skip\n');
+    if (withPwConfig) {
+      fs.writeFileSync(path.join(dir, 'playwright.config.js'), 'export default {};\n');
+    }
+  }
+  function captureStdout(fn) {
+    let out = '';
+    const origLog = console.log; const origErr = process.stderr.write;
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    process.stderr.write = () => true;
+    try { fn(); } finally { console.log = origLog; process.stderr.write = origErr; }
+    return out;
+  }
+
+  it('with playwright.config.js: skip count uses "browser" label and SKIP_NOTE mentions browser', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-l2-pw-'));
+    try {
+      seed(dir, true);
+      const out = captureStdout(() => {
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } }); }
+        catch { /* playwright not installed in this test env — ignore exit */ }
+      });
+      assert.match(out, /e2e\/browser/, 'expected "e2e/browser" label when playwright.config is present');
+      const written = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8'));
+      const skip = written.results.find(r => r.tc_id === 'TC-001');
+      assert.match(skip.notes, /browser environment/, 'SKIP_NOTE must mention browser when pw config exists');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('without playwright.config: skip count uses neutral "e2e" label and SKIP_NOTE drops browser hint', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-l2-nopw-'));
+    try {
+      seed(dir, false);
+      const out = captureStdout(() => {
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } }); }
+        catch { /* ignore */ }
+      });
+      assert.doesNotMatch(out, /e2e\/browser/, 'must NOT use "browser" wording without playwright.config');
+      assert.match(out, /\b1 e2e\b|\(1 e2e,/, 'expected neutral "e2e" label');
+      const written = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8'));
+      const skip = written.results.find(r => r.tc_id === 'TC-001');
+      assert.doesNotMatch(skip.notes, /browser/, 'SKIP_NOTE must NOT mention browser without pw config');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── Z3 (alpha.13): verify-complete next-action respects phase 5 state ────────
 //
 // Defect: verify-complete always emitted "next: run-phase 5" regardless of
