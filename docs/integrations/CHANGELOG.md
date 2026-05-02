@@ -18,6 +18,22 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-alpha.16 (2026-05-02) — N1 venv-relative manifest finding + verify-run ENOENT preservation — additive
+
+Surfaced by Cesar canary 2026-05-02 PM (alpha.4 → alpha.15 deepening pass). Two changes ship together because they describe the same defect at two layers — one at upgrade time (flag the legacy state), one at run time (don't propagate a phantom regression when the flagged state is exercised).
+
+**N1 — `adopt --upgrade` flags legacy `.venv/`-relative manifest `test_runner`** (additive — new finding type). New VALIDATOR-GAP finding emitted by `lib/upgrade/migrations/from-0.1.65.js::diagnoseLegacyVenvManifest`. Walks the root `04_IMPLEMENTATION_MANIFEST.json` and every `features/<name>/.../04_IMPLEMENTATION_MANIFEST.json`; emits one finding per offending manifest whose `test_runner` matches `^\.?venv/|^env/`. `autoMigratable: false` per ADR-027 §2 (shape-only transforms). Reason explains the alpha.9 cwd change (`3603a49`) and points the operator at absolute paths or PATH-resolved binaries. Findings persist via the existing `upgradeFindings[]` channel introduced in alpha.3; Hub-style readers iterating that array will now see entries with `target` strings of the form `features/<name>/spec/04_IMPLEMENTATION_MANIFEST.json`.
+
+**N1 sub-finding — `verify-run` ENOENT does not persist degraded results** (additive — observable run-time behaviour change, no schema change). When the runner binary is not found (`spawnSync.error.code === 'ENOENT'`), `verify-run` now exits via `err()` instead of writing a degraded `04_TEST_RESULTS.json` (0 passed / N skipped) and flipping `verifyPassed = false` per Z1. The on-disk `04_TEST_RESULTS.json` and `.aitri.verifyPassed` / `.aitri.verifySummary` are preserved verbatim. **Hub impact:** none — `.aitri` and the artifact are unchanged when ENOENT fires; the only difference is fewer phantom regressions when an operator upgrades a legacy project before fixing its manifest.
+
+**L2 mensajería — runtime wording neutral when no Playwright config** (cosmetic, no consumer contract). `verify-run` `Skipped:` summary and `SKIP_NOTE` no longer prescribe Playwright unconditionally. With `playwright.config.{js,ts}` present at the project root the wording is unchanged ("e2e/browser", "may also require a browser environment"); without it the count is labeled neutrally as "e2e" and the browser hint is dropped. Templates ("Playwright as default e2e runner") are not touched in this release — that piece is tracked separately. **Hub impact:** none — Hub does not parse `verify-run` stdout.
+
+**What did NOT change.** No `.aitri` schema change. No artifact schema change. No new event type. No new command. No phase lifecycle change. The new finding rides the existing `upgrade_migration` / `upgradeFindings[]` plumbing.
+
+**Why additive (not breaking).** Older Hub builds that read `upgradeFindings[]` continue to work — the new finding's shape (`category: "validatorGap"`, `target` string, `transform` string, `reason` string) matches the existing flagged-finding contract since alpha.3. The `verify-run` ENOENT change makes `.aitri.verifyPassed` *more* stable, not less — readers cannot observe a regression introduced by this release.
+
+---
+
 ## v2.0.0-alpha.14 (2026-04-30) — e2e gate accepts `automation: "manual"` as covered — additive
 
 Surfaced by Go-on-RaspberryPi canary (non-web project, 26 e2e TCs, no Playwright). The `verify-complete` e2e gate now treats a TC with `automation: "manual"` (recorded as `status: "manual"` by `verify-run`) as satisfying the gate, consistent with the policy already applied to FR coverage (ARTIFACTS.md `manual` semantics, alpha.4+).

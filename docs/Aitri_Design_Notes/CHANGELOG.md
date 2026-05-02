@@ -5,6 +5,24 @@
 
 ---
 
+## [2.0.0-alpha.16] — 2026-05-02 — Cesar canary fixes (N1 + sub-finding + L2 mensajería)
+
+Sixteenth staged pre-release on `feat/upgrade-protocol`. Three changes ship together because the Cesar canary 2026-05-02 PM (alpha.4 → alpha.15 deepening pass) surfaced them as one defect with two layers plus an absorbed L1b mensajería piece. See `BACKLOG.md` for the full canary entry.
+
+**N1 (P1) — `adopt --upgrade` flags legacy `.venv/`-relative manifest `test_runner`.** New VALIDATOR-GAP finding in `lib/upgrade/migrations/from-0.1.65.js::diagnoseLegacyVenvManifest`. Walks the root `04_IMPLEMENTATION_MANIFEST.json` and every `features/<name>/.../04_IMPLEMENTATION_MANIFEST.json`; emits one finding per manifest whose `test_runner` matches `^\.?venv/|^env/`. `autoMigratable: false` per ADR-027 §2 — rewriting the path is semantic and fragile across venv layouts (`.venv`, `venv`, `~/venvs`, `poetry`, `pipenv`). Closes the silent breakage where pre-alpha.9 manifests trip `Command not found` after the alpha.9 cwd change (`3603a49`) moved feature `verify-run` cwd to the feature directory.
+
+**N1 sub-finding (P1) — `verify-run` ENOENT does not persist degraded results.** `lib/commands/verify.js::cmdVerifyRun` now exits via `err()` when `spawnSync.error.code === 'ENOENT'` instead of writing a degraded `04_TEST_RESULTS.json` (0 passed / N skipped) and flipping `verifyPassed = false` per Z1. The on-disk artifact and `.aitri.verifyPassed` / `.aitri.verifySummary` are preserved verbatim — a missing runner is not the same as a failing test suite. The error message also drops the misleading `--cmd ".venv/bin/pytest …"` suggestion that pointed back at the same broken path; it now suggests absolute or PATH-resolved alternatives.
+
+**L2 (P2 — mensajería piece) — runtime wording neutral when no Playwright config.** `SKIP_NOTE` and the `Skipped:` summary line in `verify-run` no longer prescribe Playwright unconditionally. With `playwright.config.{js,ts}` present, wording is unchanged ("e2e/browser", "may also require a browser environment"). Without it, the count is labeled neutrally ("e2e") and the browser hint is dropped from `SKIP_NOTE`. Absorbs L1b's mensajería half — the gate-path L1b hypothesis was refuted by Cesar (the dispatch block at `verify.js:509` is dead code on projects without `playwright.config`); only the wording remained. Templates ("Playwright as default e2e runner") are not touched in this release — that piece is tracked separately.
+
+**Tests added (11 new across 2 files):** 6 in `test/upgrade.test.js` (N1 finding across `.venv/`, `venv/`, `env/` prefixes; absolute paths and PATH-resolved binaries NOT flagged; one finding per offending manifest across root + multiple `features/`; flag survives `migrateAll` into `flagged[]`) + 3 in `test/commands/verify.test.js` (ENOENT does not write 04_TEST_RESULTS.json, does not flip verifyPassed, preserves prior on-disk results) + 2 in `test/commands/verify.test.js` (L2 mensajería: pw-config branch keeps "browser", no-pw branch is neutral and drops the browser hint). Total suite: 1080 → 1091 passing, 0 failures.
+
+**Why a bump and not a silent fix.** N1 introduces a new `upgradeFindings[]` finding type (Hub-style readers will start seeing it on legacy projects); the ENOENT change is an observable runtime behaviour change on `.aitri.verifyPassed`; L2 mensajería is operator-visible. Per CLAUDE.md: any of these alone warrants a bump.
+
+**Pre-stable status.** v2.0.0 stable promotion remains gated on a third-party adopter validating end-to-end. Author canaries clean as of alpha.16 (Hub, Ultron, Zombite, Cesar). Streak-of-quietness counter resets — alpha.15 was 2026-05-01, alpha.16 is 2026-05-02 (canary-driven).
+
+---
+
 ## [2.0.0-alpha.14] — 2026-04-30 — e2e gate accepts `automation: "manual"` (web-bias removal — partial L1)
 
 Fourteenth staged pre-release on `feat/upgrade-protocol`. Surfaced by Go-on-RaspberryPi canary on 2026-04-29: a non-web project with 26 e2e TCs was blocked by `verify-complete`, and the in-product remediation suggested falsifying the TC `type` to bypass the gate — an honor-system patch contradicting Aitri's own validation philosophy. This release closes the immediate block; the broader runner-dispatch work is tracked as L1b in `BACKLOG.md` and deferred to P2 (no consumer is blocked once L1a is in).
