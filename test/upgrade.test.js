@@ -1159,6 +1159,126 @@ describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy venv-rela
   });
 });
 
+// ── Orphan IDEA.md absorption (alpha.17) ────────────────────────────────────
+//
+// Background: `aitri approve 1` archives IDEA.md into
+// `01_REQUIREMENTS.json.original_brief` and deletes the file. That logic
+// landed in v0.1.89 (commit fa68794). Projects whose Phase 1 was approved
+// before v0.1.89 missed the archive — `IDEA.md` survives every subsequent
+// `adopt --upgrade` because no migrator touches it. This migrator closes
+// that gap retroactively: when Phase 1 is approved + IDEA.md still on disk
+// + 01_REQUIREMENTS.json lacks `original_brief`, absorb and unlink.
+//
+// Auto-migratable (shape transform — same content moves from one file to
+// one field; nothing semantic). Non-destructive: the brief is preserved
+// inside the artifact before IDEA.md is removed.
+//
+// Cost: a single `fs.existsSync` per upgrade run. After the first
+// successful migration the file is gone, so subsequent upgrades short-
+// circuit on the existsSync check without parsing or reading anything.
+
+describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md absorption', () => {
+  function writeReqsArtifact(dir, data = { functional_requirements: [] }) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify(data, null, 2));
+  }
+
+  it('migrates: Phase 1 approved + IDEA.md present + original_brief missing → absorb + unlink', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir);
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n\nThe original idea text.\n');
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+
+      assert.equal(fs.existsSync(path.join(dir, 'IDEA.md')), false, 'IDEA.md must be removed');
+      const after = JSON.parse(fs.readFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), 'utf8'));
+      assert.equal(after.original_brief, '# Brief\n\nThe original idea text.\n',
+        'original_brief must contain the verbatim IDEA.md content');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('flags (does NOT auto-migrate) when original_brief already exists', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir, { functional_requirements: [], original_brief: 'pre-existing' });
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), 'leftover content');
+
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      const f = findings.find(x => x.target === 'IDEA.md');
+      assert.ok(f, 'expected an orphan-IDEA finding');
+      assert.equal(f.autoMigratable, false, 'must NOT auto-migrate when original_brief is present (would clobber)');
+      assert.match(f.reason, /original_brief/);
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      assert.equal(fs.existsSync(path.join(dir, 'IDEA.md')), true,
+        'IDEA.md must be preserved when migration is non-auto');
+      const after = JSON.parse(fs.readFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), 'utf8'));
+      assert.equal(after.original_brief, 'pre-existing', 'original_brief must be untouched');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT flag when Phase 1 is not approved (nothing to archive against)', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [] });
+      writeReqsArtifact(dir);
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), 'pre-approval brief');
+
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      assert.equal(findings.find(x => x.target === 'IDEA.md'), undefined);
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      assert.equal(fs.existsSync(path.join(dir, 'IDEA.md')), true, 'IDEA.md must remain — Phase 1 not yet approved');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT flag when IDEA.md is absent (no work to do, fast path)', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir);
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      assert.equal(findings.find(x => x.target === 'IDEA.md'), undefined);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('migration is idempotent: a second upgrade run finds nothing more', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir);
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), 'one-shot brief');
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const findingsSecond = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      assert.equal(findingsSecond.find(x => x.target === 'IDEA.md'), undefined,
+        'second run must find no orphan-IDEA work');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('preserves Phase 1 approval across the absorb (re-stamps artifactHashes[1])', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir);
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), 'approved-baseline brief');
+      // Stamp a stale hash for phase 1 to mirror a real approved project.
+      const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+      cfg.artifactHashes = { 1: hashArtifact(fs.readFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), 'utf8')) };
+      fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify(cfg, null, 2));
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+
+      const after = fs.readFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), 'utf8');
+      const cfgAfter = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+      assert.equal(cfgAfter.artifactHashes['1'], hashArtifact(after),
+        'artifactHashes[1] must match post-archive content (no false drift)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── Approval preservation across shape-only migrations (Option B) ────────────
 //
 // §2 guarantees migrations change shape, not content. Therefore an approval
