@@ -125,6 +125,22 @@ Three changes from the Cesar canary 2026-05-02 PM (alpha.4 → alpha.15 deepenin
 - [x] **N1 sub-finding — `verify-run` ENOENT does not persist degraded results** (`lib/commands/verify.js::cmdVerifyRun`). When `spawnSync.error.code === 'ENOENT'`, exit via `err()` instead of writing 0/0/N skipped to `04_TEST_RESULTS.json` and flipping `verifyPassed = false` per Z1. The on-disk artifact and `.aitri.verifyPassed`/`verifySummary` are preserved verbatim — a missing runner is not the same as a failing test suite. The error message also drops the misleading `--cmd ".venv/bin/pytest …"` suggestion.
 - [x] **L2 (mensajería piece) — runtime wording neutral when no Playwright config** (`lib/commands/verify.js`). `SKIP_NOTE` and the `Skipped:` summary line conditional on `playwright.config.{js,ts}` presence. With config: unchanged ("e2e/browser", "browser environment" hint). Without: neutral "e2e", browser hint dropped. Absorbs L1b's mensajería half (the gate-path L1b hypothesis was refuted by Cesar). Templates ("Playwright as default e2e runner") not touched in this release — tracked separately under L2 templates.
 
+#### Shipped in alpha.19 (2026-05-02)
+
+- [x] **N3 — verify-complete next-action via snapshot SSoT** (`lib/commands/verify.js::cmdVerifyComplete`). Root scope replaced its alpha.13 hardcoded if/else (`run-phase 5` / `validate`) with `buildProjectSnapshot(dir, { cliVersion: VERSION }).nextActions[0]`. Aligns with status / resume / validate; canonical case (normalize pending after clean verify-run) now routes to `aitri normalize` instead of contradicting status with `run-phase 5`. `cliVersion` threaded so version-mismatch P1 routes to `aitri adopt --upgrade` here too. Suggested command shape moved from `aitri run-phase 5` → `aitri run-phase deploy` (alias form already used by status/resume since v0.1.69). Feature scope unchanged — alpha.7 `scopeTokens()` splicing for `aitri feature <verb> <name> <phase>` grammar is incompatible with snapshot rooted at featureDir (would emit unprefixed). Tests +1 new (normalize-pending alignment between cmdVerifyComplete + cmdStatus), 2 adjusted (alias form + new reason text). 1100 → 1101. Commit `c85c356`.
+
+#### Shipped in alpha.20 (2026-05-02)
+
+- [x] **L2 templates piece — Phase 3-5 templates runner-neutral** (`templates/phases/{tests,requirements,deploy,build}.md`). Five edits drop the imperative "MUST use Playwright" prescription that biased non-web projects (Cesar pytest, Go-on-RPi). Specifics: `tests.md:118-119` cites Playwright/Vitest/Jest + `func TestTC_XXX_…` (Go) + `def test_tc_xxx_…` (pytest) as examples; `requirements.md:127` (CI/CD NFR) reads "any e2e runner the project uses"; `deploy.md:61` describes "the project's declared e2e runner if one is configured"; `deploy.md:99` checklist drops "and Playwright all checked"; `build.md:87` drops the auto-Playwright step and explicitly tells the agent NOT to invent a runner the project doesn't use. After: `grep -ri playwright templates/phases/` = 2 conditional examples. No "MUST use Playwright" anywhere. `lib/phases/phase3.js:141-142` (`e2eCount >= 2` rule) untouched — already runner-neutral. Closes the templates half of L2 (the mensajería half shipped in alpha.16). Tests +1 in `test/phases/phase3.test.js [L2 alpha.20]`. 1101 → 1102. Commit `4f2e545`.
+
+#### Shipped in alpha.21 (2026-05-02)
+
+- [x] **Backlog richness — scaffold portion** (`templates/BACKLOG.md` + `lib/commands/init.js` + `lib/commands/adopt.js`). New 47-line template with Entry Standard + Minimum entry format block + 1 worked P3 example. `aitri init` and `aitri adopt apply` (both `adoptApply` and `adoptApplyFrom` paths) write the template at project root if absent. Idempotent. `rootDir` threaded through `adoptApplyFrom` since the legacy `--from N` path didn't previously receive it. Coexists with `spec/BACKLOG.json` (CLI-managed) — independent surfaces, no schema/validate(). Tests +4 (`test/commands/{init,adopt}.test.js`): creation + idempotency × 2 paths. 1102 → 1106. integrations CHANGELOG `— additive` (new project-root surface subproducts may render). Commit `b8c1e9c`. **Schema enrichment + CLI flags portions explicitly DEFERRED** per CLAUDE.md narrow-evidence rule — only Hub validates the rich format today. See updated entry in "Consumer project backlog richness" below.
+
+#### Shipped in alpha.22 (2026-05-02)
+
+- [x] **Hotfix — validate accepts absorbed `original_brief` in lieu of IDEA.md** (`lib/commands/validate.js`). Closes the alpha.17 contract gap surfaced by Ultron canary 2026-05-02 PM: orphan-IDEA migration unlinks IDEA.md after absorption, but `validate.js` (text path `:46` + JSON path `:201`) continued gating on `fs.existsSync('IDEA.md')` and falsely reported `❌ IDEA.md` on absorbed-brief projects. Fix: new helper `ideaBriefStatus(project, root)` accepts either path (file on disk OR `01_REQUIREMENTS.json#original_brief` non-empty). Text mode: `✅ IDEA.md (absorbed → 01_REQUIREMENTS.json#original_brief)` annotation when absorbed. JSON mode: `exists` stays literal (filesystem), `approved=true` when either path satisfies, additive optional `absorbed: true` field on absorption path. Tests +4 in `test/commands/validate.test.js` (text+JSON × file/absorbed paths + negation guard). 1106 → 1110. integrations CHANGELOG `— additive` (new `absorbed` field surface). Commit `2affb2f`. **Cross-link:** the alpha.17 release introduced the absorption migration but missed the validate-side gate; closed retroactively in this hotfix. Bypass of velocity gate justified per CLAUDE.md "Purpose over process" exception — Tier-1 bug, real consumer (Ultron) blocked, removal of an incorrect assumption (not new abstraction).
+
 #### Canary: Cesar (alpha.4 → alpha.15) — 2026-05-02
 
 Fourth author-owned canary. Cesar = Python web project, 9 sub-pipeline features (5 with e2e TCs), no Playwright in the toolchain (pytest only). Run on a `tar`-cloned copy at `/tmp/cesar-canary-20260502-132549/` — real Cesar untouched. Predictions written to `/tmp/cesar-predictions-20260502-132549.md` BEFORE any aitri command, per ADR-029 falsifiability discipline (counter-pattern: 2026-05-01 fabricated "Cesar canary outcome" never run, discarded in `c06f177`).
@@ -261,7 +277,7 @@ Originally three independent issues surfaced by the Ultron canary that validated
 
   Sub-bugs:
 
-  **N1 — Behavioral filter for `aitri normalize` and `detectUncountedChanges` (root cause) — SHIPPED in alpha.4.** Verified in code: `lib/normalize-patterns.js::isBehavioralFile()` is consumed by `normalize.js::gitChangedFiles()` (line 66) and `mtimeChangedFiles()` (line 82), and by `snapshot.js::detectUncountedChanges()` (line 489). Note: planning called the module `lib/upgrade/normalize-patterns.js` but it shipped at `lib/normalize-patterns.js`. **N2 and N3 below remain open** — N1 closing was scoped per the original "ship N1 alone first; verify; then decide" decision; N2/N3 have not been re-evaluated against post-N1 friction. Parent priority unchanged (P1) until that re-evaluation happens.
+  **N1 — Behavioral filter for `aitri normalize` and `detectUncountedChanges` (root cause) — SHIPPED in alpha.4.** Verified in code: `lib/normalize-patterns.js::isBehavioralFile()` is consumed by `normalize.js::gitChangedFiles()` (line 66) and `mtimeChangedFiles()` (line 82), and by `snapshot.js::detectUncountedChanges()` (line 489). Note: planning called the module `lib/upgrade/normalize-patterns.js` but it shipped at `lib/normalize-patterns.js`. **N3 — SHIPPED alpha.19** (verify-complete consumes snapshot SSoT — see "Shipped in alpha.19" above). **N2 below remains open** — N1+N3 closing was scoped per the original "ship N1 alone first; verify; then decide" decision; N2 has not been re-evaluated against post-N1+N3 friction. Parent priority unchanged (P1) until that re-evaluation happens.
 
   Files:
   - `lib/commands/normalize.js` — `gitChangedFiles()` (line 54) and `mtimeChangedFiles()` (line 68): apply behavioral allowlist to filter out non-behavioral patterns before counting.
@@ -309,18 +325,7 @@ Originally three independent issues surfaced by the Ultron canary that validated
 
   Acceptance: briefing for the Ultron-style one-line `go.mod` change (post-N1, this scenario is moot — file is allowlisted). Briefing for a one-file source code change <10KB, includes the file's diff and only FRs/TCs that reference it.
 
-  **N3 — Snapshot priority ladder unified between status and verify-complete**
-
-  Files:
-  - `lib/commands/verify.js:861-864` — replace hardcoded "Phase 5 next" with a call to `buildProjectSnapshot()` and use its `nextActions[0]`.
-  - `test/commands/verify.test.js` — add assertion that verify-complete with pending normalize emits the same next-action as `aitri status` (priority ladder respected).
-
-  Behavior: `aitri verify-complete` after success consults `buildProjectSnapshot()` and prints the same `→ Next:` as `aitri status`. If normalize is pending, both say normalize; if normalize is resolved, both say Phase 5.
-
-  Decisions:
-  - Single source of truth for next-action is `buildProjectSnapshot()`. Any command that prints "your next action is X" must consume that snapshot, not derive it locally.
-
-  Acceptance: on a project with normalize pending and verify just passed, `aitri verify-complete` and `aitri status` print the same `→ Next:` line. Test asserts the equality.
+  **N3 — Snapshot priority ladder unified between status and verify-complete — SHIPPED alpha.19** (commit `c85c356`). `cmdVerifyComplete` root scope consumes `buildProjectSnapshot(dir, { cliVersion: VERSION }).nextActions[0]`. Test in `test/commands/verify.test.js` asserts equality of the `→ Next:` line between verify-complete and status when normalize is pending. Feature scope intentionally unchanged — `scopeTokens()` grammar is incompatible with snapshot rooted at featureDir; revisit only if a feature-scope canary surfaces friction. See "Shipped in alpha.19" above.
 
   Evidence / source: Ultron canary 2026-04-27. User session reported the cycle. Independent agent in a different session corroborated it. Verified in this session by reading the code, measuring the briefing (70KB), reproducing the cycle, and finding three previous workaround commits in Ultron git history. Severity HIGH — Tier-1 (degrades produced software via meta-commit pollution and signal-credibility erosion) + generalizes to any consumer project with documentation, build manifests, or CI config.
 
@@ -332,51 +337,19 @@ Originally three independent issues surfaced by the Ultron canary that validated
 
 ### Core — Consumer project backlog richness
 
-- [ ] P2 — **Scaffold `BACKLOG.md` + enrich `spec/BACKLOG.json` schema + update `aitri backlog add` to accept rich fields.** Today `aitri backlog` only captures four fields (`id`, `title`, `priority`, `problem`, `fr`). Hub's human-authored `BACKLOG.md` (outside any Aitri template) carries a much richer format — Problem / Files / Behavior / Decisions / Risks / Acceptance / Implementation notes — which produces higher-quality work items that an agent can pick up later with far less ambiguity. That richness should be inherited by every consumer project, not reinvented by each human.
+- [~] P2 — **Backlog richness — scaffold portion SHIPPED alpha.21; schema enrichment + CLI flags DEFERRED** (commit `b8c1e9c`). Scaffold portion: `templates/BACKLOG.md` (47 lines, Entry Standard + Minimum entry format block + 1 worked P3 example) written by `aitri init` and `aitri adopt apply` at project root if absent (idempotent). Coexists with `spec/BACKLOG.json` (CLI-managed) — independent surfaces, no schema/validate(). Tests +4 in `test/commands/{init,adopt}.test.js`. See "Shipped in alpha.21" above.
 
-  Problem / Why:
-  - Aitri's current backlog is thin. An entry like `"P2 — make the login faster — because users complain"` survives the JSON schema, but when someone picks it up six months later they have to re-derive which files to touch, what "done" means, and whether any decisions were already made. That re-derivation is where bugs and scope creep enter the produced software.
-  - Hub ran into this organically and grew the richer format in its own `BACKLOG.md`. The format works — every entry in Hub reads as a micro-design doc. The gap is that new projects under Aitri start with an empty file (or no file) and the author has to discover the format by looking at Hub.
-  - Aitri's own `docs/Aitri_Design_Notes/BACKLOG.md` already defines a good "Entry Standard" table (same fields). It's a self-document, never propagated to consumer projects.
-  - Tier-1 signal: richer backlog entries directly improve the software consumer projects produce — they reduce ambiguity between "someone logged an idea" and "an agent implements it correctly".
+  **Deferred (dormant) — schema enrichment + CLI flags.** Out of scope of alpha.21:
+  - `spec/BACKLOG.json` new optional fields (`files: string[]`, `behavior: string`, `acceptance: string`, `notes: string`) — would be additive per integration contract.
+  - `aitri backlog add --files / --behavior / --acceptance / --from-file <path>` rich-input flags.
+  - `aitri backlog show <id>` detail renderer.
+  - `lib/commands/backlog.js` list detail view rendering new fields when present.
 
-  Files:
-  - `templates/BACKLOG.md` (new) — scaffold template with the entry format guide at the top, one worked example, and empty sections. Copy/paste of Aitri's own `docs/Aitri_Design_Notes/BACKLOG.md` "Entry Standard" but tuned for consumer projects (simpler wording, less meta).
-  - `lib/commands/init.js` + `lib/commands/adopt.js` (apply path) — write the template file at init time if not already present. Idempotent: never overwrite an existing `BACKLOG.md`.
-  - `lib/commands/backlog.js` — `add` accepts new optional flags: `--files "path1,path2"`, `--behavior "..."`, `--acceptance "..."`. Also accept `--from-file <path>` to read the entry body from a markdown file (so an agent can compose the rich content elsewhere and attach it in one step, instead of hitting argv length limits).
-  - `lib/commands/backlog.js` — `list` detail view renders the new fields when present; list summary stays compact.
-  - `spec/BACKLOG.json` schema — additive: each entry may now carry optional `files: string[]`, `behavior: string`, `acceptance: string`, `notes: string`. Existing 4-field entries remain valid.
-  - `docs/integrations/ARTIFACTS.md` — document the new optional fields so subproducts (Hub) can render them.
-  - `docs/integrations/CHANGELOG.md` — entry tagged `— additive` once shipped.
+  Per CLAUDE.md narrow-evidence rule: only Hub validates the rich format today (Hub's hand-written `BACKLOG.md` grew the format organically; Aitri's `docs/Aitri_Design_Notes/BACKLOG.md` defines a similar Entry Standard self-doc). The scaffold portion alone covers the Tier-1 value (consumer projects start with the format guide visible). Adding schema/CLI surfaces without a second consumer asking is design-by-imagination — wait for a project distinct from Hub to surface the need.
 
-  Behavior:
-  - `aitri init` on a new project creates `BACKLOG.md` at project root alongside IDEA.md, CLAUDE.md, etc. The file starts with an entry format guide and one empty `## Open` section.
-  - `aitri adopt apply` on a project without an existing `BACKLOG.md` writes the same template.
-  - `aitri backlog add --title ... --priority ... --problem ... --files "lib/a.js,lib/b.js" --acceptance "test X passes"` stores all fields in `spec/BACKLOG.json`.
-  - `aitri backlog list` keeps its current short table view. A new `aitri backlog show <id>` prints the rich detail of one entry (including the new fields).
-  - `BACKLOG.md` at project root remains human-authored. Aitri never writes to it after scaffolding — it is the free-form planning surface. `spec/BACKLOG.json` is the structured counterpart for CLI-driven entries.
+  **Re-open criterion:** a second consumer asks for CLI-managed rich entries OR a concrete defect surfaces from the JSON-schema thinness (e.g. an agent picks up a 4-field entry and re-derives the wrong files to touch).
 
-  Decisions:
-  - **Two files, not one.** `BACKLOG.md` (human planning) and `spec/BACKLOG.json` (CLI-managed, tool-readable) coexist. Aitri scaffolds the first, manages the second. Merging them would force every entry through the CLI, which loses the "sketch an idea in markdown" workflow that Hub's entries demonstrate works well.
-  - **All new fields are optional.** Schema stays additive. Projects that want the skeletal four fields keep their current flow; projects that want richness opt in per entry.
-  - **`--from-file` > command-line flags for rich content.** Putting acceptance criteria and behavior text on the command line hits shell quoting hell. `--from-file` accepts a markdown fragment with section headers (`## Problem`, `## Behavior`, `## Acceptance`) and parses them. Keeps the CLI ergonomic even for rich entries.
-  - **No breaking change to existing entries.** `aitri backlog list` must render four-field entries exactly as it does today; rich fields are purely additive renderings when present.
-
-  Risks & mitigations:
-  - **Schema evolution risk.** New optional fields in `spec/BACKLOG.json` — per integration contract rules, additive only. Document in ARTIFACTS.md + CHANGELOG; subproducts tolerate unknown fields already by design.
-  - **Template drift.** Aitri's own Entry Standard vs the template copy — add a test that compares key field names between `docs/Aitri_Design_Notes/BACKLOG.md`'s standard and `templates/BACKLOG.md` to catch drift. Not a strict equality test; enumerate the six required fields and fail if either file drops one.
-  - **Over-opinionation.** Some projects prefer minimal backlogs. Mitigation: the template is a *guide* with "delete this section if not applicable" wording, not a gate. `aitri backlog add` with just `--title/--priority/--problem` stays valid.
-
-  Acceptance:
-  - `aitri init ./new-project` creates `BACKLOG.md` at the project root; the file contains the entry format guide and an empty `## Open` section.
-  - `aitri adopt apply` on a project without `BACKLOG.md` creates it; an existing `BACKLOG.md` is never overwritten.
-  - `aitri backlog add --title "x" --priority P2 --problem "y" --files "a.js,b.js" --acceptance "test passes"` persists all four fields; the new ones appear in `spec/BACKLOG.json`.
-  - `aitri backlog add --title "x" --priority P2 --problem "y" --from-file entry.md` parses `entry.md` for `## Behavior`, `## Acceptance`, `## Files`, `## Decisions`, `## Risks`, `## Notes` sections and stores matching fields. Unknown sections are ignored without error.
-  - `aitri backlog show <id>` prints the entry with all fields present.
-  - `npm run test:all` passes with new tests covering all above paths.
-  - `docs/integrations/CHANGELOG.md` carries a new entry with `— additive`.
-
-  Evidence / source: surfaced during the v2.0.0-alpha.3 canary on Hub. Hub's hand-written BACKLOG.md format is qualitatively better than Aitri's defaults; the gap is that Aitri never shipped that quality as a template for downstream projects. Explicit user request 2026-04-24.
+  Evidence / source: surfaced during the v2.0.0-alpha.3 canary on Hub. Explicit user request 2026-04-24. Scaffold portion shipped alpha.21 (2026-05-02).
 
 ### Core — Web bias removal (stack-agnostic test runner)
 
@@ -436,38 +409,7 @@ Aitri assumes "web app with browser UI" as the default project shape. The assump
 
 ---
 
-- [ ] P2 — **L2 — Templates stop prescribing Playwright as the default e2e runner.** Phase 1, 3, and 5 templates become runner-neutral; the QA persona teaches "e2e is a scope, not a tool".
-
-  Problem: `templates/phases/tests.md:118-119` literally instructs the QA persona that "E2E tests run via Playwright MUST follow the same TC-XXX: naming". Phase 1 (`requirements.md:127`) embeds Playwright in an NFR example. Phase 5 (`deploy.md:61,99` + `build.md:87`) prescribes verifying `playwright.config.js` in CI. Result: every non-web consumer project has a QA persona pushing it toward a runner that does not apply, and a deploy persona checking for a config file that will never exist. Even after L1 fixes the gate, the prompts themselves still teach the wrong shape.
-
-  Files:
-  - `templates/phases/tests.md` — lines 92, 116-119, 179, 189, 227. Replace prescriptive "MUST use Playwright" with descriptive "use the naming the project's runner detects (e.g. Playwright `test('TC-XXX: …', …)`, Go `func TestTC_001_*(t …)`, pytest `def test_TC_001_*():`)". Reframe "user flows" as "end-to-end flows (user journey, request-response cycle, integration boundary, etc.)".
-  - `templates/phases/requirements.md` — line 127. NFR example becomes runner-agnostic ("the CI pipeline runs the project's full test suite on every push").
-  - `templates/phases/deploy.md` — lines 61, 99. Conditional Playwright check ("if the project declares Playwright as a runner…").
-  - `templates/phases/build.md` — line 87. Same conditional.
-  - `lib/phases/phase3.js:141-142` — keep the `e2eCount < 2` rule unchanged. The rule is good (≥2 end-to-end flows is a universal practice). Only the **language** in the template changes.
-
-  Behavior:
-  - QA persona output stops naming Playwright unless the project actually declares Playwright as runner. The Phase 3 prompt receives the project's detected runner via the existing render context and interpolates a single example block matching that runner.
-  - PM persona's NFR example talks about "the project's test runner" instead of Playwright by name.
-  - Phase 5 deploy persona asks "is the CI pipeline running the project's declared runner(s)?" instead of checking for `playwright.config.js`.
-
-  Decisions:
-  - **Examples per-stack, not per-template.** A single template block carries 3 example flavors (web/Go/Python) with a comment "delete the ones that do not apply". Less plumbing than threading a `detectedRunner` variable through the renderer.
-  - **`e2eCount >= 2` rule stays.** It does not assume browser; it asserts coverage breadth. L2 only changes the language taught; the gate remains.
-  - **Phase 1 NFR example reformulation is bounded.** Keep the example's *content* (CI runs full suite on push) — only remove the named tool. No new NFR taxonomy.
-
-  Acceptance:
-  - `grep -ri playwright templates/phases/` returns ≤2 occurrences total: the conditional check in `deploy.md` ("if Playwright is declared") and one example label in `tests.md` ("Playwright: …"). No imperative "MUST use Playwright" anywhere.
-  - New test: render Phase 3 prompt for a project without Playwright → output does not contain "MUST use Playwright" or imperative Playwright naming. Output contains the multi-runner example block.
-  - Existing prompt-rendering tests pass.
-  - `npm run test:all` passes.
-
-  Risks:
-  - **Prompt regression on existing projects.** A project mid-pipeline will see a different Phase 3 briefing on the next `run-phase` invocation. Acceptable: prompt text changes are not breaking (no artifact schema affected). Document in CHANGELOG.
-  - **Test snapshot drift.** If any test snapshots prompt output verbatim, they need refresh. Update in the same commit.
-
-  Bump: yes (observable change in generated prompt content). Target alpha.15 (separate from L1 so each can be tested in isolation in a real project before bundling).
+- [x] **L2 — Templates stop prescribing Playwright as the default e2e runner — SHIPPED alpha.20** (commit `4f2e545`). Five edits in `templates/phases/{tests,requirements,deploy,build}.md` drop the imperative "MUST use Playwright" prescription. After: `grep -ri playwright templates/phases/` returns 2 conditional examples. No "MUST use Playwright" anywhere. `lib/phases/phase3.js:141-142` (`e2eCount >= 2` rule) untouched — already runner-neutral. Closes the templates half of L2 (the mensajería half shipped in alpha.16). Test in `test/phases/phase3.test.js [L2 alpha.20]`. See "Shipped in alpha.20" above.
 
 ---
 
