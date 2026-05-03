@@ -38,7 +38,7 @@ import { cmdAudit }        from '../lib/commands/audit.js';
 import { cmdTC }           from '../lib/commands/tc.js';
 import { cmdRehash }       from '../lib/commands/rehash.js';
 
-const VERSION   = '2.0.0-alpha.23';
+const VERSION   = '2.0.0-alpha.24';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();

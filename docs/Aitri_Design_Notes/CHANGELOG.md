@@ -5,6 +5,41 @@
 
 ---
 
+## [2.0.0-alpha.24] — 2026-05-02 — orphan IDEA migration: pre-flight scan + stale-ref detection
+
+Twenty-fourth staged pre-release on `feat/upgrade-protocol`. Hotfix for a Tier-1 bug surfaced by the Hub canary 2026-05-02 night: the alpha.17 `diagnoseOrphanIdea` migration silently unlinked `IDEA.md` without checking whether downstream artifacts referenced the file as a path. Hub's `hub-web-only` feature treated `IDEA.md` as user-facing documentation tracked at `04_IMPLEMENTATION_MANIFEST.json::files[].path === 'IDEA.md'` plus 14 other references across system design, test cases, and proof of compliance. After the canary upgrade, `aitri verify-run` failed silently on the post-absorbed state (TC-015h grep'd `README.md DEPLOYMENT.md IDEA.md` for deprecated CLI strings; the file was gone).
+
+**The principle this establishes.** Upgrade migrations must pre-flight scan for downstream references before destructive on-disk operations. Silently breaking declared paths violates the "upgrade is non-destructive to declared invariants" rule. Same shape as the alpha.22 hotfix (validate.js gated on a path the alpha.17 migration was unlinking) — alpha.17 had two reachability gaps; alpha.22 closed the validate side, alpha.24 closes the upgrade side.
+
+**Behavior — two paths through `diagnoseOrphanIdea`.**
+
+1. **PRE-FLIGHT (file present).** Before auto-absorbing, scan root pipeline artifacts (`02_SYSTEM_DESIGN.md`, `03_TEST_CASES.json`, `04_IMPLEMENTATION_MANIFEST.json`, `04_TEST_RESULTS.json`, `04_CODE_REVIEW.md`, `05_PROOF_OF_COMPLIANCE.json`, `00_DISCOVERY.md`, `01_UX_SPEC.md`, `BUGS.json`, `BACKLOG.json`, `AUDIT_REPORT.md`) plus every `features/<x>/spec/*.{md,json}` for `/\bIDEA\.md\b/`. If any match, emit a `validatorGap` finding (`autoMigratable: false`) listing the offenders. The operator updates the references — or deletes IDEA.md manually to accept the breakage — then re-runs `--upgrade`. Auto-absorption proceeds only when the project is reference-clean.
+
+2. **STALE-REF DETECTION (file absent + Phase 1 approved).** Same scan, post-absorption. Surfaces already-broken projects (Hub) where alpha.17 ran before this fix landed. Auto-fix is impossible (references could be intentional documentation, test assertions, or genuine path lookups; only the operator knows). The finding gives the operator a forward path: identify the stale references, point them at `01_REQUIREMENTS.json#original_brief`, drop them, or rename to a project-owned doc filename.
+
+**01_REQUIREMENTS.json is excluded from the scan at every level.** Post-absorption it legitimately holds the IDEA.md content as a substring inside `original_brief`; that text is the absorbed content, not a path reference. False-positive guard verified by test.
+
+**Feature-directory scanning is read-only.** A2 (root upgrade does not cascade to features/.aitri) is a write-side invariant. Reading `features/*/spec/*` to detect path references does not violate it — no mutations occur outside the root pipeline.
+
+**Why no auto-rewrite of references.** Considered and rejected. Rewriting `IDEA.md` → `01_REQUIREMENTS.json#original_brief` inside test scenarios, manifest paths, or compliance evidence is a semantic transform, not a shape transform — §2 of the upgrade protocol forbids semantic content changes in migrations. The references could mean different things in different contexts (a test grep is not a manifest path; a system design narrative is not a compliance line item). Honor-system finding is the right surface.
+
+**Files touched.**
+- `lib/upgrade/migrations/from-0.1.65.js` — new `findIdeaPathReferences()` helper; rewrote `diagnoseOrphanIdea()` to add the two scan paths around the existing original_brief / auto-absorb logic.
+- `bin/aitri.js` — VERSION bump to `2.0.0-alpha.24`.
+- `package.json` — version bump.
+- `test/upgrade.test.js` — new describe block `lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md pre-flight scan + stale-ref detection (alpha.24)`, 6 tests.
+- `docs/integrations/{README,STATUS_JSON,SCHEMA,ARTIFACTS}.md` — version header bump per release-sync test.
+
+**Tests added (6 new):** PRE-FLIGHT (a) blocks auto-absorb when manifest registers IDEA.md as a deliverable path, (b) scans feature artifacts (read-only), (c) ignores 01_REQUIREMENTS.json content (false-positive guard), (d) regression: clean project still auto-absorbs. STALE-REF DETECTION (e) flags broken references when IDEA.md is already absent, (f) negative: clean post-absorb state emits no finding. Total suite: 1119 → 1125 passing, 0 failures.
+
+**Why a bump.** Observable behavior change in upgrade output (new finding category surface, new auto-vs-flag decision rule). Per CLAUDE.md: change in validation gate / upgrade migration → bump.
+
+**Why no `docs/integrations/CHANGELOG.md` entry.** Migration output is CLI-text only. The schema-side impact is zero: no new field on `.aitri`, no new artifact, no change to `events.upgrade_migration` payload shape. Subproducts read `.aitri` + artifacts, not stdout. Mirrors alphas .18/.19/.20/.23 (CLI-text-only changes did not get integrations entries). Headers still bump per release-sync sync rule.
+
+**Hub recovery (out of scope of this release).** Hub is the canary that surfaced the bug; its 14+ stale references in `features/hub-web-only/` predate this fix. Hub-side hotfix is independent: update the test cases, manifest, system design, and proof-of-compliance entries. After Hub's hotfix, alpha.24's stale-ref detection on Hub returns zero findings, confirming forward progress.
+
+---
+
 ## [2.0.0-alpha.23] — 2026-05-02 — `aitri tc mark-manual <TC-ID>` CLI helper
 
 Twenty-third staged pre-release on `feat/upgrade-protocol`. Single change. Closes the P3 helper that has been pending since the alpha.14 L1a manual-escape ship: marking a TC as `automation: "manual"` no longer requires hand-editing `spec/03_TEST_CASES.json`.

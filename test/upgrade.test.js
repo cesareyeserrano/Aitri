@@ -1328,6 +1328,151 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md absorption', () 
   });
 });
 
+// ── Orphan IDEA.md absorption — pre-flight scan + stale-ref detection (alpha.24) ─
+//
+// Background: alpha.17 introduced the auto-absorb migration but did not check
+// whether downstream artifacts referenced IDEA.md as a literal path. Hub
+// surfaced the gap on 2026-05-02: its `hub-web-only` feature treated IDEA.md
+// as user-facing documentation tracked in 04_IMPLEMENTATION_MANIFEST.json
+// (`path: "IDEA.md"`) plus 14+ references across TCs, system design, and
+// proof of compliance. The alpha.17 migration silently unlinked the file
+// and broke `aitri verify-run` invisibly.
+//
+// alpha.24 closes the gap with two paths through diagnoseOrphanIdea:
+//   (a) PRE-FLIGHT: when IDEA.md still exists, scan root + features for
+//       /\bIDEA\.md\b/. If any match, block auto-absorption and emit a
+//       validatorGap finding listing the offenders.
+//   (b) STALE-REF DETECTION: when IDEA.md is already absent (post-absorb)
+//       and Phase 1 is approved, scan again. Surface the same offenders
+//       so an already-broken project can fix forward without restoring the
+//       file. Auto-fix is impossible — references could be intentional
+//       documentation or test assertions; only the operator knows.
+//
+// 01_REQUIREMENTS.json is excluded from the scan at every level because
+// `original_brief` legitimately holds the absorbed IDEA.md content as a
+// substring (the absorbed text, not a path reference).
+
+describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md pre-flight scan + stale-ref detection (alpha.24)', () => {
+  function writeReqsArtifact(dir, data = { functional_requirements: [] }) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify(data, null, 2));
+  }
+
+  it('PRE-FLIGHT: blocks auto-absorb when 04_IMPLEMENTATION_MANIFEST.json references IDEA.md as a path', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir);
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
+      fs.writeFileSync(
+        path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+        JSON.stringify({ files: [{ path: 'IDEA.md', kind: 'doc' }] }, null, 2),
+      );
+
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      const f = findings.find(x => x.target === 'IDEA.md');
+      assert.ok(f, 'expected an orphan-IDEA finding');
+      assert.equal(f.autoMigratable, false, 'pre-flight scan must block absorption');
+      assert.match(f.reason, /04_IMPLEMENTATION_MANIFEST\.json/);
+      assert.match(f.reason, /literal path/);
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      assert.equal(fs.existsSync(path.join(dir, 'IDEA.md')), true,
+        'IDEA.md must NOT be unlinked when references exist');
+      const after = JSON.parse(fs.readFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), 'utf8'));
+      assert.equal(after.original_brief, undefined, 'original_brief must NOT be populated when blocked');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('PRE-FLIGHT: scans feature artifacts (read-only — does not violate A2)', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir);
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
+
+      const featSpec = path.join(dir, 'features/foo/spec');
+      fs.mkdirSync(featSpec, { recursive: true });
+      fs.writeFileSync(
+        path.join(featSpec, '03_TEST_CASES.json'),
+        JSON.stringify({ test_cases: [{ id: 'TC-001', given: 'IDEA.md exists', when: 'read IDEA.md', expected_result: 'present' }] }, null, 2),
+      );
+
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      const f = findings.find(x => x.target === 'IDEA.md');
+      assert.ok(f, 'feature-level reference must be detected');
+      assert.equal(f.autoMigratable, false);
+      assert.match(f.reason, /features\/foo\/spec\/03_TEST_CASES\.json/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('PRE-FLIGHT: ignores 01_REQUIREMENTS.json content (original_brief may legitimately contain IDEA.md text)', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      // The brief text itself happens to mention "IDEA.md" — this must NOT block.
+      writeReqsArtifact(dir, { functional_requirements: [], note: 'see IDEA.md for context' });
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
+
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      const f = findings.find(x => x.target === 'IDEA.md');
+      assert.ok(f, 'expected an orphan-IDEA finding');
+      assert.equal(f.autoMigratable, true,
+        '01_REQUIREMENTS.json content must NOT count as a path reference (false-positive guard)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('PRE-FLIGHT: regression — clean project (no references) still auto-absorbs', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir);
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Clean brief\n');
+      fs.writeFileSync(path.join(dir, 'spec/02_SYSTEM_DESIGN.md'), '# Design\n\nNo path references here.\n');
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      assert.equal(fs.existsSync(path.join(dir, 'IDEA.md')), false, 'IDEA.md must be removed (clean path)');
+      const after = JSON.parse(fs.readFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), 'utf8'));
+      assert.equal(after.original_brief, '# Clean brief\n');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('STALE-REF DETECTION: IDEA.md absent + references remaining → flag (no auto-fix)', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir, { functional_requirements: [], original_brief: 'previously absorbed' });
+      // No IDEA.md on disk (already absorbed by a prior alpha.17+ upgrade).
+      // But a downstream artifact still references it as a path.
+      fs.writeFileSync(
+        path.join(dir, 'spec/05_PROOF_OF_COMPLIANCE.json'),
+        JSON.stringify({ evidence: 'grep IDEA.md returns zero matches' }, null, 2),
+      );
+
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      const f = findings.find(x => String(x.target).startsWith('IDEA.md'));
+      assert.ok(f, 'expected stale-ref finding');
+      assert.equal(f.autoMigratable, false);
+      assert.equal(f.target, 'IDEA.md (absorbed)');
+      assert.match(f.reason, /no longer exists/);
+      assert.match(f.reason, /05_PROOF_OF_COMPLIANCE\.json/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('STALE-REF DETECTION negative: IDEA.md absent + no references → no finding (clean post-absorb state)', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir, { functional_requirements: [], original_brief: 'previously absorbed' });
+      fs.writeFileSync(path.join(dir, 'spec/02_SYSTEM_DESIGN.md'), '# Design\n\nNothing here.\n');
+
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      assert.equal(findings.find(x => String(x.target).startsWith('IDEA.md')), undefined,
+        'no orphan-IDEA finding when post-absorb state is clean');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── Approval preservation across shape-only migrations (Option B) ────────────
 //
 // §2 guarantees migrations change shape, not content. Therefore an approval
