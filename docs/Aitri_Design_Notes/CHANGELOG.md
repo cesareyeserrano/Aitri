@@ -5,6 +5,44 @@
 
 ---
 
+## [2.0.0-alpha.23] — 2026-05-02 — `aitri tc mark-manual <TC-ID>` CLI helper
+
+Twenty-third staged pre-release on `feat/upgrade-protocol`. Single change. Closes the P3 helper that has been pending since the alpha.14 L1a manual-escape ship: marking a TC as `automation: "manual"` no longer requires hand-editing `spec/03_TEST_CASES.json`.
+
+**The friction this closes.** alpha.14 (L1a) made the e2e gate accept `automation: "manual"` as covered, with stack-aware advice that explicitly tells the operator NOT to falsify the TC `type` to bypass the gate. That meant the manual escape became the documented path for projects whose stack lacks an automatable e2e runner (Go-on-RPi, pytest-only Cesar). But the only way to set the field was to open the JSON by hand. For Go-on-RPi's 26 e2e TCs, that meant 26 hand edits. The escape's friction defeated its purpose.
+
+**Behavior.**
+- `aitri tc mark-manual TC-001` reads `spec/03_TEST_CASES.json`, finds the TC by id, sets `automation: "manual"`, writes the file.
+- Idempotent: if the TC is already `automation: "manual"`, prints `✅ TC-001 is already marked manual. (no change)` and exits 0 without rewriting.
+- Errors with informative message on missing TC id, unknown TC id, missing artifact, or malformed JSON.
+- After a successful flip, prints the `aitri tc verify` command line the operator can run after manual execution to record the result.
+
+**Phase 3 hash re-stamp — intentional, scoped, not a `rehash` invariant violation.** When the project has a stored `artifactHashes['3']` (i.e. Phase 3 was approved), `mark-manual` updates the stored hash to match the new content in the same step that writes the file. This is deliberately different from `aitri rehash`:
+- `aitri rehash` is a meta escape hatch over arbitrary content drift; it requires clean git + isTTY confirmation because it bookkeeps over content the operator has not necessarily reviewed in this session.
+- `aitri tc mark-manual` is itself the operator authorization for a single, specific, named field-level edit (`automation` on one TC to `"manual"`). The CLI invocation IS the review. Forcing a separate `rehash` step after every `mark-manual` would replace one form of friction (hand-edit) with another (post-edit rehash), defeating the alpha.14 design intent.
+- Projects without a stored `artifactHashes['3']` (i.e. Phase 3 was never approved) get no hash write — there is nothing to keep in sync.
+
+**No bulk mode in this release.** The original 2026-04-30 BACKLOG sketch proposed `--all-of-type e2e`. Deferred. Single-TC mode covers the documented friction; bulk mode is speculative until a real project surfaces 20+ TCs that all need flipping. Reverse direction (`mark-auto`) also deferred for the same reason.
+
+**No feature scope in this release.** Mirrors the existing `aitri tc verify` surface — `lib/commands/feature.js::cmdFeature` switch (line 77) routes `run-phase`, `complete`, `approve`, `reject`, `status`, `verify-run`, `verify-complete`, `rehash`. Neither `tc verify` nor `tc mark-manual` thread through. Adding `feature tc *` is a separate enhancement, gated on a feature-scoped use case.
+
+**Files touched.**
+- `lib/commands/tc.js` — new `mark-manual` sub-case in `cmdTC` dispatcher; new `tcMarkManual` function. `hashArtifact` added to the `state.js` import list.
+- `bin/aitri.js` — VERSION bump to `2.0.0-alpha.23`. No dispatcher change (`tc` already routes to `cmdTC`).
+- `package.json` — version bump.
+- `test/commands/tc.test.js` — new `cmdTC — tc mark-manual` describe block, 9 tests.
+- `docs/integrations/{README,STATUS_JSON,SCHEMA,ARTIFACTS}.md` — version header bump per release-sync test.
+
+**Tests added (9 new in `test/commands/tc.test.js`):** flips automation when previously `auto`; adds the field when previously absent; idempotent on already-manual; re-stamps `artifactHashes['3']` when stored; does NOT add `artifactHashes['3']` when none stored (Phase 3 unapproved); errors on missing TC id, unknown TC id, missing artifact, malformed JSON. Total suite: 1110 → 1119 passing, 0 failures.
+
+**Why a bump.** New visible CLI sub-command. Per CLAUDE.md: new command → bump.
+
+**Why no `docs/integrations/CHANGELOG.md` entry.** mark-manual touches no surface visible to subproducts. Hub and any future consumer read `.aitri` (existing fields, including `artifactHashes['3']`) and `spec/03_TEST_CASES.json` (existing field `automation` already documented in ARTIFACTS.md). The new operator-facing CLI is invisible to file-based consumers — they cannot tell whether `automation: "manual"` arrived via the new command or via hand-edit. Mirrors the alpha.19 + alpha.20 decision (operator-only changes did not get integrations entries). Headers still bump per release-sync sync rule.
+
+**Pre-stable status.** v2.0.0 stable promotion remains gated on a third-party adopter validating end-to-end. Author canaries clean as of alpha.22 (Hub, Ultron, Zombite, Cesar). Remaining open items per BACKLOG: third-party adopter canary, release-sync hardening (P3, decided not implementing). The `aitri tc mark-manual` ticket — open since 2026-04-30 — is now closed.
+
+---
+
 ## [2.0.0-alpha.22] — 2026-05-02 — validate accepts absorbed `original_brief` in lieu of IDEA.md (closes alpha.17 contract gap)
 
 Twenty-second staged pre-release on `feat/upgrade-protocol`. Single change. Hotfix surfaced 2026-05-02 PM Ultron canary post alpha.14 → alpha.21 upgrade — `aitri validate` falsely reported `❌ IDEA.md` on a project where the alpha.17 orphan-IDEA absorb migration had legitimately removed the file.

@@ -154,3 +154,100 @@ describe('cmdTC — tc verify', () => {
   });
 
 });
+
+function writeTestCases(dir, testCases) {
+  const d = { test_cases: testCases };
+  fs.writeFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), JSON.stringify(d, null, 2));
+}
+
+function readTestCases(dir) {
+  return JSON.parse(fs.readFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), 'utf8'));
+}
+
+describe('cmdTC — tc mark-manual', () => {
+
+  it('flips automation to "manual" on a TC with a different automation value', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [
+      { id: 'TC-001h', type: 'unit', automation: 'auto' },
+      { id: 'TC-002e', type: 'e2e',  automation: 'auto' },
+    ]);
+    cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e']));
+    const d = readTestCases(dir);
+    assert.equal(d.test_cases.find(t => t.id === 'TC-002e').automation, 'manual');
+    assert.equal(d.test_cases.find(t => t.id === 'TC-001h').automation, 'auto');
+  });
+
+  it('adds automation: "manual" when field was absent', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e' }]);
+    cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e']));
+    const d = readTestCases(dir);
+    assert.equal(d.test_cases[0].automation, 'manual');
+  });
+
+  it('is idempotent — already-manual TC is a no-op', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'manual' }]);
+    const before = fs.readFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), 'utf8');
+    cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e']));
+    const after = fs.readFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), 'utf8');
+    assert.equal(before, after);
+  });
+
+  it('re-stamps artifactHashes[3] when a stored hash exists', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'auto' }]);
+    const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    cfg.artifactHashes = { '3': 'stale-hash-from-before-edit' };
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify(cfg));
+    cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e']));
+    const after = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    assert.notEqual(after.artifactHashes['3'], 'stale-hash-from-before-edit');
+    assert.match(after.artifactHashes['3'], /^[a-f0-9]+$/);
+  });
+
+  it('does NOT add artifactHashes[3] when none was stored', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'auto' }]);
+    cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e']));
+    const after = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    assert.equal((after.artifactHashes || {})['3'], undefined);
+  });
+
+  it('errors if TC ID is missing', () => {
+    const dir = makeDir();
+    writeTestCases(dir, []);
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['mark-manual'])),
+      /TC ID required/
+    );
+  });
+
+  it('errors if TC ID not found', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [{ id: 'TC-001h', type: 'unit', automation: 'auto' }]);
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['mark-manual', 'TC-999x'])),
+      /not found/
+    );
+  });
+
+  it('errors if 03_TEST_CASES.json does not exist', () => {
+    const dir = makeDir();
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['mark-manual', 'TC-001h'])),
+      /03_TEST_CASES\.json not found/
+    );
+  });
+
+  it('errors if 03_TEST_CASES.json is malformed', () => {
+    const dir = makeDir();
+    fs.writeFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), 'not-json{');
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['mark-manual', 'TC-001h'])),
+      /malformed JSON/
+    );
+  });
+
+});

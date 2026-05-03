@@ -141,6 +141,10 @@ Three changes from the Cesar canary 2026-05-02 PM (alpha.4 → alpha.15 deepenin
 
 - [x] **Hotfix — validate accepts absorbed `original_brief` in lieu of IDEA.md** (`lib/commands/validate.js`). Closes the alpha.17 contract gap surfaced by Ultron canary 2026-05-02 PM: orphan-IDEA migration unlinks IDEA.md after absorption, but `validate.js` (text path `:46` + JSON path `:201`) continued gating on `fs.existsSync('IDEA.md')` and falsely reported `❌ IDEA.md` on absorbed-brief projects. Fix: new helper `ideaBriefStatus(project, root)` accepts either path (file on disk OR `01_REQUIREMENTS.json#original_brief` non-empty). Text mode: `✅ IDEA.md (absorbed → 01_REQUIREMENTS.json#original_brief)` annotation when absorbed. JSON mode: `exists` stays literal (filesystem), `approved=true` when either path satisfies, additive optional `absorbed: true` field on absorption path. Tests +4 in `test/commands/validate.test.js` (text+JSON × file/absorbed paths + negation guard). 1106 → 1110. integrations CHANGELOG `— additive` (new `absorbed` field surface). Commit `2affb2f`. **Cross-link:** the alpha.17 release introduced the absorption migration but missed the validate-side gate; closed retroactively in this hotfix. Bypass of velocity gate justified per CLAUDE.md "Purpose over process" exception — Tier-1 bug, real consumer (Ultron) blocked, removal of an incorrect assumption (not new abstraction).
 
+#### Shipped in alpha.23 (2026-05-02)
+
+- [x] **`aitri tc mark-manual <TC-ID>` CLI helper** (`lib/commands/tc.js::tcMarkManual`). Closes the P3 helper open since alpha.14 L1a. Reads `spec/03_TEST_CASES.json`, sets `automation: "manual"` on the matched TC, writes back. Idempotent (already-manual is a no-op + message). Re-stamps `artifactHashes['3']` in the same step when stored — `mark-manual` IS the operator authorization for this scoped field-level edit (different from `aitri rehash` which gates over arbitrary content drift); forcing a separate rehash step would defeat the alpha.14 friction-reduction design intent. Bulk mode (`--all-of-type e2e`) and reverse direction (`mark-auto`) deferred — single-TC covers the documented friction (Go-on-RPi 26 e2e TCs would need 26 hand edits today; now 26 commands). Feature scope not threaded — mirrors existing `aitri tc verify` (no `tc` case in `feature.js:77`). Tests +9 in `test/commands/tc.test.js`. 1110 → 1119. No integrations CHANGELOG entry — operator-only CLI, no surface visible to subproducts (mirrors alpha.19/.20 decision). Headers still bumped per release-sync rule.
+
 #### Canary: Cesar (alpha.4 → alpha.15) — 2026-05-02
 
 Fourth author-owned canary. Cesar = Python web project, 9 sub-pipeline features (5 with e2e TCs), no Playwright in the toolchain (pytest only). Run on a `tar`-cloned copy at `/tmp/cesar-canary-20260502-132549/` — real Cesar untouched. Predictions written to `/tmp/cesar-predictions-20260502-132549.md` BEFORE any aitri command, per ADR-029 falsifiability discipline (counter-pattern: 2026-05-01 fabricated "Cesar canary outcome" never run, discarded in `c06f177`).
@@ -384,28 +388,7 @@ Aitri assumes "web app with browser UI" as the default project shape. The assump
 
 ---
 
-- [ ] P3 — **`aitri tc mark-manual <TC-ID> [--all-of-type e2e]` CLI helper.** Replaces hand-editing `03_TEST_CASES.json` to add `"automation": "manual"`.
-
-  Problem: with L1a, the manual escape is the documented path for projects without an automatable e2e runner. But marking 26 TCs (Go-on-RPi case) requires hand-editing the JSON. Friction defeats the purpose of having an escape — surfaced 2026-04-30 in deep-review of L1a.
-
-  Files:
-  - `lib/commands/tc.js` — new `mark-manual` subcommand alongside existing `verify`.
-  - `bin/aitri.js` — dispatcher entry.
-  - `test/commands/tc.test.js` — coverage.
-
-  Behavior:
-  - `aitri tc mark-manual <TC-ID>` → adds `"automation": "manual"` to that TC in `03_TEST_CASES.json`.
-  - `aitri tc mark-manual --all-of-type e2e` → bulk-marks every TC where `type === 'e2e'`.
-  - Idempotent: re-running on an already-manual TC is a no-op with a friendly message.
-  - Editing `03_TEST_CASES.json` invalidates the Phase 3 hash. Decision deferred to implementation: auto-`rehash 3` (consistent with `aitri tc verify` writing to results without invalidating) vs require explicit operator step (preserves drift gate).
-
-  Acceptance:
-  - Single-TC mode and `--all-of-type` mode both write the field correctly.
-  - Idempotent re-run does not duplicate or corrupt the file.
-  - Tests cover: missing TC ID error, non-existent type error, `03_TEST_CASES.json` not present error.
-  - `npm run test:all` passes.
-
-  Bump: yes (new CLI subcommand). Target a future alpha when promoted.
+- [x] **`aitri tc mark-manual <TC-ID>` CLI helper — SHIPPED alpha.23** (`lib/commands/tc.js::tcMarkManual`). Single-TC mode: reads `spec/03_TEST_CASES.json`, sets `automation: "manual"` on the matched TC, writes back. Idempotent (no-op + message when already manual). Re-stamps `artifactHashes['3']` in the same step when stored — `mark-manual` IS the operator authorization for this scoped field-level edit (different from `aitri rehash` which gates over arbitrary content drift); forcing a separate rehash step would defeat the alpha.14 friction-reduction design intent. Bulk mode (`--all-of-type e2e`) and reverse direction (`mark-auto`) deferred — single-TC covers the documented friction; bulk is speculative until 20+ TCs need flipping in a real project. Feature scope not threaded — mirrors existing `aitri tc verify` (no `tc` case in `feature.js:77`); separate enhancement gated on a feature-scoped use case. Tests +9 in `test/commands/tc.test.js`. 1110 → 1119.
 
 ---
 
