@@ -18,6 +18,36 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-alpha.22 (2026-05-02) — validate accepts absorbed `original_brief` in lieu of IDEA.md — additive
+
+**`aitri validate` no longer falsely flags `IDEA.md` as missing on projects where the alpha.17 orphan-IDEA migration absorbed it** (additive — no schema change, new optional `absorbed` flag on the IDEA.md artifact entry in `--json` output). Closes a contract gap shipped together in alpha.17 + alpha.21 and surfaced 2026-05-02 PM by `aitri validate` on Ultron post alpha.14 → alpha.21 upgrade.
+
+**Behaviour change for subproducts consuming `aitri validate --json`.**
+
+Old shape (file-presence gate, breaks on absorbed-brief projects):
+```json
+{ "name": "IDEA.md", "exists": false, "approved": false, "drift": false, "required": true }
+```
+
+New shape (absorption path):
+```json
+{ "name": "IDEA.md", "exists": false, "approved": true, "drift": false, "required": true, "absorbed": true }
+```
+
+New shape (file-on-disk path — unchanged from old when file is present):
+```json
+{ "name": "IDEA.md", "exists": true, "approved": true, "drift": false, "required": true }
+```
+
+Field semantics:
+- `exists` stays literal — filesystem presence of `IDEA.md` at project root. Preserved for subproducts that interpret it as such.
+- `approved` is now `true` when EITHER path satisfies (file on disk OR `01_REQUIREMENTS.json#original_brief` is a non-empty string). Subproducts that gate on `approved` get the correct answer for absorbed-brief projects without code changes.
+- `absorbed` is a new optional field, present only when the absorption path was used. Old readers ignore it; new readers can render the absorption explicitly (e.g. "IDEA.md → 01_REQUIREMENTS.json#original_brief").
+
+**Hub impact:** none required. Hub readers that gate validate on `approved` start passing for absorbed-brief projects automatically. Readers that want to render the absorption path explicitly can opt in to the new `absorbed` flag.
+
+---
+
 ## v2.0.0-alpha.21 (2026-05-02) — BACKLOG.md scaffolded by init / adopt apply — additive
 
 **`aitri init` and `aitri adopt apply` now scaffold `BACKLOG.md` at the project root** (additive — new template `templates/BACKLOG.md` copied to `<project>/BACKLOG.md` if absent). Closes the gap where every new consumer project reinvented its backlog format from scratch.

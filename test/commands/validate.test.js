@@ -427,3 +427,98 @@ describe('cmdValidate() — drift uses alias in message', () => {
     assert.ok(output.includes('requirements') || output.includes('approve'), 'drift message should reference alias or approve command');
   });
 });
+
+// ── alpha.22: IDEA.md gate accepts absorbed brief (closes alpha.17 contract gap) ──
+
+describe('cmdValidate() — IDEA.md gate accepts original_brief absorption (alpha.22)', () => {
+  // Background: alpha.17 introduced `adopt --upgrade`'s orphan-IDEA absorb
+  // migration — IDEA.md content moves into 01_REQUIREMENTS.json.original_brief
+  // and the file is unlinked. validate.js was not updated and continued
+  // gating on `fs.existsSync('IDEA.md')`, falsely flagging the migrated state
+  // as a missing required artifact. Surfaced 2026-05-02 PM by Ultron post
+  // alpha.14 → alpha.21 upgrade.
+
+  it('text mode: IDEA.md absent + original_brief populated → ✅ with absorption note', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      // Simulate post-alpha.17 state: IDEA.md gone, original_brief in reqs.
+      fs.unlinkSync(path.join(dir, 'IDEA.md'));
+      const reqsPath  = path.join(dir, 'spec/01_REQUIREMENTS.json');
+      const reqs      = JSON.parse(fs.readFileSync(reqsPath, 'utf8'));
+      reqs.original_brief = 'Solve a problem.';
+      const updated   = JSON.stringify(reqs);
+      fs.writeFileSync(reqsPath, updated, 'utf8');
+      // Re-stamp phase 1 hash to avoid drift noise (mirrors what the alpha.17 migration does).
+      const cfgPath = path.join(dir, '.aitri');
+      const cfg     = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      cfg.artifactHashes['1'] = hashArtifact(updated);
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+
+      const out = captureLog(() => cmdValidate({ dir, args: [] }));
+      assert.match(out, /✅ IDEA\.md \(absorbed/,
+        'absorbed brief must satisfy the IDEA.md gate with explicit annotation');
+      assert.doesNotMatch(out, /❌ IDEA\.md/,
+        'must not flag IDEA.md as missing when brief is absorbed');
+      assert.match(out, /All artifacts present and approved/,
+        'absorbed-brief project must validate as fully present');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('text mode: IDEA.md absent AND original_brief absent → ❌ (negation guard)', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      // Strip both paths: file gone, original_brief never populated.
+      fs.unlinkSync(path.join(dir, 'IDEA.md'));
+      // (ARTIFACTS seed has no original_brief — skip the populate step.)
+
+      const out = captureLog(() => cmdValidate({ dir, args: [] }));
+      assert.match(out, /❌ IDEA\.md/,
+        'when neither path satisfies, the gate must still fail');
+      assert.doesNotMatch(out, /absorbed/,
+        'absorption annotation must not appear when neither path satisfies');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('JSON mode: absorbed brief sets approved=true, exists=false, absorbed=true', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      fs.unlinkSync(path.join(dir, 'IDEA.md'));
+      const reqsPath = path.join(dir, 'spec/01_REQUIREMENTS.json');
+      const reqs     = JSON.parse(fs.readFileSync(reqsPath, 'utf8'));
+      reqs.original_brief = 'Some narrative.';
+      const updated  = JSON.stringify(reqs);
+      fs.writeFileSync(reqsPath, updated, 'utf8');
+      const cfgPath = path.join(dir, '.aitri');
+      const cfg     = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      cfg.artifactHashes['1'] = hashArtifact(updated);
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+
+      const out  = captureStdout(() => cmdValidate({ dir, args: ['--json'] }));
+      const json = JSON.parse(out);
+      const ideaArtifact = json.artifacts.find(a => a.name === 'IDEA.md');
+      assert.ok(ideaArtifact, 'JSON output must include IDEA.md artifact entry');
+      assert.equal(ideaArtifact.exists,   false, 'exists stays literal — file is gone');
+      assert.equal(ideaArtifact.approved, true,  'approved=true via absorption path');
+      assert.equal(ideaArtifact.absorbed, true,  'additive absorbed flag set when brief was absorbed');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('JSON mode: file on disk → exists=true, approved=true, no absorbed flag', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      // Default seedDeployableRoot writes IDEA.md to disk and does NOT set original_brief.
+
+      const out  = captureStdout(() => cmdValidate({ dir, args: ['--json'] }));
+      const json = JSON.parse(out);
+      const ideaArtifact = json.artifacts.find(a => a.name === 'IDEA.md');
+      assert.equal(ideaArtifact.exists,   true,  'file path: exists is true');
+      assert.equal(ideaArtifact.approved, true,  'file path: approved is true');
+      assert.equal(ideaArtifact.absorbed, undefined,
+        'file path: absorbed flag must be omitted entirely (additive — only present when absorption was used)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

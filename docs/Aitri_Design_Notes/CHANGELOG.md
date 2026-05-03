@@ -5,6 +5,32 @@
 
 ---
 
+## [2.0.0-alpha.22] — 2026-05-02 — validate accepts absorbed `original_brief` in lieu of IDEA.md (closes alpha.17 contract gap)
+
+Twenty-second staged pre-release on `feat/upgrade-protocol`. Single change. Hotfix surfaced 2026-05-02 PM Ultron canary post alpha.14 → alpha.21 upgrade — `aitri validate` falsely reported `❌ IDEA.md` on a project where the alpha.17 orphan-IDEA absorb migration had legitimately removed the file.
+
+**The contract gap closed.** alpha.17 introduced `lib/upgrade/migrations/from-0.1.65.js::diagnoseOrphanIdea`: when Phase 1 is approved + `IDEA.md` exists at root + `01_REQUIREMENTS.json` lacks `original_brief`, the migration moves IDEA.md content into `original_brief` and unlinks the file. The migration's contract: post-absorption, `original_brief` is the SSoT for the project brief; the on-disk `IDEA.md` is deliberately gone.
+
+`lib/commands/validate.js` was not updated to know about that contract. Both the text path (`:46`) and the JSON path (`:201`) gated on `fs.existsSync(...'IDEA.md')` and reported `❌ IDEA.md` when the file was absent — even on projects where alpha.17 had legitimately consumed it. Internal incoherence: the migration says "the file is meant to be removed," validate says "the file is required." Both shipped together.
+
+**Fix.** New helper `ideaBriefStatus(project, root)` accepts either path:
+- (a) `IDEA.md` exists at project root (pre-absorption state, all projects up to alpha.16 + projects that opted out of upgrade), OR
+- (b) `01_REQUIREMENTS.json#original_brief` is a non-empty string (post-absorption state).
+
+Returns `{ ok, absorbed }`. Both `cmdValidate` paths consume it:
+- Text mode: `✅ IDEA.md (absorbed → 01_REQUIREMENTS.json#original_brief)` annotation on the absorption path; plain `✅ IDEA.md` when the file is on disk; `❌ IDEA.md` only when neither path satisfies.
+- JSON mode: `exists` stays literal (filesystem presence — preserves the contract for subproducts that interpret it as such); `approved=true` when either path satisfies; new optional `absorbed: true` field present only on the absorption path. Old readers ignore unknown fields and rely on `approved` exactly as before; new readers can render the absorption explicitly.
+
+**Why a removal of an incorrect assumption, not a new abstraction.** The original validate-time assumption was "every brief lives in `IDEA.md`." alpha.17 made that false by introducing a second SSoT for the brief; the validate gate just hadn't caught up. The fix removes the file-presence-as-truth assumption, not adds a new feature.
+
+**Tests added (4 new in `test/commands/validate.test.js`):** absorbed-brief project validates as fully present (text mode); when both paths fail (file absent + `original_brief` missing), the gate still fails (negation guard); JSON output reports `exists=false, approved=true, absorbed=true` on the absorption path; JSON output reports `exists=true, approved=true, no absorbed flag` on the file path (additive — the field is omitted entirely when not applicable). Total suite: 1106 → 1110 passing, 0 failures.
+
+**Why a bump.** Visible CLI output change (text mode now prints `✅ IDEA.md (absorbed → ...)` on absorbed-brief projects instead of `❌ IDEA.md`). JSON output gains an additive `absorbed` field. Per CLAUDE.md: visible output change → bump. `docs/integrations/CHANGELOG.md` entry tagged `— additive` because the `absorbed` field is a new optional surface visible to Hub.
+
+**Pre-stable status.** v2.0.0 stable promotion remains gated on a third-party adopter validating end-to-end. Author canaries clean as of alpha.22 (Hub, Ultron, Zombite, Cesar). This was a real Tier-1 bug (verifiable from code; real consumer Ultron blocked at the time of fix; generalizes to every project that runs `--upgrade` from a pre-alpha.17 state with Phase 1 approved + IDEA.md still on disk) — exactly the case CLAUDE.md exempts from the "narrow evidence" filter ("a bug ... verifiable from the code today ... A real project (even an internal one) is currently blocked").
+
+---
+
 ## [2.0.0-alpha.21] — 2026-05-02 — BACKLOG.md scaffold at init/adopt
 
 Twenty-first staged pre-release on `feat/upgrade-protocol`. Single change. Closes the third item in the 2026-05-02 PM Phase 3 cleanup queue (after N3 alpha.19 + L2 alpha.20).
