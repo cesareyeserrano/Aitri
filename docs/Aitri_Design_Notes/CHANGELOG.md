@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.35] — 2026-06-02 — Phase 3 briefing: consolidate the mechanical gates + name available ac_ids in the error
+
+Second third-party session (same Inchcape adopter, rc.34 — `init` now works). Its headline complaint ("Phase 3 schema not documented, 45 min lost to trial-and-error") was, on verification, **mostly false** — `test_plan`, the `type`/`scenario` enums, the `h`/`f` suffix gate, min-3-per-FR, `user_story_id`/`ac_id` were all already in `templates/phases/tests.md`. But the real signal underneath is fair: the contract was *spread* across the template (lines 27, 40, 90, 114), after a large injected `REQUIREMENTS_JSON`, so an agent skimming missed it. Two agent-independent fixes (the behavioural findings — auto-approve, gate-skipping — stay N=1 on one agent/OS and are NOT acted on yet; see ADR-040):
+
+1. **Consolidated `## Hard gates` block** at the top of the Phase 3 schema section — one scannable list of exactly what `complete 3` rejects (fields, enums, suffix↔scenario map incl. the "no `n` suffix" gotcha, min-3 + happy/negative, ≥2 e2e, and the honest truth about `ac_id` validation). Replaces the partial, lower-down "Schema contract — CRITICAL" block (consolidate, don't duplicate).
+2. **`ac_id` cross-check error now lists the available ids** (`lib/phases/phase3.js`) — the agent invented `AC-FR-001-1` formats because the error never said what was valid. Now: "Available ac_id values: AC-001, AC-002 … — use one of these."
+
+Tests +2 (1306 → 1308): briefing carries the Hard-gates block; cross-check error lists available ids. No schema/artifact/contract change. The `ac_id`-chain incoherence itself (Phase 3 requires a join-key Phase 1 doesn't enforce) is a deeper design question — captured in **ADR-041**, not patched here.
+
 ## [2.0.0-rc.34] — 2026-06-01 — fix: npm-publish strips `templates/.gitignore`, crashing `init` for every npm-registry user
 
 First third-party adopter (Inchcape / DSB-AT-POC, GitHub Copilot CLI) hit `Error: ENOENT … templates/.gitignore` on the very first `aitri init`. Root cause is mechanical and verified with `npm pack --dry-run`: **npm always strips files named `.gitignore` from published tarballs**, so a dotted template is absent on any `npm i -g aitri` install — and [init.js](../../lib/commands/init.js) read it with an unguarded `readFileSync`. Author canaries never saw it because they install from GitHub (git keeps the file). Fix: ship the template as `templates/gitignore` (no dot, survives publish); `init` writes it to the project as `.gitignore` and falls back to a minimal default rather than throwing if the template is ever absent. Tests +3 (1303 → 1306): functional write, a regression guard asserting the dotless name exists and the dotted one does not, and a missing-template no-crash test. No schema/artifact/contract change — no integrations CHANGELOG entry. This is the first defect surfaced by a real external adopter — exactly the v2.0.0 promotion gate at work.

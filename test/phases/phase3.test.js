@@ -197,6 +197,26 @@ describe('Phase 3 — validate()', () => {
     assert.throws(() => PHASE_DEFS[3].validate(JSON.stringify(d)), /Missing ac_id.*TC-002/);
   });
 
+  // rc.35 — ac_id cross-check error lists the available ids (third-party canary:
+  // the agent invented ac_id formats because the error never said what was valid).
+  it('cross-check error lists available ac_id values from 01_REQUIREMENTS.json', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-acid-'));
+    fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001' }, { id: 'FR-002' }],
+      user_stories: [{ id: 'US-001', requirement_id: 'FR-001', acceptance_criteria: [{ id: 'AC-001' }, { id: 'AC-002' }] }],
+    }));
+    const d = JSON.parse(validP3());
+    d.test_cases[0].ac_id = 'AC-FR-001-1'; // an invented format that does not exist
+    try {
+      PHASE_DEFS[3].validate(JSON.stringify(d), { dir, config: {} });
+      assert.fail('expected the cross-check to throw');
+    } catch (e) {
+      assert.match(e.message, /AC references not found/);
+      assert.match(e.message, /Available ac_id values/);
+      assert.match(e.message, /AC-001, AC-002/);
+    }
+  });
+
   // Rank 11 — scenario enum + Three Amigos coverage gate
   it('throws when TC has invalid scenario value', () => {
     const d = JSON.parse(validP3());
@@ -518,6 +538,22 @@ describe('Phase 3 — buildBriefing() (BL-003)', () => {
   it('[Rank 3] briefing mentions ac_id cross-reference', () => {
     const b = PHASE_DEFS[3].buildBriefing({ dir: '/tmp/test', inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '' }, feedback: null });
     assert.ok(b.includes('ac_id'), 'briefing must reference ac_id field');
+  });
+
+  // rc.35 — consolidated hard-gates block (third-party canary: schema was
+  // documented but spread out; the agent missed it and reinvented via errors).
+  it('[rc.35] briefing has a consolidated "Hard gates" block naming the mechanical requirements', () => {
+    const b = PHASE_DEFS[3].buildBriefing({ dir: '/tmp/test', inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '' }, feedback: null });
+    assert.ok(b.includes('Hard gates'), 'briefing must have a consolidated Hard gates block');
+    const idx = b.indexOf('Hard gates');
+    const block = b.slice(idx, idx + 1600);
+    // The block must surface the gates the agent kept rediscovering by trial-and-error.
+    assert.ok(/REJECTS/.test(block), 'block states the artifact is rejected without these');
+    assert.ok(block.includes('test_plan'), 'block names test_plan');
+    assert.ok(block.includes('unit') && block.includes('integration') && block.includes('e2e'), 'block names the type enum');
+    assert.ok(block.includes('happy_path') && block.includes('negative'), 'block names the scenario enum');
+    assert.ok(/≥3 test cases/.test(block), 'block states the min-3-per-FR gate');
+    assert.ok(/NO `n` suffix/.test(block), 'block disambiguates the negative→f suffix mapping');
   });
 
   it('[v0.1.28] injects bestPractices content when provided', () => {

@@ -54,6 +54,13 @@ Surfaced 2026-06-01 by the Inchcape/DSB-AT-POC canary (Copilot CLI): an autonomo
   Behavior: when provenance is all-`confirmed` with 0 gaps AND the project auto-ingested context (idea/ non-empty, or discovery ran), append a one-line nudge to verify the high-stakes inputs (esp. `success_metric`) were confirmed *with the user*, not inferred from docs. Display-only, no schema change.
   Acceptance: approve-summary test asserts the nudge appears in the all-confirmed+context case and is absent otherwise. Version bump (visible CLI output change).
 
+- [ ] P2 — **Decide the `ac_id` traceability chain ([ADR-041](DECISIONS.md)).** Phase 3 hard-requires `ac_id` on every TC, but Phase 1 does not enforce structured acceptance_criteria with ids — a join-key with no guaranteed target.
+  Problem: third-party canary stalled supplying `ac_id` values that trace to nothing; the requirement is hollow when Phase 1 has plain-string ACs. rc.35 improved the error + briefing salience but left the structural question open.
+  Files: `lib/phases/phase3.js:100` (unconditional ac_id requirement), `:207` (conditional cross-check), `lib/phases/phase1.js` (acceptance_criteria not required to be structured), `templates/phases/tests.md`, `docs/integrations/ARTIFACTS.md`.
+  Behavior: pick Option A (enforce structured `[{id,text}]` ACs in Phase 1) or Option B (make `ac_id` presence conditional on Phase 1 having structured AC ids). ADR-041 leans B (nothing consumes `ac_id` mechanically today — verify-run keys on FR/NFR ids).
+  Decisions: deferred — product decision on how much AC-level traceability to force; ideally a 2nd consumer signal on whether AC-level trace is used downstream.
+  Acceptance: phase3 test for the chosen path (B: ac_id optional when knownAcIds empty, still required when present; A: phase1 rejects plain-string ACs when user_stories present). Schema-evolution rules apply (additive; no type change). Version bump + ARTIFACTS/CHANGELOG if schema changes.
+
 - [ ] P3 (DEFERRED — needs a 2nd consumer signal) — **Structured `source` on `idea_provenance`.** Each `confirmed` carries a short `source`.
   Problem: `confirmed` is unverifiable free text; a `source` raises the cost of dishonesty and improves the reviewer's signal.
   Files: `lib/phases/phase1-checks.js`, `lib/phases/phase1.js`, `lib/commands/approve.js`, `docs/integrations/ARTIFACTS.md` + `CHANGELOG.md`.

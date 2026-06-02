@@ -56,6 +56,20 @@ Schema:
     test_data: {}
   }] }
 
+## Hard gates — `aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3` REJECTS the artifact without these
+Scan this before writing. These are mechanical (validated by exit code, not advisory). The sections below explain the *why*; this is the *what*:
+- `test_plan` object present (strategy, coverage_goal, test_types).
+- Every test case carries ALL of: `id`, `requirement_id` (or `frs[]`), `user_story_id`, `ac_id`, `type`, `scenario`, `given`, `when`, `then`, `expected_result`.
+- `type` is EXACTLY one of `unit` | `integration` | `e2e` — no `ui`, `performance`, `security`, etc. (security/UX are expressed via `requirement_id` + the type-coverage rules below, not the `type` enum).
+- `scenario` is EXACTLY one of `happy_path` | `edge_case` | `negative`.
+- **TC id suffix ↔ scenario** (there is NO `n` suffix): `happy_path` → id ends in `h`; `negative` → id ends in `f`; `edge_case` → id ends in `e`.
+- Each `requirement_id`/`frs[]` target has **≥3 test cases**, including **≥1 `happy_path` (id …h)** and **≥1 `negative` (id …f)**.
+- **≥2 test cases** with `type: "e2e"`.
+- `requirement_id` is a single id — never comma-separated (use `frs: [...]` for multi-FR).
+- `requirement_id`/`frs[]` and `user_story_id` reference real ids in `01_REQUIREMENTS.json`.
+- `expected_result` is specific — not `"works"`, `"passes"`, `"is correct"`.
+- `ac_id`: must be present on every TC. Its VALUE is cross-validated against `01_REQUIREMENTS.json` **only when** `user_stories[].acceptance_criteria` carry structured `{ id, ... }` objects — then `ac_id` must match one of those ids. If Phase 1's acceptance_criteria are plain strings (no ids), any stable id string is accepted (a non-blocking warning is emitted). Do NOT invent a format hoping it matches — use the AC ids that exist in `01_REQUIREMENTS.json`, or a simple `AC-001` when none exist.
+
 ## Given/When/Then — SPEC-SEALED rule
 Every test case MUST include `given`, `when`, `then` fields with concrete, verifiable values.
 "Concrete" means: actual values, HTTP status codes, field names, data structures — not abstract descriptions.
@@ -86,13 +100,6 @@ Rules:
   - FR type logic: Unit is always MUST
 
 Include the coverage matrix as `type_coverage_matrix` field in the JSON output.
-
-## Schema contract — CRITICAL
-- `requirement_id` MUST be a single id from `01_REQUIREMENTS.json` — either a functional requirement (`FR-001`) or a non-functional requirement (`NFR-001`). NFRs (perf, security, accessibility, …) are testable and accepted as TC targets when declared. NEVER comma-separated (`"FR-001,FR-002"`).
-- `type` MUST be exactly one of: "unit" | "integration" | "e2e" — this is how aitri counts E2E tests
-- `scenario` (separate field) is where you classify: "happy_path" | "edge_case" | "negative"
-- `test_plan` is required — the artifact is invalid without it
-- `given`, `when`, `then` are required fields — abstract values fail SPEC-SEALED rule
 
 ## Test Portability Rule
 Test setup, fixtures, and file paths MUST be relative to the project (`process.cwd()`, `path.join(__dirname, ...)`, env vars) or use generated temp dirs (`os.tmpdir()`).

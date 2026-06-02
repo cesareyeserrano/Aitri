@@ -1139,3 +1139,25 @@ A rigor pass (reading the code directly, not trusting prior subagent analysis) w
 **Trade-off.** Instruction-hardening only reaches agents that honor their instruction files; the Copilot run that triggered this ADR did not visibly honor the `.github/copilot-instructions.md` Aitri generated. The residual risk — an autonomous agent that ignores instructions and auto-answers every checkpoint — is not closable in-band and is stated as such. The alternative (a heavier mechanical gate) buys no real protection against that agent and taxes every honest one.
 
 **Objection logged.** The `source` field could itself become a second honor-system declaration (the agent writes a plausible source for content it invented). That is precisely why it is deferred rather than shipped on a single data point — the same caution that dissolved the ADR-039 discovery gate.
+
+---
+
+## ADR-041 — 2026-06-02 — The `ac_id` traceability chain is half-built (Phase 3 requires a join-key Phase 1 does not enforce)
+
+**Status:** Open — problem stated, options scoped, NOT decided. rc.35 only improved the error message + briefing salience; the structural choice below is deferred for discussion.
+
+**Context.** The second third-party session blocked in Phase 3 on `ac_id`. Verified in code, the chain is inconsistent:
+- `lib/phases/phase3.js:100` — every test case MUST carry an `ac_id` (hard error, always).
+- `lib/phases/phase3.js:207` — the VALUE of `ac_id` is cross-validated against `01_REQUIREMENTS.json` **only when** `user_stories[].acceptance_criteria` carry structured `{ id, ... }` objects. If Phase 1's acceptance_criteria are plain strings (the common case — and what `lib/phases/phase1.js` accepts), the cross-check degrades to a non-blocking warning.
+- `lib/phases/phase1.js` does **not** require `user_stories[].acceptance_criteria` to be structured objects with ids — plain strings pass.
+
+So Phase 3 mandates a join-key (`ac_id`) whose target the upstream phase is not required to produce. When Phase 1 has no structured ACs, the agent must still supply an `ac_id` that traces to nothing — busywork that, in the canary, led the agent to invent formats (`AC-FR-001-1`) and stall. This is the "structural gate that prevents no real defect" pattern the constitution warns against, AND a real schema-chain incoherence (the same class the rc.26–28 audit found: a join-key required downstream but unenforced upstream). The rc.13 decision that made `ac_id` unconditionally mandatory predates this evidence.
+
+**Options (not yet chosen).**
+- **A — Enforce structured ACs in Phase 1.** When `user_stories` are present, require `acceptance_criteria` to be `[{ id, text }]` (not plain strings). Then `ac_id` always has a real target and the chain is whole. Cost: a Phase 1 schema tightening affecting every project; plain-string ACs (today valid, widely used) would need migration or a grace path. Highest integrity, highest blast radius.
+- **B — Make `ac_id` presence conditional.** Align `:100` with `:207`: require `ac_id` only when Phase 1 actually has structured AC ids; otherwise it is optional (trace via `requirement_id` + `user_story_id`, which are already mandatory). Removes the hollow requirement; smallest change; matches the canary's own suggestion. Cost: slightly weaker nominal traceability when Phase 1 is unstructured (but it was nominal anyway — the warning already admitted it can't be validated).
+- **C — Status quo + the rc.35 mitigations only.** Keep `ac_id` mandatory, rely on the consolidated briefing + the now-explicit error (lists available ids / tells the agent to use `AC-001` when none exist). Cost: the hollow requirement remains; depends on the agent reading the briefing (the very thing the canary did not do).
+
+**Lean (for discussion, not decided).** B is the most defensible against the constitution (don't require a join-key with no target) and the lowest-risk. A is the "correct" long-term shape if real AC-level traceability is a goal Aitri wants to guarantee — but that is a product decision about how much rigor to force, and it should be made deliberately, ideally with a second consumer signal on whether AC-level traceability is actually used downstream (verify-run keys on FR/NFR ids, not AC ids — so today nothing consumes `ac_id` mechanically, which argues for B).
+
+**Evidence-base note.** The blocker is real and code-verified (agent-independent — any agent writing plain-string ACs hits it). The *behavioural* colour around it (the agent inventing formats, then recommending a gate-skip) is from one agent/OS (Copilot CLI / Sonnet 4.5 / Windows) and is not generalized — consistent with the ADR-040 discipline.
