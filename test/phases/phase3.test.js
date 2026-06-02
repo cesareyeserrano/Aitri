@@ -178,23 +178,40 @@ describe('Phase 3 — validate()', () => {
     assert.throws(() => PHASE_DEFS[3].validate(JSON.stringify(d)), /test_plan field is required/);
   });
 
-  // Rank 3 — ac_id / user_story_id traceability gate
-  it('throws when TC is missing ac_id', () => {
+  // Rank 3 / ADR-041 — ac_id traceability is CONDITIONAL: required only when Phase 1
+  // provides structured acceptance_criteria with ids (the join target). Otherwise it is
+  // optional — requiring it would be a hollow gate (nothing to trace to, and nothing
+  // downstream consumes it: verify-run/phase5 key on FR/NFR ids).
+  const writeStructuredReqs = () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-acid-'));
+    fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001' }, { id: 'FR-002' }],
+      user_stories: [{ id: 'US-001', requirement_id: 'FR-001', acceptance_criteria: [{ id: 'AC-001' }, { id: 'AC-002' }] }],
+    }));
+    return dir;
+  };
+
+  it('[ADR-041] requires ac_id ONLY when Phase 1 has structured AC ids', () => {
+    const dir = writeStructuredReqs();
     const d = JSON.parse(validP3());
     delete d.test_cases[0].ac_id;
-    assert.throws(() => PHASE_DEFS[3].validate(JSON.stringify(d)), /Missing ac_id.*TC-001/);
+    assert.throws(() => PHASE_DEFS[3].validate(JSON.stringify(d), { dir, config: {} }),
+      /each TC must trace to one via ac_id/);
+  });
+
+  it('[ADR-041] ac_id is OPTIONAL when Phase 1 has no structured AC ids', () => {
+    // No structured ACs to validate against → ac_id not required (the hollow-gate case
+    // that blocked the third-party canary). Traceability still holds via requirement_id
+    // + user_story_id, both always required.
+    const d = JSON.parse(validP3());
+    d.test_cases.forEach(tc => { delete tc.ac_id; });
+    assert.doesNotThrow(() => PHASE_DEFS[3].validate(JSON.stringify(d)));
   });
 
   it('throws when TC is missing user_story_id', () => {
     const d = JSON.parse(validP3());
     delete d.test_cases[0].user_story_id;
     assert.throws(() => PHASE_DEFS[3].validate(JSON.stringify(d)), /Missing user_story_id.*TC-001/);
-  });
-
-  it('throws when TC has empty ac_id string', () => {
-    const d = JSON.parse(validP3());
-    d.test_cases[3].ac_id = ''; // TC-002h
-    assert.throws(() => PHASE_DEFS[3].validate(JSON.stringify(d)), /Missing ac_id.*TC-002/);
   });
 
   // rc.35 — ac_id cross-check error lists the available ids (third-party canary:

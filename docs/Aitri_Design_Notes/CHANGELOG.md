@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.36] — 2026-06-02 — `ac_id` becomes conditional (ADR-041 option B) — stop requiring a join-key with no target
+
+The ac_id-chain decision from ADR-041, resolved to **option B**. Backstory (dug out of the record): `ac_id` was introduced (commit `4c55bfc`, "Three Amigos gate") as the demand-half of a full FR→US→AC→TC traceability vision — but it was never completed: Phase 1 was meant to emit structured `acceptance_criteria` with ids and instead emits plain strings (the gate was softened to a warning when that was discovered), and **no downstream consumer ever read `ac_id`** (verify-run + phase5 key on FR/NFR ids). So it sat as a mandatory field tracing to nothing — a textbook case of the "field added without a consumer = theater" pattern the constitution now warns against. It blocked a real third-party adopter mid-Phase-3.
+
+Option B: `aitri complete 3` requires `ac_id` **only when** Phase 1 provides structured AC ids (then it is required AND value-checked); otherwise it is optional (`lib/phases/phase3.js` — reqs read once up front, the presence check gated on `knownAcIds.size > 0`). Traceability still holds via `requirement_id` + `user_story_id`. Briefing + ARTIFACTS.md updated to describe the conditional contract; integrations CHANGELOG marked **breaking** (a TC that always carried `ac_id` may now omit it — though no consumer reads it). Tests adjusted (the two unconditional-ac_id tests → conditional: required-when-structured + optional-when-not). 1308 tests.
+
+The original vision is **not discarded** — it is parked in BACKLOG as "AC-level traceability done right", which means building the missing **consumer** (AC-level coverage in verify-run) + accepting structured ACs additively, gated on a real adopter wanting AC-level coverage. ADR-041 records the full reasoning.
+
 ## [2.0.0-rc.35] — 2026-06-02 — Phase 3 briefing: consolidate the mechanical gates + name available ac_ids in the error
 
 Second third-party session (same Inchcape adopter, rc.34 — `init` now works). Its headline complaint ("Phase 3 schema not documented, 45 min lost to trial-and-error") was, on verification, **mostly false** — `test_plan`, the `type`/`scenario` enums, the `h`/`f` suffix gate, min-3-per-FR, `user_story_id`/`ac_id` were all already in `templates/phases/tests.md`. But the real signal underneath is fair: the contract was *spread* across the template (lines 27, 40, 90, 114), after a large injected `REQUIREMENTS_JSON`, so an agent skimming missed it. Two agent-independent fixes (the behavioural findings — auto-approve, gate-skipping — stay N=1 on one agent/OS and are NOT acted on yet; see ADR-040):

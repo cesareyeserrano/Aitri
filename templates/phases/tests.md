@@ -68,7 +68,7 @@ Scan this before writing. These are mechanical (validated by exit code, not advi
 - `requirement_id` is a single id — never comma-separated (use `frs: [...]` for multi-FR).
 - `requirement_id`/`frs[]` and `user_story_id` reference real ids in `01_REQUIREMENTS.json`.
 - `expected_result` is specific — not `"works"`, `"passes"`, `"is correct"`.
-- `ac_id`: must be present on every TC. Its VALUE is cross-validated against `01_REQUIREMENTS.json` **only when** `user_stories[].acceptance_criteria` carry structured `{ id, ... }` objects — then `ac_id` must match one of those ids. If Phase 1's acceptance_criteria are plain strings (no ids), any stable id string is accepted (a non-blocking warning is emitted). Do NOT invent a format hoping it matches — use the AC ids that exist in `01_REQUIREMENTS.json`, or a simple `AC-001` when none exist.
+- `ac_id`: required **only when** `01_REQUIREMENTS.json` provides structured acceptance criteria — i.e. `user_stories[].acceptance_criteria` are `{ id, text }` objects. Then every TC must carry an `ac_id` matching one of those ids (the value is cross-validated; the error lists the valid ids). If Phase 1's acceptance_criteria are plain strings with no ids, `ac_id` is **optional** — traceability still holds via `requirement_id` + `user_story_id` (both always required). Do NOT invent an `ac_id` format: use an id that exists in `01_REQUIREMENTS.json`, or omit it when none exist.
 
 ## Given/When/Then — SPEC-SEALED rule
 Every test case MUST include `given`, `when`, `then` fields with concrete, verifiable values.

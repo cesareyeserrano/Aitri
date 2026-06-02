@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.35+
+**Aitri version:** v2.0.0-rc.36+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -153,14 +153,14 @@ Written by Phase 3 (QA persona). Test cases keyed to FRs, user stories, and acce
 - TC `id` values must be **canonical** (v2.0.0-rc.16+): `TC` + optional UPPERCASE namespace segments + a numeric block + suffix — e.g. `TC-001h`, `TC-E2E-001h`, `TC-API-USER-010f`. Ids without a numeric block (`TC-e2eFolderScan`) or with a lowercase namespace (`TC-fe-001h`) are rejected. Rationale: `verify-run` links a parsed runner-output id to a plan id by string equality, so any id the shared parser cannot round-trip would silently drop to `skip`. The grammar is shared between the parser and this gate (`lib/tc-id.js`), so the two cannot drift.
 - `type` must be: `unit` | `integration` | `e2e`
 - `scenario` must be: `happy_path` | `edge_case` | `negative`
-- Each TC must have: `requirement_id`, `user_story_id`, `ac_id`
+- Each TC must have: `requirement_id` (or `frs[]`) and `user_story_id`. `ac_id` is **conditional** (v2.0.0-rc.36+, ADR-041): required only when `01_REQUIREMENTS.json` provides structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, text }` objects); when ACs are plain strings, `ac_id` is optional
 - `expected_result` must not be a placeholder (`"it works"`, `"passes"`, `"succeeds"`, etc.)
 - Each FR must have a minimum of 3 TCs, with at least one `happy_path` and one `negative` scenario (edge_case is encouraged but not enforced)
 - Each FR must have at least one TC with id ending in `h` (happy path) and one ending in `f` (failure)
 - Minimum 2 `e2e` test cases total
 - `requirement_id` must be a single id from `01_REQUIREMENTS.json` — either a functional requirement (`FR-xxx`) or a non-functional requirement (`NFR-xxx`). NFR ids are accepted as TC targets when the NFR is declared in `non_functional_requirements[]` (v2.0.0-alpha.9+). Comma-separated ids are rejected.
 - For multi-FR TCs, use `"frs": ["FR-001","FR-002"]` (string array) instead of a comma-separated `requirement_id`. `frs` is recognized by `aitri verify-run` (v0.1.90+) AND, since v2.0.0-rc.26, by `aitri complete 3` — a TC may carry `frs` instead of `requirement_id`, and `complete 3` buckets it into each targeted FR for the per-FR + FR-MUST coverage rules (it used to reject any TC without `requirement_id`, making the documented `frs` form uncompletable). When present, `frs` wins over `requirement_id` in both. Each TC must target at least one of `requirement_id` or a non-empty `frs[]`.
-- If `01_REQUIREMENTS.json` is present: TC `ac_id` values are cross-checked against AC ids in `user_stories[].acceptance_criteria`; all MUST requirements (FR or NFR, v2.0.0-rc.27+) must have at least one TC
+- If `01_REQUIREMENTS.json` has structured AC ids: TC `ac_id` values are required and cross-checked against the ids in `user_stories[].acceptance_criteria` (the error lists the valid ids). If ACs are plain strings, `ac_id` is optional and any declared values are not validated (an informational note is emitted). All MUST requirements (FR or NFR, v2.0.0-rc.27+) must have at least one TC.
 - `verify-run` (v0.1.90+) refuses to run and refuses to write `04_TEST_RESULTS.json` if `test_cases[]` is non-empty and no entry exposes `requirement_id` or `frs` (legacy `requirement` field alone is not enough; migrate explicitly).
 
 **TC naming convention:** suffix `h` = happy path (e.g. `TC-001h`), `f` = failure/negative (e.g. `TC-001f`), `e` = edge case (e.g. `TC-001e`).

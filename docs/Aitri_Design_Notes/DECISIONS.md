@@ -1144,7 +1144,7 @@ A rigor pass (reading the code directly, not trusting prior subagent analysis) w
 
 ## ADR-041 — 2026-06-02 — The `ac_id` traceability chain is half-built (Phase 3 requires a join-key Phase 1 does not enforce)
 
-**Status:** Open — problem stated, options scoped, NOT decided. rc.35 only improved the error message + briefing salience; the structural choice below is deferred for discussion.
+**Status:** DECIDED 2026-06-02 (rc.36) — **option B shipped.** `ac_id` is now required only when Phase 1 provides structured AC ids; optional otherwise (`lib/phases/phase3.js`, reqs pre-read, presence check gated on `knownAcIds.size > 0`). Option A (finish the full traceability chain) is parked in BACKLOG as a future feature whose load-bearing piece is a real *consumer* (AC-level coverage), gated on a real adopter wanting it. rc.35 added the salience/error mitigations; rc.36 made the structural call.
 
 **Context.** The second third-party session blocked in Phase 3 on `ac_id`. Verified in code, the chain is inconsistent:
 - `lib/phases/phase3.js:100` — every test case MUST carry an `ac_id` (hard error, always).

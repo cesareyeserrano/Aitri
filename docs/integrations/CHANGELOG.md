@@ -18,6 +18,13 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.36 (2026-06-02) — `03_TEST_CASES.json` `ac_id` is now conditional, not always-required (ADR-041) — breaking
+
+- **`ac_id` on test cases is no longer unconditionally required.** `aitri complete 3` now requires `ac_id` **only when** `01_REQUIREMENTS.json` provides structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, ... }` objects). When ACs are plain strings (no ids — the common case, since Phase 1 never enforced structured ACs), `ac_id` is **optional**; any values present are not validated (informational note). Traceability still holds via `requirement_id` + `user_story_id`, both always required.
+- **Why:** `ac_id` was the demand-half of a never-completed traceability chain (Phase 1 was meant to emit AC ids but emits plain strings, and no consumer reads `ac_id` — `verify-run`/`05_PROOF_OF_COMPLIANCE` key on FR/NFR ids). Requiring a join-key with no target blocked a real third-party adopter mid-Phase-3. ADR-041 option B.
+
+**Contract impact for subproducts:** marked **breaking** conservatively — a TC that always carried `ac_id` may now omit it (when Phase 1 ACs are unstructured). In practice no current consumer reads `ac_id` (verified across `verify-run`, `phase5`, snapshot), so readers keying on `requirement_id`/`frs` are unaffected. A reader that assumed `ac_id` is always present must treat it as optional. Pre-release-major bump covers it.
+
 ## v2.0.0-rc.27 (2026-05-31) — pipeline audit Tier 2: MUST-coverage includes NFRs + gate-correctness fixes — additive
 
 - **MUST-coverage now spans NFRs.** `complete 3` (every MUST requirement needs a TC) and `complete 5` (every MUST requirement needs a compliance entry) now include `non_functional_requirements` with `priority: "MUST"`, not only FRs. A MUST security/CI-CD NFR could previously ship untested/unattested. Fresh-validation only.
