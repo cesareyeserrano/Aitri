@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.39] — 2026-06-03 — context injected only in spec-definition phases (not execution) — dissolves the staleness problem
+
+Co-designed with the author. The insight that replaced the whole "context lifecycle / close-on-deploy" design we had been circling: **context belongs to the phases that DEFINE the spec, not the ones that EXECUTE it.** `run-phase` now injects the `idea_context/` / `feature_context/` asset list ONLY in `{discovery, requirements(1), ux, architecture(2), tests(3)}` — the phases deciding WHAT to build. The execution phases (`build(4)`, `deploy(5)`, `review`) work from the approved artifacts (the source of truth); raw context is not injected there. It stays on disk and the agent reads it on request (e.g. to check build fidelity against a mockup).
+
+Why this beats the lifecycle mechanism we almost built: it is a **static relevance rule**, not a stateful open/closed mechanism with deploy-triggers and reopen logic. And it **bounds staleness for free** — assets only surface during spec definition, when they are fresh and relevant, so stale material can never leak into late-phase briefings. The earlier honest finding (close-on-deploy only addressed the rare "re-touch a completed unit" window, not the common one) is what pushed us here; this rule addresses relevance directly and the staleness worry dissolves as a side effect.
+
+Tests +2 (1312 → 1314): discovery injects context; build does not. The deferred "staleness mechanism" BACKLOG item is closed — superseded by this simpler rule.
+
 ## [2.0.0-rc.38] — 2026-06-03 — context folder: rename `idea/` → `idea_context/` + per-feature `feature_context/` + staleness framing
 
 The `idea/` assets folder collided in name with `IDEA.md` and had no lifecycle (author fresh-install review). Renamed, scoped, and framed — a **deliberate breaking change**, appropriate now: pre-v2-stable, ~5 projects, Hub being rebuilt, and **no consumer reads the folder name** (it is an internal scan, not a documented contract). Owner's call: do not freeze Aitri's evolution for the few old projects; they migrate manually (rename a folder).

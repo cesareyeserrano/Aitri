@@ -139,6 +139,34 @@ describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () =>
     assert.ok(stderr.includes('mv idea idea_context'), 'should give the rename command');
     fs.rmSync(dir, { recursive: true, force: true });
   });
+
+  // rc.39 — context is injected only in spec-definition phases, not execution phases.
+  it('injects context in discovery (the most context-hungry spec phase)', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    writeFile(dir, 'idea_context/brief.pdf', 'x');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['discovery'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(stdout.includes('idea_context/brief.pdf'), 'discovery briefing should list context assets');
+  });
+
+  it('does NOT inject context in execution phases (build)', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '# System Design\n\nArchitecture details.\n');
+    writeFile(dir, 'spec/03_TEST_CASES.json', '{"test_plan":{},"test_cases":[]}');
+    writeFile(dir, 'idea_context/mockup.png', 'x');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(!stdout.includes('idea_context/mockup.png'), 'build briefing must NOT list context assets');
+    assert.ok(!stdout.includes('Additional context'), 'build must not inject the context block');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });
 
 describe('cmdRunPhase() — accepts numeric phase', () => {

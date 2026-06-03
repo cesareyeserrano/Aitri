@@ -47,11 +47,7 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
   Decisions pre-resolved: descriptive-vs-acronym was chosen as descriptive in ADR-039; this REVISITS it. The perceived professionalism comes mostly from the vocabulary users/agents SEE, not the literal filename — so B is the lower-risk default. A is only warranted if the filename itself must be the industry term. **This amends ADR-039 → write a new ADR with A's full migration scope before deciding.**
   Files (path B): `lib/commands/help.js`, `templates/phases/*.md`, `lib/personas/*.js`, artifact headers, docs. (path A also: `lib/phases/index.js` artifact names, `lib/state.js`, every migration, `docs/integrations/*`, all tests.)
 
-- [ ] P3 (DEFERRED — needs a real incident) — **Context folder staleness MECHANISM.** rc.38 shipped the rename (`idea/` → `idea_context/` + `feature_context/`), per-feature scope, loud migration, and a LIGHT staleness mitigation (briefing framing "reference not source-of-truth; ignore superseded" + README curation guidance). What remains deferred is a MECHANICAL lifecycle.
-  Problem: assets dropped at seed time are listed in EVERY briefing forever; as the project evolves some become obsolete and could mislead the agent (the problem ADR-031 solved for IDEA.md by archiving it at Phase 1 approve).
-  Why deferred: foresight, not an observed incident — only the file LIST is injected (not contents) and the agent picks what is relevant, so the framing fix likely suffices. Building auto-archive / staleness detection now would over-engineer an un-observed problem (evidence-base discipline).
-  Files (if un-deferred): `lib/commands/run-phase.js` (phase-aware injection or archive-on-approve), `lib/commands/init.js`.
-  Trigger to build: a real case where stale `idea_context/` material demonstrably degraded an artifact.
+- [x] CLOSED (rc.39) — **Context folder staleness.** Superseded by a simpler rule than the lifecycle mechanism this item proposed: `run-phase` injects context only in spec-DEFINITION phases ({discovery, requirements, ux, architecture, tests}), not execution phases (build/deploy/review). Assets only surface while fresh and relevant, so stale material cannot leak into late-phase briefings — the staleness worry dissolves without any stateful open/closed mechanism. (The close-on-deploy idea was dropped after we found it only addressed the rare "re-touch a completed unit" window.)
 
 ### Core — Human checkpoints vs autonomous agents ([ADR-040](DECISIONS.md)) — from first third-party adopter
 
