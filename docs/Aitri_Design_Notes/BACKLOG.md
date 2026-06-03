@@ -37,6 +37,14 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 > Ecosystem items (Hub, Graph, future subproducts) live in their own repos' backlogs.
 > Core only tracks items that require changes to Aitri Core itself.
 
+### Core — Naming & vocabulary cleanup ([ADR-042](DECISIONS.md)) — APPROVED, phased
+
+Design accepted 2026-06-03. Clean breaks, no aliases; trivial migrations (verified — NOT re-adopt). The real regression risk is the context-aware sweep (`normalizeAC` / string normalisation must NOT be touched) — full test suite is the backstop after every block.
+
+- [ ] P2 — **Phase 1: `normalize` → `reconcile`** (command + `.aitri` field `normalizeState`→`reconcileState` + `status --json` contract `normalize`/`normalize_pending`→`reconcile_*` + `normalize-patterns.js`→`reconcile-patterns.js` + `normalize.md`→`reconcile.md` + AGENTS + help + docs + ~300 test refs). Migration: 1-line field rename in the migrator. Integration CHANGELOG marked breaking; Hub adapts.
+- [ ] P2 — **Phase 2: artifact renames** `04_IMPLEMENTATION_MANIFEST`→`04_BUILD_REPORT`, `05_PROOF_OF_COMPLIANCE`→`05_TRACEABILITY`. Migration: migrator renames the file on disk (artifactHashes keyed by phase, not name → state unaffected). ARTIFACTS/CHANGELOG updated.
+- [ ] P3 — **Phase 3: homologation layer** — each artifact declares its industry identity (header) + help/docs lead with the recognised term where one exists.
+
 ### Core — Naming & professional positioning (PARKED decisions — decide before v2.0.0 stable)
 
 > Surfaced 2026-06-03 by the author reviewing the fresh-install onboarding. Both are NAMING/structure decisions deliberately parked to decide together, deliberately, not piecemeal. **Timing is load-bearing:** renames are breaking, and breaking changes are only acceptable at a major. v2 IS that major — once v2 goes stable with third-party adopters, these names freeze for a long time. So both must be decided in the pre-v2-stable window or accept the current names indefinitely.

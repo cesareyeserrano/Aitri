@@ -1161,3 +1161,45 @@ So Phase 3 mandates a join-key (`ac_id`) whose target the upstream phase is not 
 **Lean (for discussion, not decided).** B is the most defensible against the constitution (don't require a join-key with no target) and the lowest-risk. A is the "correct" long-term shape if real AC-level traceability is a goal Aitri wants to guarantee — but that is a product decision about how much rigor to force, and it should be made deliberately, ideally with a second consumer signal on whether AC-level traceability is actually used downstream (verify-run keys on FR/NFR ids, not AC ids — so today nothing consumes `ac_id` mechanically, which argues for B).
 
 **Evidence-base note.** The blocker is real and code-verified (agent-independent — any agent writing plain-string ACs hits it). The *behavioural* colour around it (the agent inventing formats, then recommending a gate-skip) is from one agent/OS (Copilot CLI / Sonnet 4.5 / Windows) and is not generalized — consistent with the ADR-040 discipline.
+
+---
+
+## ADR-042 — 2026-06-03 — Naming & vocabulary cleanup: clear names + homologation, not change-for-change
+
+**Status:** DESIGN ACCEPTED — implementation phased and pending (no code yet). This ADR is the blueprint; each phase ships as its own test-verified release.
+
+**Context.** Reviewing Aitri as "an AI product for the IT industry," the author asked whether the artifact/command names are professional and industry-aligned, or "invented." A first-principles analysis (not change-for-change):
+
+- Most names are ALREADY clear AND standard (`01_REQUIREMENTS`, `02_SYSTEM_DESIGN`, `03_TEST_CASES`). The "jargon vs clear" tension is narrow — they are just not the *acronyms* (PRD/SRS/TRD/SDD) some pattern-match on.
+- Homologation is PARTIAL: only some artifacts map to an industry document type (requirements→PRD, design→design-doc, tests→test-plan). `04_IMPLEMENTATION_MANIFEST` and `05_PROOF_OF_COMPLIANCE` are Aitri-specific concepts with NO industry equivalent — acronymising cannot fix what feels "invented" about them.
+- Modern-AI-product lens: modern tooling uses CLEAR names; the formal acronyms (SRS/SDD/TRD) read as IEEE/waterfall/enterprise-regulated/academic — *dated*, not modern. PRD is the one exception (modern + ubiquitous). So full acronymisation would make Aitri look LESS modern, not more.
+
+**Decisions.**
+
+1. **DO NOT full-acronym-rename the artifact chain.** Clear, descriptive names are more aligned with a modern AI product than academic acronyms, and partial homologation is impossible. The market matters: modern-dev → clear names win; regulated-enterprise → formal acronyms expected. Aitri targets the former by default.
+
+2. **Strengthen the homologation LAYER instead** (gets "explanatory + recognised" without a risky rename): each artifact carries its industry identity prominently (e.g. an internal header "Product Requirements Document (PRD)"); `aitri help`/docs lead with the recognised term where one genuinely exists. Filenames stay clear; recognition comes from context. (Extends the rc.32 `≈` map.)
+
+3. **DO rename `normalize` → `reconcile`** — the single worst command name. "Normalize" communicates nothing about what it does ("detect + classify code changes made outside the pipeline"). `reconcile` does. Full, clean rename (NO alias — per the author's clean-break principle): the command, the `.aitri` state field `normalizeState` → `reconcileState`, the `status --json` contract fields (`normalize`, `normalizeState`, `normalizeBaseline`, reason `normalize_pending` → `reconcile_*`), `lib/normalize-patterns.js` → `reconcile-patterns.js`, `templates/phases/normalize.md` → `reconcile.md`, AGENTS.md, help, docs, and the ~300 test references.
+
+4. **DO rename the two Aitri-specific "weird" artifacts:** `04_IMPLEMENTATION_MANIFEST.json` → `04_BUILD_REPORT.json`; `05_PROOF_OF_COMPLIANCE.json` → `05_TRACEABILITY.json` ("traceability" is the precise industry term for what it is — a requirements traceability/compliance report). Clean rename, no dual-naming.
+
+5. **DO NOT rename** `validate`, `complete`, `rehash`, `tc`. Individually reasonable; rename = churn > value (change-for-change). One doc-only clarification: `complete <phase>` validates one phase vs `validate` checks all for deploy — explain the difference in help, do not rename.
+
+6. **The `idea/` unit-folder structure is NOT part of this ADR** — separate, higher-risk, parked (the `.aitri`/root-identity reshape). This ADR is vocabulary only.
+
+**Migration (verified clean — no re-adopt).** Re-adopting old projects was rejected: `adopt` resets `currentPhase`/`approvedPhases` (`adopt.js:486`), so it would *lose pipeline progress* — costlier than migrating. The migrations are trivial because of how state is keyed:
+- `normalizeState → reconcileState`: a one-line field rename in `lib/upgrade/migrations/` — the migrator already does exactly this pattern (`requirement → requirement_id`, etc.).
+- Artifact renames (04/05): `.aitri` keys `artifactHashes` by **phase number, not filename** (`artifactHashes["4"]`), so state is unaffected — the migrator just renames the file on disk (`mv 04_IMPLEMENTATION_MANIFEST.json 04_BUILD_REPORT.json`); the phase-keyed hash still matches the unchanged content.
+- The `status --json` contract changes are documented in `docs/integrations/` (marked breaking); Hub adapts later (author's call: do not block on Hub).
+
+**The real regression risk is the sweep, not the migration.** ~300 `normalize` references — but NOT all are the command/state: `normalizeAC` (phase1), string normalisation (tc-id) must NOT be touched. The sweep is context-aware (never a blind `sed`), and the full test suite (94 normalize + 75 snapshot tests) is the backstop, run after every block.
+
+**Implementation plan (phased, each a test-verified release).**
+1. `normalize → reconcile` (command + state + contract + migration + sweep). Highest-value name fix.
+2. `04`/`05` artifact renames + on-disk file-rename migration + contract docs.
+3. Homologation layer (industry identity in artifact headers + help/docs).
+
+**Trade-offs.** Clean breaks mean old muscle memory / scripts break — accepted at pre-v2-stable with few projects; the migrator (`adopt --upgrade`) carries existing projects across without re-authoring. The homologation layer adds prose to maintain but is the low-risk way to satisfy "professional + recognised."
+
+**Objections logged.** (a) "Reconcile" is also slightly less common than "normalize" as an English word — but it *describes the action*, which "normalize" does not; clarity wins. (b) Renaming artifacts is a contract change even with Hub freed — mitigated by documenting it in the integration contract so Hub's adaptation is mechanical. (c) Doing nothing was considered — rejected only for the genuinely-opaque names (`normalize`, `04`/`05`); explicitly chosen for everything else (no change-for-change).
