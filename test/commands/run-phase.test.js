@@ -113,6 +113,34 @@ describe('cmdRunPhase() — phase 1 (requirements) briefing', () => {
   });
 });
 
+describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () => {
+  it('lists idea_context/ assets in the briefing', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    writeFile(dir, 'idea_context/mockup.png', 'x');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(stdout.includes('idea_context/ folder'), 'briefing should reference the idea_context/ folder');
+    assert.ok(stdout.includes('idea_context/mockup.png'), 'briefing should list the asset');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('emits a loud migration note when legacy idea/ still has assets', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    writeFile(dir, 'idea/old.pdf', 'x');
+    const { stderr } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(stderr.includes('no longer scanned'), 'should warn that idea/ is no longer scanned');
+    assert.ok(stderr.includes('mv idea idea_context'), 'should give the rename command');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
 describe('cmdRunPhase() — accepts numeric phase', () => {
   let dir;
 

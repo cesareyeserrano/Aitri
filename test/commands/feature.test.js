@@ -82,6 +82,12 @@ describe('aitri feature init', () => {
     );
   });
 
+  it('creates feature_context/ folder with a README (rc.37)', () => {
+    const ctx = path.join(dir, 'features', 'add-export', 'feature_context');
+    assert.ok(fs.existsSync(ctx), 'feature_context/ must be created');
+    assert.ok(fs.existsSync(path.join(ctx, 'README.md')), 'feature_context/README.md must exist');
+  });
+
   it('creates .aitri state file with artifactsDir: "spec"', () => {
     const statePath = path.join(dir, 'features', 'add-export', '.aitri');
     assert.ok(fs.existsSync(statePath), '.aitri must be created in feature dir');

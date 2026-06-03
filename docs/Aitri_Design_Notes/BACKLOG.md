@@ -37,6 +37,22 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 > Ecosystem items (Hub, Graph, future subproducts) live in their own repos' backlogs.
 > Core only tracks items that require changes to Aitri Core itself.
 
+### Core — Naming & professional positioning (PARKED decisions — decide before v2.0.0 stable)
+
+> Surfaced 2026-06-03 by the author reviewing the fresh-install onboarding. Both are NAMING/structure decisions deliberately parked to decide together, deliberately, not piecemeal. **Timing is load-bearing:** renames are breaking, and breaking changes are only acceptable at a major. v2 IS that major — once v2 goes stable with third-party adopters, these names freeze for a long time. So both must be decided in the pre-v2-stable window or accept the current names indefinitely.
+
+- [ ] P2 — **Industry-standard artifact vocabulary (PRD/SRS/TRD/SDD).** Owner wants Aitri to read as serious/professional for real-industry adoption, not "invented" names.
+  Problem: industry recognizes document TYPES (PRD, SRS, TRD, SDD); the current names (`01_REQUIREMENTS.json`, `02_SYSTEM_DESIGN.md`) are descriptive but non-standard. Today only a dim grey `≈ PRD/SRS` map bridges them ([help.js](../../lib/commands/help.js), ADR-039).
+  Two paths: **(A) rename files** to the industry document types (e.g. `01_PRD.json`, `02_SDD.md`) — breaking: migration for every project + Hub + the artifact chain in CLAUDE.md + tests + all docs; **(B) keep stable filenames, make industry vocabulary PRIMARY** everywhere user-facing (help leads with PRD not grey; briefings/personas say "Product Requirements Document (PRD)"; each artifact carries its document-type designation prominently) — non-breaking, ~90% of the professional feel.
+  Decisions pre-resolved: descriptive-vs-acronym was chosen as descriptive in ADR-039; this REVISITS it. The perceived professionalism comes mostly from the vocabulary users/agents SEE, not the literal filename — so B is the lower-risk default. A is only warranted if the filename itself must be the industry term. **This amends ADR-039 → write a new ADR with A's full migration scope before deciding.**
+  Files (path B): `lib/commands/help.js`, `templates/phases/*.md`, `lib/personas/*.js`, artifact headers, docs. (path A also: `lib/phases/index.js` artifact names, `lib/state.js`, every migration, `docs/integrations/*`, all tests.)
+
+- [ ] P3 (DEFERRED — needs a real incident) — **Context folder staleness MECHANISM.** rc.38 shipped the rename (`idea/` → `idea_context/` + `feature_context/`), per-feature scope, loud migration, and a LIGHT staleness mitigation (briefing framing "reference not source-of-truth; ignore superseded" + README curation guidance). What remains deferred is a MECHANICAL lifecycle.
+  Problem: assets dropped at seed time are listed in EVERY briefing forever; as the project evolves some become obsolete and could mislead the agent (the problem ADR-031 solved for IDEA.md by archiving it at Phase 1 approve).
+  Why deferred: foresight, not an observed incident — only the file LIST is injected (not contents) and the agent picks what is relevant, so the framing fix likely suffices. Building auto-archive / staleness detection now would over-engineer an un-observed problem (evidence-base discipline).
+  Files (if un-deferred): `lib/commands/run-phase.js` (phase-aware injection or archive-on-approve), `lib/commands/init.js`.
+  Trigger to build: a real case where stale `idea_context/` material demonstrably degraded an artifact.
+
 ### Core — Human checkpoints vs autonomous agents ([ADR-040](DECISIONS.md)) — from first third-party adopter
 
 Surfaced 2026-06-01 by the Inchcape/DSB-AT-POC canary (Copilot CLI): an autonomous agent defeated both human checkpoints (typed `y` at approve; marked all provenance `confirmed` from a self-discovered folder). rc.40 thesis + dispositions are in ADR-040. Levers to ship vs defer:

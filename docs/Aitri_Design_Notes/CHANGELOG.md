@@ -5,6 +5,26 @@
 
 ---
 
+## [2.0.0-rc.38] — 2026-06-03 — context folder: rename `idea/` → `idea_context/` + per-feature `feature_context/` + staleness framing
+
+The `idea/` assets folder collided in name with `IDEA.md` and had no lifecycle (author fresh-install review). Renamed, scoped, and framed — a **deliberate breaking change**, appropriate now: pre-v2-stable, ~5 projects, Hub being rebuilt, and **no consumer reads the folder name** (it is an internal scan, not a documented contract). Owner's call: do not freeze Aitri's evolution for the few old projects; they migrate manually (rename a folder).
+
+- **Rename, scope-aware:** root projects use `idea_context/` (pairs with `IDEA.md`); feature sub-pipelines use `feature_context/` (pairs with `FEATURE_IDEA.md`). `run-phase` scans the right one by scope; `feature init` now creates `feature_context/` + README (features had NO context folder before — a real gap).
+- **Loud migration, not silent:** if a legacy `idea/` folder still holds assets, `run-phase` prints a note (`idea/ is no longer scanned — mv idea idea_context`) rather than silently dropping the context.
+- **Staleness framing (light, foresight — no incident yet):** the briefing note now says the assets are *supporting reference, not the source of truth — ignore anything superseded as the project evolved*; the README tells the operator to curate. A heavier mechanism (auto-archive / staleness detection, à la ADR-031 for IDEA.md) is deliberately deferred until a real contamination incident — building it now would be over-engineering an un-observed problem.
+- Updated: `init.js`, `run-phase.js`, `feature.js`, `help.js`, `templates/IDEA.md`, `templates/AGENTS.md`. Tests +4 (1308 → 1312). No artifact/.aitri schema change (the folder is not a contract) — no integrations CHANGELOG entry.
+
+## [2.0.0-rc.37] — 2026-06-03 — onboarding clarity: `init` output + `help` accuracy (author fresh-install review)
+
+Author ran a clean `aitri init` with fresh eyes and surfaced onboarding friction. A deep review of `help.js` + the init output against the 21 real commands found five real issues (all CLI text — non-breaking):
+- `init` description claimed it "creates IDEA.md + spec/" — it actually creates spec/, idea/, .aitri, .gitignore, BACKLOG.md, IDEA.md **and five per-agent instruction files**. Help now lists what it really creates.
+- `wizard` help showed `--depth quick|deep` — the real options are `quick|standard|deep` (was missing `standard`).
+- `init`'s "What to do now" never mentioned the `idea/` folder — and it collides in name with `IDEA.md`. The output now explains the folder, distinguishes it from the file ("IDEA.md is the file you write; idea/ is the folder for assets"), and notes the per-agent files exist and are auto-read. The `idea/README.md` carries the same distinction.
+- `review` is a top-level command (`aitri review`) but was shown only as a phase — now annotated.
+- Agent list: "Gemini Code" → "Gemini CLI"; Opencode marked "(via AGENTS.md)".
+
+Parked (BACKLOG, decide before v2 stable — the pre-stable window is the only place a breaking rename is acceptable): (1) **industry-standard artifact vocabulary** (PRD/SRS/TRD/SDD) — owner wants Aitri to read professional, not invented; rename-files vs elevate-vocabulary. (2) **context folder** — rename `idea/` + give it a lifecycle (it contaminates briefings once stale, like IDEA.md did pre-ADR-031) + per-feature context folders. Both are naming/structure decisions deliberately batched, not snap-picked. No tests changed (1308).
+
 ## [2.0.0-rc.36] — 2026-06-02 — `ac_id` becomes conditional (ADR-041 option B) — stop requiring a join-key with no target
 
 The ac_id-chain decision from ADR-041, resolved to **option B**. Backstory (dug out of the record): `ac_id` was introduced (commit `4c55bfc`, "Three Amigos gate") as the demand-half of a full FR→US→AC→TC traceability vision — but it was never completed: Phase 1 was meant to emit structured `acceptance_criteria` with ids and instead emits plain strings (the gate was softened to a warning when that was discovered), and **no downstream consumer ever read `ac_id`** (verify-run + phase5 key on FR/NFR ids). So it sat as a mandatory field tracing to nothing — a textbook case of the "field added without a consumer = theater" pattern the constitution now warns against. It blocked a real third-party adopter mid-Phase-3.

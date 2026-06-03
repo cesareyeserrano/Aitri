@@ -60,6 +60,16 @@ describe('aitri init — version tracking', () => {
   });
 });
 
+describe('aitri init — context folder (rc.37)', () => {
+  it('creates idea_context/ (not idea/) with a README', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' });
+    assert.ok(fs.existsSync(path.join(dir, 'idea_context')), 'idea_context/ must be created');
+    assert.ok(fs.existsSync(path.join(dir, 'idea_context', 'README.md')), 'idea_context/README.md must exist');
+    assert.ok(!fs.existsSync(path.join(dir, 'idea')), 'the old idea/ folder must NOT be created');
+  });
+});
+
 describe('aitri init — .gitignore template (npm-publish safe)', () => {
   it('writes a project .gitignore from the dotless template', () => {
     const dir = tmpDir();
