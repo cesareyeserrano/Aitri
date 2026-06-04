@@ -673,6 +673,27 @@ describe('summarizeRequirements()', () => {
     const raw = JSON.stringify({ functional_requirements: [], non_functional_requirements: [] });
     assert.ok(!summarizeRequirements(raw).some(l => /Seed provenance/.test(l)));
   });
+
+  // rc.44 (ADR-040) — nudge on the all-confirmed-no-gaps shape (what an over-eager
+  // agent produces by marking everything confirmed without asking the user).
+  it('nudges to double-check when all provenance is confirmed with 0 assumed', () => {
+    const raw = JSON.stringify({
+      functional_requirements: [], non_functional_requirements: [],
+      idea_provenance: { problem: 'confirmed', users: 'confirmed', baseline: 'confirmed', success_metric: 'confirmed', no_go_zone: 'confirmed' },
+    });
+    assert.ok(summarizeRequirements(raw).some(l => /All 5 ground-truth inputs are "confirmed"/.test(l)),
+      'all-confirmed with 0 gaps must trigger the human double-check nudge');
+  });
+
+  it('does NOT nudge when at least one field is assumed', () => {
+    const raw = JSON.stringify({
+      functional_requirements: [], non_functional_requirements: [],
+      idea_provenance: { problem: 'confirmed', users: 'assumed', baseline: 'confirmed', success_metric: 'confirmed', no_go_zone: 'confirmed' },
+      idea_gaps: ['users: inferred — confirm'],
+    });
+    assert.ok(!summarizeRequirements(raw).some(l => /ground-truth inputs are "confirmed"/.test(l)),
+      'no nudge when something is already flagged assumed');
+  });
 });
 
 describe('summarizeTestCases()', () => {

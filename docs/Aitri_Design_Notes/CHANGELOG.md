@@ -5,6 +5,16 @@
 
 ---
 
+## [2.0.0-rc.44] — 2026-06-03 — checkpoint hardening (ADR-040): designated-vs-self-discovered context + all-confirmed approve nudge
+
+Two cheap producer-side levers from ADR-040 (the first-third-party checkpoint findings), shipped now; a third (`source` field on provenance) stays deferred.
+- **Instruction-hardening.** `templates/AGENTS.md` (copied into all five agent files) + the Phase 1 briefing now state the rule that decides `confirmed` vs `assumed`: context the user **designated** (`idea_context/`/`feature_context/`, a path they gave) may ground `confirmed`; context the agent **self-discovered** by scanning the project is `assumed` until its source is confirmed — it could be stale or another project's material. Directly addresses the canary where the agent grabbed an arbitrary folder and marked everything confirmed. Producer-side; the irreducible residual (an agent that ignores its instruction file) is documented, not pretended-fixed.
+- **Approve-time nudge.** `summarizeRequirements` now nudges on the all-`confirmed`-with-0-gaps shape — the exact output an over-eager agent produces by marking everything confirmed without asking. The human approving sees: "verify YOU confirmed these (especially the success metric), not the agent inferring from docs." Display-only.
+
+Tests +3 (1320 → 1323). No schema/contract change (instructions + a display nudge).
+
+**Backlog groomed in the same pass:** the `normalize`/artifact stale refs from the rc.40–41 renames are fixed; the PRD-acronym-rename (path A) is CLOSED as rejected (homologation B shipped); the `idea/`-as-unit structure is documented as a high-risk/low-value future note (not pursued); the `BACKLOG.json` schema + Copilot-detection items collapsed to one-line DEFERRED (waiting on a real signal). Open backlog now reads at a glance: one external v2 gate + a handful of real improvements + signal-gated deferrals.
+
 ## [2.0.0-rc.43] — 2026-06-03 — fix two real defects (venv test-target detection + verify-run exit-code divergence)
 
 Two canary-surfaced defects from BACKLOG, both verified against code first.

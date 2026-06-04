@@ -81,7 +81,7 @@ infer them from the codebase or from your own judgement — getting them from th
 is the single highest-value action in the whole pipeline.
 
 For each Tier-A field — **problem, users, baseline, success_metric, no_go_zone** — do this:
-1. If IDEA.md (or the user) states it concretely → it is **confirmed**.
+1. If IDEA.md, the user, or context the user **designated** (the `idea_context/` folder, a path they gave) states it concretely → it is **confirmed**. Context you **found on your own** (a folder you discovered by scanning the project, not one the user pointed you to) does NOT ground `confirmed` — treat it as `assumed` and confirm its source with the user first; it could be stale or the wrong material.
 2. If it is blank, vague, or you are filling it from inference → **do NOT silently write it.**
    Ask the user a direct, specific question to confirm or correct it. One field at a time.
 3. If the user is unavailable or declines, you may proceed by marking it **assumed** — but

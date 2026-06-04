@@ -117,6 +117,12 @@ describe('cmdRunPhase() — phase 1 (requirements) briefing', () => {
     assert.ok(result.stdout.includes('Product Requirements Document (PRD'),
       'requirements briefing should name the industry document type so the agent reports it as the PRD');
   });
+
+  // rc.44 (ADR-040) — the briefing distinguishes user-designated from self-discovered context.
+  it('instructs that self-discovered context does not ground "confirmed"', () => {
+    assert.ok(/found on your own/i.test(result.stdout) && /designated/i.test(result.stdout),
+      'Phase 1 briefing must distinguish user-designated context (grounds confirmed) from self-discovered (assumed)');
+  });
 });
 
 describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () => {

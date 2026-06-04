@@ -49,11 +49,11 @@ Design accepted 2026-06-03. Clean breaks, no aliases; trivial migrations (verifi
 
 > Surfaced 2026-06-03 by the author reviewing the fresh-install onboarding. Both are NAMING/structure decisions deliberately parked to decide together, deliberately, not piecemeal. **Timing is load-bearing:** renames are breaking, and breaking changes are only acceptable at a major. v2 IS that major — once v2 goes stable with third-party adopters, these names freeze for a long time. So both must be decided in the pre-v2-stable window or accept the current names indefinitely.
 
-- [ ] P2 — **Industry-standard artifact vocabulary (PRD/SRS/TRD/SDD).** Owner wants Aitri to read as serious/professional for real-industry adoption, not "invented" names.
-  Problem: industry recognizes document TYPES (PRD, SRS, TRD, SDD); the current names (`01_REQUIREMENTS.json`, `02_SYSTEM_DESIGN.md`) are descriptive but non-standard. Today only a dim grey `≈ PRD/SRS` map bridges them ([help.js](../../lib/commands/help.js), ADR-039).
-  Two paths: **(A) rename files** to the industry document types (e.g. `01_PRD.json`, `02_SDD.md`) — breaking: migration for every project + Hub + the artifact chain in CLAUDE.md + tests + all docs; **(B) keep stable filenames, make industry vocabulary PRIMARY** everywhere user-facing (help leads with PRD not grey; briefings/personas say "Product Requirements Document (PRD)"; each artifact carries its document-type designation prominently) — non-breaking, ~90% of the professional feel.
-  Decisions pre-resolved: descriptive-vs-acronym was chosen as descriptive in ADR-039; this REVISITS it. The perceived professionalism comes mostly from the vocabulary users/agents SEE, not the literal filename — so B is the lower-risk default. A is only warranted if the filename itself must be the industry term. **This amends ADR-039 → write a new ADR with A's full migration scope before deciding.**
-  Files (path B): `lib/commands/help.js`, `templates/phases/*.md`, `lib/personas/*.js`, artifact headers, docs. (path A also: `lib/phases/index.js` artifact names, `lib/state.js`, every migration, `docs/integrations/*`, all tests.)
+- [x] CLOSED (2026-06-03) — **Industry-standard artifact vocabulary — path A (rename files to PRD/SRS/TRD/SDD acronyms) REJECTED.** Path B (homologation layer — keep clear filenames, make the industry document type prominent) shipped as ADR-042 Phase 3 (rc.42). A was rejected: modern AI/dev tooling uses clear names; the formal acronyms (SRS/SDD/TRD) read as dated/IEEE/waterfall, and homologation is only partial (04/05 have no industry equivalent), so renaming would look LESS modern, not more. The perceived professionalism comes from the vocabulary users see (delivered by B), not the literal filename. Revisit only if Aitri targets a regulated-enterprise market where formal acronyms are expected.
+
+- [ ] DOCUMENTED (future — high risk, low value; revisit only on a real need) — **`idea/`-as-unit folder structure.** Group the root project under an `idea/` folder (`idea/IDEA.md`, `idea/idea_context/`, `idea/spec/`), a sibling of `features/`, so root and feature units share one shape.
+  Why parked, not pursued: analysed 2026-06-03 — **highest-risk change discussed, near-zero value.** It restructures PATH RESOLUTION (the layer every command depends on) + reshapes "where is the project root" (`.aitri` location) + needs dual-layout branching — qualitatively riskier than a rename, and the test suite gives less confidence (a layout bug can pass one layout while breaking the other). The symmetry it chases ALREADY exists in code (feature.js delegates to the same commands) + parallel naming (`idea_context`/`feature_context`). Net: reorganises folders visually for no functional gain.
+  If ever pursued: additive only (new projects), `.aitri` stays at root (avoid the root-identity reshape), `artifactsDir='idea/spec'` (Hub already reads artifactsDir). Trigger: a real reason the visual grouping matters (not aesthetics).
 
 - [x] CLOSED (rc.39) — **Context folder staleness.** Superseded by a simpler rule than the lifecycle mechanism this item proposed: `run-phase` injects context only in spec-DEFINITION phases ({discovery, requirements, ux, architecture, tests}), not execution phases (build/deploy/review). Assets only surface while fresh and relevant, so stale material cannot leak into late-phase briefings — the staleness worry dissolves without any stateful open/closed mechanism. (The close-on-deploy idea was dropped after we found it only addressed the rare "re-touch a completed unit" window.)
 
@@ -61,18 +61,9 @@ Design accepted 2026-06-03. Clean breaks, no aliases; trivial migrations (verifi
 
 Surfaced 2026-06-01 by the Inchcape/DSB-AT-POC canary (Copilot CLI): an autonomous agent defeated both human checkpoints (typed `y` at approve; marked all provenance `confirmed` from a self-discovered folder). rc.40 thesis + dispositions are in ADR-040. Levers to ship vs defer:
 
-- [ ] P2 — **Instruction-hardening: distinguish user-designated vs self-discovered context.** `AGENTS.md` and the Phase 1 / discovery briefings say "read provided context" but are silent on context the agent finds on its own.
-  Problem: an agent scanned the project, found an arbitrary folder, treated it as authoritative ground truth, and marked the Tier-A fields `confirmed` — the source was never user-designated and could have been wrong.
-  Files: `templates/AGENTS.md`, `templates/phases/requirements.md`, `templates/phases/phaseDiscovery.md`, `templates/IDEA.md` (the `## Assets` / `idea/` channel note).
-  Behavior: add an explicit rule — context the **user designated** (the `idea/` folder, a path they gave) may ground `"confirmed"`; context the agent **self-discovered** is `"assumed"` → `idea_gaps`, and its source is confirmed with the user before it is trusted. Also state the irreducible limit: the checkpoints are advisory against a non-human operator; `humanApprovalGate` + a human running `approve` is the only hard stop.
-  Decisions: producer-side only (no gate — a PTY agent defeats any in-band gate). Helps agents that load their instruction file; the irreducible residual (agent ignores the file) is documented, not "fixed".
-  Acceptance: AGENTS.md regeneration test still passes (five files identical); a phase-briefing test asserts the self-discovered-vs-designated wording is present. Version bump (operator-visible instruction change). Audit `templates/AGENTS.md` freshness per the release rule.
+- [x] DONE (rc.44) — **Instruction-hardening: distinguish user-designated vs self-discovered context.** `AGENTS.md` + the Phase 1 briefing now state: context the user **designated** (`idea_context/`/`feature_context/`, a path they gave) may ground `confirmed`; context the agent **self-discovered** is `assumed` until its source is confirmed (could be stale / wrong project). Producer-side; helps compliant agents (irreducible residual documented, not "fixed"). Briefing test asserts the wording. 1323 tests.
 
-- [ ] P3 — **Louder approve-time provenance nudge when context was auto-ingested.** Cheap checkpoint-visibility lever.
-  Problem: approve shows "N confirmed · 0 assumed" but does not flag the all-confirmed-after-auto-ingest case, where a dishonest `confirmed` is most likely.
-  Files: `lib/commands/approve.js` (`summarizeRequirements`).
-  Behavior: when provenance is all-`confirmed` with 0 gaps AND the project auto-ingested context (idea/ non-empty, or discovery ran), append a one-line nudge to verify the high-stakes inputs (esp. `success_metric`) were confirmed *with the user*, not inferred from docs. Display-only, no schema change.
-  Acceptance: approve-summary test asserts the nudge appears in the all-confirmed+context case and is absent otherwise. Version bump (visible CLI output change).
+- [x] DONE (rc.44) — **Approve-time provenance nudge.** `summarizeRequirements` now nudges on the all-`confirmed`-with-0-gaps shape (what an over-eager agent produces by marking everything confirmed without asking): "verify YOU confirmed these, especially the success metric, not the agent inferring from docs." Display-only. +2 tests.
 
 - [ ] P3 (FUTURE — gated on a real adopter wanting it) — **AC-level traceability done right ([ADR-041](DECISIONS.md), option A).** rc.36 shipped option B (`ac_id` conditional — stop requiring a join-key with no target). The original Three Amigos vision (every test traces to a specific acceptance criterion) is still valid but was abandoned half-built. Finishing it RIGHT means building the load-bearing piece that never existed: **a consumer**.
   Problem: verify-run measures coverage at the FR level only — it cannot tell you a specific acceptance criterion within an FR is untested (e.g. "FR-001 is covered, but AC-001-3 has no test"). AC-level coverage would catch that. Enterprise/regulated adopters (e.g. the automotive canary) are the likely audience.
@@ -141,36 +132,27 @@ The `adopt --upgrade` reconciliation protocol (ADR-027 + addendum), the `.aitri`
   Acceptance: a feature manifest with `test_runner: "pytest tests/foo.py -v"` where `tests/foo.py` does not exist under the feature dir produces a finding naming the target; a manifest whose target resolves correctly produces none; a manifest with only flags after the binary (`pytest -v`) produces none.
   Evidence base: ONE pytest project (Cesar). Before committing the tokenizing complexity, the rc.5 plan is to run the next canary on a **different stack** (Go/Node with a root-relative target) with the rc.5 guidance fix already in place — this isolates whether the churn drops to one round (guidance was the dominant cause) or the target gap persists and generalizes beyond pytest (justifying stack-agnostic detection). Do not implement until that signal exists.
 
-### Core — `aitri normalize` briefing proportionality (N2)
+### Core — `aitri reconcile` briefing proportionality (N2)
 
 > Parent friction cycle (Ultron canary 2026-04-27) is closed: N1 (behavioral allowlist) shipped alpha.4, N3 (verify-complete snapshot SSoT) shipped alpha.19. Only N2 remains, reclassified P1 → P3 on 2026-05-12.
 
-- [ ] P3 — **Briefing proportional to change scope.** `lib/commands/normalize.js:303-306` embeds full content of `01_REQUIREMENTS.json` + `03_TEST_CASES.json` + `04_IMPLEMENTATION_MANIFEST.json` into the briefing (template `templates/phases/normalize.md:27-40`). Measured 70KB on Ultron-sized projects.
+- [ ] P3 — **Briefing proportional to change scope.** `lib/commands/reconcile.js:303-306` embeds full content of `01_REQUIREMENTS.json` + `03_TEST_CASES.json` + `04_BUILD_REPORT.json` into the briefing (template `templates/phases/reconcile.md:27-40`). Measured 70KB on Ultron-sized projects.
   Why P3 (not P1): post-N1 the FREQUENCY of normalize firing dropped from "every documentation update" to "real behavioral drift only". When it legitimately fires today, the agent is classifying actual behavior changes that may touch multiple FRs/TCs — full spec context is reasonable. Zero "briefing too big" reports since N1 (≈ 6 weeks). The optimization is polish now, not urgent.
-  Files: `lib/commands/normalize.js` (replace full-spec embedding with file list + `git diff baseRef -- <file>` per file + only the FRs/TCs whose `files_created` mentions a changed file); `templates/phases/normalize.md`; `test/commands/normalize.test.js`.
+  Files: `lib/commands/reconcile.js` (replace full-spec embedding with file list + `git diff baseRef -- <file>` per file + only the FRs/TCs whose `files_created` mentions a changed file); `templates/phases/reconcile.md`; `test/commands/reconcile.test.js`.
   Behavior: briefing for a 1-file change drops from ~70KB to <10KB; agent still has full context for what changed without re-reading the entire spec.
-  Decisions: cross-ref by exact path match in `04_IMPLEMENTATION_MANIFEST.json::files_created[].path`; if no FR/TC references the file, include the full FR/TC list as today (degrade gracefully). Diff per file capped at 200 lines, truncate with `... (N more lines, see git diff)`.
+  Decisions: cross-ref by exact path match in `04_BUILD_REPORT.json::files_created[].path`; if no FR/TC references the file, include the full FR/TC list as today (degrade gracefully). Diff per file capped at 200 lines, truncate with `... (N more lines, see git diff)`.
   Acceptance: briefing for a one-file source change <10KB, includes the file's diff and only FRs/TCs that reference it.
   Re-promotion criterion: a canary measures a normalize briefing >50KB on a real legitimate (post-N1, post-rc.1) drift case AND reports it as friction → re-promote to P2.
 
 ### Core — Consumer project backlog richness (schema enrichment + CLI flags deferred)
 
-- [ ] P2 — **Schema enrichment + CLI flags for `BACKLOG.json`.** The scaffold portion (`templates/BACKLOG.md` written by `aitri init` / `aitri adopt apply`) shipped alpha.21. The following remain deferred (dormant):
-  - `spec/BACKLOG.json` new optional fields (`files: string[]`, `behavior: string`, `acceptance: string`, `notes: string`) — additive per integration contract.
-  - `aitri backlog add --files / --behavior / --acceptance / --from-file <path>` rich-input flags.
-  - `aitri backlog show <id>` detail renderer.
-  - `lib/commands/backlog.js` list detail view rendering new fields when present.
-
-  Per CLAUDE.md narrow-evidence rule: only Hub validates the rich format today. The scaffold alone covers the Tier-1 value (consumer projects start with the format guide visible). Adding schema/CLI surfaces without a second consumer asking is design-by-imagination.
-  Re-open criterion: a second consumer asks for CLI-managed rich entries OR a concrete defect surfaces from the JSON-schema thinness (e.g. an agent picks up a 4-field entry and re-derives the wrong files to touch).
+- [ ] DEFERRED (no demand — needs a 2nd consumer) — **Schema enrichment + CLI flags for `BACKLOG.json`.** The scaffold (`templates/BACKLOG.md`) shipped alpha.21 and covers the Tier-1 value; rich fields (`files`/`behavior`/`acceptance`) + `backlog add --files/--behavior/...` + `backlog show <id>` are dormant. Only Hub validates the rich format today — adding surfaces without a 2nd consumer is design-by-imagination. Files: `lib/commands/backlog.js`. Re-open: a 2nd consumer asks, or a defect from the JSON thinness.
 
 ### Core — GitHub Copilot detection (file-write SHIPPED rc.15; detection deferred)
 
 The file-write half — `.github/copilot-instructions.md` generated by `aitri init` / `aitri adopt --upgrade` — shipped in rc.15. See CHANGELOG.
 
-- [ ] P3 — **`detectAgent()` Copilot branch.** Today `detectAgent()` keys off CLI env vars (`CLAUDE_CODE`, `CODEX_CLI`, `GEMINI_CLI`); Copilot is an IDE extension with no documented stable env signal, so `lastSession.agent` stays `unknown` for Copilot sessions. Honest until a real env marker is verified.
-  Files: `lib/state.js::detectAgent`; `test/state.test.js`.
-  Re-open criterion: a verified, stable env var that Copilot reliably exposes in its agent sessions. Do NOT add a speculative branch on `GITHUB_*` env vars — they also fire in non-Copilot GitHub Actions runs and would falsely tag the session.
+- [ ] DEFERRED (blocked — no marker exists) — **`detectAgent()` Copilot branch.** Copilot is an IDE extension with no documented stable env signal, so `lastSession.agent` stays `unknown` for Copilot sessions. Not actionable until a verified, stable env var exists (do NOT branch on `GITHUB_*` — also fires in non-Copilot Actions runs). Files: `lib/state.js::detectAgent`. Re-open: a real Copilot env marker is verified.
 
 ---
 
@@ -240,7 +222,7 @@ Items analyzed and explicitly rejected. Re-open only if the stated criterion is 
 | E1 — unify the next-action output marker | Rejected as non-defect (rc.14, [ADR-034](DECISIONS.md)) | Verified in code: three deliberate channels, not an inconsistency. `PIPELINE INSTRUCTION` = agent's single authoritative action (approve/verify only); branching hints = where the human chooses (complete/reject); `→ Next:` = human display (status). Unifying would conflate distinct semantics and risk breaking agents keyed on the marker. Only the AGENTS.md "each command" wording was wrong (fixed rc.14). Re-open ONLY if a real consumer-confusion case surfaces; the Command-surface audit study above is the parent track. |
 | Aitri CI (GitHub Actions step) | Discarded 2026-04-17 | No active user demand. Contract not stable enough to publish a separate Action. If needed later, lives outside Core. |
 | Aitri IDE (VSCode extension) | Discarded 2026-04-17 | Separate product with its own release cycle. Not incremental over the CLI; reconsidered if the CLI stabilizes across multiple external teams. |
-| Aitri Report (PDF/HTML compliance report) | Discarded 2026-04-17 | User declined the surface. Compliance evidence already lives in `05_PROOF_OF_COMPLIANCE.json` + git history. |
+| Aitri Report (PDF/HTML compliance report) | Discarded 2026-04-17 | User declined the surface. Compliance evidence already lives in `05_TRACEABILITY.json` + git history. |
 | Aitri Audit (ecosystem-level cross-project aggregator) | Discarded 2026-04-17 | Functionally duplicates Hub's dashboard. Aitri Core does not maintain a global registry — adding one violates the passive-producer model. Name also collides with the per-project `aitri audit` command. |
 | `aitri tc verify` recomputes `fr_coverage` | Discarded 2026-04-22 | `verify-complete` blocks failures via `d.results[].status`, not `fr_coverage` counts. Internal field drift is real but has no observable effect. Re-open if a future consumer (audit, Hub) starts reading per-FR counts. |
 | Rename `checkpoint` to `note` | Discarded 2026-04-22 | `--name` writes frozen snapshots to `checkpoints/` (unique surface); `--context` annotates `lastSession`. No user complaint in 18 versions. Breaking rename for cosmetic improvement not justified. |
