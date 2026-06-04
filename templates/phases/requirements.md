@@ -111,6 +111,7 @@ Schema: { project_name, project_summary,
   no_go_zone: ["item — what is explicitly out of scope and why"],
   constraints:[], technology_preferences:[],
   idea_provenance: { problem:"confirmed|assumed", users:"confirmed|assumed", baseline:"confirmed|assumed", success_metric:"confirmed|assumed", no_go_zone:"confirmed|assumed" },
+  idea_provenance_sources: { problem:"<where it came from>", users:"...", baseline:"...", success_metric:"...", no_go_zone:"..." },
   idea_gaps: ["<field>: why it was assumed and what to confirm with the owner"] }
 
 ## Seed-Input Provenance Contract (D2 — enforced on a fresh Phase 1)
@@ -123,6 +124,10 @@ Declare each Tier-A field as `"confirmed"` (the user stated or approved it) or `
     field key, e.g. `"baseline: no current metric in IDEA.md — confirm with owner"`.
   - Never label a field `"confirmed"` that the user did not actually confirm. The gate cannot
     detect a false "confirmed" — that is on your integrity, and it defeats the entire purpose.
+  - **Record a SOURCE for each field in `idea_provenance_sources`** — a short note of where the
+    value came from: `"IDEA.md states it"`, `"user confirmed in chat"`, `"inferred from product type"`.
+    This is surfaced to the human at approve, so a weak source (`"inferred …"`) stands out next to a
+    strong one (`"IDEA.md"`). A `"confirmed"` field with no source is flagged (warning, not a block).
 On a re-run after Phase 1 is approved, the seed is sealed: the gate is skipped and you refine
 FRs as usual (idea_provenance is historical at that point).
 

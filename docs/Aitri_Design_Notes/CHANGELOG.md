@@ -5,6 +5,16 @@
 
 ---
 
+## [2.0.0-rc.45] — 2026-06-03 — intake ground-truth: provenance sources (#5) + just-in-time constraint confirmation (#8) (ADR-043)
+
+Two intake refinements the author reopened after seeing their value once separated.
+
+**#5 — `idea_provenance_sources` (new additive field).** Each Tier-A input now records WHERE it came from. The upgrade over the rc.44 nudge: at approve the human sees per-field sources, so a weak one stands out — `success_metric: confirmed ← inferred from product type ⚠` next to `problem: confirmed ← IDEA.md` — instead of a generic "all confirmed, double-check". `complete 1` warns (does NOT block) when a `confirmed` field has no source. Additive field (the `idea_provenance` enum is unchanged — no type change); honor-system at the edge (an agent can fabricate a source), accepted because it adds real information to the checkpoint at additive cost. `requirements.md` instructs filling it; ARTIFACTS.md + integration CHANGELOG document it.
+
+**#8 — just-in-time constraint confirmation (briefing-only, no schema/gate).** The author's rule: if a constraint is already clear in `01_REQUIREMENTS.json` (`constraints`/`technology_preferences`), USE it — do NOT re-ask; only confirm a MISSING/vague one, just before the phase it shapes. `architecture.md` gains a "Constraint check" block (tech stack, infra, budget, timeline, existing systems, security/compliance); `phaseUX.md` gains the UX version (design system, accessibility, devices, performance budget). Producer-side, low-risk — same lever as ADR-040 #3.
+
+Tests +5 (1323 → 1328): provenance source display + flag + warn/no-warn; the architecture constraint-check block.
+
 ## [2.0.0-rc.44] — 2026-06-03 — checkpoint hardening (ADR-040): designated-vs-self-discovered context + all-confirmed approve nudge
 
 Two cheap producer-side levers from ADR-040 (the first-third-party checkpoint findings), shipped now; a third (`source` field on provenance) stays deferred.

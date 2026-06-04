@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.45 (2026-06-03) — `idea_provenance_sources` field on `01_REQUIREMENTS.json` (ADR-043) — additive
+
+New optional object `idea_provenance_sources` on `01_REQUIREMENTS.json` — per-field source of each Tier-A seed input (same keys as `idea_provenance`), each a short string of where the value came from (`"IDEA.md"`, `"user confirmed"`, `"inferred …"`). Surfaced at approve so a weak source stands out next to a strong one; `complete 1` warns (does not block) when a `"confirmed"` field has no source.
+
+**Contract impact for subproducts:** **additive** — old readers ignore the field; no existing field changed. Optional, present only when Phase 1 records it.
+
 ## v2.0.0-rc.41 (2026-06-03) — artifact renames: `04_BUILD_REPORT`, `05_TRACEABILITY` (ADR-042) — breaking
 
 Two pipeline artifacts are renamed (the Aitri-specific names that read as "invented"; no industry equivalent exists for them):

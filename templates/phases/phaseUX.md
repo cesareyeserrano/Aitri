@@ -26,6 +26,10 @@
 {{REQUIREMENTS_JSON}}
 ```
 
+## Constraint check — confirm BEFORE designing the UX
+If `01_REQUIREMENTS.json` (`constraints` / `technology_preferences`) already states these, **USE them — do NOT re-ask**. For any that are **missing or vague**, confirm with the user **before** designing, and mark anything assumed:
+- **Design system / branding** · **Accessibility level** (e.g. WCAG AA) · **Device / viewport targets** · **Performance budget** (load time)
+
 ## Output: `{{ARTIFACTS_BASE}}/01_UX_SPEC.md`
 Required sections (in order):
 1. ## User Flows — per screen, per user persona. For each flow: entry point, steps, exit point, error path

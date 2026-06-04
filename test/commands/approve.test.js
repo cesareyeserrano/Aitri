@@ -694,6 +694,28 @@ describe('summarizeRequirements()', () => {
     assert.ok(!summarizeRequirements(raw).some(l => /ground-truth inputs are "confirmed"/.test(l)),
       'no nudge when something is already flagged assumed');
   });
+
+  // rc.45 (ADR-043 #5) — per-field source, weak one stands out, confirmed-without-source flagged.
+  it('shows the per-field provenance source and flags a confirmed field with no source', () => {
+    const raw = JSON.stringify({
+      functional_requirements: [], non_functional_requirements: [],
+      idea_provenance: { problem: 'confirmed', users: 'confirmed', baseline: 'assumed', success_metric: 'confirmed', no_go_zone: 'confirmed' },
+      idea_provenance_sources: { problem: 'IDEA.md', success_metric: 'inferred from product type' },
+      idea_gaps: ['baseline: no metric — confirm'],
+    });
+    const lines = summarizeRequirements(raw);
+    assert.ok(lines.some(l => /problem: confirmed ← IDEA\.md/.test(l)), 'shows a strong source');
+    assert.ok(lines.some(l => /success_metric: confirmed ← inferred from product type/.test(l)), 'shows a weak source verbatim');
+    assert.ok(lines.some(l => /users: confirmed.*no source/.test(l)), 'flags a confirmed field that has no source');
+  });
+
+  it('omits the per-field source block when idea_provenance_sources is absent', () => {
+    const raw = JSON.stringify({
+      functional_requirements: [], non_functional_requirements: [],
+      idea_provenance: { problem: 'confirmed', users: 'confirmed', baseline: 'confirmed', success_metric: 'confirmed', no_go_zone: 'confirmed' },
+    });
+    assert.ok(!summarizeRequirements(raw).some(l => /← |no source/.test(l)), 'no per-field block without sources');
+  });
 });
 
 describe('summarizeTestCases()', () => {

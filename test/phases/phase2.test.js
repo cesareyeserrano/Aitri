@@ -126,6 +126,13 @@ describe('Phase 2 — buildBriefing() (BL-002)', () => {
     assert.ok(briefing.includes('ADR'), 'briefing must mention ADR');
   });
 
+  // rc.45 (ADR-043 #8) — just-in-time constraint confirmation before designing.
+  it('briefing has a constraint check (use requirements if stated, confirm if missing)', () => {
+    assert.ok(/Constraint check/i.test(briefing), 'must prompt a constraint check before designing');
+    assert.ok(/do NOT re-ask/i.test(briefing), 'must say to reuse constraints already in requirements');
+    assert.ok(/Tech stack|Budget|Timeline/.test(briefing), 'must list architecture-shaping constraint categories');
+  });
+
   it('briefing requires ≥2 options per ADR', () => {
     assert.ok(briefing.includes('≥2 options'), 'briefing must require ≥2 options per ADR');
   });

@@ -20,6 +20,12 @@
 {{REQUIREMENTS_JSON}}
 ```
 
+## Constraint check — confirm BEFORE designing
+The architecture is shaped by constraints that are **expensive to change after the design**. For each category below: if `01_REQUIREMENTS.json` (`constraints` / `technology_preferences`) already states it, **USE it — do NOT re-ask**. If a category is **missing or vague**, confirm it with the user **before** designing, and mark anything you had to assume.
+- **Tech stack / languages** · **Infrastructure / hosting** · **Budget / cost** · **Timeline / deadline** · **Existing systems to integrate** · **Security / compliance**
+
+Do not invent a constraint the project did not state — but do not silently design past a missing one either. Just-in-time: confirm the gap now, here, where it bites.
+
 {{#IF_UX_SPEC}}
 ## UX/UI Specification (01_UX_SPEC.md — read-only context)
 {{UX_SPEC}}

@@ -73,7 +73,7 @@ Surfaced 2026-06-01 by the Inchcape/DSB-AT-POC canary (Copilot CLI): an autonomo
   Decisions (from ADR-041): additive only (acceptance_criteria stays string-OR-object — no breaking type change); build the consumer FIRST or together, never upstream-only. Defer until a real adopter confirms AC-level coverage is wanted (evidence-base discipline — today nothing consumes ac_id, so this is building for a consumer that does not yet exist).
   Acceptance: verify-run test showing an untested AC is flagged; phase1 test accepting both string and object ACs; phase3 test that ac_id is required once structured ACs are present. Version bump + ARTIFACTS/CHANGELOG.
 
-- [ ] P3 (DEFERRED — needs a 2nd consumer signal) — **Structured `source` on `idea_provenance`.** Each `confirmed` carries a short `source`.
+- [x] DONE (rc.45, ADR-043 #5) — **`idea_provenance_sources` — each Tier-A field cites where it came from.** New additive field (no type change to `idea_provenance`); approve shows per-field sources so a weak one (`← inferred …`) stands out next to a strong one (`← IDEA.md`); `complete 1` warns (not blocks) on a `confirmed` field with no source. Honor-system at the edge, accepted (adds real info to the checkpoint). +4 tests. (Reopened after the author saw the value once separated from #8: it makes the IDEA-vs-inferred distinction visible per field.)
   Problem: `confirmed` is unverifiable free text; a `source` raises the cost of dishonesty and improves the reviewer's signal.
   Files: `lib/phases/phase1-checks.js`, `lib/phases/phase1.js`, `lib/commands/approve.js`, `docs/integrations/ARTIFACTS.md` + `CHANGELOG.md`.
   Behavior: additive optional `idea_provenance_sources` (do NOT change the existing enum's type — schema-evolution rule); surfaced at approve.
@@ -103,12 +103,7 @@ The `adopt --upgrade` reconciliation protocol (ADR-027 + addendum), the `.aitri`
 
 ### Core — seed-input elicitation D3 (deferred; D1+D2 shipped rc.4)
 
-- [ ] P2 — **Just-in-time constraint confirmation before Phase 2 and UX.** D1+D2 (seed-input provenance) shipped in rc.4 per [ADR-032](DECISIONS.md#adr-032--2026-05-21--seed-input-elicitation-provenance-contract-over-honor-system-inference). D3 is the deferred efficiency layer.
-  Problem: Tier-A inputs that bite *later* — hard constraints (compliance, data residency, deadline, mandated stack), deployment target, brand identity — are not elicited at the moment they matter. `phase2.js` Technical Risk Flags analysis is blind to constraints it was never given; UX invents brand tokens with no identity input. Asking all of these at seed time is premature bloat.
-  Files: `templates/phases/architecture.md`, `templates/phases/phaseUX.md`; optionally `lib/phases/phase2.js` / `lib/phases/phaseUX.js` if backed by a gate.
-  Behavior: each phase briefing opens with a short "inputs to confirm with the user before this phase" block scoped to that phase's Tier-A-late set. Soft (D1-style) unless paired with a provenance check on those phases (D2-style).
-  Decisions: ship only after D1+D2 prove out on a real canary; per ADR-032 the tier-1 value is provisional until a non-author consumer validates that operators answer honestly. Do NOT add per-phase gates speculatively.
-  Acceptance: architecture briefing on a constraint-bearing project surfaces the confirmation block; if gated, `complete 2` blocks on an unconfirmed compliance-relevant constraint.
+- [x] DONE (rc.45, ADR-043 #8) — **Just-in-time constraint confirmation before Phase 2 and UX.** The architecture + UX briefings now open with a "Constraint check": USE the constraints already in `01_REQUIREMENTS.json` (`constraints`/`technology_preferences`) — do NOT re-ask; confirm only the MISSING/vague ones with the user, just before the phase they shape. Architecture: tech stack, infra, budget, timeline, existing systems, security/compliance. UX: design system, accessibility, devices, performance budget. Producer-side (no gate) — low-risk. +1 test. (Reopened after the author refined the rule: reuse the IDEA when present, confirm only the gaps.)
 
 > **Pre-2.0.0 audit (rc.9–rc.14) — CLOSED.** Items A1/A2/A3, P2(architect), F1, D1, D2, B1/B2, E2/E3, P1 shipped across rc.9–rc.14. C3 (mutation) deferred on evidence — zero-dep reasoning corrected. E1 (marker unify) rejected as non-defect — moved to Discarded. Full disposition in [ADR-034](DECISIONS.md) and CHANGELOG.
 

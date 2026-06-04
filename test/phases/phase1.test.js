@@ -485,6 +485,22 @@ describe('Phase 1 — Tier-A provenance gate (D2)', () => {
     assert.doesNotThrow(() => PHASE_DEFS[1].validate(withProv(allConfirmed), FRESH));
   });
 
+  // rc.45 (ADR-043 #5) — a confirmed field with no source warns (does NOT block).
+  it('warns (not blocks) when confirmed fields have no provenance source', () => {
+    let stderr = '';
+    const orig = process.stderr.write; process.stderr.write = (c) => { stderr += c; return true; };
+    try { PHASE_DEFS[1].validate(withProv(allConfirmed), FRESH); } finally { process.stderr.write = orig; }
+    assert.match(stderr, /"confirmed" Tier-A field\(s\) have no source/);
+  });
+
+  it('does NOT warn about sources when every confirmed field cites one', () => {
+    const sources = { problem: 'IDEA.md', users: 'IDEA.md', baseline: 'user', success_metric: 'user', no_go_zone: 'IDEA.md' };
+    let stderr = '';
+    const orig = process.stderr.write; process.stderr.write = (c) => { stderr += c; return true; };
+    try { PHASE_DEFS[1].validate(withProv(allConfirmed, { idea_provenance_sources: sources }), FRESH); } finally { process.stderr.write = orig; }
+    assert.ok(!/have no source/.test(stderr), 'no source warning when all confirmed fields cite a source');
+  });
+
   it('fresh seed with an invalid provenance value throws', () => {
     assert.throws(() => PHASE_DEFS[1].validate(withProv({ ...allConfirmed, users: 'maybe' }), FRESH),
       /missing or invalid entries: users/);

@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.44+
+**Aitri version:** v2.0.0-rc.45+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -64,6 +64,7 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
   "constraints": ["string"],
   "technology_preferences": ["string"],
   "idea_provenance": "object (optional, v2.0.0-rc.4+) — provenance of the five Tier-A seed inputs. Keys: problem, users, baseline, success_metric, no_go_zone. Each value is \"confirmed\" (the human stated/approved it) or \"assumed\" (the agent inferred it). Required by the gate on a fresh seed; historical once Phase 1 is approved.",
+  "idea_provenance_sources": "object (optional, v2.0.0-rc.45+) — per-field source of each Tier-A input. Same keys as idea_provenance; each value a short string of where the value came from (e.g. \"IDEA.md\", \"user confirmed\", \"inferred from product type\"). Surfaced at approve so a weak source stands out; a \"confirmed\" field with no source is warned (not blocked). Additive — old readers ignore it.",
   "idea_gaps": "string[] (optional, v2.0.0-rc.4+) — tracked gaps for assumed Tier-A inputs. Each entry references the assumed field by key, e.g. \"baseline: no current metric — confirm with owner\". Also accepted nested as project_summary.idea_gaps.",
   "original_brief": "string (optional, v0.1.89+) — full content of IDEA.md absorbed at first approve of Phase 1; the file is removed from disk after archive. Historical reference only — never read by Aitri or downstream phases for behavioral decisions."
 }

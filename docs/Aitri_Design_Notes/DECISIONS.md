@@ -1203,3 +1203,30 @@ So Phase 3 mandates a join-key (`ac_id`) whose target the upstream phase is not 
 **Trade-offs.** Clean breaks mean old muscle memory / scripts break — accepted at pre-v2-stable with few projects; the migrator (`adopt --upgrade`) carries existing projects across without re-authoring. The homologation layer adds prose to maintain but is the low-risk way to satisfy "professional + recognised."
 
 **Objections logged.** (a) "Reconcile" is also slightly less common than "normalize" as an English word — but it *describes the action*, which "normalize" does not; clarity wins. (b) Renaming artifacts is a contract change even with Hub freed — mitigated by documenting it in the integration contract so Hub's adaptation is mechanical. (c) Doing nothing was considered — rejected only for the genuinely-opaque names (`normalize`, `04`/`05`); explicitly chosen for everything else (no change-for-change).
+
+---
+
+## ADR-043 — 2026-06-03 — Intake ground-truth: provenance sources (#5) + just-in-time constraint confirmation (#8)
+
+**Status:** DESIGN — approved to build. Both reopened after the author saw their value once separated from each other.
+
+**Context.** Two intake refinements, distinct but both about handling ground-truth honestly:
+- **#5 provenance source.** `idea_provenance` records each Tier-A field as `confirmed`/`assumed`, but the human at approve only sees counts. They cannot tell WHICH "confirmed" came from the IDEA vs which the agent inferred and labelled confirmed. rc.44 added the all-confirmed nudge (#4) — a general "double-check" — but not WHICH field is weak.
+- **#8 constraints just-in-time.** Constraints (tech stack, budget, deadline, existing systems, compliance) are all asked upfront in IDEA.md. Some are not known at seed time, or asking everything upfront is heavy; and the ones that matter for architecture/UX are best confirmed right before those phases.
+
+**Decision — #5: a new additive `idea_provenance_sources` field (NOT a type change to `idea_provenance`).**
+- Schema: additive optional `idea_provenance_sources: { problem, users, baseline, success_metric, no_go_zone }` — each a short string ("IDEA.md states it", "user confirmed in chat", "inferred from product type"). The existing `idea_provenance` enum is unchanged (schema-evolution rule: never change a field's type — new field instead).
+- Briefing (`requirements.md`): for each Tier-A field, record where the value came from in `idea_provenance_sources`.
+- Validation (`phase1`): on a fresh seed, WARN (not block) when a `confirmed` field has no source. Deliberately a warning, not a gate — the field is honor-system (the agent can fabricate a source), so a hard gate would be theater; the value is VISIBILITY at the human checkpoint, not mechanical enforcement.
+- Approve display (`summarizeRequirements`): show the source per field so a weak one (`success_metric ← inferred from product type`) stands out next to a strong one (`problem ← IDEA.md`). This is the concrete upgrade over the rc.44 nudge: the human sees WHICH input is weak, not just "all confirmed, double-check".
+- Honesty caveat (logged): still honor-system. It raises the bar (the agent must write a traceable source) and improves the reviewer's catch-rate — it does not prevent a fabricated source. Accepted because it ADDS information to the checkpoint (unlike a redundant gate), at additive-schema cost only.
+
+**Decision — #8: producer-side just-in-time constraint confirmation in the architecture + UX briefings (no schema change, no hard gate).**
+- The author's refinement is the core rule: **if the constraint is already clear in `01_REQUIREMENTS.json` (`constraints` + `technology_preferences`), use it — do NOT re-ask. Only if a phase-relevant constraint is missing or vague, confirm it with the user just before that phase.** Same logic as provenance (use what's stated; confirm what's missing), applied to constraints at the moment they bite.
+- `architecture.md` gains a "Constraint check before designing" block — categories that shape architecture: tech stack / languages, infrastructure / hosting, budget / cost, timeline / deadline, existing systems to integrate, security / compliance. Instruction: use the ones in requirements; for any missing category, confirm with the user FIRST (they are expensive to change after the design) and mark anything assumed.
+- `phaseUX.md` gains the UX-relevant version: design system / branding, accessibility level, device / viewport targets, performance budget.
+- Producer-side instruction (like ADR-040 #3), not a gate — low-risk, no pipeline-flow change. The agent that loads its briefing gets the just-in-time prompt; the irreducible residual (agent ignores it) is the same honor-system boundary documented elsewhere.
+
+**Why both are worth it now (vs the rejected #5-as-first-framed).** Separated, each has clear value the author confirmed: #8 is a real workflow improvement (confirm constraints when they matter, reuse the IDEA when present); #5's source makes the IDEA-vs-inferred distinction VISIBLE per field — which is exactly the author's "use it if it's in the idea, flag it if not" instinct, surfaced at the checkpoint. The earlier "defer #5" call was made before that framing; the author's reframing is the new signal.
+
+**Trade-offs.** #5 adds an (additive) schema field + integration-contract surface to maintain. #8 adds briefing prose to keep fresh. Both are honor-system at the irreducible edge (an agent can fabricate a source or ignore the constraint prompt) — accepted because both improve the HONEST agent's output and the human's visibility, which is the realistic lever.
