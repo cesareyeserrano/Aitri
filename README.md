@@ -1,6 +1,6 @@
 # Aitri
 
-**Spec-driven SDLC engine for AI-assisted development.**
+**Turn AI-assisted development into a reviewable, gated pipeline — so you ship software you actually reviewed, not whatever the agent happened to produce.**
 
 ![npm](https://img.shields.io/npm/v/aitri) ![node](https://img.shields.io/node/v/aitri) ![license](https://img.shields.io/npm/l/aitri)
 
@@ -8,23 +8,30 @@
 npm install -g aitri
 ```
 
-Aitri structures AI-assisted development into a reviewable pipeline. Each phase produces a versioned artifact. You approve it before the next phase starts. Works with any agent that reads stdout: Claude Code, Codex, Gemini Code, Opencode, or any shell-based workflow.
+AI agents write code fast — and that's the problem. The spec lives in a chat that scrolls away, the code drifts from the original intent, and "done" means "the agent stopped," not "this was reviewed." Aitri puts the structure back: development becomes a pipeline of phases, each producing a **versioned artifact** — requirements, design, tests, build, traceability — that **you approve before the next phase starts**. Nothing advances on its own.
+
+It works with **any agent that reads stdout** — Claude Code, Codex, Gemini CLI, Opencode, or a plain shell. Aitri never calls a model or writes code itself: it generates the briefing your agent acts on, then validates and gates what comes back.
+
+### What you get
+
+- **Human-gated phases** — every artifact is reviewed and approved before the pipeline moves on. No phase advances automatically.
+- **Specs as contracts** — each phase's output is the typed handoff to the next; editing an approved artifact behind Aitri's back is detected as *drift* and blocked.
+- **A real test gate** — code can't reach deployment until your tests run, pass, and every MUST requirement traces to a passing test.
+- **Traceability, recorded not asserted** — requirement → test → result, written down and checkable.
 
 ---
 
 ## How It Works
 
-Aitri is a **briefing engine** — it does not call AI models or write code. It generates structured prompts that your agent reads and acts on.
-
-The workflow for every phase is the same three steps:
+The loop is the same three steps for every phase:
 
 ```
-aitri run-phase <N>   →   agent reads briefing, saves artifact
-aitri complete <N>    →   Aitri validates the artifact schema
-aitri approve <N>     →   you review + approve → unlocks next phase
+aitri run-phase <N>   →   your agent reads the briefing, writes the artifact
+aitri complete <N>    →   Aitri validates the artifact against its schema
+aitri approve <N>     →   you review + approve → the next phase unlocks
 ```
 
-No phase advances automatically. The pipeline is always under human control.
+No phase advances automatically — the pipeline is always under human control.
 
 ---
 
@@ -37,10 +44,10 @@ No phase advances automatically. The pipeline is always under human control.
 | [optional] UX | UX Designer | `spec/01_UX_SPEC.md` |
 | **2 — Architecture** | Software Architect | `spec/02_SYSTEM_DESIGN.md` |
 | **3 — Test Design** | QA Engineer | `spec/03_TEST_CASES.json` |
-| **4 — Implementation** | Developer | `spec/04_IMPLEMENTATION_MANIFEST.json` |
+| **4 — Implementation** | Developer | `spec/04_BUILD_REPORT.json` |
 | [optional] Code Review | Reviewer | `spec/04_CODE_REVIEW.md` |
 | ✦ Verify _(required gate)_ | — | `spec/04_TEST_RESULTS.json` |
-| **5 — Deployment** | DevOps Engineer | `spec/05_PROOF_OF_COMPLIANCE.json` |
+| **5 — Deployment** | DevOps Engineer | `spec/05_TRACEABILITY.json` |
 
 Each artifact is the handoff contract to the next phase. Optional phases enrich the pipeline but never block it.
 
@@ -58,7 +65,7 @@ aitri init
 - `IDEA.md` — describe your project here
 - `AGENTS.md` — pipeline rules for any AI agent in this repo
 - `spec/` — all pipeline artifacts are saved here
-- `idea/` — drop mockups, PDFs, or Figma exports here; referenced automatically in every briefing
+- `idea_context/` — drop mockups, PDFs, or Figma exports here; referenced automatically in every briefing
 
 Fill in `IDEA.md`, then run the pipeline:
 
@@ -97,7 +104,7 @@ aitri approve 5
 
 | Command | Description |
 | :--- | :--- |
-| `aitri init` | Initialize a new project. Creates `IDEA.md`, `AGENTS.md`, `spec/`, `idea/`. |
+| `aitri init` | Initialize a new project. Creates `IDEA.md`, `AGENTS.md`, `spec/`, `idea_context/`. |
 | `aitri init <path>` | Initialize at the specified path instead of the current directory. |
 | `aitri wizard` | Guided interview that writes `IDEA.md` from your answers. |
 | `aitri wizard --depth quick\|standard\|deep` | Control interview depth. Default: `quick`. |
@@ -147,7 +154,7 @@ Auto-detects: Jest, Vitest, Pytest, Playwright.
 | `aitri review` | Cross-artifact semantic consistency check (requirements → TCs → results). Optional before verify-run. |
 | `aitri audit` | On-demand holistic audit — agent writes `spec/AUDIT_REPORT.md` with findings (bugs, backlog, observations). Off-pipeline. |
 | `aitri audit plan` | Read `AUDIT_REPORT.md` and propose exact `bug add` / `backlog add` commands for each finding. |
-| `aitri normalize` | Baseline off-pipeline code changes after Phase 4 approval — prevents silent drift outside the briefing→complete→approve loop. |
+| `aitri reconcile` | Baseline off-pipeline code changes after Phase 4 approval — prevents silent drift outside the briefing→complete→approve loop. |
 
 ### Checkpoints
 
@@ -206,14 +213,14 @@ Test cases mapped to every MUST-priority FR, each with a precise expected result
 
 ### Phase 4 — Implementation
 
-**Artifact:** `spec/04_IMPLEMENTATION_MANIFEST.json`
+**Artifact:** `spec/04_BUILD_REPORT.json`
 **Reads:** `spec/01_REQUIREMENTS.json`, `spec/02_SYSTEM_DESIGN.md`, `spec/03_TEST_CASES.json`
 
 File structure, component breakdown, setup commands, and a technical debt register. When re-running Phase 4 after failing tests, Aitri automatically injects the failing test cases into the briefing.
 
 ### Phase 5 — Deployment
 
-**Artifact:** `spec/05_PROOF_OF_COMPLIANCE.json`
+**Artifact:** `spec/05_TRACEABILITY.json`
 **Reads:** All prior artifacts + `spec/04_TEST_RESULTS.json`
 **Requires:** `aitri verify-complete` to have passed
 
