@@ -43,7 +43,7 @@ Design accepted 2026-06-03. Clean breaks, no aliases; trivial migrations (verifi
 
 - [x] DONE (rc.40) — **Phase 1: `normalize` → `reconcile`** — full clean rename (command + `.aitri` field + `status --json` contract + `reconcile-patterns.js` + `reconcile.md` + `reconcile.js` + AGENTS + help + docs + tests). Field-rename migration preserves the original baseline. Context-aware sweep (generic `normalizeAC`/string-normalisation untouched); 1315 tests green.
 - [x] DONE (rc.41) — **Phase 2: artifact renames** `04_IMPLEMENTATION_MANIFEST`→`04_BUILD_REPORT`, `05_PROOF_OF_COMPLIANCE`→`05_TRACEABILITY`. Migrator renames the file on disk (`diagnoseRenamedArtifacts`); artifactHashes keyed by phase → state/approvals preserved. Historical CHANGELOG/ADR entries left intact (not false history). 1316 tests.
-- [ ] P3 — **Phase 3: homologation layer** — each artifact declares its industry identity (header) + help/docs lead with the recognised term where one exists.
+- [x] DONE (rc.42) — **Phase 3: homologation layer** — `aitri help` shows the full industry document type in cyan (prominent, not dim grey); phase briefings open with the artifact's industry document type so the agent reports it by name (PRD/TRD/…). MD phases also title the doc. Recognition/framing, no contract change. 1317 tests. **ADR-042 complete.**
 
 ### Core — Naming & professional positioning (PARKED decisions — decide before v2.0.0 stable)
 

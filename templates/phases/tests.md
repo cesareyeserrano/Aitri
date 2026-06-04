@@ -1,5 +1,7 @@
 # Phase 3 — QA Test Design
 
+> **Industry document type:** this artifact (`03_TEST_CASES.json`) is the project's **Test Plan**. Call it the test plan when you summarise it to the user.
+
 {{ROLE}}
 
 ## Constraints

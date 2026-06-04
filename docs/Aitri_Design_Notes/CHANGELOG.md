@@ -5,6 +5,16 @@
 
 ---
 
+## [2.0.0-rc.42] — 2026-06-03 — homologation layer: artifacts speak the industry's language (ADR-042 Phase 3 — completes ADR-042)
+
+The low-risk closer: make the industry document type **prominent** without renaming files (the "explanatory + recognised" goal). No contract change, no migration, no breaking.
+- **`aitri help`** now shows the full industry document type in cyan (prominent), not a dim grey `≈` aside: `01_REQUIREMENTS.json → Product Requirements Document (PRD / SRS)`, `02_SYSTEM_DESIGN.md → Technical Design Document (TRD / SDD)`, `03_TEST_CASES.json → Test Plan`, `05_TRACEABILITY.json → Traceability / Compliance Report`, etc.
+- **Phase briefings** (`templates/phases/*.md`) now open with the artifact's industry document type, so the agent knows what kind of document it is producing and **reports it to the user by that name** ("I've drafted your PRD"). The MD-producing phases (architecture, discovery, ux) are also told to title the document with its designation.
+
+User-facing impact, honestly: recognition + professional framing, not a new capability — an industry-literate user (PM, architect) recognises each artifact instantly; a user who doesn't know the acronyms is unaffected (the clear filenames still work). Tests +1 (1316 → 1317): help shows the full document-type names; the requirements briefing frames the PRD. No integration CHANGELOG entry (CLI display + briefing prose, no schema/contract change).
+
+**ADR-042 is now complete** (Phase 1 reconcile + Phase 2 artifact renames + Phase 3 homologation). The PRD/idea-structure (B) decisions stay parked separately.
+
 ## [2.0.0-rc.41] — 2026-06-03 — rename the two Aitri-specific "weird" artifacts (ADR-042 Phase 2)
 
 `04_IMPLEMENTATION_MANIFEST.json` → `04_BUILD_REPORT.json`; `05_PROOF_OF_COMPLIANCE.json` → `05_TRACEABILITY.json`. These were the artifacts the author flagged as "invented" — and unlike requirements/design/tests, they have no industry equivalent, so a clearer Aitri name is the fix (05 also gains the precise industry term: "traceability"). Clean rename, no dual-naming.

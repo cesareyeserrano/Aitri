@@ -1,5 +1,7 @@
 # Phase UX — UX/UI Specification
 
+> **Industry document type:** this artifact (`01_UX_SPEC.md`) is the project's **UX / Design Spec**. Title the document `# UX / Design Spec` and call it the UX spec when you summarise it.
+
 {{ROLE}}
 
 ## Constraints

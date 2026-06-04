@@ -1,5 +1,7 @@
 # Phase 2 — System Architecture
 
+> **Industry document type:** this artifact (`02_SYSTEM_DESIGN.md`) is the project's **Technical Design Document (TRD / SDD)**. Title the document `# Technical Design Document (TRD / SDD)` and call it the TRD when you summarise it to the user.
+
 {{ROLE}}
 
 ## Constraints

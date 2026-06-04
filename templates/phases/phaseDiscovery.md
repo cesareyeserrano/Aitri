@@ -1,5 +1,7 @@
 # Phase Discovery — Problem Definition
 
+> **Industry document type:** this artifact (`00_DISCOVERY.md`) is the project's **Product Discovery / Problem Statement**. Title the document `# Product Discovery — Problem Statement` and call it the discovery doc when you summarise it.
+
 {{ROLE}}
 
 ## Constraints

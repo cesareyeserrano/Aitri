@@ -1,5 +1,7 @@
 # Phase 1 — PM Analysis
 
+> **Industry document type:** this artifact (`01_REQUIREMENTS.json`) is the project's **Product Requirements Document (PRD / SRS)**. When you summarise it to the user, call it the PRD.
+
 {{ROLE}}
 
 ## Constraints

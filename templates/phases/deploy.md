@@ -1,5 +1,7 @@
 # Phase 5 — Deployment
 
+> **Industry document type:** this artifact (`05_TRACEABILITY.json`) is the project's **Traceability / Compliance Report**. Call it the traceability report when you summarise it to the user.
+
 {{ROLE}}
 
 ## Constraints

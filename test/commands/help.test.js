@@ -37,10 +37,12 @@ describe('cmdHelp() — output content', () => {
 
   // ADR-039 Phase 4 — industry-terminology mapping so the Aitri-specific artifact
   // names are recognizable (no rename — names are a public contract).
-  it('maps artifacts to industry-standard terms (PRD/TRD/…)', () => {
+  it('maps artifacts to industry-standard terms, by full document-type name (homologation, rc.42)', () => {
     output = captureLog(() => cmdHelp({ VERSION: '0.1.70' }));
-    assert.ok(output.includes('PRD'), 'requirements must show its PRD/SRS equivalent');
-    assert.ok(output.includes('TRD') || output.includes('SDD'), 'system design must show its TRD/SDD equivalent');
+    // rc.42: the industry document type is shown prominently by its full name, not just the acronym.
+    assert.ok(output.includes('Product Requirements Document (PRD'), 'requirements must show its full PRD/SRS name');
+    assert.ok(output.includes('Technical Design Document (TRD'), 'system design must show its full TRD/SDD name');
+    assert.ok(output.includes('Traceability / Compliance Report'), '05_TRACEABILITY must show its industry term');
   });
 
   it('includes verify commands', () => {

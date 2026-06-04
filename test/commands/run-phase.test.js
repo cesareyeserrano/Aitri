@@ -111,6 +111,12 @@ describe('cmdRunPhase() — phase 1 (requirements) briefing', () => {
   it('prints agent instruction footer', () => {
     assert.ok(result.stderr.includes('does NOT create files'), 'should remind agent about next steps');
   });
+
+  // rc.42 (ADR-042 Phase 3) — the briefing frames the artifact by its industry document type.
+  it('frames the artifact as the Product Requirements Document (PRD)', () => {
+    assert.ok(result.stdout.includes('Product Requirements Document (PRD'),
+      'requirements briefing should name the industry document type so the agent reports it as the PRD');
+  });
 });
 
 describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () => {
