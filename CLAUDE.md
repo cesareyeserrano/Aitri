@@ -32,7 +32,7 @@ A change that only satisfies (3) without touching (1) or (2) must be justified a
   - `lib/state.js` — single point of read/write for `.aitri/`
   - `lib/snapshot.js` — `buildProjectSnapshot()`, single source for `status` / `resume` / `validate`
   - `lib/agent-files.js` — multi-agent instruction file generation
-- **Artifact chain (public contract):** `00_DISCOVERY.md → 01_UX_SPEC.md → 01_REQUIREMENTS.json → 02_SYSTEM_DESIGN.md → 03_TEST_CASES.json → 04_IMPLEMENTATION_MANIFEST.json → 04_CODE_REVIEW.md → 04_TEST_RESULTS.json → 05_PROOF_OF_COMPLIANCE.json`. Off-pipeline: `BUGS.json`, `BACKLOG.json`, `AUDIT_REPORT.md`.
+- **Artifact chain (public contract):** `00_DISCOVERY.md → 01_UX_SPEC.md → 01_REQUIREMENTS.json → 02_SYSTEM_DESIGN.md → 03_TEST_CASES.json → 04_BUILD_REPORT.json → 04_CODE_REVIEW.md → 04_TEST_RESULTS.json → 05_TRACEABILITY.json`. Off-pipeline: `BUGS.json`, `BACKLOG.json`, `AUDIT_REPORT.md`. (Artifacts renamed in ADR-042 rc.41: `04_IMPLEMENTATION_MANIFEST`→`04_BUILD_REPORT`, `05_PROOF_OF_COMPLIANCE`→`05_TRACEABILITY`; the `normalize` command became `reconcile` rc.40.)
 - **Tests:** `npm run test:all`. All must pass before committing any structural change — no exceptions.
 - **Release:** bump `package.json` + `bin/aitri.js` VERSION → `npm run test:all` → `npm i -g .` → commit → push
 
