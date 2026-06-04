@@ -5,6 +5,16 @@
 
 ---
 
+## [2.0.0-rc.43] — 2026-06-03 — fix two real defects (venv test-target detection + verify-run exit-code divergence)
+
+Two canary-surfaced defects from BACKLOG, both verified against code first.
+
+**1. `diagnoseLegacyVenvManifest` detected the binary but not the test TARGET (Cesar canary).** A feature's `verify-run` runs from the feature dir (alpha.9), so a root-relative path *anywhere* in `test_runner` breaks there — but the check only matched a venv-prefix *binary*. The agent fixed the binary, the finding cleared ("no findings"), and `verify-run` still failed on the root-relative target (`tests/foo.py`), forcing a second drift→re-approval round. Fix: a concrete (file-existence, not heuristic) check — a relative path token in a feature manifest's runner that does not resolve under the feature dir is flagged. Skips flags, bare binaries, absolute paths, the venv binary, and globs / Go `./...` (no false positives). Finding names the unreachable target.
+
+**2. `verify-run` swallowed a non-zero runner exit code the parsed TCs didn't explain (Hub canary).** `npm test` exited 1 but Aitri parsed 27 pass / 0 fail / 5 skip and accepted it silently — correct here (skips explained the exit), but the divergence had no signal. Fix: when the runner exits non-zero and zero TCs failed, `verify-run` now emits an informational note (benign skips, OR a real failure outside the parsed TCs — collection/setup error, post-last-test crash). Informational, not a gate — Aitri still keys pass/fail on parsed TCs.
+
+Tests +3 (1317 → 1320): root-relative target flagged + glob/feature-local NOT flagged; exit-code divergence note fires. No schema/contract change (migrator finding shape unchanged, verify-run note is stderr) — no integration CHANGELOG entry.
+
 ## [2.0.0-rc.42] — 2026-06-03 — homologation layer: artifacts speak the industry's language (ADR-042 Phase 3 — completes ADR-042)
 
 The low-risk closer: make the industry document type **prominent** without renaming files (the "explanatory + recognised" goal). No contract change, no migration, no breaking.

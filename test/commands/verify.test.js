@@ -1102,6 +1102,22 @@ describe('cmdVerifyRun() — Z1 verifyPassed invalidation', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('rc.42 — warns when the runner exits non-zero but no TCs failed (exit-code divergence)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-divergence-'));
+    try {
+      // Runner reports a passing TC, then exits 1 (e.g. exits non-zero on skips).
+      seedProject(dir, { runnerScript: "console.log('\\u2714 TC-001: ok (1ms)'); process.exit(1);" });
+      let stderr = '';
+      const origErr = process.stderr.write; const origLog = console.log;
+      process.stderr.write = (c) => { stderr += c; return true; }; console.log = () => {};
+      try {
+        cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } });
+      } finally { process.stderr.write = origErr; console.log = origLog; }
+      assert.match(stderr, /exited 1 \(failure\) but no failing TCs were parsed/,
+        'a non-zero exit with zero parsed failures must surface a divergence note');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('does not link TC-001h to TC-001H result via the case-insensitive fallback (C2)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-c2-'));
     try {

@@ -1211,6 +1211,37 @@ describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy venv-rela
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('rc.42 — flags a feature manifest whose test TARGET is root-relative even when the binary is fine', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir);
+      // Binary is the portable bare `pytest` (would clear the old binary-only check),
+      // but `tests/foo.py` is root-relative and does NOT exist under features/auth/.
+      writeFeatureManifest(dir, 'auth', 'pytest tests/foo.py -v');
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      const f = findings.find(x => x.target.includes('features/auth') && /legacy venv-relative/.test(x.transform));
+      assert.ok(f, 'expected a finding for the root-relative test target');
+      assert.match(f.reason, /tests\/foo\.py/, 'reason should name the unreachable target');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('rc.42 — does NOT flag a feature manifest whose target resolves under the feature dir, nor Go `./...`', () => {
+    for (const [runner, mk] of [
+      ['pytest spec/test_x.py -v', (fd) => fs.writeFileSync(path.join(fd, 'spec/test_x.py'), '# t')],
+      ['go test ./... -v', () => {}],
+    ]) {
+      const dir = tmpDir();
+      try {
+        writeLegacyConfig(dir);
+        writeFeatureManifest(dir, 'auth', runner);
+        mk(path.join(dir, 'features/auth'));
+        const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+        const f = findings.find(x => x.target.includes('features/auth') && /legacy venv-relative/.test(x.transform));
+        assert.ok(!f, `must NOT flag "${runner}" (resolvable target / glob)`);
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    }
+  });
+
   it('does NOT flag PATH-resolved or unrelated runners (bare pytest, npm test, go test)', () => {
     for (const runner of ['pytest -v', 'npm test', 'go test ./... -v', 'pipenv run pytest']) {
       const dir = tmpDir();
