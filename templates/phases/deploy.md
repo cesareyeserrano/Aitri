@@ -21,7 +21,7 @@
 ## System Design (architecture + stack)
 {{SYSTEM_DESIGN}}
 
-## Implementation Manifest
+## Build Report
 ```json
 {{MANIFEST_JSON}}
 ```
@@ -41,7 +41,7 @@
     - Serverless → function bundle + infra config for the declared platform
     - Static / host → build output + host config
   → If System Design does not declare containerized deployment, do NOT create Dockerfile/docker-compose.
-- {{ARTIFACTS_BASE}}/05_PROOF_OF_COMPLIANCE.json
+- {{ARTIFACTS_BASE}}/05_TRACEABILITY.json
   REQUIRED fields — validator will reject if any are missing:
     "project":                string  — project name
     "version":                string  — e.g. "1.0.0"
@@ -50,7 +50,7 @@
     "requirement_compliance": array   — one entry per FR/NFR (see below)
   Each compliance entry: { "id":"FR-001", "title":"...", "level":"...", "evidence":"..." }
   ⚠ Field MUST be "id" — NOT "fr_id". 04_TEST_RESULTS.json uses "fr_id" internally; this file uses "id". Do not copy the field name from test results.
-  Optional: "technical_debt_inherited": [copy from 04_IMPLEMENTATION_MANIFEST.json]
+  Optional: "technical_debt_inherited": [copy from 04_BUILD_REPORT.json]
 
 ## Compliance level — assign based on Test Results fr_coverage above:
   covered + zero debt        → "complete" or "production_ready"
@@ -70,14 +70,14 @@ If `01_REQUIREMENTS.json` contains a CI/CD NFR:
 ## Instructions
 1. Create all deployment files
 2. Assign compliance level per FR using fr_coverage from Test Results
-3. Copy technical_debt from 04_IMPLEMENTATION_MANIFEST.json into technical_debt_inherited
-4. Save 05_PROOF_OF_COMPLIANCE.json to: {{ARTIFACTS_BASE}}/05_PROOF_OF_COMPLIANCE.json
+3. Copy technical_debt from 04_BUILD_REPORT.json into technical_debt_inherited
+4. Save 05_TRACEABILITY.json to: {{ARTIFACTS_BASE}}/05_TRACEABILITY.json
 5. Document setup commands in DEPLOYMENT.md — do NOT run npm install or start the app
 6. Present the Delivery Summary below to the user
 7. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 5
 
 ## Delivery Summary
-After saving all deployment files + 05_PROOF_OF_COMPLIANCE.json, present this report to the user:
+After saving all deployment files + 05_TRACEABILITY.json, present this report to the user:
 
 ```
 ─── Phase 5 Complete — Deployment ────────────────────────────

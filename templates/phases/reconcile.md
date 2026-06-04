@@ -41,7 +41,7 @@
 {{TEST_CASES}}
 ```
 
-### 04_IMPLEMENTATION_MANIFEST.json
+### 04_BUILD_REPORT.json
 ```json
 {{MANIFEST}}
 ```

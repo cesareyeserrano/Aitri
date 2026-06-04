@@ -889,7 +889,7 @@ describe('cmdVerifyRun() — A2 schema precondition', () => {
       artifactsDir: 'spec',
       aitriVersion: '0.1.65',
     });
-    writeJSON(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json', {
+    writeJSON(dir, 'spec/04_BUILD_REPORT.json', {
       files_created: ['src/foo.js'],
       test_runner: 'node --test',
       test_files: [],
@@ -967,7 +967,7 @@ console.log('✔ TC-001 — runner ran in this cwd');
         approvedPhases: [1, 2, 3, 4],
         completedPhases: [1, 2, 3, 4],
       }));
-      fs.writeFileSync(path.join(featureDir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+      fs.writeFileSync(path.join(featureDir, 'spec/04_BUILD_REPORT.json'),
         JSON.stringify({
           files_created: [{ path: 'runner.js' }],
           test_runner: 'node runner.js',
@@ -1071,7 +1071,7 @@ describe('cmdVerifyRun() — Z1 verifyPassed invalidation', () => {
         { id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' },
       ],
     }));
-    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
       files_created: [{ path: 'runner.js' }],
       test_runner: opts.runner ?? 'node runner.js',
     }));
@@ -1224,7 +1224,7 @@ describe('cmdVerifyRun() — runner ENOENT does not persist degraded results', (
     fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
       test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
     }));
-    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
       files_created: [{ path: 'src/x.py' }],
       test_runner:   runner,
     }));
@@ -1330,7 +1330,7 @@ describe('cmdVerifyRun() — L2 mensajería conditional on Playwright config', (
     fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
       test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r', type: 'e2e' }],
     }));
-    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
       files_created: [{ path: 'runner.js' }],
       test_runner:   'node runner.js',
     }));
@@ -1400,7 +1400,7 @@ describe('cmdVerifyComplete() — C2 strictAssertions gate', () => {
     fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
       test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
     }));
-    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
       files_created: [{ path: 'x.js' }], test_runner: 'node --test',
     }));
     fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
@@ -1468,7 +1468,7 @@ describe('cmdVerifyComplete() — Z3 next-action respects phase 5 state', () => 
     fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
       test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
     }));
-    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
       files_created: [{ path: 'x.js' }], test_runner: 'node --test',
     }));
     fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
@@ -1604,7 +1604,7 @@ describe('cmdVerifyComplete() — e2e gate honours automation: "manual" and runn
         { id: 'TC-E1', title: 'e2e',  requirement_id: 'FR-001', type: 'e2e',  expected_result: 'r' },
       ],
     }));
-    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
       files_created: [{ path: 'x.js' }], test_runner: 'node --test',
     }));
     const e2ePass = e2eResultStatus === 'pass' ? 1 : 0;
@@ -1699,7 +1699,7 @@ describe('runQualityGates() + verify-run/complete integration (ADR-037)', () => 
     fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
       test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
     }));
-    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
       files_created: [{ path: 'runner.js' }],
       test_runner: 'node runner.js',
       quality_gates: gates,
@@ -1796,7 +1796,7 @@ describe('coverage as a declared quality_gate (ADR-037 follow-up)', () => {
     fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
       test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
     }));
-    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
       files_created: [{ path: 'runner.js' }],
       test_runner: 'node runner.js --coverage',
       quality_gates: [{ name: 'coverage', threshold, required }],
@@ -1865,7 +1865,7 @@ describe('opt-in review gate (ADR-034 addendum)', () => {
     fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
       test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
     }));
-    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), JSON.stringify({
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
       files_created: [{ path: 'runner.js' }], test_runner: 'node runner.js',
     }));
     fs.writeFileSync(path.join(dir, 'runner.js'), `console.log('✔ TC-001 — ran');\n`);

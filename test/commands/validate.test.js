@@ -53,9 +53,9 @@ const ARTIFACTS = {
   'spec/01_REQUIREMENTS.json': '{"project_name":"T","functional_requirements":[]}',
   'spec/02_SYSTEM_DESIGN.md': '## Executive Summary\nDesign.\n',
   'spec/03_TEST_CASES.json': '{"test_cases":[]}',
-  'spec/04_IMPLEMENTATION_MANIFEST.json': '{"files_created":[],"setup_commands":[]}',
+  'spec/04_BUILD_REPORT.json': '{"files_created":[],"setup_commands":[]}',
   'spec/04_TEST_RESULTS.json': '{"summary":{"total":1,"passed":1,"failed":0},"results":[]}',
-  'spec/05_PROOF_OF_COMPLIANCE.json': '{"requirement_compliance":[]}',
+  'spec/05_TRACEABILITY.json': '{"requirement_compliance":[]}',
 };
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -68,8 +68,8 @@ function seedDeployableRoot(dir, configOverrides = {}) {
       'spec/01_REQUIREMENTS.json': '1',
       'spec/02_SYSTEM_DESIGN.md': '2',
       'spec/03_TEST_CASES.json': '3',
-      'spec/04_IMPLEMENTATION_MANIFEST.json': '4',
-      'spec/05_PROOF_OF_COMPLIANCE.json': '5',
+      'spec/04_BUILD_REPORT.json': '4',
+      'spec/05_TRACEABILITY.json': '5',
     };
     if (phaseMap[rel]) hashes[phaseMap[rel]] = hashArtifact(content);
   }

@@ -18,6 +18,16 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.41 (2026-06-03) — artifact renames: `04_BUILD_REPORT`, `05_TRACEABILITY` (ADR-042) — breaking
+
+Two pipeline artifacts are renamed (the Aitri-specific names that read as "invented"; no industry equivalent exists for them):
+- `04_IMPLEMENTATION_MANIFEST.json` → `04_BUILD_REPORT.json` (Phase 4 output)
+- `05_PROOF_OF_COMPLIANCE.json` → `05_TRACEABILITY.json` (Phase 5 output)
+
+The `adopt --upgrade` migrator renames the file on disk; `.aitri#artifactHashes` is keyed by phase number (not filename), so approvals/state are preserved and content is unchanged.
+
+**Contract impact for subproducts:** **breaking** — readers that open `04_IMPLEMENTATION_MANIFEST.json` or `05_PROOF_OF_COMPLIANCE.json` by name must switch to `04_BUILD_REPORT.json` / `05_TRACEABILITY.json`. The schema/content of each artifact is unchanged — only the filename. Always resolve artifact paths via `artifactsDir` + the documented names in ARTIFACTS.md (which now show the new names). Pre-release-major bump covers it; Hub adapts.
+
 ## v2.0.0-rc.40 (2026-06-03) — `normalize` command renamed to `reconcile` (ADR-042) — breaking
 
 The off-pipeline-change command `aitri normalize` is renamed `aitri reconcile` (the old name communicated nothing about what it does). Clean rename, no alias. Surfaces that change for subproducts reading `status --json` and `.aitri`:

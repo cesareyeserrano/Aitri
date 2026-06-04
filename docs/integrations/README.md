@@ -1,6 +1,6 @@
 # Aitri — Integration Model
 
-**Version:** v2.0.0-rc.40+
+**Version:** v2.0.0-rc.41+
 **Owner:** This document is the authoritative description of how the Aitri ecosystem is structured.
 
 ---
@@ -37,9 +37,9 @@ Subproducts (Hub, future tools)
 | Requirements | `<project>/spec/01_REQUIREMENTS.json` | Epics, FRs, User Stories, ACs |
 | System Design | `<project>/spec/02_SYSTEM_DESIGN.md` | Architecture decisions |
 | Test Cases | `<project>/spec/03_TEST_CASES.json` | Test case definitions |
-| Implementation | `<project>/spec/04_IMPLEMENTATION_MANIFEST.json` | Implementation tracking |
+| Implementation | `<project>/spec/04_BUILD_REPORT.json` | Implementation tracking |
 | Test Results | `<project>/spec/04_TEST_RESULTS.json` | Verify-run output |
-| Compliance | `<project>/spec/05_PROOF_OF_COMPLIANCE.json` | FR coverage proof |
+| Compliance | `<project>/spec/05_TRACEABILITY.json` | FR coverage proof |
 | Optional: Discovery | `<project>/spec/00_DISCOVERY.md` | Project diagnosis (adopt flow) |
 | Optional: UX | `<project>/spec/01_UX_SPEC.md` | UX specification |
 | Optional: Code Review | `<project>/spec/04_CODE_REVIEW.md` | Phase 4 review output |

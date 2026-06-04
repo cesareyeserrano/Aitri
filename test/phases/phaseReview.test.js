@@ -85,7 +85,7 @@ describe('Phase review — buildBriefing()', () => {
     inputs: {
       '01_REQUIREMENTS.json': '{"functional_requirements":[]}',
       '03_TEST_CASES.json': '{"test_cases":[]}',
-      '04_IMPLEMENTATION_MANIFEST.json': JSON.stringify({
+      '04_BUILD_REPORT.json': JSON.stringify({
         files_created: ['src/index.js', 'src/auth.js'],
         technical_debt: [{ fr_id: 'FR-003', substitution: 'HTML table instead of chart' }],
       }),
@@ -122,7 +122,7 @@ describe('Phase review — buildBriefing()', () => {
       inputs: {
         '01_REQUIREMENTS.json': '{}',
         '03_TEST_CASES.json': '{}',
-        '04_IMPLEMENTATION_MANIFEST.json': '{}',
+        '04_BUILD_REPORT.json': '{}',
       },
       feedback: 'Focus on the auth module',
     });
@@ -132,7 +132,7 @@ describe('Phase review — buildBriefing()', () => {
   it('[v0.1.28] briefing renders artifact path using artifactsBase when provided', () => {
     const b = PHASE_DEFS['review'].buildBriefing({
       dir: '/tmp/test',
-      inputs: { '01_REQUIREMENTS.json': '{}', '03_TEST_CASES.json': '{}', '04_IMPLEMENTATION_MANIFEST.json': '{}' },
+      inputs: { '01_REQUIREMENTS.json': '{}', '03_TEST_CASES.json': '{}', '04_BUILD_REPORT.json': '{}' },
       feedback: null,
       artifactsBase: '/tmp/test/spec',
     });

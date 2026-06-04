@@ -250,7 +250,7 @@ describe('cmdApprove() — records reconcileState on phase 4 approval', () => {
   it('sets reconcileState with resolved status after approve build', () => {
     const dir = tmpDir();
     try {
-      writeFile(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json', '{"files_created":[],"setup_commands":[]}');
+      writeFile(dir, 'spec/04_BUILD_REPORT.json', '{"files_created":[],"setup_commands":[]}');
       writeFile(dir, '.aitri', JSON.stringify({
         artifactsDir:   'spec',
         approvedPhases: [],

@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.40+
+**Aitri version:** v2.0.0-rc.41+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -165,9 +165,9 @@ Emitted once per migration applied by `aitri adopt --upgrade`. The event log is 
   "1":         "01_REQUIREMENTS.json",
   "2":         "02_SYSTEM_DESIGN.md",
   "3":         "03_TEST_CASES.json",
-  "4":         "04_IMPLEMENTATION_MANIFEST.json",
+  "4":         "04_BUILD_REPORT.json",
   "4r":        "04_CODE_REVIEW.md",
-  "5":         "05_PROOF_OF_COMPLIANCE.json"
+  "5":         "05_TRACEABILITY.json"
 }
 ```
 

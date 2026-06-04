@@ -64,14 +64,14 @@ function seedDeployableRoot(dir, overrides = {}) {
   });
   writeSpec(dir, '02_SYSTEM_DESIGN.md', '# System Design\n\nLine 1\nLine 2\n');
   writeJsonSpec(dir, '03_TEST_CASES.json', { test_cases: [] });
-  writeJsonSpec(dir, '04_IMPLEMENTATION_MANIFEST.json', {
+  writeJsonSpec(dir, '04_BUILD_REPORT.json', {
     modules: [], files_created: ['a.js'], setup_commands: [], technical_debt: [],
   });
   writeJsonSpec(dir, '04_TEST_RESULTS.json', {
     summary: { passed: 10, failed: 0, skipped: 0, total: 10 },
     fr_coverage: [{ fr_id: 'FR-001', status: 'covered', tests_passing: 3, tests_failing: 0 }],
   });
-  writeJsonSpec(dir, '05_PROOF_OF_COMPLIANCE.json', { requirement_compliance: [] });
+  writeJsonSpec(dir, '05_TRACEABILITY.json', { requirement_compliance: [] });
   fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Idea\n');
 }
 
@@ -144,7 +144,7 @@ describe('buildProjectSnapshot()', () => {
         completedPhases: [1, 2, 3],
       });
       writeJsonSpec(dir, '03_TEST_CASES.json', { test_cases: [] });
-      writeJsonSpec(dir, '04_IMPLEMENTATION_MANIFEST.json', { files_created: ['x'], technical_debt: [] });
+      writeJsonSpec(dir, '04_BUILD_REPORT.json', { files_created: ['x'], technical_debt: [] });
       const snap = buildProjectSnapshot(dir);
       const phases = snap.pipelines[0].phases.filter(p => !p.optional);
       const byKey = Object.fromEntries(phases.map(p => [p.key, p.status]));
@@ -169,7 +169,7 @@ describe('buildProjectSnapshot()', () => {
         events: [],
       });
       writeJsonSpec(dir, '03_TEST_CASES.json', { test_cases: [] });
-      writeJsonSpec(dir, '04_IMPLEMENTATION_MANIFEST.json', { files_created: ['x'], technical_debt: [] });
+      writeJsonSpec(dir, '04_BUILD_REPORT.json', { files_created: ['x'], technical_debt: [] });
       const snap = buildProjectSnapshot(dir);
       const cmds = snap.nextActions.map(a => a.command);
       assert.ok(cmds.includes('aitri verify-complete'),
@@ -809,7 +809,7 @@ describe('nextActions ordering', () => {
       });
       writeSpec(dir, '02_SYSTEM_DESIGN.md', '# d\n');
       writeJsonSpec(dir, '03_TEST_CASES.json', { test_cases: [] });
-      writeJsonSpec(dir, '04_IMPLEMENTATION_MANIFEST.json', { files_created: ['x'], technical_debt: [] });
+      writeJsonSpec(dir, '04_BUILD_REPORT.json', { files_created: ['x'], technical_debt: [] });
     }
 
     it('routes to verify-complete when last verify-run was 0/0/skipped', () => {
@@ -843,7 +843,7 @@ describe('nextActions ordering', () => {
         });
         writeSpec(dir, '02_SYSTEM_DESIGN.md', '# d\n');
         writeJsonSpec(dir, '03_TEST_CASES.json', { test_cases: [] });
-        writeJsonSpec(dir, '04_IMPLEMENTATION_MANIFEST.json', { files_created: ['x'], technical_debt: [] });
+        writeJsonSpec(dir, '04_BUILD_REPORT.json', { files_created: ['x'], technical_debt: [] });
         const snap = buildProjectSnapshot(dir);
         const action = snap.nextActions.find(a => a.priority === 5);
         assert.ok(action);

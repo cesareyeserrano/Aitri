@@ -13,7 +13,7 @@
 {{FEEDBACK}}
 {{/IF_FEEDBACK}}
 
-## Files to review (from 04_IMPLEMENTATION_MANIFEST.json)
+## Files to review (from 04_BUILD_REPORT.json)
 {{FILE_LIST}}
 
 ## Declared technical debt

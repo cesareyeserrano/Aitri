@@ -315,8 +315,8 @@ describe('Phase 4 — buildBriefing() debug mode', () => {
       feedback: null, failingTests: undefined,
       artifactsBase: '/tmp/test/spec',
     });
-    assert.ok(b.includes('/tmp/test/spec/04_IMPLEMENTATION_MANIFEST.json'), 'artifact path must use artifactsBase/spec');
-    assert.ok(!b.includes('/tmp/test/04_IMPLEMENTATION_MANIFEST.json'), 'artifact path must NOT use bare dir');
+    assert.ok(b.includes('/tmp/test/spec/04_BUILD_REPORT.json'), 'artifact path must use artifactsBase/spec');
+    assert.ok(!b.includes('/tmp/test/04_BUILD_REPORT.json'), 'artifact path must NOT use bare dir');
   });
 
   it('[v0.1.28] injects bestPractices content when provided', () => {

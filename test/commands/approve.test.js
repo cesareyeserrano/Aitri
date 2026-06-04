@@ -169,7 +169,7 @@ describe('cmdApprove() — first approve of phase 1 archives IDEA.md', () => {
 // Producer-side classifier blocks phase 1 first-approve when downstream
 // artifacts reference IDEA.md as content that would break post-archive.
 // Auto-fixes structural refs (manifest array elements) mechanically.
-// Frozen evidence (04_TEST_RESULTS.json, 05_PROOF_OF_COMPLIANCE.json)
+// Frozen evidence (04_TEST_RESULTS.json, 05_TRACEABILITY.json)
 // silently skipped — preserves immutable history.
 
 describe('cmdApprove() — alpha.27 pre-flight scan on first-approve of phase 1', () => {
@@ -228,7 +228,7 @@ describe('cmdApprove() — alpha.27 pre-flight scan on first-approve of phase 1'
     try {
       writeFile(dir, 'IDEA.md', ideaContent);
       writeFile(dir, 'spec/01_REQUIREMENTS.json', reqContent);
-      writeFile(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json', JSON.stringify({
+      writeFile(dir, 'spec/04_BUILD_REPORT.json', JSON.stringify({
         files_modified: [{ path: 'IDEA.md', change: 'rewrote' }, { path: 'src/main.js', change: 'edit' }],
       }, null, 2));
       writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1] }));
@@ -237,10 +237,10 @@ describe('cmdApprove() — alpha.27 pre-flight scan on first-approve of phase 1'
 
       // Auto-fix log line emitted
       assert.match(out, /Pre-flight auto-fixed/);
-      assert.match(out, /04_IMPLEMENTATION_MANIFEST\.json/);
+      assert.match(out, /04_BUILD_REPORT\.json/);
 
       // Manifest IDEA entry dropped
-      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), 'utf8'));
+      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), 'utf8'));
       assert.equal(m.files_modified.length, 1);
       assert.equal(m.files_modified[0].path, 'src/main.js');
 
@@ -256,7 +256,7 @@ describe('cmdApprove() — alpha.27 pre-flight scan on first-approve of phase 1'
       // Auto-fix event recorded
       const fixEvent = c.events.find(e => e.event === 'approve_preflight_autofix');
       assert.ok(fixEvent, 'approve_preflight_autofix event must be recorded');
-      assert.equal(fixEvent.target, 'spec/04_IMPLEMENTATION_MANIFEST.json');
+      assert.equal(fixEvent.target, 'spec/04_BUILD_REPORT.json');
       assert.ok(fixEvent.before_hash && fixEvent.after_hash);
       assert.notEqual(fixEvent.before_hash, fixEvent.after_hash);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -267,7 +267,7 @@ describe('cmdApprove() — alpha.27 pre-flight scan on first-approve of phase 1'
     try {
       writeFile(dir, 'IDEA.md', ideaContent);
       writeFile(dir, 'spec/01_REQUIREMENTS.json', reqContent);
-      writeFile(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json', JSON.stringify({
+      writeFile(dir, 'spec/04_BUILD_REPORT.json', JSON.stringify({
         files_modified: [{ path: 'IDEA.md', change: 'x' }, { path: 'a.js', change: 'y' }],
       }, null, 2));
       writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '# Design\n\nIDEA.md narrative.\n');  // blocks
@@ -278,7 +278,7 @@ describe('cmdApprove() — alpha.27 pre-flight scan on first-approve of phase 1'
       } catch { /* expected — narrative blocks */ }
 
       // Auto-fix DID apply (manifest IDEA entry dropped)
-      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), 'utf8'));
+      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), 'utf8'));
       assert.equal(m.files_modified.length, 1, 'auto-fix must apply even when block follows');
       assert.equal(m.files_modified[0].path, 'a.js');
 
@@ -301,7 +301,7 @@ describe('cmdApprove() — alpha.27 pre-flight scan on first-approve of phase 1'
       writeFile(dir, 'spec/04_TEST_RESULTS.json', JSON.stringify({
         results: [{ tc_id: 'TC-001', notes: 'IDEA.md was checked' }],
       }, null, 2));
-      writeFile(dir, 'spec/05_PROOF_OF_COMPLIANCE.json', JSON.stringify({
+      writeFile(dir, 'spec/05_TRACEABILITY.json', JSON.stringify({
         evidence: 'grep IDEA.md returned zero',
       }, null, 2));
       writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1] }));
@@ -613,7 +613,7 @@ describe('cmdApprove() — phase 4 shows verify-run hint', () => {
 
   before(() => {
     dir = tmpDir();
-    writeFile(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json', '{"files_created":[],"setup_commands":[]}');
+    writeFile(dir, 'spec/04_BUILD_REPORT.json', '{"files_created":[],"setup_commands":[]}');
     writeFile(dir, '.aitri', minimalConfig({
       completedPhases: [4],
     }));
@@ -796,7 +796,7 @@ describe('cmdApprove() — phase 5 shows completion message', () => {
 
   before(() => {
     dir = tmpDir();
-    writeFile(dir, 'spec/05_PROOF_OF_COMPLIANCE.json', '{"requirement_compliance":[]}');
+    writeFile(dir, 'spec/05_TRACEABILITY.json', '{"requirement_compliance":[]}');
     writeFile(dir, '.aitri', minimalConfig({
       approvedPhases: [1, 2, 3, 4],
       completedPhases: [1, 2, 3, 4, 5],
@@ -865,7 +865,7 @@ describe('cmdApprove() — feature-context PIPELINE INSTRUCTION carries `feature
   it('phase 4 → verify-run next-action', () => {
     const dir = tmpDir();
     try {
-      writeFile(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json', '{"files_created":[{"path":"x"}]}');
+      writeFile(dir, 'spec/04_BUILD_REPORT.json', '{"files_created":[{"path":"x"}]}');
       writeFile(dir, '.aitri', minimalConfig({
         approvedPhases: [1, 2, 3],
         completedPhases: [1, 2, 3, 4],
@@ -973,7 +973,7 @@ describe('cmdApprove() — feature approve 4 advances ROOT reconcile baseline (P
         approvedPhases: [1, 2, 3],
         completedPhases: [1, 2, 3, 4],
       }));
-      writeFile(featureDir, 'spec/04_IMPLEMENTATION_MANIFEST.json',
+      writeFile(featureDir, 'spec/04_BUILD_REPORT.json',
         '{"files_created":[{"path":"internal/alerts/engine.go"}]}');
       gitInit(rootDir);
       gitAddCommit(rootDir, 'initial');
@@ -1010,7 +1010,7 @@ describe('cmdApprove() — feature approve 4 advances ROOT reconcile baseline (P
         aitriVersion: '2.0.0-rc.1',
         completedPhases: [4],
       }));
-      writeFile(rootDir, 'spec/04_IMPLEMENTATION_MANIFEST.json',
+      writeFile(rootDir, 'spec/04_BUILD_REPORT.json',
         '{"files_created":[]}');
 
       captureAll(() => cmdApprove({ dir: rootDir, args: ['build'], err: noopErr }));
@@ -1032,7 +1032,7 @@ describe('cmdApprove() — feature approve 4 advances ROOT reconcile baseline (P
         approvedPhases: [1, 2, 3],
         completedPhases: [1, 2, 3, 4],
       }));
-      writeFile(featureDir, 'spec/04_IMPLEMENTATION_MANIFEST.json',
+      writeFile(featureDir, 'spec/04_BUILD_REPORT.json',
         '{"files_created":[{"path":"x"}]}');
 
       // Must not throw
@@ -1063,13 +1063,13 @@ describe('cmdApprove() — feature approve 4 advances ROOT reconcile baseline (P
         aitriVersion: '2.0.0-rc.1',
         approvedPhases: [1, 2, 3], completedPhases: [1, 2, 3, 4],
       }));
-      writeFile(fooDir, 'spec/04_IMPLEMENTATION_MANIFEST.json',
+      writeFile(fooDir, 'spec/04_BUILD_REPORT.json',
         '{"files_created":[{"path":"a"}]}');
       writeFile(barDir, '.aitri', minimalConfig({
         aitriVersion: '2.0.0-rc.1',
         approvedPhases: [1, 2, 3], completedPhases: [1, 2, 3, 4],
       }));
-      writeFile(barDir, 'spec/04_IMPLEMENTATION_MANIFEST.json',
+      writeFile(barDir, 'spec/04_BUILD_REPORT.json',
         '{"files_created":[{"path":"b"}]}');
       gitInit(rootDir);
       gitAddCommit(rootDir, 'initial both features');

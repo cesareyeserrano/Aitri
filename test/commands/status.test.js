@@ -469,12 +469,12 @@ describe('cmdStatus — stale verify display', () => {
     }));
     fs.writeFileSync(path.join(spec, '02_SYSTEM_DESIGN.md'), '# Design\n');
     fs.writeFileSync(path.join(spec, '03_TEST_CASES.json'), '{"test_cases":[]}');
-    fs.writeFileSync(path.join(spec, '04_IMPLEMENTATION_MANIFEST.json'), '{"modules":[],"files_created":[],"setup_commands":[],"technical_debt":[]}');
+    fs.writeFileSync(path.join(spec, '04_BUILD_REPORT.json'), '{"modules":[],"files_created":[],"setup_commands":[],"technical_debt":[]}');
     fs.writeFileSync(path.join(spec, '04_TEST_RESULTS.json'), JSON.stringify({
       summary: { passed: 1, failed: 0, skipped: 0, total: 1 },
       fr_coverage: [{ fr_id: 'FR-001', status: 'covered', tests_passing: 1, tests_failing: 0 }],
     }));
-    fs.writeFileSync(path.join(spec, '05_PROOF_OF_COMPLIANCE.json'), '{"requirement_compliance":[]}');
+    fs.writeFileSync(path.join(spec, '05_TRACEABILITY.json'), '{"requirement_compliance":[]}');
     fs.writeFileSync(path.join(spec, 'AUDIT_REPORT.md'), '# Audit\n');
   }
 

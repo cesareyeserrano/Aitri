@@ -247,8 +247,8 @@ describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
       writeArtifact(dir, '01_REQUIREMENTS.json');           // phase 1, already approved → skipped as already-tracked
       writeArtifact(dir, '02_SYSTEM_DESIGN.md',             '# Design\n'.repeat(5));
       writeArtifact(dir, '03_TEST_CASES.json');
-      writeArtifact(dir, '04_IMPLEMENTATION_MANIFEST.json');
-      writeArtifact(dir, '05_PROOF_OF_COMPLIANCE.json');
+      writeArtifact(dir, '04_BUILD_REPORT.json');
+      writeArtifact(dir, '05_TRACEABILITY.json');
 
       // ux, 2, 3, 4 in_progress (started but not completed).
       seedInProgress(dir, 'ux');
@@ -420,8 +420,8 @@ describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
       writeArtifact(dir, '01_REQUIREMENTS.json');
       writeArtifact(dir, '02_SYSTEM_DESIGN.md', '# Design\n'.repeat(5));
       writeArtifact(dir, '03_TEST_CASES.json');
-      writeArtifact(dir, '04_IMPLEMENTATION_MANIFEST.json');
-      writeArtifact(dir, '05_PROOF_OF_COMPLIANCE.json');
+      writeArtifact(dir, '04_BUILD_REPORT.json');
+      writeArtifact(dir, '05_TRACEABILITY.json');
 
       // Phase 5 rejected via the real producer.
       silence(() => cmdReject({
@@ -848,6 +848,22 @@ describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: reconcileState',
       assert.equal(c.normalizeState, undefined, 'the old field must be removed');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  // rc.41 (ADR-042 Phase 2) — artifact file renames are applied on disk, content preserved.
+  it('renames 04_IMPLEMENTATION_MANIFEST.json → 04_BUILD_REPORT.json on disk', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1, 2, 3, 4] });   // artifactsDir: 'spec'
+      const specDir = path.join(dir, 'spec');
+      fs.mkdirSync(specDir, { recursive: true });
+      const body = JSON.stringify({ files: ['src/app.js'], test_runner: 'node --test' });
+      fs.writeFileSync(path.join(specDir, '04_IMPLEMENTATION_MANIFEST.json'), body);
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      assert.ok(fs.existsSync(path.join(specDir, '04_BUILD_REPORT.json')), 'new artifact name must exist');
+      assert.ok(!fs.existsSync(path.join(specDir, '04_IMPLEMENTATION_MANIFEST.json')), 'old artifact name must be gone');
+      assert.equal(fs.readFileSync(path.join(specDir, '04_BUILD_REPORT.json'), 'utf8'), body, 'content must be unchanged');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // ── Z2 (alpha.13): artifactHashes backfill ──────────────────────────────────
@@ -861,8 +877,8 @@ describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: artifactHashes b
     fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), '{"functional_requirements":[]}');
     fs.writeFileSync(path.join(dir, 'spec/02_SYSTEM_DESIGN.md'),  '# Design');
     fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'),   '{"test_cases":[]}');
-    fs.writeFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), '{"files_created":[]}');
-    fs.writeFileSync(path.join(dir, 'spec/05_PROOF_OF_COMPLIANCE.json'),     '{"requirement_compliance":[]}');
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), '{"files_created":[]}');
+    fs.writeFileSync(path.join(dir, 'spec/05_TRACEABILITY.json'),     '{"requirement_compliance":[]}');
   }
 
   it('backfills artifactHashes for every approved phase when field is empty', () => {
@@ -1101,7 +1117,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy test resu
 // ── N1 (alpha.16): legacy venv-relative manifest test_runner flagging ───────
 //
 // Surfaced by Cesar canary 2026-05-02 (deepening pass). Projects authored
-// before alpha.9 (cwd change `3603a49`) whose `04_IMPLEMENTATION_MANIFEST.json::
+// before alpha.9 (cwd change `3603a49`) whose `04_BUILD_REPORT.json::
 // test_runner` is `.venv/bin/pytest …` (relative to project root) silently
 // break once `aitri feature verify-run` runs from the feature directory:
 // the binary is no longer reachable. Symptom is a degraded results file
@@ -1116,7 +1132,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy venv-rela
   function writeRootManifest(dir, runner) {
     fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
     fs.writeFileSync(
-      path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+      path.join(dir, 'spec/04_BUILD_REPORT.json'),
       JSON.stringify({ files_created: [{ path: 'src/x.py' }], test_runner: runner })
     );
   }
@@ -1128,7 +1144,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy venv-rela
       JSON.stringify({ projectName: name, artifactsDir: 'spec' })
     );
     fs.writeFileSync(
-      path.join(featDir, '04_IMPLEMENTATION_MANIFEST.json'),
+      path.join(featDir, '04_BUILD_REPORT.json'),
       JSON.stringify({ files_created: [{ path: 'src/x.py' }], test_runner: runner })
     );
   }
@@ -1143,7 +1159,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy venv-rela
       assert.ok(f, 'expected a venv-relative finding for the root manifest');
       assert.equal(f.category, 'validatorGap');
       assert.equal(f.autoMigratable, false);
-      assert.equal(f.target, '04_IMPLEMENTATION_MANIFEST.json');
+      assert.equal(f.target, '04_BUILD_REPORT.json');
       assert.match(f.reason, /alpha\.9|cwd/i);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
@@ -1225,9 +1241,9 @@ describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy venv-rela
       assert.equal(findings.length, 3, `expected 3 findings, got ${findings.length}`);
       const targets = findings.map(f => f.target).sort();
       assert.deepEqual(targets, [
-        '04_IMPLEMENTATION_MANIFEST.json',
-        'features/alpha-feature/spec/04_IMPLEMENTATION_MANIFEST.json',
-        'features/beta-feature/spec/04_IMPLEMENTATION_MANIFEST.json',
+        '04_BUILD_REPORT.json',
+        'features/alpha-feature/spec/04_BUILD_REPORT.json',
+        'features/beta-feature/spec/04_BUILD_REPORT.json',
       ]);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
@@ -1400,7 +1416,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md absorption', () 
 // Background: alpha.17 introduced the auto-absorb migration but did not check
 // whether downstream artifacts referenced IDEA.md as a literal path. Hub
 // surfaced the gap on 2026-05-02: its `hub-web-only` feature treated IDEA.md
-// as user-facing documentation tracked in 04_IMPLEMENTATION_MANIFEST.json
+// as user-facing documentation tracked in 04_BUILD_REPORT.json
 // (`files_modified[i].path === "IDEA.md"`) plus 5 references across TCs,
 // system design, and proof of compliance. The alpha.17 migration silently
 // unlinked the file and broke `aitri verify-run` invisibly.
@@ -1415,7 +1431,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md absorption', () 
 //                  same run.
 //   narrative   — anywhere else (free-form JSON, project extensions, Markdown
 //                  bodies). Flagged; blocks the absorb.
-//   frozen      — 04_TEST_RESULTS.json + 05_PROOF_OF_COMPLIANCE.json. Silently
+//   frozen      — 04_TEST_RESULTS.json + 05_TRACEABILITY.json. Silently
 //                  skipped — immutable historical evidence by design.
 //
 // Auto-fix runs even when narrative blocks absorb (independently committable).
@@ -1435,13 +1451,13 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
       fs.writeFileSync(
-        path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+        path.join(dir, 'spec/04_BUILD_REPORT.json'),
         JSON.stringify({ files_created: ['src/main.js'], files_modified: ['IDEA.md'], test_files: ['t.test.js'] }, null, 2),
       );
 
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
 
-      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), 'utf8'));
+      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), 'utf8'));
       assert.deepEqual(m.files_modified, [], 'IDEA.md must be dropped from files_modified');
       assert.deepEqual(m.files_created, ['src/main.js'], 'unrelated entries must remain');
 
@@ -1458,7 +1474,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
       fs.writeFileSync(
-        path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+        path.join(dir, 'spec/04_BUILD_REPORT.json'),
         JSON.stringify({
           files_modified: [
             { path: 'IDEA.md', change: 'rewrote' },
@@ -1469,7 +1485,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
 
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
 
-      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), 'utf8'));
+      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), 'utf8'));
       assert.equal(m.files_modified.length, 1);
       assert.equal(m.files_modified[0].path, 'src/main.js');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -1482,7 +1498,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
       fs.writeFileSync(
-        path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+        path.join(dir, 'spec/04_BUILD_REPORT.json'),
         JSON.stringify({
           files_created: ['IDEA.md', 'a.js'],
           files_modified: ['b.js'],
@@ -1492,7 +1508,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
 
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
 
-      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), 'utf8'));
+      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), 'utf8'));
       assert.deepEqual(m.files_created, ['a.js']);
       assert.deepEqual(m.test_files, ['t.test.js']);
       assert.equal(fs.existsSync(path.join(dir, 'IDEA.md')), false);
@@ -1505,7 +1521,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
-      const manifestRel = 'spec/04_IMPLEMENTATION_MANIFEST.json';
+      const manifestRel = 'spec/04_BUILD_REPORT.json';
       fs.writeFileSync(
         path.join(dir, manifestRel),
         JSON.stringify({ files_modified: ['IDEA.md', 'src/main.js'] }, null, 2),
@@ -1535,7 +1551,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
       fs.writeFileSync(
-        path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+        path.join(dir, 'spec/04_BUILD_REPORT.json'),
         JSON.stringify({ files_modified: ['IDEA.md', 'src/main.js'] }, null, 2),
       );
 
@@ -1554,7 +1570,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
       fs.writeFileSync(
-        path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+        path.join(dir, 'spec/04_BUILD_REPORT.json'),
         JSON.stringify({ files_modified: ['IDEA.md', 'src/main.js'] }, null, 2),
       );
 
@@ -1563,7 +1579,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       const c = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
       const fixEvent = (c.events || []).find(e =>
         e.event === 'upgrade_migration' &&
-        e.target === 'spec/04_IMPLEMENTATION_MANIFEST.json'
+        e.target === 'spec/04_BUILD_REPORT.json'
       );
       assert.ok(fixEvent, 'expected upgrade_migration event for the manifest auto-fix');
       assert.ok(fixEvent.before_hash && fixEvent.after_hash, 'event must carry before/after hashes');
@@ -1578,12 +1594,12 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
       fs.writeFileSync(
-        path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+        path.join(dir, 'spec/04_BUILD_REPORT.json'),
         JSON.stringify({ files_modified: ['IDEA.md'] }, null, 2),  // only IDEA.md
       );
 
       const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
-      const autoFix = findings.find(f => f.autoMigratable && f.target === 'spec/04_IMPLEMENTATION_MANIFEST.json');
+      const autoFix = findings.find(f => f.autoMigratable && f.target === 'spec/04_BUILD_REPORT.json');
       assert.equal(autoFix, undefined, 'auto-fix must NOT be emitted for a degenerate post-state');
       // The manifest ref falls to narrative instead → blocks absorb.
       const narrative = findings.find(f => f.target === 'IDEA.md' && f.autoMigratable === false);
@@ -1621,7 +1637,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
       fs.writeFileSync(
-        path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+        path.join(dir, 'spec/04_BUILD_REPORT.json'),
         JSON.stringify({
           files_modified: [{ path: 'IDEA.md', change: 'x' }, { path: 'a.js', change: 'y' }],
           technical_debt: [{ fr_id: 'FR-001', substitution: 'see IDEA.md for context' }],
@@ -1631,7 +1647,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
 
       // Auto-fix DID apply (files_modified IDEA.md entry dropped)
-      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'), 'utf8'));
+      const m = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), 'utf8'));
       assert.equal(m.files_modified.length, 1);
       assert.equal(m.files_modified[0].path, 'a.js');
       // Narrative ref in technical_debt remains untouched
@@ -1685,14 +1701,14 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('PRE-FLIGHT frozen: 05_PROOF_OF_COMPLIANCE.json containing IDEA.md → no finding, absorb proceeds', () => {
+  it('PRE-FLIGHT frozen: 05_TRACEABILITY.json containing IDEA.md → no finding, absorb proceeds', () => {
     const dir = tmpDir();
     try {
       writeLegacyConfig(dir, { approvedPhases: [1] });
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
       fs.writeFileSync(
-        path.join(dir, 'spec/05_PROOF_OF_COMPLIANCE.json'),
+        path.join(dir, 'spec/05_TRACEABILITY.json'),
         JSON.stringify({ evidence: 'grep IDEA.md returns zero matches' }, null, 2),
       );
 
@@ -1714,7 +1730,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
         JSON.stringify({ results: [{ tc_id: 'TC-001', notes: 'IDEA.md was checked' }] }, null, 2),
       );
       fs.writeFileSync(
-        path.join(dir, 'spec/05_PROOF_OF_COMPLIANCE.json'),
+        path.join(dir, 'spec/05_TRACEABILITY.json'),
         JSON.stringify({ evidence: 'IDEA.md grep' }, null, 2),
       );
 
@@ -1728,7 +1744,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       assert.ok(filesListed, 'reason must list the artifact files');
       assert.match(filesListed[1], /02_SYSTEM_DESIGN\.md/);
       assert.doesNotMatch(filesListed[1], /04_TEST_RESULTS\.json/);
-      assert.doesNotMatch(filesListed[1], /05_PROOF_OF_COMPLIANCE\.json/);
+      assert.doesNotMatch(filesListed[1], /05_TRACEABILITY\.json/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1811,7 +1827,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       writeReqsArtifact(dir, { functional_requirements: [], original_brief: 'previously absorbed' });
       // Stale ref ONLY in frozen records — must NOT surface
       fs.writeFileSync(
-        path.join(dir, 'spec/05_PROOF_OF_COMPLIANCE.json'),
+        path.join(dir, 'spec/05_TRACEABILITY.json'),
         JSON.stringify({ evidence: 'grep IDEA.md returns zero matches' }, null, 2),
       );
 
@@ -1828,7 +1844,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       writeReqsArtifact(dir, { functional_requirements: [], original_brief: 'previously absorbed' });
       fs.writeFileSync(path.join(dir, 'spec/02_SYSTEM_DESIGN.md'), '# Design\n\nIDEA.md mentioned.\n');
       fs.writeFileSync(
-        path.join(dir, 'spec/05_PROOF_OF_COMPLIANCE.json'),
+        path.join(dir, 'spec/05_TRACEABILITY.json'),
         JSON.stringify({ evidence: 'IDEA.md was here' }, null, 2),
       );
 
@@ -1838,12 +1854,12 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       // Extract the actionable file list (the colon-separated section before
       // the "Update those references..." sentence). Frozen file names may
       // appear in the reason's educational copy ("Frozen historical records
-      // (04_TEST_RESULTS.json, 05_PROOF_OF_COMPLIANCE.json) are intentionally
+      // (04_TEST_RESULTS.json, 05_TRACEABILITY.json) are intentionally
       // not surfaced...") — that mention is informative, not actionable.
       const fileList = f.reason.match(/narrative fields[^:]*: (.+?)\. Update those references/);
       assert.ok(fileList, 'reason must list the narrative artifact files');
       assert.match(fileList[1], /02_SYSTEM_DESIGN\.md/);
-      assert.doesNotMatch(fileList[1], /05_PROOF_OF_COMPLIANCE\.json/, 'frozen file must not be in the actionable list');
+      assert.doesNotMatch(fileList[1], /05_TRACEABILITY\.json/, 'frozen file must not be in the actionable list');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1883,7 +1899,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
         JSON.stringify({ test_cases: [{ id: 'TC-001', given: 'IDEA.md exists' }] }, null, 2),
       );
       fs.writeFileSync(
-        path.join(featSpec, '04_IMPLEMENTATION_MANIFEST.json'),
+        path.join(featSpec, '04_BUILD_REPORT.json'),
         JSON.stringify({
           // Auto-fixable: files_modified[i].path === "IDEA.md"
           files_modified: [{ path: 'IDEA.md', change: 'rewrote' }, { path: 'src/main.js', change: 'edit' }],
@@ -1897,12 +1913,12 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
         JSON.stringify({ results: [{ tc_id: 'TC-001', notes: 'IDEA.md was checked' }] }, null, 2),
       );
       fs.writeFileSync(
-        path.join(featSpec, '05_PROOF_OF_COMPLIANCE.json'),
+        path.join(featSpec, '05_TRACEABILITY.json'),
         JSON.stringify({ evidence: 'IDEA.md verified' }, null, 2),
       );
 
       const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
-      const autoFixes = findings.filter(f => f.autoMigratable && f.target?.includes('04_IMPLEMENTATION_MANIFEST'));
+      const autoFixes = findings.filter(f => f.autoMigratable && f.target?.includes('04_BUILD_REPORT'));
       assert.equal(autoFixes.length, 1, 'exactly 1 auto-fix finding (one manifest with one fixable element)');
       assert.match(autoFixes[0].transform, /files_modified\[0\]\.path/);
 
@@ -1917,10 +1933,10 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       assert.match(list, /spec\/01_UX_SPEC\.md/);
       assert.match(list, /02_SYSTEM_DESIGN\.md/);
       assert.match(list, /03_TEST_CASES\.json/);
-      assert.match(list, /04_IMPLEMENTATION_MANIFEST\.json/);
+      assert.match(list, /04_BUILD_REPORT\.json/);
       // Frozen NOT in actionable list
       assert.doesNotMatch(list, /04_TEST_RESULTS\.json/);
-      assert.doesNotMatch(list, /05_PROOF_OF_COMPLIANCE\.json/);
+      assert.doesNotMatch(list, /05_TRACEABILITY\.json/);
 
       // Absorb finding NOT present (narrative blocks)
       const absorb = findings.find(f => f.target === 'IDEA.md' && f.autoMigratable === true);
@@ -1937,7 +1953,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
       fs.writeFileSync(
-        path.join(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json'),
+        path.join(dir, 'spec/04_BUILD_REPORT.json'),
         JSON.stringify({ files_modified: ['IDEA.md', 'src/main.js'] }, null, 2),
       );
 
@@ -1949,7 +1965,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
       const ideaFindings = findings.filter(f =>
         String(f.target).startsWith('IDEA.md') ||
-        String(f.target).includes('04_IMPLEMENTATION_MANIFEST.json')
+        String(f.target).includes('04_BUILD_REPORT.json')
       );
       assert.equal(ideaFindings.length, 0, 're-running must produce no IDEA-related findings');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }

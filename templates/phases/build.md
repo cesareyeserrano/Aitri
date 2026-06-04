@@ -107,7 +107,7 @@ For each MUST FR, confirm:
   [ ] type reporting:   chart/graph library rendering — not plain HTML table substitution
 
 ## Technical Debt Declaration (MANDATORY in manifest)
-In 04_IMPLEMENTATION_MANIFEST.json, you MUST declare every simplification made vs. the MUST requirements:
+In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST requirements:
   "technical_debt": [
     { "fr_id":"FR-003", "substitution":"HTML table instead of Chart.js graph",
       "reason":"library conflict", "effort_to_fix":"medium" }
@@ -119,7 +119,7 @@ In 04_IMPLEMENTATION_MANIFEST.json, you MUST declare every simplification made v
 - Source code: {{DIR}}/src/
 - Tests: {{DIR}}/tests/
 - {{DIR}}/<package descriptor matching your stack> (package.json, pyproject.toml, go.mod, Cargo.toml, pom.xml, etc.) + {{DIR}}/.env.example
-- Manifest: {{ARTIFACTS_BASE}}/04_IMPLEMENTATION_MANIFEST.json
+- Manifest: {{ARTIFACTS_BASE}}/04_BUILD_REPORT.json
   { files_created:[], files_modified:[], setup_commands:[], environment_variables:[{name, default}],
     technical_debt:[{fr_id, substitution, reason, effort_to_fix:"low|medium|high"}],
     test_runner: "<exact command matching your stack>",
@@ -159,12 +159,12 @@ In 04_IMPLEMENTATION_MANIFEST.json, you MUST declare every simplification made v
 3. Phase hardening: error handling, validation, boundary cases
 4. Add @aitri-trace headers to key functions
 5. Verify Technical Definition of Done checklist
-6. Save manifest (with technical_debt) to: {{ARTIFACTS_BASE}}/04_IMPLEMENTATION_MANIFEST.json
+6. Save manifest (with technical_debt) to: {{ARTIFACTS_BASE}}/04_BUILD_REPORT.json
 7. Present the Delivery Summary below to the user
 8. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4
 
 ## Delivery Summary
-After saving all files + 04_IMPLEMENTATION_MANIFEST.json, present this report to the user:
+After saving all files + 04_BUILD_REPORT.json, present this report to the user:
 
 ```
 ─── Phase 4 Complete — Implementation ────────────────────────

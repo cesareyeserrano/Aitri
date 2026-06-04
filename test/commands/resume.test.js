@@ -89,7 +89,7 @@ describe('cmdResume() — output structure (full)', () => {
     writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
     writeFile(dir, '02_SYSTEM_DESIGN.md', systemDesignMd);
     writeFile(dir, '04_TEST_RESULTS.json', testResultsJson);
-    writeFile(dir, '04_IMPLEMENTATION_MANIFEST.json', manifestJson);
+    writeFile(dir, '04_BUILD_REPORT.json', manifestJson);
     // --full: reference sections (Architecture, Open Requirements, Test Coverage,
     // Technical Debt) are gated behind this flag; brief mode is tested below.
     output = captureStdout(() => cmdResume({ dir, args: ['--full'] }));
@@ -116,7 +116,7 @@ describe('cmdResume() — output structure (full)', () => {
   });
 
   it('marks phases with artifact present but not completed as in-progress', () => {
-    // Phase 4 artifact exists (04_IMPLEMENTATION_MANIFEST.json was written) but
+    // Phase 4 artifact exists (04_BUILD_REPORT.json was written) but
     // phase 4 is neither completed nor approved → in-progress.
     assert.ok(output.includes('Phase 4: 🔄 In progress'), 'Phase 4 in progress');
   });
@@ -286,8 +286,8 @@ describe('cmdResume() — deployable banner in Pipeline State (F1)', () => {
       writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
       writeFile(dir, '02_SYSTEM_DESIGN.md', systemDesignMd);
       writeFile(dir, '04_TEST_RESULTS.json', testResultsJson);
-      writeFile(dir, '04_IMPLEMENTATION_MANIFEST.json', manifestJson);
-      writeFile(dir, '05_PROOF_OF_COMPLIANCE.json', '{"requirement_compliance":[]}');
+      writeFile(dir, '04_BUILD_REPORT.json', manifestJson);
+      writeFile(dir, '05_TRACEABILITY.json', '{"requirement_compliance":[]}');
       writeFile(dir, '03_TEST_CASES.json', '{"test_cases":[]}');
       const out = captureStdout(() => cmdResume({ dir, VERSION: '0.1.89' }));
       assert.match(out, /\*\*Deployable:\*\* ✅ Ready/);
@@ -401,7 +401,7 @@ describe('cmdResume() — brief default (F8)', () => {
     writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
     writeFile(dir, '02_SYSTEM_DESIGN.md', systemDesignMd);
     writeFile(dir, '04_TEST_RESULTS.json', testResultsJson);
-    writeFile(dir, '04_IMPLEMENTATION_MANIFEST.json', manifestJson);
+    writeFile(dir, '04_BUILD_REPORT.json', manifestJson);
     brief = captureStdout(() => cmdResume({ dir }));
     full  = captureStdout(() => cmdResume({ dir, args: ['--full'] }));
   });

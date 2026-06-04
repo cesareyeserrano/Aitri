@@ -30,13 +30,13 @@ describe('Phase 5 — validate()', () => {
   it('throws when project is missing', () => {
     const d = JSON.parse(validP5());
     delete d.project;
-    assert.throws(() => PHASE_DEFS[5].validate(JSON.stringify(d)), /PROOF_OF_COMPLIANCE missing fields.*project/);
+    assert.throws(() => PHASE_DEFS[5].validate(JSON.stringify(d)), /TRACEABILITY \(05_TRACEABILITY.json\) missing fields.*project/);
   });
 
   it('throws when overall_status is missing', () => {
     const d = JSON.parse(validP5());
     delete d.overall_status;
-    assert.throws(() => PHASE_DEFS[5].validate(JSON.stringify(d)), /PROOF_OF_COMPLIANCE missing fields.*overall_status/);
+    assert.throws(() => PHASE_DEFS[5].validate(JSON.stringify(d)), /TRACEABILITY \(05_TRACEABILITY.json\) missing fields.*overall_status/);
   });
 
   it('throws when requirement_compliance is empty', () => {
@@ -170,7 +170,7 @@ describe('Phase 5 — buildBriefing()', () => {
     inputs: {
       '01_REQUIREMENTS.json': '{}',
       '02_SYSTEM_DESIGN.md': '',
-      '04_IMPLEMENTATION_MANIFEST.json': '{}',
+      '04_BUILD_REPORT.json': '{}',
       '04_TEST_RESULTS.json': '{}',
     },
     feedback: null,
@@ -190,12 +190,12 @@ describe('Phase 5 — buildBriefing()', () => {
   it('[v0.1.28] briefing renders artifact path using artifactsBase when provided', () => {
     const b = PHASE_DEFS[5].buildBriefing({
       dir: '/tmp/test',
-      inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '', '04_IMPLEMENTATION_MANIFEST.json': '{}', '04_TEST_RESULTS.json': '{}' },
+      inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '', '04_BUILD_REPORT.json': '{}', '04_TEST_RESULTS.json': '{}' },
       feedback: null,
       artifactsBase: '/tmp/test/spec',
     });
-    assert.ok(b.includes('/tmp/test/spec/05_PROOF_OF_COMPLIANCE.json'), 'artifact path must use artifactsBase/spec');
-    assert.ok(!b.includes('/tmp/test/05_PROOF_OF_COMPLIANCE.json'), 'artifact path must NOT use bare dir');
+    assert.ok(b.includes('/tmp/test/spec/05_TRACEABILITY.json'), 'artifact path must use artifactsBase/spec');
+    assert.ok(!b.includes('/tmp/test/05_TRACEABILITY.json'), 'artifact path must NOT use bare dir');
   });
 
   // A1 (rc.10) — Docker is conditional on the declared deployment model, not mandated

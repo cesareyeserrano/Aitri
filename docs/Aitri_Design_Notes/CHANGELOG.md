@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.41] — 2026-06-03 — rename the two Aitri-specific "weird" artifacts (ADR-042 Phase 2)
+
+`04_IMPLEMENTATION_MANIFEST.json` → `04_BUILD_REPORT.json`; `05_PROOF_OF_COMPLIANCE.json` → `05_TRACEABILITY.json`. These were the artifacts the author flagged as "invented" — and unlike requirements/design/tests, they have no industry equivalent, so a clearer Aitri name is the fix (05 also gains the precise industry term: "traceability"). Clean rename, no dual-naming.
+
+Done with the same care as Phase 1. The filenames are unambiguous strings (no generic collision), so the sweep is safe; **historical CHANGELOG/ADR entries were deliberately NOT rewritten** (that would be false history). Migration: `.aitri` keys `artifactHashes` by phase number, not filename, so state is untouched — the `adopt --upgrade` migrator just renames the file on disk (`diagnoseRenamedArtifacts`), content unchanged so the phase-keyed hash still matches and approvals are preserved. Concept prose updated too (reviewer persona, deploy briefing header, the Phase 5 validation error message). Tests +1 (1315 → 1316): the on-disk rename migration. Integration CHANGELOG marked breaking; Hub adapts.
+
+Phase 3 (homologation layer) is the only remaining ADR-042 step.
+
 ## [2.0.0-rc.40] — 2026-06-03 — rename `normalize` → `reconcile` (ADR-042 Phase 1)
 
 First phase of the naming cleanup. `normalize` communicated nothing about what it does ("classify code changes made outside the pipeline"); `reconcile` does. Full clean rename, NO alias (per the clean-break principle): the command, the `.aitri` state field `normalizeState` → `reconcileState`, the `status --json` contract (`normalize` object + `normalize_pending` reason → `reconcile*`), `lib/normalize-patterns.js` → `lib/reconcile-patterns.js`, `templates/phases/normalize.md` → `reconcile.md`, `lib/commands/normalize.js` → `reconcile.js`, AGENTS.md, help, contract docs.

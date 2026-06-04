@@ -416,7 +416,7 @@ describe('cmdRunPhase() — phase 5 gate (verifyPassed)', () => {
     writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
     writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '## Executive Summary\nDesign.\n');
     writeFile(dir, 'spec/03_TEST_CASES.json', '{"test_cases":[]}');
-    writeFile(dir, 'spec/04_IMPLEMENTATION_MANIFEST.json', '{"files_created":[],"setup_commands":[]}');
+    writeFile(dir, 'spec/04_BUILD_REPORT.json', '{"files_created":[],"setup_commands":[]}');
     writeFile(dir, 'spec/04_TEST_RESULTS.json', '{"summary":{},"results":[]}');
     try {
       assert.throws(
