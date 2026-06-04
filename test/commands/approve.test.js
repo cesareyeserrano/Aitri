@@ -936,10 +936,10 @@ describe('cmdApprove() — feature-context PIPELINE INSTRUCTION carries `feature
   });
 });
 
-// ── P1.A (rc.1): feature approve 4 advances ROOT normalize baseline ──────
+// ── P1.A (rc.1): feature approve 4 advances ROOT reconcile baseline ──────
 // Closes BACKLOG.md "Pre-promotion findings (Codex canary 2026-05-11)" — P1
 // upstream. Before this fix, feature-approve-4 advanced only the feature's
-// .aitri normalizeState, leaving root frozen at the pre-feature baseline.
+// .aitri reconcileState, leaving root frozen at the pre-feature baseline.
 // On flat-codebase projects (Go monolith, single-package Python, Rust workspace)
 // every feature completion left root in apparent drift against its own
 // legitimately-approved feature-implementation files.
@@ -960,9 +960,9 @@ function gitHead(d) {
   return execSync('git rev-parse HEAD', { cwd: d }).toString().trim();
 }
 
-describe('cmdApprove() — feature approve 4 advances ROOT normalize baseline (P1 2026-05-12)', () => {
+describe('cmdApprove() — feature approve 4 advances ROOT reconcile baseline (P1 2026-05-12)', () => {
 
-  it('feature approve 4 advances BOTH feature and root normalizeState (git method)', () => {
+  it('feature approve 4 advances BOTH feature and root reconcileState (git method)', () => {
     const rootDir = tmpDir();
     try {
       // Project root: aitri project + git repo
@@ -979,7 +979,7 @@ describe('cmdApprove() — feature approve 4 advances ROOT normalize baseline (P
       gitAddCommit(rootDir, 'initial');
 
       const expectedSha = gitHead(rootDir);
-      assert.equal(loadConfig(rootDir).normalizeState, undefined,
+      assert.equal(loadConfig(rootDir).reconcileState, undefined,
         'root has no baseline yet (fresh project)');
 
       captureAll(() =>
@@ -989,8 +989,8 @@ describe('cmdApprove() — feature approve 4 advances ROOT normalize baseline (P
         })
       );
 
-      const featureAfter = loadConfig(featureDir).normalizeState;
-      const rootAfter    = loadConfig(rootDir).normalizeState;
+      const featureAfter = loadConfig(featureDir).reconcileState;
+      const rootAfter    = loadConfig(rootDir).reconcileState;
 
       assert.equal(featureAfter.baseRef, expectedSha, 'feature baseline at HEAD');
       assert.equal(featureAfter.method,  'git');
@@ -1016,9 +1016,9 @@ describe('cmdApprove() — feature approve 4 advances ROOT normalize baseline (P
       captureAll(() => cmdApprove({ dir: rootDir, args: ['build'], err: noopErr }));
 
       const cfg = loadConfig(rootDir);
-      assert.ok(cfg.normalizeState,           'root baseline written');
-      assert.ok(cfg.normalizeState.baseRef,   'baseRef present');
-      assert.equal(cfg.normalizeState.status, 'resolved');
+      assert.ok(cfg.reconcileState,           'root baseline written');
+      assert.ok(cfg.reconcileState.baseRef,   'baseRef present');
+      assert.equal(cfg.reconcileState.status, 'resolved');
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 
@@ -1044,7 +1044,7 @@ describe('cmdApprove() — feature approve 4 advances ROOT normalize baseline (P
       );
 
       // Feature baseline still advanced normally
-      assert.ok(loadConfig(featureDir).normalizeState,
+      assert.ok(loadConfig(featureDir).reconcileState,
         'feature baseline advanced even when parent is non-aitri');
       // Parent stays unmodified — no .aitri config created
       assert.ok(!fs.existsSync(path.join(tmpRoot, '.aitri')) ||
@@ -1080,7 +1080,7 @@ describe('cmdApprove() — feature approve 4 advances ROOT normalize baseline (P
         dir: fooDir, args: ['build'], err: noopErr,
         featureRoot: rootDir, scopeName: 'foo',
       }));
-      assert.equal(loadConfig(rootDir).normalizeState.baseRef, sha1,
+      assert.equal(loadConfig(rootDir).reconcileState.baseRef, sha1,
         'root advanced to sha1 after approving foo');
 
       // Simulate another commit (real-world: bar feature work)
@@ -1093,7 +1093,7 @@ describe('cmdApprove() — feature approve 4 advances ROOT normalize baseline (P
         dir: barDir, args: ['build'], err: noopErr,
         featureRoot: rootDir, scopeName: 'bar',
       }));
-      assert.equal(loadConfig(rootDir).normalizeState.baseRef, sha2,
+      assert.equal(loadConfig(rootDir).reconcileState.baseRef, sha2,
         'root advanced to sha2 after approving bar (forward-only)');
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });

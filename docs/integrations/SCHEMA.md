@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.39+
+**Aitri version:** v2.0.0-rc.40+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -56,7 +56,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `auditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit` invocation. Persisted because `AUDIT_REPORT.md` mtime resets on git clone (v0.1.79+) |
 | `rejections` | `object<string, Rejection>` | `{}` | Map of phase key → last rejection. Key is phase as string (`"1"`, `"2"`, etc.) |
 | `lastSession` | `object\|null` | `null` | Session checkpoint — see schema below. Written automatically by state-mutating commands |
-| `normalizeState` | `object\|null` | `null` | Off-pipeline change baseline. Set on `approve 4`, by `aitri normalize`, and by `aitri normalize --resolve`. Schema: `{ status: "pending" \| "resolved", baseRef: "<git-sha>" \| "<ISO>", method: "git" \| "mtime", lastRun: "ISO" }` (v0.1.80+; `--resolve` flag added v0.1.84) |
+| `reconcileState` | `object\|null` | `null` | Off-pipeline change baseline. Set on `approve 4`, by `aitri reconcile`, and by `aitri reconcile --resolve`. Schema: `{ status: "pending" \| "resolved", baseRef: "<git-sha>" \| "<ISO>", method: "git" \| "mtime", lastRun: "ISO" }` (v0.1.80+; `--resolve` flag added v0.1.84) |
 | `upgradeFindings` | `array<object>` | `[]` | Unresolved flagged findings from the last `aitri adopt --upgrade`. Snapshot model — overwritten on every run; cleared when diagnose returns empty. Each entry: `{ target, transform, reason, module, category, recordedAt }`. (v2.0.0-alpha.3+) |
 | `strictAssertions` | `boolean` | `false` (absent) | Opt-in. When `true`, `aitri verify-complete` BLOCKS if `04_TEST_RESULTS.json#low_confidence_tcs` is non-empty (any TC with ≤1 assertion). Default behavior unchanged — assertion density is a warning only. Typically set on larger projects that want stricter test-quality enforcement (v2.0.0-rc.9+) |
 | `humanApprovalGate` | `boolean` | `false` (absent) | Opt-in. When `true`, `aitri approve <phase>` in non-interactive (agent) mode BLOCKS and requires a human to run it after review. Default unchanged — agent-mode approval proceeds (the summary + Human Review checklist always print regardless). Typically set on larger projects that want a human at every gate; small projects / MVPs run autonomously by default (v2.0.0-rc.12+) |
@@ -136,7 +136,7 @@ Emitted once per migration applied by `aitri adopt --upgrade`. The event log is 
 | `from_version` | `string` | yes | Source-version anchor of the migration module (e.g. `"0.1.65"`) |
 | `to_version` | `string` | yes | Aitri CLI version at the time of migration |
 | `category` | `string` | yes | One of: `"blocking"`, `"stateMissing"`, `"validatorGap"`, `"capabilityNew"`, `"structure"` |
-| `target` | `string` | yes | Artifact filename (`"03_TEST_CASES.json"`) or config field anchor (`".aitri#normalizeState"`) |
+| `target` | `string` | yes | Artifact filename (`"03_TEST_CASES.json"`) or config field anchor (`".aitri#reconcileState"`) |
 | `transform` | `string` | yes | Human-readable summary of what changed |
 | `before_hash` | `string` SHA-256 | no | Content hash before write (artifact migrations only; absent for state backfills) |
 | `after_hash` | `string` SHA-256 | no | Content hash after write (paired with `before_hash`) |
@@ -265,7 +265,7 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 | Hub and other subproducts cannot detect changes | Pull-based change detection reads `updatedAt` from the tracked file — if it is not in git, remote consumers see stale state on every clone. |
 | Drift detection is per-machine | `artifactHashes` is the baseline against which `hasDrift()` compares current artifact content. A new clone starts with an empty baseline and cannot tell "approved then changed" from "just approved". |
 | Approval state is per-machine | `approvedPhases` / `completedPhases` / `rejections` live only on the machine that ran the commands. Teammates see the project as un-approved until they re-run the pipeline locally. |
-| `normalizeState.baseRef` references untracked state | The field stores a git SHA, but the field itself is not in git. If two operators run `normalize` on different branches, their baselines diverge silently. |
+| `reconcileState.baseRef` references untracked state | The field stores a git SHA, but the field itself is not in git. If two operators run `reconcile` on different branches, their baselines diverge silently. |
 
 ### What the schema *does* mix
 
@@ -273,8 +273,8 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 
 - `lastSession.at` — local timestamp of the last pipeline event on this machine
 - `lastSession.agent` — detected from local env
-- `normalizeState.lastRun` — local event timestamp
-- `normalizeState.baseRef` — meaningful only against the local git workdir
+- `reconcileState.lastRun` — local event timestamp
+- `reconcileState.baseRef` — meaningful only against the local git workdir
 
 When `.aitri` is committed, these fields create commit noise on every operation that writes them (`verify-run`, `complete`, `approve`, `checkpoint`, etc.). That noise is the trigger teams cite when they decide to gitignore the file.
 

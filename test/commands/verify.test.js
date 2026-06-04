@@ -802,7 +802,7 @@ describe('parsePytestOutput()', () => {
   it('detects multi-segment namespaced TC (TC-FE-001h) in pytest function names', () => {
     const output = `tests/test_frontend_remediation.py::test_TC_FE_001h_threshold_120_absent PASSED`;
     const result = parsePytestOutput(output);
-    assert.ok(result.has('TC-FE-001h'), 'TC_FE_001h should normalize to TC-FE-001h');
+    assert.ok(result.has('TC-FE-001h'), 'TC_FE_001h should reconcile to TC-FE-001h');
     assert.equal(result.get('TC-FE-001h')?.status, 'pass');
   });
 
@@ -815,14 +815,14 @@ describe('parsePytestOutput()', () => {
   it('detects deep namespace TC (TC-API-USER-010f) in pytest function names', () => {
     const output = `tests/test_api.py::test_TC_API_USER_010f_auth_flow PASSED`;
     const result = parsePytestOutput(output);
-    assert.ok(result.has('TC-API-USER-010f'), 'deep namespace should normalize correctly');
+    assert.ok(result.has('TC-API-USER-010f'), 'deep namespace should reconcile correctly');
     assert.equal(result.get('TC-API-USER-010f')?.status, 'pass');
   });
 
   it('normalizes all-lowercase pytest convention (test_tc_fe_001h) to uppercase namespace', () => {
     const output = `tests/test_foo.py::test_tc_fe_001h_threshold PASSED`;
     const result = parsePytestOutput(output);
-    assert.ok(result.has('TC-FE-001h'), 'lowercase tc_fe should normalize to TC-FE');
+    assert.ok(result.has('TC-FE-001h'), 'lowercase tc_fe should reconcile to TC-FE');
   });
 
 });
@@ -1500,7 +1500,7 @@ describe('cmdVerifyComplete() — Z3 next-action respects phase 5 state', () => 
       assert.match(out, /run-phase (5|deploy)/);
       assert.match(out, /PIPELINE INSTRUCTION/);
       assert.doesNotMatch(out, /aitri validate/);
-      assert.doesNotMatch(out, /aitri normalize/);
+      assert.doesNotMatch(out, /aitri reconcile/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1516,27 +1516,27 @@ describe('cmdVerifyComplete() — Z3 next-action respects phase 5 state', () => 
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('normalize pending (root scope) → "aitri normalize" matches `aitri status` Next: line (alpha.19)', () => {
+  it('reconcile pending (root scope) → "aitri reconcile" matches `aitri status` Next: line (alpha.19)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-z3-norm-'));
     try {
       seedReady(dir, { phase5Approved: false });
-      // Inject normalize pending — the canonical case where alpha.13's
+      // Inject reconcile pending — the canonical case where alpha.13's
       // hardcoded if/else contradicted status. Status routes to priority 4
-      // `aitri normalize`; verify-complete used to override that with
+      // `aitri reconcile`; verify-complete used to override that with
       // run-phase 5. Snapshot SSoT consumption removes the contradiction.
       const cfgPath = path.join(dir, '.aitri');
       const config = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-      config.normalizeState = { status: 'pending', baseRef: 'abc123', method: 'git', lastRun: new Date().toISOString() };
+      config.reconcileState = { status: 'pending', baseRef: 'abc123', method: 'git', lastRun: new Date().toISOString() };
       fs.writeFileSync(cfgPath, JSON.stringify(config));
 
       const verifyOut = captureLog(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } }));
       const statusOut = captureLog(() => cmdStatus({ dir, args: [] }));
 
-      // verify-complete must NOT push past normalize to run-phase 5
+      // verify-complete must NOT push past reconcile to run-phase 5
       assert.doesNotMatch(verifyOut, /run-phase (5|deploy)/);
-      // verify-complete and status both emit `aitri normalize` as next
-      assert.match(verifyOut, /aitri normalize/);
-      assert.match(statusOut, /Next: aitri normalize/);
+      // verify-complete and status both emit `aitri reconcile` as next
+      assert.match(verifyOut, /aitri reconcile/);
+      assert.match(statusOut, /Next: aitri reconcile/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

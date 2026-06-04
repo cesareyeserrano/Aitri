@@ -18,6 +18,15 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.40 (2026-06-03) — `normalize` command renamed to `reconcile` (ADR-042) — breaking
+
+The off-pipeline-change command `aitri normalize` is renamed `aitri reconcile` (the old name communicated nothing about what it does). Clean rename, no alias. Surfaces that change for subproducts reading `status --json` and `.aitri`:
+- `status --json`: the `normalize` object → `reconcile`; deploy-gate reason `normalize_pending` → `reconcile_pending`; the next-action command string `aitri normalize` → `aitri reconcile`.
+- `.aitri`: the state field `normalizeState` → `reconcileState` (same schema). The `adopt --upgrade` migrator renames it in place, **preserving the original baseline** (baseRef/method) — no re-stamp, no progress lost.
+- `lib/normalize-patterns.js` → `lib/reconcile-patterns.js` (internal SSoT reference in STATUS_JSON.md updated).
+
+**Contract impact for subproducts:** **breaking** — a reader keying on `status.normalize`, the `normalize_pending` reason, or `.aitri#normalizeState` must switch to the `reconcile*` names. No semantics changed, only the names. Pre-release-major bump covers it; Hub adapts to the renamed fields.
+
 ## v2.0.0-rc.36 (2026-06-02) — `03_TEST_CASES.json` `ac_id` is now conditional, not always-required (ADR-041) — breaking
 
 - **`ac_id` on test cases is no longer unconditionally required.** `aitri complete 3` now requires `ac_id` **only when** `01_REQUIREMENTS.json` provides structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, ... }` objects). When ACs are plain strings (no ids — the common case, since Phase 1 never enforced structured ACs), `ac_id` is **optional**; any values present are not validated (informational note). Traceability still holds via `requirement_id` + `user_story_id`, both always required.
@@ -115,7 +124,7 @@ Two new optional fields on `04_TEST_RESULTS.json` and one new optional `.aitri` 
 
 ## v2.0.0-rc.7 (2026-05-22) — `nextActions[].command` for pending normalize points to `--resolve` — additive
 
-**Value change, not a schema change.** No field added, removed, or retyped. When `normalizeState.status === 'pending'`, the `status --json` `nextActions[]` entry at priority 4 now carries `command: "aitri normalize --resolve"` (was `"aitri normalize"`); its `reason` changed accordingly. The freshly-detected state (`status='resolved'` + `uncountedFiles>0`) still carries `command: "aitri normalize"`.
+**Value change, not a schema change.** No field added, removed, or retyped. When `reconcileState.status === 'pending'`, the `status --json` `nextActions[]` entry at priority 4 now carries `command: "aitri normalize --resolve"` (was `"aitri normalize"`); its `reason` changed accordingly. The freshly-detected state (`status='resolved'` + `uncountedFiles>0`) still carries `command: "aitri normalize"`.
 
 **Contract impact for subproducts:** none required. `nextActions[].command` is an opaque suggestion string with no parsing contract — readers render it verbatim. Marked `— additive`: a reader that keyed terminal/idle state off the old `"aitri normalize"` string in the pending case was tracking a command that could never resolve the condition; the corrected string is the one that actually advances the baseline. No reader needs to change.
 
@@ -189,9 +198,9 @@ Surfaced by Hub canary 2026-05-13. The test-runner parser (`extractTCId`, shared
 
 Surfaced by Hub canary 2026-05-13. `aitri normalize` was listing `features/<name>/spec/*` and `features/<name>/.aitri` as off-pipeline changes against the parent build baseline. Those paths are governed by the feature's own pipeline gate (not the parent's), and should be excluded symmetrically with root `spec/` + `.aitri`. Shared product code that a feature contributes outside its own directory (`lib/`, root `tests/`, etc.) stays in scope and still goes through the operator's `--resolve` TTY gate.
 
-**Contract impact:** `.aitri#normalizeState.status` may flip from `pending` to `resolved` on the next `aitri normalize` for projects whose only off-pipeline delta was feature-scoped artifacts. The CLI briefing's file list shrinks accordingly. Otherwise unchanged.
+**Contract impact:** `.aitri#reconcileState.status` may flip from `pending` to `resolved` on the next `aitri normalize` for projects whose only off-pipeline delta was feature-scoped artifacts. The CLI briefing's file list shrinks accordingly. Otherwise unchanged.
 
-**Hub impact:** none structural — `normalizeState` schema unchanged.
+**Hub impact:** none structural — `reconcileState` schema unchanged.
 
 ---
 
@@ -245,11 +254,11 @@ The template Aitri copies to every consumer project as `CLAUDE.md` / `GEMINI.md`
 
 **Two P1 fixes bundled from BACKLOG.md "Pre-promotion findings (Codex canary 2026-05-11)".** No schema change, no event-shape change, no new fields. Both changes correct the **behavior** of existing surfaces — the data subproducts receive becomes more accurate, never less.
 
-### `.aitri.normalizeState.baseRef` update cadence (P1.A)
+### `.aitri.reconcileState.baseRef` update cadence (P1.A)
 
-`aitri feature approve <name> 4` now also stamps the **root** project's `normalizeState.baseRef` at current git HEAD, in addition to the feature's own. Before this release, only the feature scope's normalizeState advanced — the root pipeline stayed frozen at the pre-feature SHA. On flat-codebase projects (Go monolith, Rust workspace, single-package Python) this caused root drift detection to flag every legitimately-approved feature-implementation file as "outside pipeline."
+`aitri feature approve <name> 4` now also stamps the **root** project's `reconcileState.baseRef` at current git HEAD, in addition to the feature's own. Before this release, only the feature scope's reconcileState advanced — the root pipeline stayed frozen at the pre-feature SHA. On flat-codebase projects (Go monolith, Rust workspace, single-package Python) this caused root drift detection to flag every legitimately-approved feature-implementation file as "outside pipeline."
 
-**Subproduct impact:** subproducts reading `.aitri.normalizeState` on the root pipeline (Hub dashboard, future readers) will see `status: 'resolved'` with the post-feature SHA after feature approvals, where they previously saw stale `'resolved'` from before the feature began OR `'pending'` after the operator ran `aitri normalize` to investigate the false positive. **No reader code change required** — the field shape is identical; only the value becomes correct sooner. Hub readers that previously suppressed or annotated these false positives will see fewer of them; readers that simply rendered the field value will render accurate state.
+**Subproduct impact:** subproducts reading `.aitri.reconcileState` on the root pipeline (Hub dashboard, future readers) will see `status: 'resolved'` with the post-feature SHA after feature approvals, where they previously saw stale `'resolved'` from before the feature began OR `'pending'` after the operator ran `aitri normalize` to investigate the false positive. **No reader code change required** — the field shape is identical; only the value becomes correct sooner. Hub readers that previously suppressed or annotated these false positives will see fewer of them; readers that simply rendered the field value will render accurate state.
 
 **No new events.** `appendEvent` is not called for the cross-scope advance — it is a derived bookkeeping operation, not a state-transition event. Subproducts that subscribe to `events[]` see no new entries.
 
@@ -650,8 +659,8 @@ Third staged pre-release on branch `feat/upgrade-protocol`. Closes the three fin
 Second staged pre-release on branch `feat/upgrade-protocol`. No schema field changes — the `.aitri` and artifact schemas are unchanged from alpha.1. Ergonomics and documentation only.
 
 **SCHEMA.md — new section "Should `.aitri` be committed?"**
-- Makes the default recommendation explicit (commit `.aitri`) and enumerates the consequences of gitignoring it (Hub change detection breaks, drift baseline is per-machine, approval state is per-machine, `normalizeState.baseRef` references untracked state).
-- Documents that the current schema mixes shared state (`approvedPhases`, `artifactHashes`, `events[]`, …) and per-machine state (`lastSession.when`, `normalizeState.lastRun`, `normalizeState.baseRef`) in one file. Explicit trade-off rather than unstated asymmetry.
+- Makes the default recommendation explicit (commit `.aitri`) and enumerates the consequences of gitignoring it (Hub change detection breaks, drift baseline is per-machine, approval state is per-machine, `reconcileState.baseRef` references untracked state).
+- Documents that the current schema mixes shared state (`approvedPhases`, `artifactHashes`, `events[]`, …) and per-machine state (`lastSession.when`, `reconcileState.lastRun`, `reconcileState.baseRef`) in one file. Explicit trade-off rather than unstated asymmetry.
 - **Subproduct impact:** Hub and other consumers MUST NOT treat a missing `.aitri` on a fresh clone as corruption — it is a valid state for projects that chose to gitignore. Updated guidance in the section addresses this directly.
 - Tension tracked as [ADR-028](../Aitri_Design_Notes/DECISIONS.md#adr-028--2026-04-24--open-question-aitri-mixes-shared-and-per-machine-state) (open question; `.aitri/local.json` split deferred until a second signal).
 
@@ -685,7 +694,7 @@ First staged pre-release of the v2.0.0 upgrade protocol. Shipped on branch `feat
 - **Subproduct impact:** projects previously readable only via the v0.1.90 defensive fallback layers (snapshot.js NFR tolerance, TC reader tolerance) will migrate to the canonical shape after an upgrade. Hub's fallback readers continue to work for projects that have not yet run upgrade.
 
 **`.aitri` field backfills run automatically by `adopt --upgrade`**
-- `updatedAt`, `lastSession`, `verifyRanAt`, `auditLastAt`, `normalizeState` are stamped when missing and a deterministic source exists (event log, artifact mtime, git HEAD).
+- `updatedAt`, `lastSession`, `verifyRanAt`, `auditLastAt`, `reconcileState` are stamped when missing and a deterministic source exists (event log, artifact mtime, git HEAD).
 - **Subproduct impact:** post-upgrade, projects previously missing these fields expose them. Readers that guarded behind `if (config.X)` now enter the populated branch.
 
 **`artifactHashes[phase]` preserved across shape-only migrations**
@@ -725,8 +734,8 @@ First staged pre-release of the v2.0.0 upgrade protocol. Shipped on branch `feat
 - **Subproduct impact:** additive. Consumers that ignored unknown fields continue to work. Hub or future dashboards can now show a per-bug commit-range link and the list of files modified to resolve it.
 
 **`aitri normalize --init`**
-- New escape hatch for projects whose Phase 4 was approved before v0.1.80 (when `normalizeState` was introduced). Stamps a baseline at the current state. Refuses to run if Phase 4 is not approved, or if a `normalizeState` already exists (no silent clobber).
-- **Subproduct impact:** none on read side. Hub already reads `normalizeState` as-is.
+- New escape hatch for projects whose Phase 4 was approved before v0.1.80 (when `reconcileState` was introduced). Stamps a baseline at the current state. Refuses to run if Phase 4 is not approved, or if a `reconcileState` already exists (no silent clobber).
+- **Subproduct impact:** none on read side. Hub already reads `reconcileState` as-is.
 
 **`aitri validate` — deploy-files output**
 - No longer labels `Dockerfile`/`docker-compose.yml` as "required"; warnings like `⚠️ Dockerfile — not found (check Phase 5 output)` are removed. The `validate` output lists existing deploy files and, when none exist, prints a neutral hint about non-containerized targets.
@@ -806,9 +815,9 @@ First staged pre-release of the v2.0.0 upgrade protocol. Shipped on branch `feat
 - Writes `normalize-resolved` event into `.aitri.events[]` with `{ files, method, baseRefFrom, baseRefTo }`.
 
 **Subproduct impact:**
-- **Schema unchanged** — `.aitri.normalizeState` shape is identical (`{ status, baseRef, method, lastRun }`). Readers do not need updates.
+- **Schema unchanged** — `.aitri.reconcileState` shape is identical (`{ status, baseRef, method, lastRun }`). Readers do not need updates.
 - **New event type** — `events[]` may now contain entries with `event: 'normalize-resolved'`. Readers that enumerate events should add this to any allow-list.
-- **Observable change** — `normalizeState.status` can transition from `pending` → `resolved` without a `approved` phase-4 event preceding it. Consumers that inferred "normalize resolved ⇒ phase 4 re-approved" must drop that assumption.
+- **Observable change** — `reconcileState.status` can transition from `pending` → `resolved` without a `approved` phase-4 event preceding it. Consumers that inferred "normalize resolved ⇒ phase 4 re-approved" must drop that assumption.
 - **Bump `INTEGRATION_LAST_REVIEWED`** to `0.1.84` after reviewing.
 
 ---

@@ -41,7 +41,7 @@ Entries without `Files` and `Behavior` are considered incomplete and must be exp
 
 Design accepted 2026-06-03. Clean breaks, no aliases; trivial migrations (verified — NOT re-adopt). The real regression risk is the context-aware sweep (`normalizeAC` / string normalisation must NOT be touched) — full test suite is the backstop after every block.
 
-- [ ] P2 — **Phase 1: `normalize` → `reconcile`** (command + `.aitri` field `normalizeState`→`reconcileState` + `status --json` contract `normalize`/`normalize_pending`→`reconcile_*` + `normalize-patterns.js`→`reconcile-patterns.js` + `normalize.md`→`reconcile.md` + AGENTS + help + docs + ~300 test refs). Migration: 1-line field rename in the migrator. Integration CHANGELOG marked breaking; Hub adapts.
+- [x] DONE (rc.40) — **Phase 1: `normalize` → `reconcile`** — full clean rename (command + `.aitri` field + `status --json` contract + `reconcile-patterns.js` + `reconcile.md` + `reconcile.js` + AGENTS + help + docs + tests). Field-rename migration preserves the original baseline. Context-aware sweep (generic `normalizeAC`/string-normalisation untouched); 1315 tests green.
 - [ ] P2 — **Phase 2: artifact renames** `04_IMPLEMENTATION_MANIFEST`→`04_BUILD_REPORT`, `05_PROOF_OF_COMPLIANCE`→`05_TRACEABILITY`. Migration: migrator renames the file on disk (artifactHashes keyed by phase, not name → state unaffected). ARTIFACTS/CHANGELOG updated.
 - [ ] P3 — **Phase 3: homologation layer** — each artifact declares its industry identity (header) + help/docs lead with the recognised term where one exists.
 

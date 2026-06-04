@@ -234,13 +234,13 @@ describe('health.deployable', () => {
     } finally { cleanup(dir); }
   });
 
-  it('is false when normalizeState is pending', () => {
+  it('is false when reconcileState is pending', () => {
     const dir = tmpDir();
     try {
-      seedDeployableRoot(dir, { normalizeState: { status: 'pending' } });
+      seedDeployableRoot(dir, { reconcileState: { status: 'pending' } });
       const snap = buildProjectSnapshot(dir, { cliVersion: '0.1.76' });
       assert.equal(snap.health.deployable, false);
-      assert.ok(snap.health.deployableReasons.some(r => r.type === 'normalize_pending'));
+      assert.ok(snap.health.deployableReasons.some(r => r.type === 'reconcile_pending'));
     } finally { cleanup(dir); }
   });
 
@@ -773,7 +773,7 @@ describe('nextActions ordering', () => {
       seedDeployableRoot(dir, {
         aitriVersion: '0.1.50',                    // priority 1 — version mismatch
         driftPhases:  ['2'],                        // priority 2 — drift
-        normalizeState: { status: 'pending' },      // priority 4 — normalize
+        reconcileState: { status: 'pending' },      // priority 4 — reconcile
       });
       writeJsonSpec(dir, 'BUGS.json', {            // priority 3 — blocking bug
         bugs: [{ id: 'BG-001', title: 'x', severity: 'high', status: 'open' }],
@@ -928,7 +928,7 @@ function gitHead(dir) {
 }
 
 describe('detectUncountedChanges()', () => {
-  it('returns all-null when no normalize baseline exists', () => {
+  it('returns all-null when no reconcile baseline exists', () => {
     const dir = tmpDir();
     try {
       saveConfig(dir, { projectName: 'p', artifactsDir: 'spec' });
@@ -943,7 +943,7 @@ describe('detectUncountedChanges()', () => {
     try {
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'pending', baseRef: 'abc1234', method: 'git' },
+        reconcileState: { status: 'pending', baseRef: 'abc1234', method: 'git' },
       });
       const pl = buildPipelineEntry(dir, 'root');
       const r = detectUncountedChanges(pl);
@@ -957,7 +957,7 @@ describe('detectUncountedChanges()', () => {
     try {
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'resolved', baseRef: new Date().toISOString(), method: 'mtime' },
+        reconcileState: { status: 'resolved', baseRef: new Date().toISOString(), method: 'mtime' },
       });
       const pl = buildPipelineEntry(dir, 'root');
       const r = detectUncountedChanges(pl);
@@ -983,7 +983,7 @@ describe('detectUncountedChanges()', () => {
 
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'resolved', baseRef: baseSha, method: 'git' },
+        reconcileState: { status: 'resolved', baseRef: baseSha, method: 'git' },
       });
       const pl = buildPipelineEntry(dir, 'root');
       const r = detectUncountedChanges(pl);
@@ -1003,7 +1003,7 @@ describe('detectUncountedChanges()', () => {
 
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'resolved', baseRef: baseSha, method: 'git' },
+        reconcileState: { status: 'resolved', baseRef: baseSha, method: 'git' },
       });
       const pl = buildPipelineEntry(dir, 'root');
       assert.equal(detectUncountedChanges(pl).uncountedFiles, 0);
@@ -1016,7 +1016,7 @@ describe('detectUncountedChanges()', () => {
       // No git repo — execSync git diff will throw
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'resolved', baseRef: 'deadbeef', method: 'git' },
+        reconcileState: { status: 'resolved', baseRef: 'deadbeef', method: 'git' },
       });
       const pl = buildPipelineEntry(dir, 'root');
       assert.equal(detectUncountedChanges(pl).uncountedFiles, null);
@@ -1045,7 +1045,7 @@ describe('detectUncountedChanges()', () => {
 
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'resolved', baseRef: baseSha, method: 'git' },
+        reconcileState: { status: 'resolved', baseRef: baseSha, method: 'git' },
       });
       const pl = buildPipelineEntry(dir, 'root');
       assert.equal(detectUncountedChanges(pl).uncountedFiles, 0,
@@ -1069,7 +1069,7 @@ describe('detectUncountedChanges()', () => {
 
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'resolved', baseRef: baseSha, method: 'git' },
+        reconcileState: { status: 'resolved', baseRef: baseSha, method: 'git' },
       });
       const pl = buildPipelineEntry(dir, 'root');
       assert.equal(detectUncountedChanges(pl).uncountedFiles, 1,
@@ -1077,11 +1077,11 @@ describe('detectUncountedChanges()', () => {
     } finally { cleanup(dir); }
   });
 
-  it('excludes feature sub-pipeline artifacts — rc.6 normalize/snapshot symmetry', () => {
-    // Regression guard for the Hub canary 2026-05-22 cycle: `aitri normalize`
+  it('excludes feature sub-pipeline artifacts — rc.6 reconcile/snapshot symmetry', () => {
+    // Regression guard for the Hub canary 2026-05-22 cycle: `aitri reconcile`
     // excluded features/<name>/spec/ (rc.3) but detectUncountedChanges did not,
     // so status/resume stayed stuck reporting "1 file changed outside pipeline"
-    // for a feature artifact normalize had already cleared. The two must agree.
+    // for a feature artifact reconcile had already cleared. The two must agree.
     const dir = tmpDir();
     try {
       gitInit(dir);
@@ -1099,7 +1099,7 @@ describe('detectUncountedChanges()', () => {
 
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'resolved', baseRef: baseSha, method: 'git' },
+        reconcileState: { status: 'resolved', baseRef: baseSha, method: 'git' },
       });
       const pl = buildPipelineEntry(dir, 'root');
       assert.equal(detectUncountedChanges(pl).uncountedFiles, 1,
@@ -1108,9 +1108,9 @@ describe('detectUncountedChanges()', () => {
   });
 });
 
-// ── snapshot.normalize integration ───────────────────────────────────────────
+// ── snapshot.reconcile integration ───────────────────────────────────────────
 
-describe('snapshot.normalize integration', () => {
+describe('snapshot.reconcile integration', () => {
   it('emits nextAction for uncounted off-pipeline changes (resolved state)', () => {
     const dir = tmpDir();
     try {
@@ -1123,51 +1123,51 @@ describe('snapshot.normalize integration', () => {
 
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'resolved', baseRef: baseSha, method: 'git' },
+        reconcileState: { status: 'resolved', baseRef: baseSha, method: 'git' },
       });
       const snap = buildProjectSnapshot(dir);
-      assert.equal(snap.normalize.uncountedFiles, 1);
-      const action = snap.nextActions.find(a => a.command === 'aitri normalize');
-      assert.ok(action, 'must emit aitri normalize next-action');
+      assert.equal(snap.reconcile.uncountedFiles, 1);
+      const action = snap.nextActions.find(a => a.command === 'aitri reconcile');
+      assert.ok(action, 'must emit aitri reconcile next-action');
       assert.match(action.reason, /1 file\(s\) changed outside pipeline/);
     } finally { cleanup(dir); }
   });
 
-  it('does not emit a duplicate normalize action when already pending', () => {
+  it('does not emit a duplicate reconcile action when already pending', () => {
     const dir = tmpDir();
     try {
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'pending', baseRef: 'abc', method: 'git' },
+        reconcileState: { status: 'pending', baseRef: 'abc', method: 'git' },
       });
       const snap = buildProjectSnapshot(dir);
-      const normalizeActions = snap.nextActions.filter(a => a.command.startsWith('aitri normalize'));
+      const normalizeActions = snap.nextActions.filter(a => a.command.startsWith('aitri reconcile'));
       assert.equal(normalizeActions.length, 1, 'pending must not stack with uncounted detection');
     } finally { cleanup(dir); }
   });
 
-  it('pending state suggests --resolve (the closer), not plain normalize — rc.7 loop fix', () => {
+  it('pending state suggests --resolve (the closer), not plain reconcile — rc.7 loop fix', () => {
     // Regression guard for the Cesar loop 2026-05-22: pending emitted plain
-    // `aitri normalize`, which never advances the baseline — re-running it is a
+    // `aitri reconcile`, which never advances the baseline — re-running it is a
     // fixed point. The next-action must point to the command that actually
     // closes the cycle.
     const dir = tmpDir();
     try {
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'pending', baseRef: 'abc', method: 'git' },
+        reconcileState: { status: 'pending', baseRef: 'abc', method: 'git' },
       });
       const snap = buildProjectSnapshot(dir);
-      const action = snap.nextActions.find(a => a.command.startsWith('aitri normalize'));
-      assert.ok(action, 'must emit a normalize next-action when pending');
-      assert.equal(action.command, 'aitri normalize --resolve',
+      const action = snap.nextActions.find(a => a.command.startsWith('aitri reconcile'));
+      assert.ok(action, 'must emit a reconcile next-action when pending');
+      assert.equal(action.command, 'aitri reconcile --resolve',
         'pending must suggest the closer, not the detect-only command');
       assert.equal(action.priority, 4);
       assert.match(action.reason, /resolve to advance the baseline|route any fr-change/);
     } finally { cleanup(dir); }
   });
 
-  it('resolved + uncounted still suggests plain normalize (classify first) — guard', () => {
+  it('resolved + uncounted still suggests plain reconcile (classify first) — guard', () => {
     const dir = tmpDir();
     try {
       gitInit(dir);
@@ -1179,29 +1179,29 @@ describe('snapshot.normalize integration', () => {
 
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'resolved', baseRef: baseSha, method: 'git' },
+        reconcileState: { status: 'resolved', baseRef: baseSha, method: 'git' },
       });
       const snap = buildProjectSnapshot(dir);
-      const action = snap.nextActions.find(a => a.command.startsWith('aitri normalize'));
-      assert.equal(action.command, 'aitri normalize',
+      const action = snap.nextActions.find(a => a.command.startsWith('aitri reconcile'));
+      assert.equal(action.command, 'aitri reconcile',
         'resolved+uncounted is the classify step — must not jump to --resolve');
     } finally { cleanup(dir); }
   });
 
-  it('pending with blocking bugs suppresses the normalize action (--resolve would be refused)', () => {
+  it('pending with blocking bugs suppresses the reconcile action (--resolve would be refused)', () => {
     const dir = tmpDir();
     try {
       saveConfig(dir, {
         projectName: 'p', artifactsDir: 'spec',
-        normalizeState: { status: 'pending', baseRef: 'abc', method: 'git' },
+        reconcileState: { status: 'pending', baseRef: 'abc', method: 'git' },
       });
       writeJsonSpec(dir, 'BUGS.json', {
         bugs: [{ id: 'BG-001', title: 'x', severity: 'high', status: 'open' }],
       });
       const snap = buildProjectSnapshot(dir);
-      const normalizeActions = snap.nextActions.filter(a => a.command.startsWith('aitri normalize'));
+      const normalizeActions = snap.nextActions.filter(a => a.command.startsWith('aitri reconcile'));
       assert.equal(normalizeActions.length, 0,
-        'priority-4 normalize must stay suppressed while blocking bugs exist');
+        'priority-4 reconcile must stay suppressed while blocking bugs exist');
     } finally { cleanup(dir); }
   });
 });
@@ -1439,95 +1439,95 @@ describe('nextActions — terminal state (F11)', () => {
   });
 });
 
-// ── P1.B (rc.1): suppress P4 normalize when blocking bugs exist ──────────
+// ── P1.B (rc.1): suppress P4 reconcile when blocking bugs exist ──────────
 // Closes BACKLOG.md "Pre-promotion findings (Codex canary 2026-05-11)" — P1
-// downstream. Before this fix, the ladder emitted `aitri normalize` while the
+// downstream. Before this fix, the ladder emitted `aitri reconcile` while the
 // command itself refused to --resolve because of open critical/high bugs,
-// producing a visible deadlock: ladder → run normalize → rejected → fix bugs
-// → ladder still says run normalize. Now normalize is suppressed from
+// producing a visible deadlock: ladder → run reconcile → rejected → fix bugs
+// → ladder still says run reconcile. Now reconcile is suppressed from
 // nextActions when bugs.blocking > 0; the blocking-bug P3 action stays as the
-// surfaced next step. Normalize re-emerges automatically when bugs close.
+// surfaced next step. Reconcile re-emerges automatically when bugs close.
 
-describe('nextActions — normalize suppression on blocking bugs (P1 2026-05-12)', () => {
-  // Helper: the ladder check at snapshot.js:727 reads pipelines[].normalizeState
-  // (per-pipeline 'pending'|null derived at snapshot.js:198), NOT snapshot.normalize.state
+describe('nextActions — reconcile suppression on blocking bugs (P1 2026-05-12)', () => {
+  // Helper: the ladder check at snapshot.js:727 reads pipelines[].reconcileState
+  // (per-pipeline 'pending'|null derived at snapshot.js:198), NOT snapshot.reconcile.state
   // (which is the detectUncountedChanges output and is null when baseRef is absent).
   // Asserting on the per-pipeline field is the correct way to verify the ladder's input.
   const rootNormalizeState = (snap) =>
-    snap.pipelines.find(p => p.scopeType === 'root')?.normalizeState;
+    snap.pipelines.find(p => p.scopeType === 'root')?.reconcileState;
 
-  it('suppresses P4 normalize-pending when blocking bug is open', () => {
+  it('suppresses P4 reconcile-pending when blocking bug is open', () => {
     const dir = tmpDir();
     try {
       seedDeployableRoot(dir, {
-        normalizeState: { status: 'pending' },
+        reconcileState: { status: 'pending' },
       });
       writeJsonSpec(dir, 'BUGS.json', {
         bugs: [{ id: 'BG-001', title: 'critical thing', severity: 'critical', status: 'open' }],
       });
       const snap = buildProjectSnapshot(dir);
       assert.equal(snap.bugs.blocking, 1,                'blocking bug present');
-      assert.equal(rootNormalizeState(snap), 'pending',  'root normalizeState is pending');
-      const normalizeAction = snap.nextActions.find(a => a.command === 'aitri normalize');
+      assert.equal(rootNormalizeState(snap), 'pending',  'root reconcileState is pending');
+      const normalizeAction = snap.nextActions.find(a => a.command === 'aitri reconcile');
       assert.equal(normalizeAction, undefined,
-        'normalize must NOT be in nextActions while a blocking bug is open');
+        'reconcile must NOT be in nextActions while a blocking bug is open');
       assert.ok(snap.nextActions.some(a => a.priority === 3),
         'blocking-bug P3 action must surface instead');
     } finally { cleanup(dir); }
   });
 
-  it('re-emits normalize once blocking bug is closed', () => {
+  it('re-emits reconcile once blocking bug is closed', () => {
     const dir = tmpDir();
     try {
       seedDeployableRoot(dir, {
-        normalizeState: { status: 'pending' },
+        reconcileState: { status: 'pending' },
       });
       writeJsonSpec(dir, 'BUGS.json', {
         bugs: [{ id: 'BG-001', title: 't', severity: 'critical', status: 'closed' }],
       });
       const snap = buildProjectSnapshot(dir);
       assert.equal(snap.bugs.blocking, 0,                'no blocking bugs');
-      assert.equal(rootNormalizeState(snap), 'pending',  'normalize still pending');
-      const normalizeAction = snap.nextActions.find(a => a.command.startsWith('aitri normalize'));
-      assert.ok(normalizeAction, 'normalize must re-emerge when no blocking bugs');
-      assert.equal(normalizeAction.command, 'aitri normalize --resolve', 'pending re-emerges as the closer');
+      assert.equal(rootNormalizeState(snap), 'pending',  'reconcile still pending');
+      const normalizeAction = snap.nextActions.find(a => a.command.startsWith('aitri reconcile'));
+      assert.ok(normalizeAction, 'reconcile must re-emerge when no blocking bugs');
+      assert.equal(normalizeAction.command, 'aitri reconcile --resolve', 'pending re-emerges as the closer');
       assert.equal(normalizeAction.priority, 4);
     } finally { cleanup(dir); }
   });
 
-  it('high + in_progress bug suppresses normalize (matches normalize --resolve gate)', () => {
-    // normalize.js:148-157 gate counts severity ∈ {critical, high} AND
+  it('high + in_progress bug suppresses reconcile (matches reconcile --resolve gate)', () => {
+    // reconcile.js:148-157 gate counts severity ∈ {critical, high} AND
     // status ∈ {open, in_progress} as blocking. The ladder must mirror.
     const dir = tmpDir();
     try {
       seedDeployableRoot(dir, {
-        normalizeState: { status: 'pending' },
+        reconcileState: { status: 'pending' },
       });
       writeJsonSpec(dir, 'BUGS.json', {
         bugs: [{ id: 'BG-001', title: 't', severity: 'high', status: 'in_progress' }],
       });
       const snap = buildProjectSnapshot(dir);
       assert.equal(snap.bugs.blocking, 1,
-        'in_progress + high counts as blocking (matches normalize --resolve gate)');
-      assert.equal(snap.nextActions.find(a => a.command.startsWith('aitri normalize')), undefined,
-        'normalize stays out of ladder while high+in_progress blocking bug exists');
+        'in_progress + high counts as blocking (matches reconcile --resolve gate)');
+      assert.equal(snap.nextActions.find(a => a.command.startsWith('aitri reconcile')), undefined,
+        'reconcile stays out of ladder while high+in_progress blocking bug exists');
     } finally { cleanup(dir); }
   });
 
-  it('low severity + open does NOT suppress normalize (regression lock)', () => {
-    // Low / medium bugs are not blocking — operator can still run normalize.
+  it('low severity + open does NOT suppress reconcile (regression lock)', () => {
+    // Low / medium bugs are not blocking — operator can still run reconcile.
     const dir = tmpDir();
     try {
       seedDeployableRoot(dir, {
-        normalizeState: { status: 'pending' },
+        reconcileState: { status: 'pending' },
       });
       writeJsonSpec(dir, 'BUGS.json', {
         bugs: [{ id: 'BG-001', title: 't', severity: 'low', status: 'open' }],
       });
       const snap = buildProjectSnapshot(dir);
       assert.equal(snap.bugs.blocking, 0, 'low severity is not blocking');
-      const action = snap.nextActions.find(a => a.command.startsWith('aitri normalize'));
-      assert.ok(action, 'normalize must surface — low bug is not a deadlock cause');
+      const action = snap.nextActions.find(a => a.command.startsWith('aitri reconcile'));
+      assert.ok(action, 'reconcile must surface — low bug is not a deadlock cause');
       assert.equal(action.priority, 4);
     } finally { cleanup(dir); }
   });

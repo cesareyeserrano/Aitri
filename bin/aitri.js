@@ -33,12 +33,12 @@ import { cmdHelp }           from '../lib/commands/help.js';
 import { cmdBacklog }        from '../lib/commands/backlog.js';
 import { cmdReview }        from '../lib/commands/review.js';
 import { cmdBug }           from '../lib/commands/bug.js';
-import { cmdNormalize }     from '../lib/commands/normalize.js';
+import { cmdReconcile }     from '../lib/commands/reconcile.js';
 import { cmdAudit }        from '../lib/commands/audit.js';
 import { cmdTC }           from '../lib/commands/tc.js';
 import { cmdRehash }       from '../lib/commands/rehash.js';
 
-const VERSION   = '2.0.0-rc.39';
+const VERSION   = '2.0.0-rc.40';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -111,7 +111,7 @@ switch (cmd) {
   case 'backlog':          cmdBacklog(ctx);         break;
   case 'review':           cmdReview(ctx);          break;
   case 'bug':              cmdBug(ctx);             break;
-  case 'normalize':        cmdNormalize(ctx);       break;
+  case 'reconcile':        cmdReconcile(ctx);       break;
   case 'audit':            cmdAudit(ctx);           break;
   case 'tc':               cmdTC(ctx);              break;
   case 'rehash':           cmdRehash(ctx);          break;

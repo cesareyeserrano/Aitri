@@ -1,12 +1,12 @@
 /**
- * Tests: lib/normalize-patterns.js
- * Covers: behavioral vs non-behavioral file classification for `aitri normalize`
+ * Tests: lib/reconcile-patterns.js
+ * Covers: behavioral vs non-behavioral file classification for `aitri reconcile`
  *         and the snapshot's uncounted-files detector.
  */
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { isBehavioralFile, filterBehavioral } from '../lib/normalize-patterns.js';
+import { isBehavioralFile, filterBehavioral } from '../lib/reconcile-patterns.js';
 
 describe('isBehavioralFile() — defaults', () => {
   it('returns true for source code files', () => {

@@ -54,7 +54,7 @@ If there is no `.aitri` yet, run `aitri init`. It creates `IDEA.md` (the seed) +
 
 - Register the failure as a bug — accept the prompt that `verify-run` offers, or run `aitri bug add` manually.
 - Fix the implementation, re-run `aitri verify-run`, then `aitri verify-complete` when the run is clean.
-- Critical/high open bugs **block** `aitri verify-complete`, `aitri normalize --resolve`, and the deploy gate. The next-action ladder will route you to bug work before anything else.
+- Critical/high open bugs **block** `aitri verify-complete`, `aitri reconcile --resolve`, and the deploy gate. The next-action ladder will route you to bug work before anything else.
 
 For tests that genuinely cannot be automated (manual QA, external systems): `aitri tc mark-manual <TC-ID>` sets the TC's `automation` field to `manual` so the e2e coverage gate accepts it without an automated runner.
 
@@ -67,13 +67,13 @@ For tests that genuinely cannot be automated (manual QA, external systems): `ait
 
 ## Code changed outside the pipeline
 
-If `aitri status` reports `normalize: pending` and the next-action is `aitri normalize`:
+If `aitri status` reports `reconcile: pending` and the next-action is `aitri reconcile`:
 
-- Run `aitri normalize` to classify the changes.
-- If the diff is refactor or already-registered bug fixes, **commit your fixes first** (including any edit `verify-run` forced), then run `aitri normalize --resolve` (TTY-gated; requires tests passing, no blocking bugs, and a clean working tree — `--resolve` stamps the baseline at the current commit and rejects while behavioral files are uncommitted, or they re-trigger normalize after you commit them).
+- Run `aitri reconcile` to classify the changes.
+- If the diff is refactor or already-registered bug fixes, **commit your fixes first** (including any edit `verify-run` forced), then run `aitri reconcile --resolve` (TTY-gated; requires tests passing, no blocking bugs, and a clean working tree — `--resolve` stamps the baseline at the current commit and rejects while behavioral files are uncommitted, or they re-trigger reconcile after you commit them).
 - If the diff contains functional behavior changes, route them through the pipeline: `aitri feature init <name>` or `aitri run-phase requirements` for a root-pipeline change.
 
-The behavioral allowlist filters out documentation, build manifests, lockfiles, CI configs, and generated assets — those will not trigger `normalize: pending` by themselves.
+The behavioral allowlist filters out documentation, build manifests, lockfiles, CI configs, and generated assets — those will not trigger `reconcile: pending` by themselves.
 
 ---
 
@@ -121,7 +121,7 @@ Features are independent sub-pipelines under `features/<name>/`. Each has its ow
 
 - All feature commands prefix as `aitri feature <verb> <name> [<phase>]`. Examples: `aitri feature run-phase auth requirements`, `aitri feature approve auth 1`, `aitri feature verify-run auth`.
 - Always follow the PIPELINE INSTRUCTION at the end of each feature command — it emits the correctly scoped next-action with the right prefix.
-- Approving feature Phase 4 advances both the feature's normalize baseline AND the root project's baseline (rc.1+). You should not need to manually `aitri normalize` on the root after a clean feature completion.
+- Approving feature Phase 4 advances both the feature's reconcile baseline AND the root project's baseline (rc.1+). You should not need to manually `aitri reconcile` on the root after a clean feature completion.
 
 ---
 
@@ -133,7 +133,7 @@ Features are independent sub-pipelines under `features/<name>/`. Each has its ow
 - `aitri bug verify <BG-ID>` — auto-set when the linked TC passes in `verify-run`, or manual.
 - `aitri bug close <BG-ID>` — archive.
 
-Critical and high severity bugs in `open` or `in_progress` state block: `verify-complete`, `normalize --resolve`, and the deploy gate.
+Critical and high severity bugs in `open` or `in_progress` state block: `verify-complete`, `reconcile --resolve`, and the deploy gate.
 
 ---
 

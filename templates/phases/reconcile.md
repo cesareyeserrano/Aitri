@@ -1,4 +1,4 @@
-# Normalize — Code Outside Pipeline
+# Reconcile — Code Outside Pipeline
 
 {{ROLE}}
 
@@ -21,9 +21,9 @@
 ```
 
 > **This command detects and classifies — it does not close the cycle.**
-> Running `aitri normalize` again will only re-display this briefing; it never
+> Running `aitri reconcile` again will only re-display this briefing; it never
 > advances the baseline. After classifying every file below, close the cycle by:
-> - `aitri normalize --resolve` — for refactor / already-registered changes (advances the baseline), **or**
+> - `aitri reconcile --resolve` — for refactor / already-registered changes (advances the baseline), **or**
 > - routing any `fr-change` / `new-feature` through the pipeline (re-approving build advances the baseline automatically).
 > Until you do one of those, `status`/`resume` will keep reporting these changes.
 
@@ -103,11 +103,11 @@ After executing the proposed commands in Step 3, the warning in `aitri status` c
   # 2. Prove the committed code still passes.
   aitri verify-run && aitri verify-complete
   # 3. Advance the baseline.
-  aitri normalize --resolve
+  aitri reconcile --resolve
   ```
 
-  `normalize --resolve` performs mechanical gates (tests passing, no open critical/high bugs, **clean working tree of behavioral files**) plus a human TTY confirmation, then advances the baseline to current HEAD without cascading Phase 5.
+  `reconcile --resolve` performs mechanical gates (tests passing, no open critical/high bugs, **clean working tree of behavioral files**) plus a human TTY confirmation, then advances the baseline to current HEAD without cascading Phase 5.
 
-  If `verify-run` forces a code edit (e.g. a linter reorders imports), commit that edit **before** `--resolve` too — the baseline is the committed HEAD, so an uncommitted edit re-triggers `normalize` the moment you commit it, costing a second cycle.
+  If `verify-run` forces a code edit (e.g. a linter reorders imports), commit that edit **before** `--resolve` too — the baseline is the committed HEAD, so an uncommitted edit re-triggers `reconcile` the moment you commit it, costing a second cycle.
 
 Do NOT use `--resolve` if any entry is `fr-change`, `new-feature`, or `undetermined`. Route those through the pipeline first.

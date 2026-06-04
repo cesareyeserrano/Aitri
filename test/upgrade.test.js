@@ -800,18 +800,18 @@ describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: auditLastAt', ()
   });
 });
 
-describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: normalizeState', () => {
+describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: reconcileState', () => {
   it('stamps a baseline when Phase 4 is approved without one', () => {
     const dir = tmpDir();
     try {
       writeLegacyConfig(dir, { approvedPhases: [1, 2, 3, 4] });
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
       const c = loadConfig(dir);
-      assert.ok(c.normalizeState);
-      assert.equal(c.normalizeState.status, 'resolved');
-      assert.ok(['git', 'initial'].includes(c.normalizeState.method));
-      assert.ok(c.normalizeState.baseRef);
-      assert.ok(c.normalizeState.lastRun);
+      assert.ok(c.reconcileState);
+      assert.equal(c.reconcileState.status, 'resolved');
+      assert.ok(['git', 'initial'].includes(c.reconcileState.method));
+      assert.ok(c.reconcileState.baseRef);
+      assert.ok(c.reconcileState.lastRun);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -821,18 +821,31 @@ describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: normalizeState',
       writeLegacyConfig(dir, { approvedPhases: [1, 2, 3] });
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
       const c = loadConfig(dir);
-      assert.equal(c.normalizeState, undefined);
+      assert.equal(c.reconcileState, undefined);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('skips when normalizeState already exists', () => {
+  it('skips when reconcileState already exists', () => {
     const dir = tmpDir();
     try {
       const existing = { baseRef: 'abc123', method: 'git', status: 'resolved', lastRun: '2026-04-01T00:00:00.000Z' };
-      writeLegacyConfig(dir, { approvedPhases: [1, 2, 3, 4], normalizeState: existing });
+      writeLegacyConfig(dir, { approvedPhases: [1, 2, 3, 4], reconcileState: existing });
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
       const c = loadConfig(dir);
-      assert.deepEqual(c.normalizeState, existing);
+      assert.deepEqual(c.reconcileState, existing);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  // rc.40 (ADR-042) — `normalize` → `reconcile` field rename preserves the original baseline.
+  it('renames legacy normalizeState → reconcileState preserving the original baseline', () => {
+    const dir = tmpDir();
+    try {
+      const legacy = { baseRef: 'deadbeef', method: 'git', status: 'resolved', lastRun: '2026-03-01T00:00:00.000Z' };
+      writeLegacyConfig(dir, { approvedPhases: [1, 2, 3, 4], normalizeState: legacy });
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      const c = loadConfig(dir);
+      assert.deepEqual(c.reconcileState, legacy, 'original baseline must be preserved, not re-stamped');
+      assert.equal(c.normalizeState, undefined, 'the old field must be removed');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

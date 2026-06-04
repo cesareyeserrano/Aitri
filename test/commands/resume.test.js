@@ -281,7 +281,7 @@ describe('cmdResume() — deployable banner in Pipeline State (F1)', () => {
         verifySummary: { passed: 3, failed: 0, total: 3 },
         verifyRanAt: new Date().toISOString(),
         auditLastAt: new Date().toISOString(),
-        normalizeState: { baseRef: 'deadbeef', method: 'git', status: 'resolved', lastRun: new Date().toISOString() },
+        reconcileState: { baseRef: 'deadbeef', method: 'git', status: 'resolved', lastRun: new Date().toISOString() },
       }));
       writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
       writeFile(dir, '02_SYSTEM_DESIGN.md', systemDesignMd);
@@ -305,7 +305,7 @@ describe('cmdResume() — deployable banner in Pipeline State (F1)', () => {
 });
 
 describe('cmdResume() — version-mismatch upgrade message (A3)', () => {
-  it('no longer claims to "reconcile artifacts" and directs to normalize --init', () => {
+  it('no longer claims to "reconcile artifacts" and directs to reconcile --init', () => {
     const dir = tmpDir();
     try {
       writeFile(dir, '.aitri', minimalConfig({
@@ -319,7 +319,7 @@ describe('cmdResume() — version-mismatch upgrade message (A3)', () => {
       assert.doesNotMatch(out, /reconciles your artifacts/i);
       assert.match(out, /bumps `aitriVersion`/);
       assert.match(out, /Does \*\*not\*\* migrate artifact schemas/);
-      assert.match(out, /aitri normalize --init/);
+      assert.match(out, /aitri reconcile --init/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

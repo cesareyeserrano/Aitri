@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.40] — 2026-06-03 — rename `normalize` → `reconcile` (ADR-042 Phase 1)
+
+First phase of the naming cleanup. `normalize` communicated nothing about what it does ("classify code changes made outside the pipeline"); `reconcile` does. Full clean rename, NO alias (per the clean-break principle): the command, the `.aitri` state field `normalizeState` → `reconcileState`, the `status --json` contract (`normalize` object + `normalize_pending` reason → `reconcile*`), `lib/normalize-patterns.js` → `lib/reconcile-patterns.js`, `templates/phases/normalize.md` → `reconcile.md`, `lib/commands/normalize.js` → `reconcile.js`, AGENTS.md, help, contract docs.
+
+Done with maximum care to avoid regressions (the author's explicit ask). The real risk was the ~300-reference sweep, NOT the migration: a context-aware sweep that never touched the generic `normalizeAC` / string-normalisation / `String.normalize()` (verified absent in swept files), with the full suite as the backstop after every block. The migration is trivial and idiomatic — `normalizeState → reconcileState` is a one-line field rename in the existing migrator, and it **preserves the original baseline** (re-adopt was rejected: `adopt` resets pipeline progress to phase 0). Tests +1 (1314 → 1315): the field-rename migration preserves baseRef. Integration CHANGELOG marked breaking; Hub adapts.
+
+Phase 2 (artifact renames `04`/`05`) and Phase 3 (homologation layer) remain — same ADR.
+
 ## [2.0.0-rc.39] — 2026-06-03 — context injected only in spec-definition phases (not execution) — dissolves the staleness problem
 
 Co-designed with the author. The insight that replaced the whole "context lifecycle / close-on-deploy" design we had been circling: **context belongs to the phases that DEFINE the spec, not the ones that EXECUTE it.** `run-phase` now injects the `idea_context/` / `feature_context/` asset list ONLY in `{discovery, requirements(1), ux, architecture(2), tests(3)}` — the phases deciding WHAT to build. The execution phases (`build(4)`, `deploy(5)`, `review`) work from the approved artifacts (the source of truth); raw context is not injected there. It stays on disk and the agent reads it on request (e.g. to check build fidelity against a mockup).
