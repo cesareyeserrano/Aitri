@@ -10,7 +10,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { cmdRunPhase } from '../../lib/commands/run-phase.js';
-import { loadConfig } from '../../lib/state.js';
+import { loadConfig, hashArtifact } from '../../lib/state.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -356,58 +356,102 @@ describe('cmdRunPhase() — unknown phase', () => {
   });
 });
 
-describe('cmdRunPhase() — clears approval on re-run', () => {
+// A genuine re-do: the artifact CHANGED since approval (stored hash no longer
+// matches on-disk content → hasDrift true). State is cleared and a loud warning
+// is emitted. (finance-dashboard canary 2026-06-05: the clearing is correct here;
+// what was wrong was clearing on an *unchanged* re-read — covered separately below.)
+describe('cmdRunPhase() — clears approval on re-do of a changed phase', () => {
   let dir;
+  let stderr;
 
   before(() => {
     dir = tmpDir();
     writeFile(dir, '.aitri', minimalConfig({
       approvedPhases: [1],
       completedPhases: [1],
+      artifactHashes: { '1': 'stale-hash-from-before-the-edit' }, // ≠ current artifact → drift
     }));
     writeFile(dir, 'IDEA.md', IDEA_CONTENT);
-    captureAll(() =>
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    ({ stderr } = captureAll(() =>
       cmdRunPhase({
         dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR,
       })
-    );
+    ));
   });
 
   after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   it('removes phase from approvedPhases', () => {
     const config = loadConfig(dir);
-    assert.ok(!config.approvedPhases.includes(1), 'phase 1 should not be approved after re-run');
+    assert.ok(!config.approvedPhases.includes(1), 'phase 1 should not be approved after re-do');
   });
 
   it('removes phase from completedPhases', () => {
     const config = loadConfig(dir);
-    assert.ok(!config.completedPhases.includes(1), 'phase 1 should not be completed after re-run');
+    assert.ok(!config.completedPhases.includes(1), 'phase 1 should not be completed after re-do');
   });
-});
-
-describe('cmdRunPhase() — sets drift on re-run of approved phase', () => {
-  let dir;
-
-  before(() => {
-    dir = tmpDir();
-    writeFile(dir, '.aitri', minimalConfig({
-      approvedPhases: [1],
-      completedPhases: [1],
-    }));
-    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
-    captureAll(() =>
-      cmdRunPhase({
-        dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR,
-      })
-    );
-  });
-
-  after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   it('adds phase to driftPhases', () => {
     const config = loadConfig(dir);
     assert.ok((config.driftPhases || []).map(String).includes('1'), 'phase 1 should be in driftPhases');
+  });
+
+  it('warns loudly that state was cleared', () => {
+    assert.ok(/cleared that state/i.test(stderr), 'a real re-do must warn the operator that state was reset');
+  });
+});
+
+// Idempotent re-read (finance-dashboard canary 2026-06-05): re-printing the
+// briefing of an already-completed/approved phase whose artifact is UNCHANGED must
+// preserve state — no clearing, no drift flag, no `started` event.
+describe('cmdRunPhase() — idempotent re-read of an unchanged approved phase', () => {
+  let dir;
+  let stderr;
+
+  before(() => {
+    dir = tmpDir();
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1],
+      completedPhases: [1],
+      // hash matches the on-disk artifact → hasDrift false → idempotent re-read
+      artifactHashes: { '1': hashArtifact(VALID_REQUIREMENTS) },
+    }));
+    ({ stderr } = captureAll(() =>
+      cmdRunPhase({
+        dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR,
+      })
+    ));
+  });
+
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('keeps the phase approved', () => {
+    const config = loadConfig(dir);
+    assert.ok(config.approvedPhases.includes(1), 'approval must survive an unchanged re-read');
+  });
+
+  it('keeps the phase completed', () => {
+    const config = loadConfig(dir);
+    assert.ok(config.completedPhases.includes(1), 'completion must survive an unchanged re-read');
+  });
+
+  it('does not set drift', () => {
+    const config = loadConfig(dir);
+    assert.ok(!(config.driftPhases || []).map(String).includes('1'), 'an unchanged re-read must not flag drift');
+  });
+
+  it('does not append a started event', () => {
+    const config = loadConfig(dir);
+    const started = (config.events || []).find(e => e.event === 'started' && e.phase === 1);
+    assert.ok(!started, 'an unchanged re-read must not log a started event');
+  });
+
+  it('tells the operator state was preserved', () => {
+    assert.ok(/unchanged/i.test(stderr) && /without resetting/i.test(stderr),
+      'the operator should be told the re-read preserved state');
   });
 });
 

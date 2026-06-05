@@ -92,7 +92,7 @@ If an artifact was modified after approval, `aitri status` shows `⚠️  DRIFT`
 If `aitri status` shows all phases approved and `deployable: Ready`:
 
 - Run `aitri validate` to confirm deployment readiness.
-- Do **NOT** re-open approved phases (`aitri run-phase 1`, etc.).
+- Do **NOT** re-open approved phases to redo them (`aitri run-phase 1`, etc.). Re-running a phase whose artifact you then change clears its approval and flags drift (you are warned). Note: re-reading a briefing for a phase whose artifact is **unchanged** is now a safe no-op — it prints the briefing without resetting state — so reviewing instructions does not cost you progress.
 - Do **NOT** implement new functionality outside the pipeline.
 
 If `aitri status` recommends `aitri audit` — run it. The audit is a separate evaluative pass on the completed pipeline; it produces `AUDIT_REPORT.md` and informs whether deploy readiness has degraded since the last audit.

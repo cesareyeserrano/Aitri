@@ -61,6 +61,28 @@ describe('Phase 1 — validate()', () => {
     assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /Min 3 non_functional_requirements/);
   });
 
+  // #5 (finance-dashboard canary 2026-06-05): a feature sub-pipeline is an increment;
+  // the greenfield 5-FR / 3-NFR floor forced filler. Feature scope relaxes to 2 / 1.
+  it('[feature] passes with 2 FRs and 1 NFR (relaxed floor)', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements     = d.functional_requirements.slice(0, 2);
+    d.non_functional_requirements = d.non_functional_requirements.slice(0, 1);
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d), { featureRoot: '/parent' }));
+  });
+
+  it('[feature] still blocks below the feature floor (1 FR)', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements = d.functional_requirements.slice(0, 1);
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d), { featureRoot: '/parent' }),
+      /Min 2 functional_requirements required \(feature scope\)/);
+  });
+
+  it('[feature] does NOT relax the floor for root scope (no featureRoot)', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements = d.functional_requirements.slice(0, 3);
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /Min 5 functional_requirements/);
+  });
+
   // FR/NFR id is the join key for phase3 (requirement_id) + phase5 (compliance).
   // Presence + uniqueness must be enforced or downstream keys on undefined / a
   // duplicate silently masks a requirement's coverage (audit Tier-1, phase1 B1/B2).
@@ -358,6 +380,22 @@ describe('Phase 1 — buildBriefing() empty-section warnings (Rank 2)', () => {
     let result;
     captureStderr(() => { result = PHASE_DEFS[1].buildBriefing({ dir: '/tmp', inputs: { 'IDEA.md': idea }, feedback: null }); });
     assert.ok(typeof result === 'string' && result.length > 0, 'briefing must be returned even when sections are empty');
+  });
+
+  // C4 (finance-dashboard canary 2026-06-05): in feature scope the seed is
+  // FEATURE_IDEA.md (materialized to IDEA.md), with a DIFFERENT section set. The
+  // warner must check the feature sections, not the root ones.
+  it('[feature] warns about the empty FEATURE_IDEA section, referencing FEATURE_IDEA.md', () => {
+    const seed = '## Feature\nAuth.\n## Problem / Why\nUsers need login.\n## Target Users\nMembers.\n## New Behavior\n\n## Success Criteria\nGiven X when Y then Z.\n';
+    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: '/tmp', inputs: { 'IDEA.md': seed }, feedback: null, featureRoot: '/parent' }));
+    assert.match(stderr, /New Behavior/);
+    assert.match(stderr, /FEATURE_IDEA\.md/);
+  });
+
+  it('[feature] does NOT warn about root-only sections (e.g. Business Rules) absent from a feature seed', () => {
+    const seed = '## Feature\nAuth.\n## Problem / Why\nUsers need login.\n## Target Users\nMembers.\n## New Behavior\nAdd a login form.\n## Success Criteria\nGiven X when Y then Z.\n';
+    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: '/tmp', inputs: { 'IDEA.md': seed }, feedback: null, featureRoot: '/parent' }));
+    assert.equal(stderr, '', 'a complete FEATURE_IDEA seed must not trigger root-section warnings');
   });
 });
 

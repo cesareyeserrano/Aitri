@@ -121,7 +121,7 @@ A test that reads source code as a string to check a constant value tests the im
 If a behavior is genuinely hard to verify observationally → document it as `"manual verification required"` in `preconditions`, do NOT create an implementation test as substitute.
 
 ## Rules
-- Every FR-* gets min 3 test cases: one happy_path, one edge_case, one negative
+- Every **MUST** FR/NFR gets min 3 test cases: one happy_path, one edge_case, one negative (the gate hard-blocks a MUST requirement with no TC; SHOULD/NICE FRs are recommended but only warned, not blocked)
 - Min 2 test cases with type "e2e" — each assigned to a single requirement_id
 - Steps specific enough for a developer to implement directly
 - E2E tests MUST embed the canonical TC-XXX prefix in the assertion or function name so the runner output is parseable: e.g. `test('TC-XXX: description', ...)` for Playwright/Vitest/Jest, `func TestTC_XXX_description` for Go, `def test_tc_xxx_description` for pytest. The exact runner is whatever the project declares — `aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} --e2e` reads the runner output and matches on the TC id, not the framework

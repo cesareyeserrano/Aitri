@@ -1582,6 +1582,88 @@ describe('cmdVerifyComplete() — AC-level coverage gate (ADR-041 option A, rc.4
   });
 });
 
+// #2 (finance-dashboard canary 2026-06-05): verify-complete must hard-block only
+// MUST FRs lacking a passing test (CLAUDE.md principle 8 + Phase 3 behavior) — a
+// SHOULD/NICE FR with no passing test is warned, not blocked. Before this, EVERY FR
+// was gated, dead-ending the deploy gate on a legal SHOULD/NICE FR.
+describe('cmdVerifyComplete() — FR coverage gate is MUST-only (#2)', () => {
+  // FR-001 MUST (covered), FR-002 SHOULD (uncovered), FR-003 NICE (uncovered).
+  function seed(dir) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [
+        { id: 'FR-001', title: 'core',  priority: 'MUST' },
+        { id: 'FR-002', title: 'extra', priority: 'SHOULD' },
+        { id: 'FR-003', title: 'nice',  priority: 'NICE' },
+      ],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+      files_created: [{ path: 'x.js' }], test_runner: 'node --test',
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
+      executed_at: new Date().toISOString(), test_runner: 'node --test', exit_code: 0,
+      results: [{ tc_id: 'TC-001', status: 'pass' }],
+      fr_coverage: [
+        { fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' },
+        { fr_id: 'FR-002', tests_passing: 0, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'partial' },
+        { fr_id: 'FR-003', tests_passing: 0, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'partial' },
+      ],
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+      low_confidence_tcs: [],
+    }));
+  }
+  function capture(fn) {
+    let err = '';
+    const origLog = console.log; const origErr = process.stderr.write;
+    console.log = () => {}; process.stderr.write = (c) => { err += c; return true; };
+    try { fn(); } finally { console.log = origLog; process.stderr.write = origErr; }
+    return err;
+  }
+
+  it('does NOT block when only SHOULD/NICE FRs are uncovered (MUST covered)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-must-only-'));
+    try {
+      seed(dir);
+      assert.doesNotThrow(() => capture(() =>
+        cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('warns about the uncovered SHOULD/NICE FRs instead of blocking', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-must-warn-'));
+    try {
+      seed(dir);
+      const stderr = capture(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } }));
+      assert.match(stderr, /SHOULD\/NICE FR\(s\) have no passing test/);
+      assert.match(stderr, /FR-002/);
+      assert.match(stderr, /FR-003/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('still hard-blocks when a MUST FR has no passing test', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-must-block-'));
+    try {
+      seed(dir);
+      // Demote FR-001's coverage to zero passing → MUST gate must fire.
+      const res = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8'));
+      res.fr_coverage[0] = { fr_id: 'FR-001', tests_passing: 0, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'partial' };
+      fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify(res));
+      let msg = '';
+      try { capture(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); }
+      catch (e) { msg = e.message; }
+      assert.match(msg, /MUST FRs have zero passing tests/);
+      assert.match(msg, /FR-001/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('cmdVerifyComplete() — Z3 next-action respects phase 5 state', () => {
   function seedReady(dir, opts = {}) {
     const phase5Approved = opts.phase5Approved ?? false;

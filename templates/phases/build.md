@@ -133,6 +133,12 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
     Rust:                  "cargo test -- --nocapture"
     Java:                  "./mvnw test" | "./gradlew test"
   test_files: every file that contains @aitri-tc markers — required for aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}
+  Feature sub-pipelines (aitri feature verify-run <name>): the runner executes with the FEATURE
+    directory (features/<name>/) as its working directory, and test_runner / test_files are resolved
+    relative to it — NOT the project root. Most features extend root code whose tests, config, and
+    node_modules live at the project root, so point the runner back there explicitly, e.g.
+    "vitest run --root ../.. tests/<name>", "pytest -v ../../tests/<name>", or "go test ../../...".
+    A feature that is fully self-contained under features/<name>/ needs no prefix.
   quality_gates: the code-quality checks Aitri runs and gates on, BEYOND tests. Tests prove the
     behavior works; quality_gates prove the code is well-built. Declare the gates your stack supports —
     Aitri runs each `command` and judges it by exit code (0 = pass). `required: true` (the default)
@@ -179,7 +185,7 @@ Technical debt ([N] items):
 
 Environment variables required: [N] — [list names]
 ──────────────────────────────────────────────────────────────
-Next: aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}   →   aitri {{SCOPE_VERB}}verify-complete{{SCOPE_ARG}}   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 4
+Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 4   →   aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}   →   aitri {{SCOPE_VERB}}verify-complete{{SCOPE_ARG}}
 ```
 
 {{#IF_TDD_RECOMMENDATION}}

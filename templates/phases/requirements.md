@@ -204,7 +204,7 @@ reuse IDs from the list below.
 ```
 
 ### Regression boundary (feature-specific — the one axis a greenfield project lacks)
-A feature MODIFIES a live system. If the seed has a **Must Not Break** section, turn EACH item into a **regression NFR**: `{ id: "NFR-…", category: "Regression", priority: "MUST", requirement: "<the existing behavior to protect>", acceptance_criteria: "<observable: how a test confirms it still works>" }`. Because it is `priority: "MUST"`, Phase 3 must generate a test for it (and verify-run runs it), so the pipeline fails loudly if the feature breaks existing behavior. Also use the **Touch Points** to scope which existing FRs you are extending vs leaving alone — do not silently re-implement what already works.
+A feature MODIFIES a live system. If the seed has a **Must Not Break** section, turn EACH item into a **regression NFR**: `{ id: "NFR-…", category: "Regression", priority: "MUST", requirement: "<the existing behavior to protect>", acceptance_criteria: "<observable: how a test confirms it still works>" }`. Because it is `priority: "MUST"`, `aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3` requires a test case to reference it (a `priority:"MUST"` NFR with zero TCs is blocked), and a failing regression test blocks `verify-complete` — so the breakage is caught **as long as you author the regression NFR and its test**. Aitri cannot detect a Must-Not-Break item you never translated into an NFR; that translation is on you. Also use the **Touch Points** to scope which existing FRs you are extending vs leaving alone — do not silently re-implement what already works.
 {{/IF_PARENT_REQUIREMENTS}}
 
 ## Instructions
