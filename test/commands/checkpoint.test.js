@@ -80,15 +80,22 @@ describe('cmdCheckpoint() — bare (no flags)', () => {
   it('prints confirmation', () => {
     assert.ok(output.includes('Checkpoint saved'), 'confirmation must appear');
   });
+
+  it('names .aitri.local, not the shared .aitri (ADR-045)', () => {
+    // lastSession is a per-machine field → lands in .aitri.local; the shared
+    // .aitri is left untouched, so the message must not claim it was saved there.
+    assert.ok(output.includes('saved to .aitri.local'), 'must name the per-machine .aitri.local');
+  });
 });
 
 describe('cmdCheckpoint() — --context', () => {
   let dir;
+  let output;
 
   before(() => {
     dir = tmpDir();
     writeFile(dir, '.aitri', minimalConfig());
-    captureStdout(() =>
+    output = captureStdout(() =>
       cmdCheckpoint({
         dir, args: ['--context', 'implementing FR-003, JWT done'],
         flagValue: makeFlagValue({ '--context': 'implementing FR-003, JWT done' }),
@@ -102,6 +109,10 @@ describe('cmdCheckpoint() — --context', () => {
   it('saves context to lastSession', () => {
     const config = loadConfig(dir);
     assert.equal(config.lastSession.context, 'implementing FR-003, JWT done');
+  });
+
+  it('confirmation names .aitri.local (ADR-045)', () => {
+    assert.ok(output.includes('saved to .aitri.local'), 'context message must name the per-machine .aitri.local');
   });
 });
 

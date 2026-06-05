@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate } from '../lib/state.js';
+import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate, configExists } from '../lib/state.js';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-state-test-'));
@@ -172,6 +172,19 @@ describe('split layout — .aitri (shared) + .aitri.local (per-machine) (ADR-045
     assert.deepEqual(readJSON(path.join(dir, '.aitri', 'config.json')).approvedPhases, [1]);
     assert.equal(readJSON(path.join(dir, '.aitri', 'local.json')).lastSession.agent, 'z');
     assert.equal(loadConfig(dir).lastSession.agent, 'z');
+  });
+
+  it('configExists detects both layouts and the absence of any config', () => {
+    const flat = tmpDir();
+    fs.writeFileSync(cp(flat), JSON.stringify({ aitriVersion: 'x' }));
+    assert.equal(configExists(flat), true, 'flat .aitri file must be detected');
+
+    const collision = tmpDir();
+    fs.mkdirSync(path.join(collision, '.aitri'));
+    fs.writeFileSync(path.join(collision, '.aitri', 'config.json'), JSON.stringify({ aitriVersion: 'x' }));
+    assert.equal(configExists(collision), true, 'directory-collision config.json must be detected');
+
+    assert.equal(configExists(tmpDir()), false, 'a fresh dir has no config');
   });
 });
 

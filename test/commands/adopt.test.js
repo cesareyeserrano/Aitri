@@ -34,6 +34,14 @@ function captureStdout(fn) {
   return out;
 }
 
+function captureStderr(fn) {
+  let out = '';
+  const orig = process.stderr.write.bind(process.stderr);
+  process.stderr.write = (chunk) => { out += chunk; return true; };
+  try { fn(); } finally { process.stderr.write = orig; }
+  return out;
+}
+
 function makeErr() {
   const thrown = [];
   return { fn: (msg) => { thrown.push(msg); throw new Error(msg); }, thrown };
@@ -113,6 +121,34 @@ describe('aitri adopt scan', () => {
       cmdAdopt({ dir, args: ['scan'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn })
     );
     assert.ok(out.includes('server.js'), 'briefing must include file tree');
+  });
+
+  it('notes an already-initialized project in the flat .aitri layout', () => {
+    // Regression: the note hardcoded `.aitri/config.json` and so never fired for the
+    // normal flat `.aitri` file. It must fire for the layout every real project uses.
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ aitriVersion: '2.0.0-rc.40', approvedPhases: [1, 2] }));
+
+    const errOut = captureStderr(() =>
+      captureStdout(() =>
+        cmdAdopt({ dir, args: ['scan'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn })
+      )
+    );
+    assert.ok(errOut.includes('project already has .aitri'), 'must note the existing pipeline');
+    assert.ok(errOut.includes('2.0.0-rc.40'), 'must report the existing aitriVersion');
+    assert.ok(errOut.includes('2 phase(s) approved'), 'must report the approved-phase count');
+  });
+
+  it('does not note an already-initialized project when no .aitri exists', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'index.js'), '');
+
+    const errOut = captureStderr(() =>
+      captureStdout(() =>
+        cmdAdopt({ dir, args: ['scan'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn })
+      )
+    );
+    assert.ok(!errOut.includes('project already has .aitri'), 'no note for a fresh project');
   });
 });
 
