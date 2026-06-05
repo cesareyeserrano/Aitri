@@ -37,8 +37,9 @@ import { cmdReconcile }     from '../lib/commands/reconcile.js';
 import { cmdAudit }        from '../lib/commands/audit.js';
 import { cmdTC }           from '../lib/commands/tc.js';
 import { cmdRehash }       from '../lib/commands/rehash.js';
+import { homedirCaptureNote } from '../lib/state.js';
 
-const VERSION   = '2.0.0-rc.54';
+const VERSION   = '2.0.0-rc.55';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -78,6 +79,14 @@ const adoptSub = args[0];
 const dir = cmd === 'init'   ? resolveInitDir()
           : cmd === 'adopt' && (adoptSub === 'scan' || adoptSub === 'apply') ? cwd
           : findProjectDir(cwd);
+
+// C2: signal when the upward search captured a stray ~/.aitri instead of a
+// project here. Skip commands that do not resolve a project: `init` creates one;
+// `--version`/`help` are pure info and would only add noise.
+if (cmd !== 'init' && cmd !== '--version' && cmd !== 'help') {
+  const captureNote = homedirCaptureNote(cwd, dir);
+  if (captureNote) console.error(`⚠️  ${captureNote}`);
+}
 
 const flagValue = (flag) => {
   const i = args.indexOf(flag);

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate, configExists } from '../lib/state.js';
+import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate, configExists, homedirCaptureNote } from '../lib/state.js';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-state-test-'));
@@ -185,6 +185,30 @@ describe('split layout — .aitri (shared) + .aitri.local (per-machine) (ADR-045
     assert.equal(configExists(collision), true, 'directory-collision config.json must be detected');
 
     assert.equal(configExists(tmpDir()), false, 'a fresh dir has no config');
+  });
+});
+
+describe('homedirCaptureNote() — C2 stray ~/.aitri capture', () => {
+  const home = '/Users/demo';
+
+  it('returns null when cwd is its own project (resolvedDir === cwd)', () => {
+    assert.equal(homedirCaptureNote('/Users/demo/proj', '/Users/demo/proj', home), null);
+  });
+
+  it('returns null when resolved to a non-$HOME ancestor (legitimate walk-up)', () => {
+    // cwd was a spec/ subdir; resolved to the real project root, not $HOME.
+    assert.equal(homedirCaptureNote('/Users/demo/proj/spec', '/Users/demo/proj', home), null);
+  });
+
+  it('returns a note when an empty dir under $HOME resolves to $HOME', () => {
+    const note = homedirCaptureNote('/Users/demo/scratch', '/Users/demo', home);
+    assert.ok(note, 'must surface a note');
+    assert.match(note, /\$HOME/);
+    assert.match(note, /aitri init/);
+  });
+
+  it('returns null when cwd IS $HOME (no walk happened)', () => {
+    assert.equal(homedirCaptureNote('/Users/demo', '/Users/demo', home), null);
   });
 });
 
