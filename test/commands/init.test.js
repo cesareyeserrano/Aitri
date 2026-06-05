@@ -71,12 +71,14 @@ describe('aitri init — context folder (rc.37)', () => {
 });
 
 describe('aitri init — .gitignore template (npm-publish safe)', () => {
-  it('writes a project .gitignore from the dotless template', () => {
+  it('writes a project .gitignore that ignores per-machine state but NOT the shared .aitri (ADR-045)', () => {
     const dir = tmpDir();
     cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' });
     const written = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8');
     assert.ok(written.includes('node_modules/'), 'project .gitignore should carry the template content');
-    assert.ok(written.includes('.aitri'), 'project .gitignore should ignore .aitri');
+    assert.ok(/^\.aitri\.local$/m.test(written), 'per-machine .aitri.local must be ignored');
+    assert.ok(/^\.aitri\.lock$/m.test(written), 'the lock must be ignored');
+    assert.ok(!/^\.aitri$/m.test(written), 'the shared .aitri must NOT be ignored (it is committed)');
   });
 
   it('ships the template as `gitignore` (no dot) — npm strips files named `.gitignore`', () => {

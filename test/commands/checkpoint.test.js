@@ -8,6 +8,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { cmdCheckpoint } from '../../lib/commands/checkpoint.js';
+import { loadConfig } from '../../lib/state.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -57,18 +58,18 @@ describe('cmdCheckpoint() — bare (no flags)', () => {
   after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   it('writes lastSession to .aitri', () => {
-    const config = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    const config = loadConfig(dir);
     assert.ok(config.lastSession, 'lastSession must exist');
     assert.equal(config.lastSession.event, 'checkpoint');
   });
 
   it('lastSession has timestamp', () => {
-    const config = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    const config = loadConfig(dir);
     assert.ok(config.lastSession.at, 'must have timestamp');
   });
 
   it('lastSession has agent', () => {
-    const config = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    const config = loadConfig(dir);
     assert.ok(config.lastSession.agent, 'must have agent field');
   });
 
@@ -99,7 +100,7 @@ describe('cmdCheckpoint() — --context', () => {
   after(() => fs.rmSync(dir, { recursive: true, force: true }));
 
   it('saves context to lastSession', () => {
-    const config = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    const config = loadConfig(dir);
     assert.equal(config.lastSession.context, 'implementing FR-003, JWT done');
   });
 });
@@ -143,7 +144,7 @@ describe('cmdCheckpoint() — --name creates snapshot', () => {
   });
 
   it('also writes lastSession to .aitri', () => {
-    const config = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    const config = loadConfig(dir);
     assert.ok(config.lastSession, 'lastSession must exist even with --name');
   });
 });

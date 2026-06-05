@@ -587,18 +587,19 @@ describe('Aitri CLI — resume + checkpoint smoke', () => {
     assert.match(out, /AITRI SESSION RESUME/);
   });
 
-  it('aitri checkpoint writes lastSession to .aitri', () => {
+  it('aitri checkpoint writes lastSession to .aitri.local', () => {
     aitri('checkpoint', rcDir);
-    const config = JSON.parse(fs.readFileSync(path.join(rcDir, '.aitri'), 'utf8'));
-    assert.ok(config.lastSession, 'lastSession must exist');
-    assert.equal(config.lastSession.event, 'checkpoint');
-    assert.ok(config.lastSession.at, 'lastSession.at must exist');
+    // lastSession is per-machine → lives in .aitri.local (ADR-045 split).
+    const local = JSON.parse(fs.readFileSync(path.join(rcDir, '.aitri.local'), 'utf8'));
+    assert.ok(local.lastSession, 'lastSession must exist');
+    assert.equal(local.lastSession.event, 'checkpoint');
+    assert.ok(local.lastSession.at, 'lastSession.at must exist');
   });
 
-  it('aitri checkpoint --context saves context to .aitri', () => {
+  it('aitri checkpoint --context saves context to .aitri.local', () => {
     aitri('checkpoint --context "implementing FR-003"', rcDir);
-    const config = JSON.parse(fs.readFileSync(path.join(rcDir, '.aitri'), 'utf8'));
-    assert.equal(config.lastSession.context, 'implementing FR-003');
+    const local = JSON.parse(fs.readFileSync(path.join(rcDir, '.aitri.local'), 'utf8'));
+    assert.equal(local.lastSession.context, 'implementing FR-003');
   });
 
   it('aitri checkpoint --name creates file with label in checkpoints/', () => {

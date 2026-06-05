@@ -39,5 +39,6 @@ coverage/
 *.swp
 *.swo
 
-# Aitri config (project-specific, not shared)
-.aitri
+# Aitri — per-machine state (the shared .aitri IS committed)
+.aitri.local
+.aitri.lock

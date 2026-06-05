@@ -105,18 +105,13 @@ describe('saveConfig()', () => {
   });
 });
 
-describe('split layout — .aitri/config.json + local.json (ADR-045)', () => {
-  function dirLayout() {
-    const dir = tmpDir();
-    fs.mkdirSync(path.join(dir, '.aitri'));   // .aitri as a directory → split layout
-    return dir;
-  }
-  const cp = (dir) => path.join(dir, '.aitri', 'config.json');
-  const lp = (dir) => path.join(dir, '.aitri', 'local.json');
+describe('split layout — .aitri (shared) + .aitri.local (per-machine) (ADR-045)', () => {
+  const cp = (dir) => path.join(dir, '.aitri');          // shared, tracked
+  const lp = (dir) => path.join(dir, '.aitri.local');    // per-machine, gitignored
   const readJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 
-  it('loadConfig merges config.json (shared) + local.json (per-machine)', () => {
-    const dir = dirLayout();
+  it('loadConfig merges .aitri (shared) + .aitri.local (per-machine)', () => {
+    const dir = tmpDir();
     fs.writeFileSync(cp(dir), JSON.stringify({ approvedPhases: [1], aitriVersion: 'x' }));
     fs.writeFileSync(lp(dir), JSON.stringify({ lastSession: { agent: 'claude' }, reconcileState: { baseRef: 'abc' } }));
     const c = loadConfig(dir);
@@ -125,41 +120,58 @@ describe('split layout — .aitri/config.json + local.json (ADR-045)', () => {
     assert.equal(c.reconcileState.baseRef, 'abc');
   });
 
-  it('saveConfig partitions: shared → config.json, per-machine → local.json', () => {
-    const dir = dirLayout();
+  it('saveConfig partitions: shared → .aitri, per-machine → .aitri.local', () => {
+    const dir = tmpDir();
     saveConfig(dir, { approvedPhases: [1, 2], aitriVersion: 'x', lastSession: { agent: 'codex' }, reconcileState: { baseRef: 'def' } });
     const shared = readJSON(cp(dir));
     const local  = readJSON(lp(dir));
     assert.deepEqual(shared.approvedPhases, [1, 2]);
-    assert.ok(!('lastSession' in shared) && !('reconcileState' in shared), 'per-machine fields must NOT be in config.json');
+    assert.ok(!('lastSession' in shared) && !('reconcileState' in shared), 'per-machine fields must NOT be in .aitri');
     assert.equal(local.lastSession.agent, 'codex');
     assert.equal(local.reconcileState.baseRef, 'def');
-    assert.ok(!('approvedPhases' in local), 'shared fields must NOT be in local.json');
+    assert.ok(!('approvedPhases' in local), 'shared fields must NOT be in .aitri.local');
   });
 
-  it('does NOT rewrite config.json on a local-only change (no updatedAt churn)', () => {
-    const dir = dirLayout();
+  it('does NOT rewrite .aitri on a local-only change (no updatedAt churn)', () => {
+    const dir = tmpDir();
     saveConfig(dir, { approvedPhases: [1], aitriVersion: 'x', lastSession: { agent: 'a' } });
     const firstStamp = readJSON(cp(dir)).updatedAt;
     // change ONLY a per-machine field; the shared partition is identical
     saveConfig(dir, { approvedPhases: [1], aitriVersion: 'x', lastSession: { agent: 'b' } });
-    assert.equal(readJSON(cp(dir)).updatedAt, firstStamp, 'config.json must stay byte-identical (no updatedAt bump) on a local-only save');
-    assert.equal(readJSON(lp(dir)).lastSession.agent, 'b', 'local.json must update');
+    assert.equal(readJSON(cp(dir)).updatedAt, firstStamp, '.aitri must stay byte-identical (no updatedAt bump) on a local-only save');
+    assert.equal(readJSON(lp(dir)).lastSession.agent, 'b', '.aitri.local must update');
   });
 
-  it('DOES rewrite config.json when a shared field changes', () => {
-    const dir = dirLayout();
+  it('DOES rewrite .aitri when a shared field changes', () => {
+    const dir = tmpDir();
     saveConfig(dir, { approvedPhases: [1], aitriVersion: 'x', lastSession: { agent: 'a' } });
     saveConfig(dir, { approvedPhases: [1, 2], aitriVersion: 'x', lastSession: { agent: 'a' } });
-    assert.deepEqual(readJSON(cp(dir)).approvedPhases, [1, 2], 'config.json must reflect the shared change');
+    assert.deepEqual(readJSON(cp(dir)).approvedPhases, [1, 2], '.aitri must reflect the shared change');
+  });
+
+  it('an old single-file .aitri (per-machine fields inline) auto-migrates on first save', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(cp(dir), JSON.stringify({ approvedPhases: [1], aitriVersion: 'x', lastSession: { agent: 'old' } }));
+    saveConfig(dir, loadConfig(dir));   // first save splits it
+    assert.ok(!('lastSession' in readJSON(cp(dir))), 'per-machine field migrated out of .aitri');
+    assert.equal(readJSON(lp(dir)).lastSession.agent, 'old', 'per-machine field now lives in .aitri.local');
   });
 
   it('round-trips through loadConfig after a split save', () => {
-    const dir = dirLayout();
+    const dir = tmpDir();
     saveConfig(dir, { approvedPhases: [1, 2, 3], aitriVersion: 'x', reconcileState: { baseRef: 'sha', method: 'git', status: 'resolved' } });
     const c = loadConfig(dir);
     assert.deepEqual(c.approvedPhases, [1, 2, 3]);
     assert.equal(c.reconcileState.baseRef, 'sha');
+  });
+
+  it('directory-collision layout still works (.aitri/ as a dir → config.json + local.json)', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, '.aitri'));
+    saveConfig(dir, { approvedPhases: [1], aitriVersion: 'x', lastSession: { agent: 'z' } });
+    assert.deepEqual(readJSON(path.join(dir, '.aitri', 'config.json')).approvedPhases, [1]);
+    assert.equal(readJSON(path.join(dir, '.aitri', 'local.json')).lastSession.agent, 'z');
+    assert.equal(loadConfig(dir).lastSession.agent, 'z');
   });
 });
 
