@@ -44,6 +44,38 @@ function silence(fn) {
   finally { console.log = origLog; process.stderr.write = origErr; }
 }
 
+describe('lib/upgrade — .aitri split migration (ADR-045)', () => {
+  it('fixes a legacy bare-`.aitri` gitignore + migrates per-machine fields to .aitri.local', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, '.gitignore'), 'node_modules/\n.aitri\n');
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      aitriVersion: '2.0.0-rc.40', artifactsDir: 'spec', approvedPhases: [1], completedPhases: [1],
+      lastSession: { agent: 'old', at: '2026-01-01' },
+    }));
+    silence(() => runUpgrade({ dir, VERSION: '2.0.0-rc.51', rootDir: ROOT_DIR }));
+
+    const gi = fs.readFileSync(path.join(dir, '.gitignore'), 'utf8');
+    assert.ok(!/^\.aitri$/m.test(gi), 'legacy bare `.aitri` removed — the shared file is now committed');
+    assert.ok(/^\.aitri\.local$/m.test(gi), '.aitri.local is ignored');
+
+    const shared = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    assert.ok(!('lastSession' in shared), 'per-machine field migrated out of .aitri');
+    const local = JSON.parse(fs.readFileSync(path.join(dir, '.aitri.local'), 'utf8'));
+    assert.equal(local.lastSession.agent, 'old', 'per-machine field now lives in .aitri.local');
+  });
+
+  it('dry-run touches neither the .gitignore nor creates .aitri.local', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, '.gitignore'), 'node_modules/\n.aitri\n');
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      aitriVersion: '2.0.0-rc.40', artifactsDir: 'spec', approvedPhases: [1], lastSession: { agent: 'old' },
+    }));
+    silence(() => runUpgrade({ dir, VERSION: '2.0.0-rc.51', rootDir: ROOT_DIR, dryRun: true }));
+    assert.ok(/^\.aitri$/m.test(fs.readFileSync(path.join(dir, '.gitignore'), 'utf8')), 'dry-run leaves .gitignore untouched');
+    assert.ok(!fs.existsSync(path.join(dir, '.aitri.local')), 'dry-run creates no .aitri.local');
+  });
+});
+
 describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () => {
   it('writes aitriVersion last (commit point per ADR-027 Addendum §1)', () => {
     const dir = tmpDir();

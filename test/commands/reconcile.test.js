@@ -652,9 +652,11 @@ describe('cmdReconcile() --init — brownfield baseline escape hatch', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('reconcile without --init hints at --init when Phase 4 approved pre-v0.1.80', () => {
+  it('reconcile auto-establishes a baseline when Phase 4 is approved but none exists (ADR-045)', () => {
     const dir = tmpDir();
     try {
+      // Phase 4 approved (shared), but no reconcileState — the fresh-clone / split case,
+      // and the old pre-v0.1.80 brownfield case. Auto-inits instead of hinting at --init.
       writeFile(dir, '.aitri', JSON.stringify({
         aitriVersion:   '0.1.70',
         artifactsDir:   'spec',
@@ -662,15 +664,16 @@ describe('cmdReconcile() --init — brownfield baseline escape hatch', () => {
       }));
       let captured = '';
       const origWrite = process.stderr.write.bind(process.stderr);
+      const origLog = console.log;
       process.stderr.write = (chunk) => { captured += chunk; return true; };
-      const origExit = process.exit.bind(process);
-      process.exit = () => { throw new Error('exit'); };
+      console.log = () => {};
       try { cmdReconcile({ dir, err: noopErr }); } catch {}
       finally {
         process.stderr.write = origWrite;
-        process.exit = origExit;
+        console.log = origLog;
       }
-      assert.match(captured, /aitri reconcile --init/);
+      assert.match(captured, /Established a reconcile baseline/);
+      assert.ok(loadConfig(dir).reconcileState?.baseRef, 'a baseline was stamped and persisted');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

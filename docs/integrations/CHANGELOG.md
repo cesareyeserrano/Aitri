@@ -24,6 +24,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 **Contract impact for subproducts:** **additive** — the `ac_coverage` field shape is unchanged; no subproduct reader is affected. This is a gate between Aitri and the operator (CLI behavior), not a schema change. Subproducts that surface `ac_coverage` continue to read it as before.
 
+## v2.0.0-rc.51 (2026-06-04) — `.aitri` split: shared `.aitri` + per-machine `.aitri.local` (ADR-045) — breaking
+
+`.aitri` state is split (ADR-045). The shared file **`.aitri` keeps the same path and the same shared fields** Hub reads (`updatedAt`, `approvedPhases`, `completedPhases`, `rejections`, `artifactHashes`, `events[]`, verify state, `aitriVersion`, …) and is now meant to be **committed**. Two per-machine fields move OUT of `.aitri` into a new gitignored sibling **`.aitri.local`**: `lastSession` and `reconcileState`. `aitri init` / `aitri adopt --upgrade` add `.aitri.local` (+ `.aitri.lock`) to `.gitignore` and remove a legacy bare-`.aitri` ignore so the shared file is tracked.
+
+**Contract impact for subproducts:** **breaking** for any reader of `lastSession` / `reconcileState` from `.aitri` — those fields are no longer there; read `.aitri.local` if you truly need them (you almost certainly should not — they are per-machine). Hub itself is **unaffected**: it reads `.aitri` at the same path for the same shared fields, and never read the two relocated fields. `status --json` is unchanged (`loadConfig` merges both files). Never read `.aitri.local` for shared state. A pre-existing `.aitri/` folder uses `.aitri/config.json` + `.aitri/local.json` (fallback). See SCHEMA.md §"Should `.aitri` be committed?".
+
 ## v2.0.0-rc.50 (2026-06-04) — `BACKLOG.json` items gain optional Entry-Standard detail fields — additive
 
 `spec/BACKLOG.json` items may now carry four optional string fields — `files`, `behavior`, `decisions`, `acceptance` — set via `aitri backlog add --files/--behavior/--decisions/--acceptance` and shown by the new `aitri backlog show <id>`. They make a backlog item self-contained (implementable later without re-deriving context). The JSON structure is unchanged otherwise; the format stays JSON (a markdown switch was explicitly rejected — see design-notes Discarded).

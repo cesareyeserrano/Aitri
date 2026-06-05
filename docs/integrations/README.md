@@ -1,6 +1,6 @@
 # Aitri — Integration Model
 
-**Version:** v2.0.0-rc.50+
+**Version:** v2.0.0-rc.51+
 **Owner:** This document is the authoritative description of how the Aitri ecosystem is structured.
 
 ---
@@ -66,7 +66,7 @@ All change detection is **pull-based**. No push notifications. Two mechanisms:
 
 **Artifact existence:** check which phases are in `approvedPhases[]` or `completedPhases[]` before fetching a specific artifact file. The `.aitri` state tells you what exists.
 
-**Projects that gitignore `.aitri`:** some project owners deliberately add `.aitri` to their `.gitignore` (e.g. Aitri Hub itself treats its state as "project-specific, not shared"). In those cases the distributed-scenario mechanism does not apply — subproducts can only read `.aitri` from the local working tree, and per-machine state diverges. The local-scenario path still works. `reconcileState.baseRef` referencing a git SHA while `.aitri` itself is not in git is a valid but asymmetric configuration; readers must tolerate it.
+**`.aitri` is committed; `.aitri.local` is not (v2.0.0-rc.51+, ADR-045).** State is split: the shared `.aitri` (approvals + `artifactHashes` drift baseline + `updatedAt`, the fields above) is meant to be **committed** so teammates and remote consumers see it; per-machine state (`lastSession`, `reconcileState`) lives in the gitignored sibling `.aitri.local`. **Subproducts read `.aitri` (as before) and never `.aitri.local`.** Before rc.51, the mixed file's per-command noise pushed some owners (including early Aitri Hub) to gitignore the whole `.aitri` — which silently discarded the shared baseline; the split removes that pressure, and `adopt --upgrade` fixes a legacy bare-`.aitri` ignore. A project may still gitignore the whole `.aitri` (owner's choice); then the distributed-scenario mechanism does not apply and subproducts can only read it from the local working tree. (Pre-existing `.aitri/` *folder* layout: read `.aitri/config.json`.)
 
 ---
 

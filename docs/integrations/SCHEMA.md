@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.50+
+**Aitri version:** v2.0.0-rc.51+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -256,30 +256,27 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 
 ## Should `.aitri` be committed?
 
-**Default recommendation: commit it.** The schema is designed around the assumption that `.aitri` travels with the repository. Teams that gitignore it accept the trade-offs below. This is a deliberate project-level choice, not a bug in either direction — but the consequences must be understood.
+**Yes — commit `.aitri`; its per-machine sibling `.aitri.local` is gitignored.** As of v2.0.0-rc.51 ([ADR-045](../Aitri_Design_Notes/DECISIONS.md)) the state is **split**: `.aitri` carries only **shared** state and is meant to travel with the repo; per-machine state lives in `.aitri.local`, which `aitri init` / `aitri adopt --upgrade` add to `.gitignore`. Committing `.aitri` is what makes the pipeline state and the drift baseline available to teammates and to Hub.
 
-### What breaks if `.aitri` is gitignored
+### The split (ADR-045)
 
-| Consequence | Why |
+| File | Content | Git |
+|---|---|---|
+| `.aitri` | **Shared** — `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`/`verifySummary`/`verifyRanAt`/`lastVerifyRun`, `auditLastAt` | **committed** |
+| `.aitri.local` | **Per-machine** — `lastSession` (`.at`, `.agent`, …) and `reconcileState` (`baseRef`, `method`, `status`, `lastRun`) | **gitignored** |
+
+`saveConfig` writes `.aitri` only when a shared field other than `updatedAt` changed, so committing it no longer creates per-command noise — the noise that previously pushed teams to gitignore the whole file now lives in `.aitri.local`. `loadConfig` merges both files; every reader still sees one config object. (An old single-file `.aitri` with per-machine fields inline auto-migrates on its first save; `adopt --upgrade` also fixes the project's `.gitignore`. A pre-existing `.aitri/` *folder* uses `.aitri/config.json` + `.aitri/local.json` instead — supported as a fallback.)
+
+### Why committing `.aitri` matters (what the split preserves)
+
+| Guarantee | How |
 |---|---|
-| Hub and other subproducts cannot detect changes | Pull-based change detection reads `updatedAt` from the tracked file — if it is not in git, remote consumers see stale state on every clone. |
-| Drift detection is per-machine | `artifactHashes` is the baseline against which `hasDrift()` compares current artifact content. A new clone starts with an empty baseline and cannot tell "approved then changed" from "just approved". |
-| Approval state is per-machine | `approvedPhases` / `completedPhases` / `rejections` live only on the machine that ran the commands. Teammates see the project as un-approved until they re-run the pipeline locally. |
-| `reconcileState.baseRef` references untracked state | The field stores a git SHA, but the field itself is not in git. If two operators run `reconcile` on different branches, their baselines diverge silently. |
+| Cross-machine drift detection | `artifactHashes` (the `hasDrift()` baseline) is in the committed `.aitri`, so a teammate's clone CAN tell "approved then changed" from "just approved". Before the split, gitignoring `.aitri` to escape the noise silently disabled this — Aitri's core promise failed in teams. |
+| Shared approval state | `approvedPhases` / `completedPhases` / `rejections` travel with the repo — teammates see the real pipeline state. |
+| Hub change detection | `updatedAt` is in the committed `.aitri`. |
 
-### What the schema *does* mix
-
-`.aitri` currently serializes both **shared** state (the contract above) and **per-machine** state in the same file. Fields whose values are per-machine by nature:
-
-- `lastSession.at` — local timestamp of the last pipeline event on this machine
-- `lastSession.agent` — detected from local env
-- `reconcileState.lastRun` — local event timestamp
-- `reconcileState.baseRef` — meaningful only against the local git workdir
-
-When `.aitri` is committed, these fields create commit noise on every operation that writes them (`verify-run`, `complete`, `approve`, `checkpoint`, etc.). That noise is the trigger teams cite when they decide to gitignore the file.
-
-**There is no current mechanism to split these fields.** A future major version may introduce `.aitri/local.json` (gitignored per-machine state) alongside `.aitri/config.json` (tracked shared state); this is tracked as an open question in [ADR-028](../Aitri_Design_Notes/DECISIONS.md#adr-028--2026-04-24--open-question-aitri-mixes-shared-and-per-machine-state) and will only be acted on with second-project evidence.
+`reconcileState.baseRef` is intentionally per-machine (`.aitri.local`): a fresh clone re-establishes its own code-drift baseline (auto-stamped at HEAD on the first `reconcile` when Phase 4 is approved); artifact-drift detection needs no per-machine baseline — it works from the committed `artifactHashes`.
 
 ### Guidance for subproducts
 
-Hub and other consumers MUST NOT assume `.aitri` is committed. If the file is absent or its `updatedAt` is older than the project's last git commit, treat that as "state is per-machine for this project" rather than an error. A missing `.aitri` on a fresh clone of a gitignored-.aitri project is a valid state, not a corruption signal.
+Read `.aitri` (shared) exactly as before — the path and the shared fields are unchanged. **Never read `.aitri.local`** — it is per-machine and gitignored, and the two relocated fields (`lastSession`, `reconcileState`) are no longer in `.aitri`. A project may still legitimately gitignore the whole `.aitri` (the owner's choice); if `.aitri` is absent or its `updatedAt` is older than the project's last git commit, treat that as "state is per-machine for this project," not a corruption signal.
