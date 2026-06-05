@@ -105,6 +105,64 @@ describe('saveConfig()', () => {
   });
 });
 
+describe('split layout — .aitri/config.json + local.json (ADR-045)', () => {
+  function dirLayout() {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, '.aitri'));   // .aitri as a directory → split layout
+    return dir;
+  }
+  const cp = (dir) => path.join(dir, '.aitri', 'config.json');
+  const lp = (dir) => path.join(dir, '.aitri', 'local.json');
+  const readJSON = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
+
+  it('loadConfig merges config.json (shared) + local.json (per-machine)', () => {
+    const dir = dirLayout();
+    fs.writeFileSync(cp(dir), JSON.stringify({ approvedPhases: [1], aitriVersion: 'x' }));
+    fs.writeFileSync(lp(dir), JSON.stringify({ lastSession: { agent: 'claude' }, reconcileState: { baseRef: 'abc' } }));
+    const c = loadConfig(dir);
+    assert.deepEqual(c.approvedPhases, [1]);
+    assert.equal(c.lastSession.agent, 'claude');
+    assert.equal(c.reconcileState.baseRef, 'abc');
+  });
+
+  it('saveConfig partitions: shared → config.json, per-machine → local.json', () => {
+    const dir = dirLayout();
+    saveConfig(dir, { approvedPhases: [1, 2], aitriVersion: 'x', lastSession: { agent: 'codex' }, reconcileState: { baseRef: 'def' } });
+    const shared = readJSON(cp(dir));
+    const local  = readJSON(lp(dir));
+    assert.deepEqual(shared.approvedPhases, [1, 2]);
+    assert.ok(!('lastSession' in shared) && !('reconcileState' in shared), 'per-machine fields must NOT be in config.json');
+    assert.equal(local.lastSession.agent, 'codex');
+    assert.equal(local.reconcileState.baseRef, 'def');
+    assert.ok(!('approvedPhases' in local), 'shared fields must NOT be in local.json');
+  });
+
+  it('does NOT rewrite config.json on a local-only change (no updatedAt churn)', () => {
+    const dir = dirLayout();
+    saveConfig(dir, { approvedPhases: [1], aitriVersion: 'x', lastSession: { agent: 'a' } });
+    const firstStamp = readJSON(cp(dir)).updatedAt;
+    // change ONLY a per-machine field; the shared partition is identical
+    saveConfig(dir, { approvedPhases: [1], aitriVersion: 'x', lastSession: { agent: 'b' } });
+    assert.equal(readJSON(cp(dir)).updatedAt, firstStamp, 'config.json must stay byte-identical (no updatedAt bump) on a local-only save');
+    assert.equal(readJSON(lp(dir)).lastSession.agent, 'b', 'local.json must update');
+  });
+
+  it('DOES rewrite config.json when a shared field changes', () => {
+    const dir = dirLayout();
+    saveConfig(dir, { approvedPhases: [1], aitriVersion: 'x', lastSession: { agent: 'a' } });
+    saveConfig(dir, { approvedPhases: [1, 2], aitriVersion: 'x', lastSession: { agent: 'a' } });
+    assert.deepEqual(readJSON(cp(dir)).approvedPhases, [1, 2], 'config.json must reflect the shared change');
+  });
+
+  it('round-trips through loadConfig after a split save', () => {
+    const dir = dirLayout();
+    saveConfig(dir, { approvedPhases: [1, 2, 3], aitriVersion: 'x', reconcileState: { baseRef: 'sha', method: 'git', status: 'resolved' } });
+    const c = loadConfig(dir);
+    assert.deepEqual(c.approvedPhases, [1, 2, 3]);
+    assert.equal(c.reconcileState.baseRef, 'sha');
+  });
+});
+
 describe('phase-key canonicalisation (state.js)', () => {
   // Defect: canary saw `approve ux` route to `requirements` instead of
   // `architecture` when phase 1 was approved. Hypothesis: an upstream write
