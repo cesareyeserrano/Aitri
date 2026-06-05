@@ -167,6 +167,59 @@ describe('backlog done', () => {
   });
 });
 
+// ── rich Entry-Standard fields (additive) ──────────────────────────────────────
+
+describe('backlog add — optional Entry-Standard detail', () => {
+  it('stores files/behavior/decisions/acceptance when provided', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, [
+      'add', '--title', 'Rich item', '--priority', 'P2', '--problem', 'P',
+      '--files', 'lib/x.js, test/x.test.js',
+      '--behavior', 'returns 200 on valid token',
+      '--decisions', 'string field, not array',
+      '--acceptance', 'unit test asserts the 200',
+    ]));
+    const item = JSON.parse(fs.readFileSync(backlogFile(dir), 'utf8')).items[0];
+    assert.equal(item.files, 'lib/x.js, test/x.test.js');
+    assert.equal(item.behavior, 'returns 200 on valid token');
+    assert.equal(item.decisions, 'string field, not array');
+    assert.equal(item.acceptance, 'unit test asserts the 200');
+  });
+
+  it('omits the rich fields entirely when not provided (additive — old shape preserved)', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, ['add', '--title', 'Plain', '--priority', 'P3', '--problem', 'P']));
+    const item = JSON.parse(fs.readFileSync(backlogFile(dir), 'utf8')).items[0];
+    assert.ok(!('files' in item));
+    assert.ok(!('behavior' in item));
+    assert.ok(!('acceptance' in item));
+  });
+});
+
+// ── show ────────────────────────────────────────────────────────────────────────
+
+describe('backlog show', () => {
+  it('prints one item with its detail fields', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, [
+      'add', '--title', 'Auth fix', '--priority', 'P1', '--problem', 'Login breaks',
+      '--files', 'lib/auth.js', '--acceptance', 'TC passes',
+    ]));
+    const out = capture(() => cmdBacklog(makeCtx(dir, ['show', 'BL-001'])));
+    assert.ok(out.includes('BL-001'));
+    assert.ok(out.includes('Auth fix'));
+    assert.ok(out.includes('Login breaks'));
+    assert.ok(out.includes('lib/auth.js'));
+    assert.ok(out.includes('TC passes'));
+  });
+
+  it('errors when the id is missing or not found', () => {
+    const dir = setup();
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['show'])), /Provide an item ID/);
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['show', 'BL-999'])), /not found/);
+  });
+});
+
 // ── openBacklogCount ──────────────────────────────────────────────────────────
 
 describe('openBacklogCount', () => {

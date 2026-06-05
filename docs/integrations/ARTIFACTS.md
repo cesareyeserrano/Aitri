@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.45+
+**Aitri version:** v2.0.0-rc.50+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -75,6 +75,7 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
 - Minimum 5 `functional_requirements`; minimum 3 `non_functional_requirements`
 - Every FR and NFR must have a non-empty string `id`, unique within each list (v2.0.0-rc.26+). The id is the join key — phase 3 ties each TC to one via `requirement_id`/`frs`, phase 5 demands a compliance entry per MUST id. A missing id collapsed to an `undefined` key downstream; a duplicate silently masked one requirement's coverage. Format (`FR-xxx`/`NFR-xxx`) stays a convention; downstream keys on membership, not the prefix.
 - All MUST FRs must have a `type` field and at least one `acceptance_criteria` entry
+- **Structured AC ids** (v2.0.0-rc.48+, [ADR-041](../Aitri_Design_Notes/DECISIONS.md) option A) — when `user_stories[].acceptance_criteria` entries are structured objects (`{ id, text }`), every such `id` must be a non-empty string and **unique across all user stories**. It is the finer join key that `03_TEST_CASES.json#test_cases[].ac_id` traces to and that `04_TEST_RESULTS.json#ac_coverage` rolls up on; a duplicate masks one criterion's AC-level coverage. Enforced **only** when structured ACs are present — plain-string ACs and projects with none are unaffected (additive).
 - MUST FRs of type `ux`, `visual`, or `audio` must include at least one criterion with a measurable metric (e.g. pixels, ms, %, contrast ratio)
 - All MUST FRs where every AC is purely vague (e.g. "works properly", "runs smoothly") will fail validation
 - MUST FRs whose `title` is fully vague (matches qualifier like "properly"/"correctly"/"correctamente" with <2 substantive tokens remaining after stopword/vague-word removal) will fail validation (v0.1.82+)
@@ -240,6 +241,17 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
       "status": "covered | partial | uncovered | manual"
     }
   ],
+  "ac_coverage": [
+    {
+      "ac_id": "AC-001",
+      "fr_id": "FR-001",
+      "tests_passing": 1,
+      "tests_failing": 0,
+      "tests_skipped": 0,
+      "tests_manual": 0,
+      "status": "covered | partial | uncovered | manual | untested"
+    }
+  ],
   "summary": {
     "total": 10,
     "passed": 8,
@@ -261,6 +273,8 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 ```
 
 **`line_coverage`** (optional, v2.0.0-rc.9+) — measured line-coverage percentage, present only when `verify-run` was invoked with `--coverage-threshold` AND a recognized runner emitted a parseable figure. Stack-agnostic: node built-in `--coverage`, `go test -cover`, `pytest --cov`, `jest`/`vitest --coverage`. Absent when no threshold was requested or the runner's coverage output could not be parsed.
+
+**`ac_coverage`** (optional, v2.0.0-rc.48+, [ADR-041](../Aitri_Design_Notes/DECISIONS.md) option A) — per-acceptance-criterion coverage, the finer-grained companion to `fr_coverage`. Present **only** when `01_REQUIREMENTS.json` declares structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, text }` — `description` is also accepted as the text field); absent otherwise, so string-AC and legacy projects are unaffected. Each entry: `{ ac_id, fr_id, tests_passing, tests_failing, tests_skipped, tests_manual, status }`. `status` adds one value over `fr_coverage`: **`untested`** — no test case references this criterion via `ac_id` at all (the headline signal: "FR-001 is covered, but AC-001-3 has no test"). `verify-run` lists `untested`/`uncovered` criteria in its output, and (v2.0.0-rc.49+) `verify-complete` **blocks** on them: when structured ACs are present, every declared criterion must have a passing test to reach Phase 5 — the finer-grained companion to the uncovered-FR gate. Declaring structured ACs is itself the opt-in; string-AC and legacy projects write no `ac_coverage` and are unaffected.
 
 **`low_confidence_tcs`** (v2.0.0-rc.9+) — TCs whose test block contains ≤1 assertion (possible trivial test). Always present (possibly `[]`). Each entry: `{ tc_id, file, assertCount }`. Informational by default; becomes a hard gate in `verify-complete` only when the project sets `strictAssertions: true` in `.aitri` (see SCHEMA.md).
 
@@ -405,10 +419,14 @@ Project-level tech-debt / deferred-work registry. Separate from `BUGS.json` — 
       "title": "string",
       "priority": "P1 | P2 | P3",
       "problem": "string — what is missing, fragile, or suboptimal",
-      "fr": "FR-XXX | null",
+      "fr_id": "FR-XXX (optional) — linked requirement",
+      "files": "string (optional, v2.0.0-rc.50+) — affected files",
+      "behavior": "string (optional, v2.0.0-rc.50+) — what changes (inputs/outputs/rules)",
+      "decisions": "string (optional, v2.0.0-rc.50+) — trade-offs already resolved",
+      "acceptance": "string (optional, v2.0.0-rc.50+) — how to verify it works",
       "status": "open | closed",
-      "created_at": "ISO8601",
-      "updated_at": "ISO8601"
+      "createdAt": "ISO8601",
+      "closedAt": "ISO8601 (present once closed)"
     }
   ]
 }
@@ -416,6 +434,8 @@ Project-level tech-debt / deferred-work registry. Separate from `BUGS.json` — 
 
 **Lifecycle:** `open → closed` (via `aitri backlog done <id>`).
 **Priority:** `P1` (most urgent) through `P3` (least). Sort order for `aitri backlog list`.
+**Detail fields** (v2.0.0-rc.50+): `files` / `behavior` / `decisions` / `acceptance` are optional Entry-Standard fields — set via `aitri backlog add --files/--behavior/--decisions/--acceptance` and shown by `aitri backlog show <id>`. They make an item self-contained (implementable later without re-deriving context); absent on items that did not set them (additive — old readers and old items are unaffected).
+**Field-name correction** (v2.0.0-rc.50): this schema previously documented `fr`/`created_at`/`updated_at`; the code has always written `fr_id`/`createdAt`/`closedAt`. The table above now matches the code. No data change — a documentation fix.
 **Integration:** `openBacklogCount` surfaces in `aitri status` and `aitri status --json`.
 
 ---

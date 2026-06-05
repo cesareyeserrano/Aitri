@@ -28,8 +28,21 @@
 > Until you do one of those, `status`/`resume` will keep reporting these changes.
 
 ---
+{{#IF_DIFFS}}
+## Code changes (diff vs baseline)
 
+The actual changes in the files above — read them to classify each change.
+
+{{DIFFS}}
+
+---
+{{/IF_DIFFS}}
 ## Current spec artifacts
+
+> Compact projection for classification — **every FR and TC is listed**, but verbose
+> per-test execution detail (steps, given/when/then, test data) is omitted to keep this
+> briefing proportional to the change. Open the files on disk if you need a test's full
+> detail.
 
 ### 01_REQUIREMENTS.json
 ```json

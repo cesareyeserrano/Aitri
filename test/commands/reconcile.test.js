@@ -10,7 +10,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
-import { cmdReconcile } from '../../lib/commands/reconcile.js';
+import { cmdReconcile, compactTestCases, compactManifest } from '../../lib/commands/reconcile.js';
 import { cmdApprove }   from '../../lib/commands/approve.js';
 import { loadConfig, saveConfig, cascadeInvalidate } from '../../lib/state.js';
 
@@ -41,6 +41,75 @@ function captureLog(fn) {
 }
 
 const noopErr = (msg) => { throw new Error(msg); };
+
+// ── N2: proportional briefing — compact projection ──────────────────────────────
+
+describe('compactTestCases() — keeps every TC, drops verbose execution fields', () => {
+  // Pretty-printed like the real briefing embeds it — the projection is compared
+  // apples-to-apples (both indented), so the size win is from dropped fields, not formatting.
+  const full = JSON.stringify({
+    test_plan: { strategy: 's' },
+    test_cases: [
+      { id: 'TC-001h', title: 'Login ok', requirement_id: 'FR-001', user_story_id: 'US-001',
+        type: 'unit', scenario: 'happy_path', expected_result: 'returns 200',
+        steps: ['a', 'b', 'c'], preconditions: ['x'], test_data: { big: 'payload' },
+        given: 'g', when: 'w', then: 't' },
+      { id: 'TC-002f', title: 'Login fail', frs: ['FR-001', 'FR-002'], type: 'unit',
+        scenario: 'negative', steps: ['lots', 'of', 'steps'], then: 'denied' },
+    ],
+  }, null, 2);
+
+  it('preserves identity, FR mapping, scenario and expected_result for every TC', () => {
+    const out = JSON.parse(compactTestCases(full));
+    assert.equal(out.test_cases.length, 2, 'no TC is dropped');
+    assert.equal(out.test_cases[0].id, 'TC-001h');
+    assert.equal(out.test_cases[0].requirement_id, 'FR-001');
+    assert.equal(out.test_cases[0].scenario, 'happy_path');
+    assert.equal(out.test_cases[0].expected_result, 'returns 200');
+    assert.deepEqual(out.test_cases[1].frs, ['FR-001', 'FR-002'], 'frs[] mapping preserved');
+  });
+
+  it('drops steps / given / when / then / test_data / preconditions', () => {
+    const text = compactTestCases(full);
+    for (const field of ['"steps"', '"preconditions"', '"test_data"', '"given"', '"when"', '"then"']) {
+      assert.ok(!text.includes(field), `${field} must be dropped from the projection`);
+    }
+    assert.ok(text.length < full.length, 'projection is smaller than the full JSON');
+  });
+
+  it('falls back to the raw text when input is not parseable JSON', () => {
+    assert.equal(compactTestCases('(not available)'), '(not available)');
+    assert.equal(compactTestCases('{not json'), '{not json');
+  });
+});
+
+describe('compactManifest() — keeps build facts, drops irrelevant config', () => {
+  const full = JSON.stringify({
+    files_created: ['src/a.js'], files_modified: ['src/b.js'], test_files: ['t/a.test.js'],
+    test_runner: 'npm test', technical_debt: [{ fr_id: 'FR-001', substitution: 'stub' }],
+    quality_gates: [{ name: 'lint', command: 'eslint .' }],
+    environment_variables: [{ name: 'X', default: '1' }], setup_commands: ['npm i'],
+  });
+
+  it('keeps file lists, test runner/files and technical_debt', () => {
+    const out = JSON.parse(compactManifest(full));
+    assert.deepEqual(out.files_created, ['src/a.js']);
+    assert.deepEqual(out.files_modified, ['src/b.js']);
+    assert.equal(out.test_runner, 'npm test');
+    assert.equal(out.technical_debt[0].fr_id, 'FR-001');
+  });
+
+  it('drops quality_gates, environment_variables and setup_commands', () => {
+    const text = compactManifest(full);
+    for (const field of ['quality_gates', 'environment_variables', 'setup_commands']) {
+      assert.ok(!text.includes(field), `${field} must be dropped`);
+    }
+  });
+
+  it('falls back to the raw text when not parseable', () => {
+    assert.equal(compactManifest('(not available)'), '(not available)');
+  });
+});
 
 // ── No baseline ───────────────────────────────────────────────────────────────
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, buildFRCoverage, scanTestContent, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates } from '../../lib/commands/verify.js';
+import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, buildFRCoverage, buildACCoverage, scanTestContent, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates } from '../../lib/commands/verify.js';
 import { cmdStatus } from '../../lib/commands/status.js';
 
 describe('parseRunnerOutput()', () => {
@@ -375,6 +375,51 @@ describe('parseGoOutput() — alpha.8', () => {
     assert.equal(parseVitestOutput(verboseFixture).size, 0,  'parseVitestOutput must not detect Go output');
     assert.equal(parsePytestOutput(verboseFixture).size, 0,  'parsePytestOutput must not detect Go output');
     assert.equal(parsePlaywrightOutput(verboseFixture).size, 0, 'parsePlaywrightOutput must not detect Go output');
+  });
+});
+
+describe('buildACCoverage() — AC-level traceability (ADR-041 option A)', () => {
+  const requirements = {
+    user_stories: [
+      { id: 'US-001', requirement_id: 'FR-001', acceptance_criteria: [
+        { id: 'AC-001', text: 'under the limit passes' },
+        { id: 'AC-002', text: 'over the limit is rejected' },
+        { id: 'AC-003', text: 'exactly at the limit (edge)' },   // no TC will reference this
+      ] },
+    ],
+  };
+  const testCases = [
+    { id: 'TC-001', requirement_id: 'FR-001', ac_id: 'AC-001' },
+    { id: 'TC-002', requirement_id: 'FR-001', ac_id: 'AC-002' },
+  ];
+
+  it('returns [] when no structured AC ids are declared (additive skip)', () => {
+    assert.deepEqual(buildACCoverage([], [], {}), []);
+    assert.deepEqual(
+      buildACCoverage([], [], { user_stories: [{ requirement_id: 'FR-001', acceptance_criteria: ['plain string'] }] }),
+      [],
+    );
+  });
+
+  it('flags an acceptance criterion that no TC references as "untested"', () => {
+    const results = [{ tc_id: 'TC-001', status: 'pass' }, { tc_id: 'TC-002', status: 'pass' }];
+    const cov = buildACCoverage(results, testCases, requirements);
+    const ac3 = cov.find(a => a.ac_id === 'AC-003');
+    assert.equal(ac3?.status, 'untested', 'an AC with no test must be flagged untested');
+    assert.equal(ac3?.fr_id, 'FR-001', 'AC maps to its FR via the user story');
+  });
+
+  it('marks an AC covered when its TC passes, uncovered when it fails', () => {
+    const results = [{ tc_id: 'TC-001', status: 'pass' }, { tc_id: 'TC-002', status: 'fail' }];
+    const cov = buildACCoverage(results, testCases, requirements);
+    assert.equal(cov.find(a => a.ac_id === 'AC-001')?.status, 'covered');
+    assert.equal(cov.find(a => a.ac_id === 'AC-002')?.status, 'uncovered');
+  });
+
+  it('accepts both {id,text} and {id,description} AC shapes', () => {
+    const reqs = { user_stories: [{ requirement_id: 'FR-001', acceptance_criteria: [{ id: 'AC-001', description: 'desc form' }] }] };
+    const cov = buildACCoverage([{ tc_id: 'TC-001', status: 'pass' }], [{ id: 'TC-001', ac_id: 'AC-001' }], reqs);
+    assert.equal(cov.find(a => a.ac_id === 'AC-001')?.status, 'covered');
   });
 });
 
@@ -1462,6 +1507,75 @@ describe('cmdVerifyComplete() — C2 strictAssertions gate', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-c2-default-'));
     try {
       seed(dir, { strict: false, lowConfidence: true });
+      assert.doesNotThrow(() => runQuiet(() =>
+        cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('cmdVerifyComplete() — AC-level coverage gate (ADR-041 option A, rc.49)', () => {
+  function seed(dir, acCoverage) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'MUST' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', ac_id: 'AC-001', expected_result: 'r' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+      files_created: [{ path: 'x.js' }], test_runner: 'node --test',
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
+      executed_at: new Date().toISOString(),
+      test_runner: 'node --test',
+      exit_code: 0,
+      results: [{ tc_id: 'TC-001', status: 'pass' }],
+      fr_coverage: [{ fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' }],
+      ...(acCoverage ? { ac_coverage: acCoverage } : {}),
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+      low_confidence_tcs: [],
+    }));
+  }
+  function runQuiet(fn) {
+    const origLog = console.log; const origErr = process.stderr.write;
+    console.log = () => {}; process.stderr.write = () => true;
+    try { fn(); } finally { console.log = origLog; process.stderr.write = origErr; }
+  }
+
+  it('blocks when a declared acceptance criterion is untested', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-ac-block-'));
+    try {
+      seed(dir, [
+        { ac_id: 'AC-001', fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' },
+        { ac_id: 'AC-002', fr_id: 'FR-001', tests_passing: 0, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'untested' },
+      ]);
+      let msg = '';
+      try { runQuiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); }
+      catch (e) { msg = e.message; }
+      assert.match(msg, /acceptance criterion\(s\) without a passing test/);
+      assert.match(msg, /AC-002/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT block when every declared acceptance criterion is covered', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-ac-clean-'));
+    try {
+      seed(dir, [
+        { ac_id: 'AC-001', fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' },
+      ]);
+      assert.doesNotThrow(() => runQuiet(() =>
+        cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('is a no-op when no structured ACs are declared (no ac_coverage field)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-ac-none-'));
+    try {
+      seed(dir, null);   // string-AC / legacy project — verify-run wrote no ac_coverage
       assert.doesNotThrow(() => runQuiet(() =>
         cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }

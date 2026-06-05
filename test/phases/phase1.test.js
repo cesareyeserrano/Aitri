@@ -92,6 +92,40 @@ describe('Phase 1 — validate()', () => {
       /Duplicate non_functional_requirements id\(s\):.*NFR-001/);
   });
 
+  // AC ids (ADR-041 option A): structured user_story ACs are the finer join key for
+  // ac_id / AC-level coverage. Enforced ONLY when structured ACs are present (additive).
+  it('passes with structured acceptance criteria carrying unique ids', () => {
+    const d = JSON.parse(validP1());
+    d.user_stories[0].acceptance_criteria = [
+      { id: 'AC-001', text: 'returns 200 under the limit' },
+      { id: 'AC-002', text: 'returns 429 over the limit' },
+    ];
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
+  it('throws when two structured acceptance criteria share an id', () => {
+    const d = JSON.parse(validP1());
+    d.user_stories[0].acceptance_criteria = [
+      { id: 'AC-001', text: 'a' },
+      { id: 'AC-001', text: 'b' },
+    ];
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /Duplicate acceptance-criterion id\(s\):.*AC-001/);
+  });
+
+  it('throws when a structured acceptance criterion has an empty id', () => {
+    const d = JSON.parse(validP1());
+    d.user_stories[0].acceptance_criteria = [{ id: '', text: 'x' }];
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /structured acceptance criterion .* has an empty "id"/);
+  });
+
+  it('does NOT enforce AC ids when ACs are plain strings or absent (additive)', () => {
+    const d = JSON.parse(validP1());
+    d.user_stories[0].acceptance_criteria = ['plain string criterion', 'another'];
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
   it('throws when MUST FR is missing type', () => {
     const d = JSON.parse(validP1());
     delete d.functional_requirements[0].type;

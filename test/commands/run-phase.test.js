@@ -181,6 +181,47 @@ describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () =>
   });
 });
 
+// Phase 5b — `--guided` discovery is no longer dead in agent mode (used to hard-error).
+describe('cmdRunPhase() — discovery --guided in agent mode (Phase 5b)', () => {
+  it('prints an agent interview briefing instead of erroring when stdin is not a TTY', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    const origIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = false;
+    try {
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['discovery', '--guided'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+      );
+      assert.ok(stdout.includes('Agent Mode'), 'should print the agent-mode interview briefing');
+      assert.ok(/Discovery \(--guided\)/.test(stdout), 'briefing titled for guided discovery');
+      assert.ok(stdout.includes('REQUIRED FIELDS'), 'briefing lists the interview fields');
+      assert.ok(stdout.includes('00_DISCOVERY.md'), 'briefing points at the discovery artifact');
+    } finally {
+      process.stdin.isTTY = origIsTTY;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('does NOT throw the old "requires an interactive terminal" error in agent mode', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    const origIsTTY = process.stdin.isTTY;
+    process.stdin.isTTY = false;
+    try {
+      assert.doesNotThrow(() =>
+        captureAll(() =>
+          cmdRunPhase({ dir, args: ['discovery', '--guided'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+        )
+      );
+    } finally {
+      process.stdin.isTTY = origIsTTY;
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe('cmdRunPhase() — accepts numeric phase', () => {
   let dir;
 

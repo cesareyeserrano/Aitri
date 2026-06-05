@@ -18,6 +18,28 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.49 (2026-06-04) — `ac_coverage` becomes a `verify-complete` gate (ADR-041 option A) — additive
+
+`verify-complete` now **blocks** Phase 5 when `04_TEST_RESULTS.json#ac_coverage` contains any criterion with status `untested` or `uncovered` (rc.48 only reported them). Active only when the project declares structured acceptance criteria — declaring them is the opt-in; string-AC and legacy projects write no `ac_coverage` and are unaffected.
+
+**Contract impact for subproducts:** **additive** — the `ac_coverage` field shape is unchanged; no subproduct reader is affected. This is a gate between Aitri and the operator (CLI behavior), not a schema change. Subproducts that surface `ac_coverage` continue to read it as before.
+
+## v2.0.0-rc.50 (2026-06-04) — `BACKLOG.json` items gain optional Entry-Standard detail fields — additive
+
+`spec/BACKLOG.json` items may now carry four optional string fields — `files`, `behavior`, `decisions`, `acceptance` — set via `aitri backlog add --files/--behavior/--decisions/--acceptance` and shown by the new `aitri backlog show <id>`. They make a backlog item self-contained (implementable later without re-deriving context). The JSON structure is unchanged otherwise; the format stays JSON (a markdown switch was explicitly rejected — see design-notes Discarded).
+
+Also a **documentation correction** (no data change): the `BACKLOG.json` schema in ARTIFACTS.md previously listed `fr`/`created_at`/`updated_at`; the code has always written `fr_id`/`createdAt`/`closedAt`. The doc now matches the code.
+
+**Contract impact for subproducts:** **additive** — the new fields are optional and absent on items that did not set them; old readers ignore them. No existing field changed shape. A subproduct that read the doc's old `fr`/`created_at`/`updated_at` names should read `fr_id`/`createdAt`/`closedAt` (the actual written keys, unchanged since the command shipped).
+
+## v2.0.0-rc.48 (2026-06-04) — `ac_coverage` field on `04_TEST_RESULTS.json` (ADR-041 option A) — additive
+
+New optional array `ac_coverage` on `04_TEST_RESULTS.json` — per-acceptance-criterion coverage, the finer-grained companion to `fr_coverage`. Present **only** when `01_REQUIREMENTS.json` declares structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, text }`); absent for string-AC and legacy projects. Each entry: `{ ac_id, fr_id, tests_passing, tests_failing, tests_skipped, tests_manual, status }`, where `status` is `covered | partial | uncovered | manual | untested` — `untested` (new value, AC-coverage only) means no test references that criterion via `ac_id` at all. `verify-run` lists `untested`/`uncovered` criteria in its output; it is reporting, not a blocking gate.
+
+Also additive on `01_REQUIREMENTS.json`: when structured ACs are present, their `id`s must be non-empty and unique across `user_stories` (the join key `ac_id`/`ac_coverage` rely on) — enforced by `complete 1` only when structured ACs exist.
+
+**Contract impact for subproducts:** **additive** — old readers ignore `ac_coverage`; no existing field changed. `fr_coverage` is untouched. Present only when a project opts into structured acceptance criteria.
+
 ## v2.0.0-rc.45 (2026-06-03) — `idea_provenance_sources` field on `01_REQUIREMENTS.json` (ADR-043) — additive
 
 New optional object `idea_provenance_sources` on `01_REQUIREMENTS.json` — per-field source of each Tier-A seed input (same keys as `idea_provenance`), each a short string of where the value came from (`"IDEA.md"`, `"user confirmed"`, `"inferred …"`). Surfaced at approve so a weak source stands out next to a strong one; `complete 1` warns (does not block) when a `"confirmed"` field has no source.

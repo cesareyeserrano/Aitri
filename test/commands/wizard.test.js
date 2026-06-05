@@ -13,6 +13,8 @@ import {
   buildIdeaMd,
   buildInterviewContext,
   runDiscoveryInterview,
+  buildAgentInterviewBriefing,
+  buildDiscoveryInterviewBriefing,
   cmdWizard,
 } from '../../lib/commands/wizard.js';
 import { cmdRunPhase } from '../../lib/commands/run-phase.js';
@@ -190,6 +192,33 @@ describe('runDiscoveryInterview()', () => {
 });
 
 // ── cmdWizard ─────────────────────────────────────────────────────────────────
+
+// ── Phase 5b: unified agent-mode interview briefing ──────────────────────────────
+describe('buildAgentInterviewBriefing() / buildDiscoveryInterviewBriefing()', () => {
+  it('discovery target frames the interview to feed 00_DISCOVERY.md, not IDEA.md', () => {
+    const text = buildDiscoveryInterviewBriefing();
+    assert.ok(text.includes('Agent Mode'), 'is an agent-mode briefing');
+    assert.ok(/Discovery \(--guided\)/.test(text), 'titled for guided discovery');
+    assert.ok(text.includes('REQUIRED FIELDS'), 'lists the interview fields');
+    assert.ok(/00_DISCOVERY\.md/.test(text), 'targets the discovery artifact');
+    assert.ok(!/IDEA\.md FORMAT/.test(text), 'does NOT ask the agent to write IDEA.md');
+  });
+
+  it('both targets preserve confirm-per-field + [ASSUMPTION] discipline (shared builder)', () => {
+    const FIELDS = [
+      { key: 'problem', label: 'Problem',        prompt: 'What problem?', multiLine: false },
+      { key: 'rules',   label: 'Business Rules', prompt: 'Rules?',        multiLine: true  },
+    ];
+    const discovery = buildDiscoveryInterviewBriefing();
+    const idea = buildAgentInterviewBriefing({ questions: FIELDS, target: 'idea', dir: '/tmp/x' });
+    for (const text of [discovery, idea]) {
+      assert.ok(/CONFIRM each with the user/i.test(text), 'confirm-per-field preserved');
+      assert.ok(/\[ASSUMPTION\]/.test(text), 'assumption-marking preserved');
+    }
+    assert.ok(idea.includes('IDEA.md FORMAT:'), 'idea target keeps the IDEA.md template');
+    assert.ok(idea.includes('/tmp/x/IDEA.md'), 'idea target points at the resolved IDEA.md path');
+  });
+});
 
 describe('cmdWizard()', () => {
   it('prints agent briefing when stdin is not TTY and no _readLine injected', () => {
