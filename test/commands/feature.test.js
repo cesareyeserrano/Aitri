@@ -96,6 +96,18 @@ describe('aitri feature init', () => {
     assert.equal(config.projectName, 'add-export', 'feature state must record feature name');
   });
 
+  it('applies the .aitri split per-feature: shared .aitri + per-machine .aitri.local (ADR-045)', () => {
+    // The split is dir-agnostic (loadConfig/saveConfig operate on any dir), so a feature
+    // sub-pipeline gets the same layout as the root: a committed .aitri + a gitignored
+    // .aitri.local. The root .gitignore pattern `.aitri.local` (no slash) covers it at
+    // any depth — verified by smoke; this locks the file-creation half permanently.
+    const featDir = path.join(dir, 'features', 'add-export');
+    assert.ok(fs.existsSync(path.join(featDir, '.aitri.local')), 'feature .aitri.local must exist (split applied)');
+    const shared = JSON.parse(fs.readFileSync(path.join(featDir, '.aitri'), 'utf8'));
+    assert.ok(!('lastSession' in shared) && !('reconcileState' in shared),
+      'per-machine fields must NOT be in the committed feature .aitri');
+  });
+
   it('prints confirmation with run-phase and status instructions', () => {
     const out = captureStdout(() => {
       const { fn: err } = makeErr();
