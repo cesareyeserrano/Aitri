@@ -196,6 +196,91 @@ describe('buildProjectSnapshot()', () => {
   });
 });
 
+// ── C5a — drift next-action steers by drift kind (rehash vs human approve) ────
+// `approve` is isTTY-gated and hard-blocks an agent. Bookkeeping drift (artifact
+// matches git HEAD) routes to `rehash` (agent-runnable); a real content change —
+// or git unavailable — routes to `approve` with a human-terminal note.
+describe('nextActions — drift kind steering (C5a)', () => {
+  function initGitRepo(dir) {
+    execSync('git init -q', { cwd: dir });
+    execSync('git config user.email "t@t"', { cwd: dir });
+    execSync('git config user.name "t"', { cwd: dir });
+    execSync('git add -A && git commit -q -m "init"', { cwd: dir });
+  }
+
+  it('bookkeeping drift (artifact matches git HEAD) → rehash, not approve', () => {
+    const dir = tmpDir();
+    try {
+      writeSpec(dir, '02_SYSTEM_DESIGN.md', '# System Design\n\nLine 1\nLine 2\n');
+      saveConfig(dir, {
+        projectName: 'drift', artifactsDir: 'spec',
+        approvedPhases: [1, 2], driftPhases: ['2'],
+      });
+      initGitRepo(dir);   // artifact committed → git diff HEAD is empty
+      const snap = buildProjectSnapshot(dir);
+      const action = snap.nextActions.find(a => a.priority === 2);
+      assert.ok(action, 'a priority-2 drift action must exist');
+      assert.equal(action.command, 'aitri rehash architecture');
+      assert.match(action.reason, /bookkeeping/i);
+    } finally { cleanup(dir); }
+  });
+
+  it('real content change → approve with human-terminal note', () => {
+    const dir = tmpDir();
+    try {
+      writeSpec(dir, '02_SYSTEM_DESIGN.md', '# System Design\n\nLine 1\nLine 2\n');
+      saveConfig(dir, {
+        projectName: 'drift', artifactsDir: 'spec',
+        approvedPhases: [1, 2], driftPhases: ['2'],
+      });
+      initGitRepo(dir);
+      // Edit the artifact AFTER committing → git diff HEAD is non-empty.
+      writeSpec(dir, '02_SYSTEM_DESIGN.md', '# System Design\n\nLine 1\nLine 2\nEDITED\n');
+      const snap = buildProjectSnapshot(dir);
+      const action = snap.nextActions.find(a => a.priority === 2);
+      assert.ok(action, 'a priority-2 drift action must exist');
+      assert.equal(action.command, 'aitri approve architecture');
+      assert.match(action.reason, /human terminal/i);
+    } finally { cleanup(dir); }
+  });
+
+  it('git unavailable → conservative approve (human terminal), never rehash', () => {
+    const dir = tmpDir();   // not a git repo
+    try {
+      writeSpec(dir, '02_SYSTEM_DESIGN.md', '# System Design\n\nLine 1\nLine 2\n');
+      saveConfig(dir, {
+        projectName: 'drift', artifactsDir: 'spec',
+        approvedPhases: [1, 2], driftPhases: ['2'],
+      });
+      const snap = buildProjectSnapshot(dir);
+      const action = snap.nextActions.find(a => a.priority === 2);
+      assert.ok(action, 'a priority-2 drift action must exist');
+      assert.equal(action.command, 'aitri approve architecture');
+      assert.match(action.reason, /human terminal/i);
+    } finally { cleanup(dir); }
+  });
+
+  it('feature-scope bookkeeping drift → feature rehash command', () => {
+    const dir = tmpDir();
+    try {
+      // Root pipeline (clean, fully approved) so only the feature drifts.
+      seedDeployableRoot(dir);
+      const featDir = path.join(dir, 'features', 'billing');
+      fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(featDir, 'spec', '02_SYSTEM_DESIGN.md'), '# Feat Design\n\nx\ny\n');
+      saveConfig(featDir, {
+        projectName: 'billing', artifactsDir: 'spec',
+        approvedPhases: [1, 2], driftPhases: ['2'],
+      });
+      initGitRepo(dir);   // commits root + feature artifact together
+      const snap = buildProjectSnapshot(dir);
+      const action = snap.nextActions.find(a => a.scope === 'feature:billing' && a.priority === 2);
+      assert.ok(action, 'a feature priority-2 drift action must exist');
+      assert.equal(action.command, 'aitri feature rehash billing architecture');
+    } finally { cleanup(dir); }
+  });
+});
+
 // ── Deployability / health ───────────────────────────────────────────────────
 
 describe('health.deployable', () => {
