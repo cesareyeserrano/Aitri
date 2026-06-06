@@ -149,6 +149,30 @@ describe('cmdRehash — refusal gates (no TTY needed)', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('refuses when the artifact is untracked (git repo but never committed)', () => {
+    const dir = tmpDir();
+    try {
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      const specDir = path.join(dir, 'spec');
+      fs.mkdirSync(specDir, { recursive: true });
+      fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), '{}');
+      // git repo, but the artifact is NOT committed (untracked). `git diff HEAD`
+      // would be empty (false-clean) — the tracked-check must refuse rehash.
+      execSync('git init -q', { cwd: dir });
+      execSync('git config user.email "t@t"', { cwd: dir });
+      execSync('git config user.name "t"', { cwd: dir });
+      const cfg = loadConfig(dir);
+      cfg.approvedPhases = [1];
+      cfg.artifactHashes = { '1': 'stale-'.padEnd(64, '0') };
+      saveConfig(dir, cfg);
+      let captured = null;
+      try {
+        cmdRehash({ dir, args: ['requirements'], err: (m) => { throw new Error(m); } });
+      } catch (e) { captured = e.message; }
+      assert.match(captured, /not tracked|clean git/i);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('refuses when the artifact has uncommitted changes', () => {
     const dir = tmpDir();
     try {

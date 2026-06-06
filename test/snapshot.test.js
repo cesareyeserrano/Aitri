@@ -260,6 +260,27 @@ describe('nextActions — drift kind steering (C5a)', () => {
     } finally { cleanup(dir); }
   });
 
+  it('untracked artifact (never committed) → approve, NOT rehash', () => {
+    const dir = tmpDir();
+    try {
+      writeSpec(dir, '02_SYSTEM_DESIGN.md', '# System Design\n\nLine 1\nLine 2\n');
+      saveConfig(dir, {
+        projectName: 'drift', artifactsDir: 'spec',
+        approvedPhases: [1, 2], driftPhases: ['2'],
+      });
+      // git repo, but the artifact is NOT committed (untracked). `git diff HEAD`
+      // would be empty (false-clean) — the tracked-check must prevent rehash.
+      execSync('git init -q', { cwd: dir });
+      execSync('git config user.email "t@t"', { cwd: dir });
+      execSync('git config user.name "t"', { cwd: dir });
+      const snap = buildProjectSnapshot(dir);
+      const action = snap.nextActions.find(a => a.priority === 2);
+      assert.ok(action, 'a priority-2 drift action must exist');
+      assert.equal(action.command, 'aitri approve architecture',
+        'untracked artifact must not be treated as bookkeeping-clean');
+    } finally { cleanup(dir); }
+  });
+
   it('feature-scope bookkeeping drift → feature rehash command', () => {
     const dir = tmpDir();
     try {
