@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.55+
+**Aitri version:** v2.0.0-rc.56+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -48,6 +48,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 |---|---|---|---|
 | `artifactHashes` | `object<string, string>` | `{}` | `{ "1": "<sha256>", ... }` — SHA-256 of each artifact file. Written on `approve` and `complete` (v0.1.63+). Backfilled from on-disk artifacts by `adopt --upgrade` for projects whose approvedPhases is non-empty but the field is absent or empty (v2.0.0-alpha.13+) |
 | `driftPhases` | `array<string>` | absent in old projects | Phases in drift state. Set by `run-phase` when re-running an approved phase; cleared by `complete`/`approve` |
+| `cascadedPhases` | `array<string>` | absent until first cascade | Phases reset by a cascade invalidation (a real upstream re-approval/re-complete). Used by the next-action builder to recommend `run-phase` (re-derive with new context) rather than `complete` (re-validate) for these phases. Set by `cascadeInvalidate`; cleared per-phase by `complete`/`approve` (v2.0.0-rc.56+) |
 | `events` | `array<Event>` | `[]` | Pipeline activity log (max 20, most recent last) |
 | `verifyPassed` | `boolean` | `false` | `true` if `aitri verify-complete` passed. Required to unlock Phase 5. Reset to `false` by `aitri verify-run` when latest results would not pass `verify-complete` — i.e. `passed === 0` with skips, OR any failures (v2.0.0-alpha.13+). Healthy results (passed > 0, failed === 0) leave the flag alone |
 | `verifySummary` | `object` | `null` | Last test run summary: `{ passed, failed, skipped, total }`. Set by `verify-complete` on success; cleared by `verify-run` when `verifyPassed` resets (v2.0.0-alpha.13+) |
@@ -262,7 +263,7 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 
 | File | Content | Git |
 |---|---|---|
-| `.aitri` | **Shared** — `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`/`verifySummary`/`verifyRanAt`/`lastVerifyRun`, `auditLastAt` | **committed** |
+| `.aitri` | **Shared** — `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `cascadedPhases`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`/`verifySummary`/`verifyRanAt`/`lastVerifyRun`, `auditLastAt` | **committed** |
 | `.aitri.local` | **Per-machine** — `lastSession` (`.at`, `.agent`, …) and `reconcileState` (`baseRef`, `method`, `status`, `lastRun`) | **gitignored** |
 
 `saveConfig` writes `.aitri` only when a shared field other than `updatedAt` changed, so committing it no longer creates per-command noise — the noise that previously pushed teams to gitignore the whole file now lives in `.aitri.local`. `loadConfig` merges both files; every reader still sees one config object. (An old single-file `.aitri` with per-machine fields inline auto-migrates on its first save; `adopt --upgrade` also fixes the project's `.gitignore`. A pre-existing `.aitri/` *folder* uses `.aitri/config.json` + `.aitri/local.json` instead — supported as a fallback.)

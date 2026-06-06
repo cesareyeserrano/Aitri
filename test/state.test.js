@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate, configExists, homedirCaptureNote } from '../lib/state.js';
+import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate, configExists, homedirCaptureNote, clearCascadePending } from '../lib/state.js';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-state-test-'));
@@ -548,6 +548,35 @@ describe('cascadeInvalidate()', () => {
     assert.ok(!invalidated.map(String).includes('2'), 'phase 2 must not appear (was not tracked)');
   });
 
+  it('C5b: marks invalidated phases as cascadePending', () => {
+    const config = {
+      approvedPhases:  [1, 2, 3],
+      completedPhases: [1, 2, 3],
+      artifactHashes:  {},
+    };
+    cascadeInvalidate(config, 1);
+    assert.deepEqual((config.cascadedPhases || []).map(String).sort(), ['2', '3'],
+      'only the tracked downstream phases get marked');
+  });
+
+  it('C5b: does not mark cascadedPhases when nothing was tracked downstream', () => {
+    const config = { approvedPhases: [1], completedPhases: [1], artifactHashes: {} };
+    cascadeInvalidate(config, 1);   // downstream exists but none were approved
+    assert.ok(!config.cascadedPhases || config.cascadedPhases.length === 0,
+      'no cascade mark when no downstream phase was tracked');
+  });
+
+  it('C5b: unions with an existing cascadedPhases mark (no duplicates)', () => {
+    const config = {
+      approvedPhases:  [1, 2, 3],
+      completedPhases: [1, 2, 3],
+      artifactHashes:  {},
+      cascadedPhases:  ['3'],
+    };
+    cascadeInvalidate(config, 1);
+    assert.deepEqual((config.cascadedPhases || []).map(String).sort(), ['2', '3']);
+  });
+
   it('handles optional phase ux in cascade from requirements', () => {
     const config = {
       approvedPhases:  [1, 'ux', 2],
@@ -570,5 +599,25 @@ describe('cascadeInvalidate()', () => {
     assert.ok(config.approvedPhases.map(String).includes('1'), 'requirements must remain');
     assert.ok(!config.approvedPhases.map(String).includes('2'), 'architecture must be invalidated');
     assert.ok(!config.approvedPhases.map(String).includes('3'), 'tests must be invalidated');
+  });
+});
+
+describe('clearCascadePending() — C5b', () => {
+  it('removes the given phase from cascadedPhases (string-coerced)', () => {
+    const config = { cascadedPhases: ['2', '3', 'ux'] };
+    clearCascadePending(config, 2);
+    assert.deepEqual(config.cascadedPhases, ['3', 'ux']);
+  });
+
+  it('is a no-op when the phase is not marked', () => {
+    const config = { cascadedPhases: ['3'] };
+    clearCascadePending(config, 2);
+    assert.deepEqual(config.cascadedPhases, ['3']);
+  });
+
+  it('handles an absent cascadedPhases without throwing', () => {
+    const config = {};
+    clearCascadePending(config, 2);
+    assert.deepEqual(config.cascadedPhases, []);
   });
 });

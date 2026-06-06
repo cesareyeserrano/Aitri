@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.56 (2026-06-05) — new `.aitri#cascadedPhases` field (C5b) — additive
+
+New optional `.aitri` field `cascadedPhases: array<string>` — the phases reset by a cascade invalidation (a real upstream re-approval/re-complete). Aitri's next-action builder reads it to recommend `run-phase` (re-derive) instead of `complete` (re-validate) for those phases, preventing a stale downstream artifact from being re-approved without reconciliation.
+
+**Contract impact for subproducts:** **additive** — old readers that do not know the field keep working unchanged; it is written only after a cascade and pruned per-phase on `complete`/`approve`. `status --json` `phases[]` shape is unchanged (the field is internal to `.aitri`, not projected into the legacy phases array). No reader must change.
+
 ## v2.0.0-rc.49 (2026-06-04) — `ac_coverage` becomes a `verify-complete` gate (ADR-041 option A) — additive
 
 `verify-complete` now **blocks** Phase 5 when `04_TEST_RESULTS.json#ac_coverage` contains any criterion with status `untested` or `uncovered` (rc.48 only reported them). Active only when the project declares structured acceptance criteria — declaring them is the opt-in; string-AC and legacy projects write no `ac_coverage` and are unaffected.

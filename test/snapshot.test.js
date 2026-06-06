@@ -281,6 +281,53 @@ describe('nextActions — drift kind steering (C5a)', () => {
   });
 });
 
+// ── C5b — in_progress next-action: re-derive (cascade-reset) vs complete ──────
+// An artifact reset by a cascade (real upstream change) must be RE-DERIVED with
+// the new context (`run-phase`); `complete` would only re-validate and could
+// launder a stale downstream artifact. A genuinely mid-authored phase (never
+// approved) still routes to `complete`.
+describe('nextActions — cascade-reset vs mid-authoring in_progress (C5b)', () => {
+  function seedPhase2InProgress(dir, extra = {}) {
+    // Phase 1 approved; phase 2 artifact on disk but NOT approved/completed → in_progress.
+    saveConfig(dir, {
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases: [1], completedPhases: [1],
+      ...extra,
+    });
+    writeJsonSpec(dir, '01_REQUIREMENTS.json', {
+      project_name: 'p',
+      functional_requirements:     [{ id: 'FR-001', priority: 'MUST', type: 'logic', title: 't', acceptance_criteria: ['AC1'] }],
+      non_functional_requirements: [], user_stories: [],
+    });
+    writeSpec(dir, '02_SYSTEM_DESIGN.md', '# Design\n\nx\ny\n');
+  }
+
+  it('cascade-pending in_progress phase → run-phase (re-derive), not complete', () => {
+    const dir = tmpDir();
+    try {
+      seedPhase2InProgress(dir, { cascadedPhases: ['2'] });
+      const snap = buildProjectSnapshot(dir);
+      const p2 = snap.pipelines[0].phases.find(p => p.key === 2);
+      assert.equal(p2.cascadePending, true, 'phase 2 must be flagged cascadePending');
+      const action = snap.nextActions.find(a => a.command.includes('architecture'));
+      assert.equal(action.command, 'aitri run-phase architecture');
+      assert.match(action.reason, /upstream change|re-run/i);
+    } finally { cleanup(dir); }
+  });
+
+  it('mid-authoring in_progress phase (no cascade mark) → complete (regression lock)', () => {
+    const dir = tmpDir();
+    try {
+      seedPhase2InProgress(dir);   // no cascadedPhases
+      const snap = buildProjectSnapshot(dir);
+      const p2 = snap.pipelines[0].phases.find(p => p.key === 2);
+      assert.equal(p2.cascadePending, false);
+      const action = snap.nextActions.find(a => a.command.includes('architecture'));
+      assert.equal(action.command, 'aitri complete architecture');
+    } finally { cleanup(dir); }
+  });
+});
+
 // ── Deployability / health ───────────────────────────────────────────────────
 
 describe('health.deployable', () => {
