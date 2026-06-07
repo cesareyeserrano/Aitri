@@ -650,3 +650,56 @@ describe('Phase 3 — validate() D2 legacy-AC warning (rc.13)', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// TPA-7 (third-party adopter §4.6/A2): the e2e floor is stack-aware. A UI surface
+// needs real e2e; a backend-only surface has no browser flow, so API-level
+// integration tests count as critical-flow coverage — stop forcing the `e2e` mislabel.
+describe('Phase 3 — critical-flow gate is stack-aware (TPA-7)', () => {
+  const tpaTmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-tpa7-'));
+
+  function setupReqs(dir, frTypes) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), JSON.stringify({
+      project_name: 'X',
+      functional_requirements: frTypes.map((t, i) => ({ id: `FR-00${i + 1}`, title: `FR ${i + 1}`, priority: 'MUST', type: t })),
+      user_stories: [], non_functional_requirements: [],
+    }));
+  }
+
+  // Backend-only test plan: integration TCs cover the critical flows, NO e2e at all.
+  const backendPlan = () => JSON.stringify({
+    test_plan: { strategy: 'unit + integration', coverage_goal: '80%', test_types: ['unit', 'integration'] },
+    test_cases: [
+      makeTC('TC-001h', 'FR-001', 'unit',        'happy_path'),
+      makeTC('TC-001e', 'FR-001', 'integration', 'edge_case'),
+      makeTC('TC-001f', 'FR-001', 'integration', 'negative'),
+      makeTC('TC-002h', 'FR-002', 'unit',        'happy_path'),
+      makeTC('TC-002e', 'FR-002', 'integration', 'edge_case'),
+      makeTC('TC-002f', 'FR-002', 'integration', 'negative'),
+    ],
+  });
+
+  it('a backend-only surface passes with integration tests and no e2e', () => {
+    const dir = tpaTmp();
+    try {
+      setupReqs(dir, ['core', 'security']); // no UX/visual/audio FR → backend-only
+      assert.doesNotThrow(() => PHASE_DEFS[3].validate(backendPlan(), { dir, config: { artifactsDir: 'spec' } }));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('a UI surface still requires real e2e (integration is not enough)', () => {
+    const dir = tpaTmp();
+    try {
+      setupReqs(dir, ['core', 'ux']); // a UX FR present → UI surface
+      assert.throws(
+        () => PHASE_DEFS[3].validate(backendPlan(), { dir, config: { artifactsDir: 'spec' } }),
+        /e2e test\(s\) found — min 2 required for critical UI flows/
+      );
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('stays conservative (requires e2e) when requirements cannot be read', () => {
+    // No dir → hasUiFr null → must not silently relax the gate.
+    assert.throws(() => PHASE_DEFS[3].validate(backendPlan()), /min 2 required/);
+  });
+});

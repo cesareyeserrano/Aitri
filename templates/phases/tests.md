@@ -66,7 +66,7 @@ Scan this before writing. These are mechanical (validated by exit code, not advi
 - `scenario` is EXACTLY one of `happy_path` | `edge_case` | `negative`.
 - **TC id suffix ↔ scenario** (there is NO `n` suffix): `happy_path` → id ends in `h`; `negative` → id ends in `f`; `edge_case` → id ends in `e`.
 - Each `requirement_id`/`frs[]` target has **≥3 test cases**, including **≥1 `happy_path` (id …h)** and **≥1 `negative` (id …f)**.
-- **≥2 test cases** with `type: "e2e"`.
+- **≥2 critical-flow test cases.** If the surface has a UI (any FR of type `ux`/`visual`/`audio`), these must be `type: "e2e"`. If it is **backend-only** (no UX/visual/audio FR), API-level `type: "integration"` tests count as critical-flow coverage — label them `integration` (do NOT mislabel them `e2e` to clear the gate).
 - `requirement_id` is a single id — never comma-separated (use `frs: [...]` for multi-FR).
 - `requirement_id`/`frs[]` and `user_story_id` reference real ids in `01_REQUIREMENTS.json`.
 - `expected_result` is specific — not `"works"`, `"passes"`, `"is correct"`.
@@ -122,7 +122,7 @@ If a behavior is genuinely hard to verify observationally → document it as `"m
 
 ## Rules
 - Every **MUST** FR/NFR gets min 3 test cases: one happy_path, one edge_case, one negative (the gate hard-blocks a MUST requirement with no TC; SHOULD/NICE FRs are recommended but only warned, not blocked)
-- Min 2 test cases with type "e2e" — each assigned to a single requirement_id
+- Min 2 critical-flow test cases — `type: "e2e"` for a UI surface, or `type: "integration"` for a backend-only surface (no UX/visual/audio FR); each assigned to a single requirement_id
 - Steps specific enough for a developer to implement directly
 - E2E tests MUST embed the canonical TC-XXX prefix in the assertion or function name so the runner output is parseable: e.g. `test('TC-XXX: description', ...)` for Playwright/Vitest/Jest, `func TestTC_XXX_description` for Go, `def test_tc_xxx_description` for pytest. The exact runner is whatever the project declares — `aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} --e2e` reads the runner output and matches on the TC id, not the framework
 - Go test functions MUST use the canonical TC-XXX id with underscores as separators because Go syntax forbids `-` in identifiers: `func TestTC_NS_001h(t *testing.T)`. The `Test` prefix is mandatory. aitri normalizes underscores to dashes on parse — canonical id stored in `03_TEST_CASES.json` stays `TC-NS-001h`. Run `go test -v` so passes are visible in output
