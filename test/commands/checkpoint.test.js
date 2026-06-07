@@ -8,7 +8,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { cmdCheckpoint } from '../../lib/commands/checkpoint.js';
-import { loadConfig } from '../../lib/state.js';
+import { loadConfig, saveConfig, writeLastSession } from '../../lib/state.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -113,6 +113,44 @@ describe('cmdCheckpoint() — --context', () => {
 
   it('confirmation names .aitri.local (ADR-045)', () => {
     assert.ok(output.includes('saved to .aitri.local'), 'context message must name the per-machine .aitri.local');
+  });
+});
+
+// TPA-5 / A9: narrative context must SURVIVE later state transitions. lastSession
+// is overwritten by every state-mutating command (so its .context is ephemeral);
+// sessionContext persists until explicitly replaced.
+describe('cmdCheckpoint() — --context persists across transitions (TPA-5)', () => {
+  let dir;
+
+  before(() => {
+    dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    captureStdout(() =>
+      cmdCheckpoint({
+        dir, args: ['--context', 'closing Phase-1 escapes; Master Data next'],
+        flagValue: makeFlagValue({ '--context': 'closing Phase-1 escapes; Master Data next' }),
+        err: noopErr,
+      })
+    );
+  });
+
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('writes the durable sessionContext field with a timestamp', () => {
+    const config = loadConfig(dir);
+    assert.equal(config.sessionContext?.text, 'closing Phase-1 escapes; Master Data next');
+    assert.ok(config.sessionContext?.at, 'sessionContext carries its own timestamp for staleness');
+  });
+
+  it('sessionContext survives a subsequent transition that wipes lastSession.context', () => {
+    // Simulate the next pipeline action (e.g. approve) overwriting lastSession.
+    const config = loadConfig(dir);
+    writeLastSession(config, dir, 'approve 1'); // no context arg → lastSession.context cleared
+    saveConfig(dir, config);
+
+    const after = loadConfig(dir);
+    assert.ok(!after.lastSession.context, 'lastSession.context is ephemeral — wiped by the next action');
+    assert.equal(after.sessionContext?.text, 'closing Phase-1 escapes; Master Data next', 'sessionContext must persist');
   });
 });
 

@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.60 (2026-06-06) — new `.aitri.local#sessionContext` field (TPA-5) — additive
+
+New optional per-machine field `sessionContext: { text: string, at: "ISO" } | null` in `.aitri.local`. It holds the durable narrative thread (the "what/why/next") written via `aitri checkpoint --context`, which now **survives later state transitions** — previously the narrative lived only in `lastSession.context`, which every state-mutating command overwrites. `aitri resume` shows it and flags staleness (a later action) or absence (on an in-flight pipeline).
+
+**Contract impact for subproducts:** **additive** — and per-machine: like `lastSession` and `reconcileState`, `sessionContext` lives in the gitignored `.aitri.local`, which subproducts must NOT read. Cross-dev action traceability remains in the committed `events[]`. No reader must change.
+
 ## v2.0.0-rc.56 (2026-06-05) — new `.aitri#cascadedPhases` field (C5b) — additive
 
 New optional `.aitri` field `cascadedPhases: array<string>` — the phases reset by a cascade invalidation (a real upstream re-approval/re-complete). Aitri's next-action builder reads it to recommend `run-phase` (re-derive) instead of `complete` (re-validate) for those phases, preventing a stale downstream artifact from being re-approved without reconciliation.

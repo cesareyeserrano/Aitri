@@ -447,3 +447,52 @@ describe('cmdResume() — brief default (F8)', () => {
     assert.ok(full.includes('## Technical Debt'));
   });
 });
+
+// TPA-5 / A9: resume surfaces the narrative thread — shows it, flags staleness,
+// and flags its ABSENCE on an in-flight pipeline (the one thing resume cannot
+// reconstruct from state).
+describe('cmdResume() — narrative session context (TPA-5)', () => {
+  it('warns when no narrative context is saved on an in-flight pipeline', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1],
+      lastSession: { at: '2026-06-06T10:00:00.000Z', agent: 'claude', event: 'approve 1' },
+    }));
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.ok(/Session Context/.test(out) && /No narrative context saved/i.test(out), 'absence must be surfaced');
+  });
+
+  it('shows the saved context and does not warn when it is fresh', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1],
+      lastSession:    { at: '2026-06-06T10:00:00.000Z', agent: 'claude', event: 'checkpoint' },
+      sessionContext: { text: 'Master Data feature next', at: '2026-06-06T10:00:00.000Z' },
+    }));
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.ok(out.includes('Master Data feature next'), 'saved context must be shown');
+    assert.ok(!/may be stale/i.test(out), 'context as recent as the last action is not stale');
+  });
+
+  it('flags the context as stale when an action happened after it was written', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1, 2],
+      lastSession:    { at: '2026-06-06T12:00:00.000Z', agent: 'claude', event: 'approve 2' },
+      sessionContext: { text: 'was mid Phase 1', at: '2026-06-06T09:00:00.000Z' },
+    }));
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.ok(out.includes('was mid Phase 1'), 'stale context is still shown');
+    assert.ok(/may be stale/i.test(out), 'a later action must flag the context as possibly stale');
+  });
+
+  it('does not nag about absent context when the pipeline is complete', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1, 2, 3, 4, 5],
+      lastSession: { at: '2026-06-06T10:00:00.000Z', agent: 'claude', event: 'approve 5' },
+    }));
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.ok(!/No narrative context saved/i.test(out), 'a finished pipeline should not nag for narrative context');
+  });
+});

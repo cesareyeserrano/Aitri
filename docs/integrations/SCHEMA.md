@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.59+
+**Aitri version:** v2.0.0-rc.60+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -56,7 +56,8 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `lastVerifyRun` | `object\|null` | `null` | Last `verify-run`'s counts, written on EVERY run regardless of pass/fail: `{ passed, failed, skipped, manual, at }`. Unlike `verifySummary` (only on verify-complete success), this persists the raw run result so the no-op-loop guard survives event-log eviction. Read this for "what did the last run produce" (v2.0.0-rc.25+) |
 | `auditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit` invocation. Persisted because `AUDIT_REPORT.md` mtime resets on git clone (v0.1.79+) |
 | `rejections` | `object<string, Rejection>` | `{}` | Map of phase key → last rejection. Key is phase as string (`"1"`, `"2"`, etc.) |
-| `lastSession` | `object\|null` | `null` | Session checkpoint — see schema below. Written automatically by state-mutating commands |
+| `lastSession` | `object\|null` | `null` | Session checkpoint — see schema below. Written automatically by state-mutating commands. Its `.context` is ephemeral (overwritten by the next action); the durable narrative lives in `sessionContext` |
+| `sessionContext` | `object\|null` | `null` | Durable narrative thread (the "what/why/next"). Set by `aitri checkpoint --context`; SURVIVES later state transitions (unlike `lastSession.context`). Schema: `{ text: string, at: "ISO" }`. Per-machine — the personal thread; cross-dev action traceability is in shared `events[]`. `aitri resume` shows it and flags staleness/absence (v2.0.0-rc.60+) |
 | `reconcileState` | `object\|null` | `null` | Off-pipeline change baseline. Set on `approve 4`, by `aitri reconcile`, and by `aitri reconcile --resolve`. Schema: `{ status: "pending" \| "resolved", baseRef: "<git-sha>" \| "<ISO>", method: "git" \| "mtime", lastRun: "ISO" }` (v0.1.80+; `--resolve` flag added v0.1.84) |
 | `upgradeFindings` | `array<object>` | `[]` | Unresolved flagged findings from the last `aitri adopt --upgrade`. Snapshot model — overwritten on every run; cleared when diagnose returns empty. Each entry: `{ target, transform, reason, module, category, recordedAt }`. (v2.0.0-alpha.3+) |
 | `strictAssertions` | `boolean` | `false` (absent) | Opt-in. When `true`, `aitri verify-complete` BLOCKS if `04_TEST_RESULTS.json#low_confidence_tcs` is non-empty (any TC with ≤1 assertion). Default behavior unchanged — assertion density is a warning only. Typically set on larger projects that want stricter test-quality enforcement (v2.0.0-rc.9+) |
@@ -264,7 +265,7 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 | File | Content | Git |
 |---|---|---|
 | `.aitri` | **Shared** — `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `cascadedPhases`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`/`verifySummary`/`verifyRanAt`/`lastVerifyRun`, `auditLastAt` | **committed** |
-| `.aitri.local` | **Per-machine** — `lastSession` (`.at`, `.agent`, …) and `reconcileState` (`baseRef`, `method`, `status`, `lastRun`) | **gitignored** |
+| `.aitri.local` | **Per-machine** — `lastSession` (`.at`, `.agent`, …), `sessionContext` (`.text`, `.at`) and `reconcileState` (`baseRef`, `method`, `status`, `lastRun`) | **gitignored** |
 
 `saveConfig` writes `.aitri` only when a shared field other than `updatedAt` changed, so committing it no longer creates per-command noise — the noise that previously pushed teams to gitignore the whole file now lives in `.aitri.local`. `loadConfig` merges both files; every reader still sees one config object. (An old single-file `.aitri` with per-machine fields inline auto-migrates on its first save; `adopt --upgrade` also fixes the project's `.gitignore`. A pre-existing `.aitri/` *folder* uses `.aitri/config.json` + `.aitri/local.json` instead — supported as a fallback.)
 
@@ -280,4 +281,4 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 
 ### Guidance for subproducts
 
-Read `.aitri` (shared) exactly as before — the path and the shared fields are unchanged. **Never read `.aitri.local`** — it is per-machine and gitignored, and the two relocated fields (`lastSession`, `reconcileState`) are no longer in `.aitri`. A project may still legitimately gitignore the whole `.aitri` (the owner's choice); if `.aitri` is absent or its `updatedAt` is older than the project's last git commit, treat that as "state is per-machine for this project," not a corruption signal.
+Read `.aitri` (shared) exactly as before — the path and the shared fields are unchanged. **Never read `.aitri.local`** — it is per-machine and gitignored, and its fields (`lastSession`, `sessionContext`, `reconcileState`) are not in `.aitri`. A project may still legitimately gitignore the whole `.aitri` (the owner's choice); if `.aitri` is absent or its `updatedAt` is older than the project's last git commit, treat that as "state is per-machine for this project," not a corruption signal.

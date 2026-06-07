@@ -100,6 +100,8 @@ If `aitri status` recommends `aitri audit` — run it. The audit is a separate e
 
 If `aitri resume` says the project is idle (all green, no drift, fresh verify, fresh audit), there is nothing to do. Do not invent work.
 
+**Before pausing or handing off, save the narrative thread.** Aitri auto-persists *where* you are (phase state, events, last action, files touched) but not *why* or *what's next* — the one thing the next session (or another dev) cannot reconstruct. Run `aitri checkpoint --context "what you're doing, why, what's next"`; it persists across later pipeline actions and `aitri resume` surfaces it. If `resume` shows "⚠ No narrative context saved", write one. There is no auto-summary (it would cost tokens for no gain) — you write the line, Aitri keeps it.
+
 ---
 
 ## Adding new functionality
