@@ -1141,3 +1141,32 @@ describe('cmdApprove() — feature approve 4 advances ROOT reconcile baseline (P
     } finally { fs.rmSync(rootDir, { recursive: true, force: true }); }
   });
 });
+
+// TPA-11: approving a downstream phase snapshots the FR-id set it was built against,
+// so a later cascade-triggered re-derivation can show the agent the FR delta.
+describe('cmdApprove() — FR snapshot for downstream phases (TPA-11)', () => {
+  it('records the FR-id set a downstream phase was approved against', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', JSON.stringify({
+        project_name: 'T', functional_requirements: [{ id: 'FR-001' }, { id: 'FR-002' }],
+      }));
+      writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '# Design');
+      writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1], completedPhases: [1, 2] }));
+      captureAll(() => cmdApprove({ dir, args: ['architecture'], err: noopErr }));
+      const config = loadConfig(dir);
+      assert.deepEqual((config.frSnapshots || {})['2'], ['FR-001', 'FR-002']);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not snapshot for phase 1 (it IS the requirements)', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', JSON.stringify({ project_name: 'T', functional_requirements: [{ id: 'FR-001' }] }));
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1] }));
+      captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      const config = loadConfig(dir);
+      assert.ok(!(config.frSnapshots && config.frSnapshots['1']), 'phase 1 needs no FR snapshot');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

@@ -599,3 +599,36 @@ describe('cmdRunPhase() — phase 5 gate (verifyPassed)', () => {
     }
   });
 });
+
+// TPA-11: re-deriving a cascade-pending phase shows the FR delta (added/removed since
+// it was last approved) so the agent re-derives against the change, not blind.
+describe('cmdRunPhase() — FR delta on a cascaded re-derivation (TPA-11)', () => {
+  let dir;
+  let stderr;
+
+  before(() => {
+    dir = tmpDir();
+    // Requirements NOW carry FR-003 too — added since phase 2 was last approved.
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', JSON.stringify({
+      project_name: 'T',
+      functional_requirements: [{ id: 'FR-001' }, { id: 'FR-002' }, { id: 'FR-003' }],
+    }));
+    writeFile(dir, '.aitri', minimalConfig({
+      cascadedPhases: ['2'],
+      frSnapshots: { '2': ['FR-001', 'FR-002'] }, // snapshot from phase 2's last approval (no FR-003)
+    }));
+    ({ stderr } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['architecture'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    ));
+  });
+
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('announces the requirements changed since last approval', () => {
+    assert.ok(/Requirements changed since this phase was last approved/i.test(stderr));
+  });
+
+  it('names the added FR so it is not re-omitted', () => {
+    assert.ok(/added:.*FR-003/.test(stderr), 'the newly-added FR must be surfaced');
+  });
+});

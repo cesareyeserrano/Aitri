@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.64 (2026-06-06) — new `.aitri#frSnapshots` field (TPA-11) — additive
+
+New optional shared field `frSnapshots: object<string, array<string>> | null` in `.aitri`. Keyed by phase (as string), each value is the `functional_requirements[].id` set the phase was approved against. Written on `approve` of a downstream phase; read by `run-phase` to show the FR delta (added/removed) when re-deriving a phase a cascade reset.
+
+**Contract impact for subproducts:** **additive** — old readers that do not know the field keep working. It is committed shared state (a teammate re-deriving sees the same delta), but it is purely advisory input to the briefing — no gate or `status --json` field depends on it. No reader must change.
+
 ## v2.0.0-rc.60 (2026-06-06) — new `.aitri.local#sessionContext` field (TPA-5) — additive
 
 New optional per-machine field `sessionContext: { text: string, at: "ISO" } | null` in `.aitri.local`. It holds the durable narrative thread (the "what/why/next") written via `aitri checkpoint --context`, which now **survives later state transitions** — previously the narrative lived only in `lastSession.context`, which every state-mutating command overwrites. `aitri resume` shows it and flags staleness (a later action) or absence (on an in-flight pipeline).
