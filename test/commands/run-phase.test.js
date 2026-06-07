@@ -402,6 +402,76 @@ describe('cmdRunPhase() — clears approval on re-do of a changed phase', () => 
   });
 });
 
+// TPA-1 (third-party adopter DSB-AT-POC 2026-06-05): re-opening an APPROVED
+// upstream phase via run-phase must cascade-invalidate downstream. Before the fix,
+// run-phase removed only the re-opened phase from approvedPhases and set its drift,
+// leaving downstream "approved"; the later re-approval then saw wasAlreadyApproved
+// = false (run-phase had already removed it) so approve's cascade never fired and
+// the pipeline reported "deployable" over a changed spec. complete.js already
+// assumed run-phase performed this cascade — this makes it real.
+describe('cmdRunPhase() — re-opening an approved phase cascade-invalidates downstream (TPA-1)', () => {
+  let dir;
+  let stderr;
+
+  before(() => {
+    dir = tmpDir();
+    // Phases 1–4 approved (build done, deploy not yet). This avoids the
+    // pipeline-complete TTY confirmation gate (all 5 approved + no TTY → exit) while
+    // still exercising the cascade: re-opening Phase 1 must invalidate 2, 3 and 4.
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases:  [1, 2, 3, 4],
+      completedPhases: [1, 2, 3, 4],
+      verifyPassed: true,
+      verifySummary: { passed: 10, failed: 0 },
+      // stale hash on phase 1 ≠ on-disk artifact → drift → reset branch (not an
+      // idempotent re-read), the path a re-derivation of an approved spec takes.
+      artifactHashes: { '1': 'stale-hash-from-before-the-edit' },
+    }));
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    ({ stderr } = captureAll(() =>
+      cmdRunPhase({
+        dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR,
+      })
+    ));
+  });
+
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('removes the re-opened phase from approvedPhases', () => {
+    const config = loadConfig(dir);
+    assert.ok(!config.approvedPhases.map(String).includes('1'), 'phase 1 must not stay approved after re-open');
+  });
+
+  it('cascade-invalidates every downstream phase (2–4)', () => {
+    const config = loadConfig(dir);
+    for (const p of [2, 3, 4]) {
+      assert.ok(
+        !config.approvedPhases.map(String).includes(String(p)),
+        `phase ${p} must be invalidated when phase 1 is re-opened — it was built on the old requirements`
+      );
+    }
+    assert.equal(config.approvedPhases.length, 0, 'no phase should remain approved over a re-derived Phase 1');
+  });
+
+  it('marks downstream phases as cascade-pending (drift steering)', () => {
+    const config = loadConfig(dir);
+    for (const p of [2, 3, 4]) {
+      assert.ok((config.cascadedPhases || []).map(String).includes(String(p)), `phase ${p} should be cascade-pending`);
+    }
+  });
+
+  it('resets verify state because build/deploy are downstream', () => {
+    const config = loadConfig(dir);
+    assert.equal(config.verifyPassed, false, 'verifyPassed must reset when phase 4/5 are invalidated');
+    assert.ok(!config.verifySummary, 'verifySummary must be cleared on downstream invalidation');
+  });
+
+  it('warns the operator that downstream was reset', () => {
+    assert.ok(/Downstream phases were built on the old/i.test(stderr), 'the cascade must be surfaced to the operator');
+  });
+});
+
 // Idempotent re-read (finance-dashboard canary 2026-06-05): re-printing the
 // briefing of an already-completed/approved phase whose artifact is UNCHANGED must
 // preserve state — no clearing, no drift flag, no `started` event.
