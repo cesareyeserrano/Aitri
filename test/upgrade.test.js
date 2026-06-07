@@ -2542,3 +2542,64 @@ describe('lib/upgrade — dry-run preview', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// TPA-6: adopt --upgrade dry-runs the current validators against already-approved
+// artifacts and surfaces the ones the evolved gates would now reject (advisory).
+describe('lib/upgrade — gate re-check on approved artifacts (TPA-6)', () => {
+  function capture(fn) {
+    let out = '';
+    const origLog = console.log;
+    const origErr = process.stderr.write.bind(process.stderr);
+    const origOut = process.stdout.write.bind(process.stdout);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    process.stderr.write = (c) => { out += c; return true; };
+    process.stdout.write = (c) => { out += c; return true; };
+    try { fn(); } finally { console.log = origLog; process.stderr.write = origErr; process.stdout.write = origOut; }
+    return out;
+  }
+
+  function setup(dir, reqObj, approvedPhases = [1]) {
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      aitriVersion: '2.0.0-rc.40', artifactsDir: 'spec', approvedPhases, completedPhases: approvedPhases,
+    }));
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    if (reqObj) fs.writeFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), JSON.stringify(reqObj));
+  }
+
+  // Valid JSON, but violates the current min-5-FR root gate → validate() rejects it.
+  const failingReqs = {
+    project_name: 'X',
+    functional_requirements: [{ id: 'FR-001', title: 'Login', priority: 'MUST', acceptance_criteria: ['returns 401'] }],
+    user_stories: [],
+    non_functional_requirements: [],
+  };
+
+  it('warns when an approved artifact would be rejected by the current gates', () => {
+    const dir = tmpDir();
+    try {
+      setup(dir, failingReqs);
+      const out = capture(() => runUpgrade({ dir, VERSION: '2.0.0-rc.60', rootDir: ROOT_DIR }));
+      assert.ok(/Gate re-check/.test(out), 'must announce the gate re-check');
+      assert.ok(/01_REQUIREMENTS\.json/.test(out), 'must name the artifact the current gates reject');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('is advisory — does NOT change the approvals', () => {
+    const dir = tmpDir();
+    try {
+      setup(dir, failingReqs);
+      capture(() => runUpgrade({ dir, VERSION: '2.0.0-rc.60', rootDir: ROOT_DIR }));
+      const cfg = loadConfig(dir);
+      assert.ok(cfg.approvedPhases.map(String).includes('1'), 'a failing gate re-check must not withdraw the approval');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not warn when nothing is approved', () => {
+    const dir = tmpDir();
+    try {
+      setup(dir, failingReqs, []); // artifact present but not approved → not re-checked
+      const out = capture(() => runUpgrade({ dir, VERSION: '2.0.0-rc.60', rootDir: ROOT_DIR }));
+      assert.ok(!/Gate re-check/.test(out), 'only APPROVED artifacts are re-checked');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

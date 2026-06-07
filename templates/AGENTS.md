@@ -18,7 +18,7 @@ aitri resume
 This gives you the current pipeline state, open requirements, test coverage, pending bugs, drift status, and your next action.
 Do not start working without it.
 
-If `aitri resume` or `aitri status` reports a version mismatch (CLI version vs project's recorded version), run `aitri adopt --upgrade` first. Gates depend on matching versions; trying to work around a mismatch corrupts state.
+If `aitri resume` or `aitri status` reports a version mismatch (CLI version vs project's recorded version), run `aitri adopt --upgrade` first. Gates depend on matching versions; trying to work around a mismatch corrupts state. `adopt --upgrade` also re-checks your already-approved artifacts against the current gates and lists any the evolved validators would now reject (advisory — your approvals are unchanged); re-derive each flagged phase (`run-phase → complete → approve`) before continuing.
 
 ---
 
