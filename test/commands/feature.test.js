@@ -403,3 +403,32 @@ describe('requirements template — {{#IF_PARENT_REQUIREMENTS}} block', () => {
     assert.ok(!output.includes('Existing Requirements'), 'block must be absent when value is empty');
   });
 });
+
+// TPA-4 (third-party adopter): a feature sub-pipeline only scans its own
+// feature_context/, so the parent's raw idea_context/ (the original source material)
+// never reaches it — if the parent capture was lossy, the feature re-omits the same
+// detail. The feature briefing now surfaces the parent idea_context/ as a read-only
+// pointer (not a copy).
+describe('feature run-phase — surfaces parent idea_context/ (TPA-4)', () => {
+  it('points the feature agent at the parent project idea_context/ assets', () => {
+    const dir = makeProjectDir();
+    try {
+      writeFile(dir, 'idea_context/db_schema.txt', '26 tables, FK graph, stored procs');
+      const { fn: err } = makeErr();
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'add-export'], err, rootDir: ROOT_DIR }));
+      const out = captureStdout(() => cmdFeature({ dir, args: ['run-phase', 'add-export', '1'], err, rootDir: ROOT_DIR }));
+      assert.ok(/Parent project source material/.test(out), 'feature briefing must point at the parent idea_context/');
+      assert.ok(/db_schema\.txt/.test(out), 'must list the parent asset by name');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not add the parent-context pointer when the parent idea_context/ is empty', () => {
+    const dir = makeProjectDir();
+    try {
+      const { fn: err } = makeErr();
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'add-export'], err, rootDir: ROOT_DIR }));
+      const out = captureStdout(() => cmdFeature({ dir, args: ['run-phase', 'add-export', '1'], err, rootDir: ROOT_DIR }));
+      assert.ok(!/Parent project source material/.test(out), 'no pointer when there is nothing to point at');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
