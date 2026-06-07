@@ -68,6 +68,22 @@ describe('aitri init — context folder (rc.37)', () => {
     assert.ok(fs.existsSync(path.join(dir, 'idea_context', 'README.md')), 'idea_context/README.md must exist');
     assert.ok(!fs.existsSync(path.join(dir, 'idea')), 'the old idea/ folder must NOT be created');
   });
+
+  // TPA-3: a legacy idea/ folder is no longer scanned — warn early at init so its
+  // assets are not silently ignored by every briefing.
+  it('warns when a legacy idea/ folder holds assets', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'idea'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'idea', 'db_schema.txt'), 'schema');
+    const out = captureLog(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' }));
+    assert.ok(/idea\//.test(out) && /not scanned/i.test(out), 'init must surface a legacy idea/ folder with assets');
+  });
+
+  it('does not warn about idea/ when it is absent', () => {
+    const dir = tmpDir();
+    const out = captureLog(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' }));
+    assert.ok(!/asset\(s\) found in idea\//.test(out), 'no legacy-folder warning when idea/ does not exist');
+  });
 });
 
 describe('aitri init — .gitignore template (npm-publish safe)', () => {

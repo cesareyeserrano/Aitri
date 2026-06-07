@@ -208,3 +208,62 @@ describe('runReview() — Test Cases → Test Results', () => {
   });
 
 });
+
+// ── Phase 1 source-capture audit (TPA-3) ──────────────────────────────────────
+// Advisory only: surfaces idea_context/ assets at `complete 1` so a half-scoped
+// spec (FRs that don't reflect the provided material) becomes a LOUD omission
+// instead of a silent one. Never errors — Aitri cannot judge semantic coverage.
+
+function writeContextAsset(dir, folder, name, content = 'x') {
+  const d = path.join(dir, folder);
+  fs.mkdirSync(d, { recursive: true });
+  fs.writeFileSync(path.join(d, name), content);
+}
+
+describe('runReview() — phase1 source-capture audit', () => {
+
+  it('warns (never errors) when idea_context/ holds assets', () => {
+    const dir = tmpDir();
+    writeArtifact(dir, '01_REQUIREMENTS.json', makeReqs([{ id: 'FR-001', priority: 'MUST', title: 'Login' }]));
+    writeContextAsset(dir, 'idea_context', 'db_schema.txt');
+    writeContextAsset(dir, 'idea_context', 'backend_blueprint.md');
+    const { errors, warnings } = runReview(dir, baseConfig(dir), 'phase1');
+    assert.equal(errors.length, 0, 'capture audit must never block — it is advisory');
+    assert.ok(warnings.some(w => w.includes('db_schema.txt') && w.includes('backend_blueprint.md')), 'lists the assets to confirm');
+  });
+
+  it('flags visual assets separately (Aitri cannot read images)', () => {
+    const dir = tmpDir();
+    writeArtifact(dir, '01_REQUIREMENTS.json', makeReqs([{ id: 'FR-001', priority: 'MUST', title: 'Login' }]));
+    writeContextAsset(dir, 'idea_context', 'login_mockup.png');
+    const { warnings } = runReview(dir, baseConfig(dir), 'phase1');
+    assert.ok(warnings.some(w => /visual asset/i.test(w) && w.includes('login_mockup.png')), 'visual assets get an explicit confirm-vs-UX-FR note');
+  });
+
+  it('ignores README.md and emits nothing when no assets are present', () => {
+    const dir = tmpDir();
+    writeArtifact(dir, '01_REQUIREMENTS.json', makeReqs([{ id: 'FR-001', priority: 'MUST', title: 'Login' }]));
+    writeContextAsset(dir, 'idea_context', 'README.md', '# context');
+    const { errors, warnings } = runReview(dir, baseConfig(dir), 'phase1');
+    assert.equal(errors.length, 0);
+    assert.equal(warnings.length, 0, 'README-only context folder is not an asset omission');
+  });
+
+  it('does not run the req→TC coverage check (scope isolation)', () => {
+    const dir = tmpDir();
+    // A MUST FR with no TCs would error under phase3/all, but phase1 must not touch it.
+    writeArtifact(dir, '01_REQUIREMENTS.json', makeReqs([{ id: 'FR-001', priority: 'MUST', title: 'Login' }]));
+    writeArtifact(dir, '03_TEST_CASES.json', makeTCs([]));
+    const { errors } = runReview(dir, baseConfig(dir), 'phase1');
+    assert.equal(errors.length, 0, 'phase1 scope must not evaluate test coverage');
+  });
+
+  it('also audits feature_context/ in a feature sub-pipeline', () => {
+    const dir = tmpDir();
+    writeArtifact(dir, '01_REQUIREMENTS.json', makeReqs([{ id: 'FR-001', priority: 'MUST', title: 'Login' }]));
+    writeContextAsset(dir, 'feature_context', 'spec_sheet.pdf');
+    const { warnings } = runReview(dir, baseConfig(dir), 'phase1');
+    assert.ok(warnings.some(w => w.includes('feature_context/') && w.includes('spec_sheet.pdf')));
+  });
+
+});
