@@ -184,6 +184,19 @@ describe('Phase 1 — validate()', () => {
     assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
   });
 
+  // §3.4 (rc.64 adopter): all FRs failing the SAME rule are reported in one error,
+  // not one per complete cycle (the adopter hit FR-001 → FR-003 → FR-005 separately).
+  it('reports ALL UX FRs missing a metric in a single error (aggregation)', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[1].acceptance_criteria = ['the UI looks nice']; // FR-002 fails
+    d.functional_requirements.push({ id: 'FR-006', title: 'Visual theme', priority: 'MUST', type: 'visual', acceptance_criteria: ['beautiful design'] }); // FR-006 fails
+    let msg = '';
+    try { PHASE_DEFS[1].validate(JSON.stringify(d)); } catch (e) { msg = e.message; }
+    assert.match(msg, /FR-002/, 'first offending FR named');
+    assert.match(msg, /FR-006/, 'second offending FR named in the SAME error');
+    assert.match(msg, /observable metric/);
+  });
+
   it('passes when audio MUST FR has metric in acceptance_criteria', () => {
     const d = JSON.parse(validP1());
     d.functional_requirements.push({ id: 'FR-006', title: 'Sound design', priority: 'MUST', type: 'audio', acceptance_criteria: ['audio plays within 100ms of trigger'] });
