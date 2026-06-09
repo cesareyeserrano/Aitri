@@ -523,6 +523,12 @@ describe('Aitri CLI — complete 3 h/f naming gate', () => {
   before(() => {
     gateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-tc-'));
     execSync('aitri init', { cwd: gateDir, encoding: 'utf8' });
+    // Ordering gate (§3.1): `complete 3` now requires Phases 1 & 2 completed. This
+    // suite isolates the Phase-3 h/f gate, so seed the upstream as already done.
+    const cfgPath = path.join(gateDir, '.aitri');
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    cfg.completedPhases = [1, 2];
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg));
   });
 
   after(() => fs.rmSync(gateDir, { recursive: true, force: true }));

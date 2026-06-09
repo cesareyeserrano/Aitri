@@ -383,3 +383,35 @@ The team has shipped comparable services before.
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// §3.1 (rc.64 adopter): a phase cannot be completed on top of an upstream phase that
+// was never validated — otherwise a silently-failed `complete requirements` still lets
+// architecture→…→deploy be completed/approved over a Phase 1 with no stored state.
+describe('cmdComplete() — upstream ordering gate (§3.1)', () => {
+  it('refuses to complete a downstream phase when an upstream phase is not completed', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '## Executive Summary\nDesign.\n');
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [] })); // phase 1 NOT completed
+      assert.throws(
+        () => cmdComplete({ dir, args: ['architecture'], err: noopErr }),
+        /upstream phase\(s\) not yet completed: requirements/
+      );
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('allows completing a phase once its upstream is completed', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+      writeFile(dir, 'spec/02_SYSTEM_DESIGN.md',
+        '## Executive Summary\nD\n## System Architecture\nA\n## Data Model\nM\n## API Contracts\nC\n## Security & Auth\nS\n## Deployment\nD\n');
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1] }));
+      // Should not throw on the ordering gate (it may still validate the design artifact).
+      let orderingError = false;
+      try { captureStdout(() => cmdComplete({ dir, args: ['architecture'], err: noopErr })); }
+      catch (e) { if (/upstream phase/.test(e.message)) orderingError = true; }
+      assert.equal(orderingError, false, 'ordering gate must pass when phase 1 is completed');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

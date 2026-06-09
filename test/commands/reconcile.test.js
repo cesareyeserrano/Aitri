@@ -322,7 +322,7 @@ describe('cmdApprove() — records reconcileState on phase 4 approval', () => {
       writeFile(dir, 'spec/04_BUILD_REPORT.json', '{"files_created":[],"setup_commands":[]}');
       writeFile(dir, '.aitri', JSON.stringify({
         artifactsDir:   'spec',
-        approvedPhases: [],
+        approvedPhases: [1, 2, 3], // upstream must be approved (ordering gate §3.1)
         completedPhases: [4],
       }));
       const origLog = console.log.bind(console);

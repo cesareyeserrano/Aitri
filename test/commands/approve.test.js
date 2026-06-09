@@ -460,6 +460,7 @@ describe('cmdApprove() — accepts numeric phase', () => {
     writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '## Executive Summary\nDesign.\n');
     writeFile(dir, '.aitri', minimalConfig({
       completedPhases: [2],
+      approvedPhases:  [1], // upstream must be approved (ordering gate §3.1)
     }));
     captureAll(() =>
       cmdApprove({ dir, args: ['2'], err: noopErr })
@@ -616,6 +617,7 @@ describe('cmdApprove() — phase 4 shows verify-run hint', () => {
     writeFile(dir, 'spec/04_BUILD_REPORT.json', '{"files_created":[],"setup_commands":[]}');
     writeFile(dir, '.aitri', minimalConfig({
       completedPhases: [4],
+      approvedPhases:  [1, 2, 3], // upstream must be approved (ordering gate §3.1)
     }));
     output = captureAll(() =>
       cmdApprove({ dir, args: ['build'], err: noopErr })
@@ -1052,6 +1054,7 @@ describe('cmdApprove() — feature approve 4 advances ROOT reconcile baseline (P
       writeFile(rootDir, '.aitri', minimalConfig({
         aitriVersion: '2.0.0-rc.1',
         completedPhases: [4],
+        approvedPhases:  [1, 2, 3], // upstream must be approved (ordering gate §3.1)
       }));
       writeFile(rootDir, 'spec/04_BUILD_REPORT.json',
         '{"files_created":[]}');
@@ -1167,6 +1170,45 @@ describe('cmdApprove() — FR snapshot for downstream phases (TPA-11)', () => {
       captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
       const config = loadConfig(dir);
       assert.ok(!(config.frSnapshots && config.frSnapshots['1']), 'phase 1 needs no FR snapshot');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+// §3.1 (rc.64 adopter): approval ordering + an honest completion message. A feature
+// must not reach "🎉 All 5 phases complete and approved" while an upstream phase was
+// never validated.
+describe('cmdApprove() — upstream ordering gate + honest completion message (§3.1)', () => {
+  it('refuses to approve a phase whose upstream is not approved', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '## Executive Summary\nD.\n');
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [2], approvedPhases: [] })); // phase 1 NOT approved
+      assert.throws(
+        () => cmdApprove({ dir, args: ['architecture'], err: noopErr }),
+        /upstream phase\(s\) not approved: requirements/
+      );
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT celebrate "All 5 complete" when deploy is approved but an upstream phase is not', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/05_TRACEABILITY.json', '{"overall_status":"compliant","requirement_compliance":[]}');
+      // Upstream of deploy (1,2,4) approved so the ordering gate passes — but phase 3 is NOT approved.
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [5], approvedPhases: [1, 2, 4] }));
+      const out = captureAll(() => cmdApprove({ dir, args: ['deploy'], err: noopErr }));
+      assert.ok(!/All 5 phases complete/.test(out), 'must not falsely celebrate a half-approved pipeline');
+      assert.ok(/pipeline is NOT complete/.test(out) && /\b3\b/.test(out), 'must name the unapproved phase (3)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('celebrates only when every core phase is genuinely approved', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/05_TRACEABILITY.json', '{"overall_status":"compliant","requirement_compliance":[]}');
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [5], approvedPhases: [1, 2, 3, 4] }));
+      const out = captureAll(() => cmdApprove({ dir, args: ['deploy'], err: noopErr }));
+      assert.ok(/All 5 phases complete and approved/.test(out), 'genuine completion must celebrate');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
