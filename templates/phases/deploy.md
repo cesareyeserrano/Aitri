@@ -48,7 +48,7 @@
     "project":                string  — project name
     "version":                string  — e.g. "1.0.0"
     "phases_completed":       array   — e.g. [1, 2, 3, 4, 5]
-    "overall_status":         string  — "compliant" | "partial" | "draft"
+    "overall_status":         string  — EXACTLY one of "compliant" | "partial" | "draft" (the validator rejects anything else). This is the TOP-LEVEL roll-up — do NOT use a per-requirement compliance `level` value here (e.g. "complete"/"production_ready" are levels, not statuses).
     "requirement_compliance": array   — one entry per FR/NFR (see below)
   Each compliance entry: { "id":"FR-001", "title":"...", "level":"...", "evidence":"..." }
   ⚠ Field MUST be "id" — NOT "fr_id". 04_TEST_RESULTS.json uses "fr_id" internally; this file uses "id". Do not copy the field name from test results.
@@ -84,7 +84,7 @@ After saving all deployment files + 05_TRACEABILITY.json, present this report to
 ```
 ─── Phase 5 Complete — Deployment ────────────────────────────
 Deployment files:  [list: Dockerfile, docker-compose.yml, DEPLOYMENT.md, etc.]
-Overall status:    [compliant | partial | non-compliant]
+Overall status:    [compliant | partial | draft]
 
 FR compliance:
   MUST:   [N]/[N] production_ready · [N] partial · [N] placeholder

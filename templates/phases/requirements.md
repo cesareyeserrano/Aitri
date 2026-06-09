@@ -163,7 +163,7 @@ Include these as comments in project_summary or as a separate "product_analysis"
 ## Rules
 - Min 5 FRs — non-trivial products have 8-15 MUST FRs. If you have fewer than 8 MUSTs, revisit the Depth Protocol above
 - Every MUST FR must have ≥1 linked user story. For projects with multiple personas, write one story per persona that interacts with that FR
-- MUST FRs of type security, persistence, logic, or reporting: ≥2 distinct acceptance_criteria — one for the happy path, one for a failure or boundary condition
+- **Shape acceptance_criteria for the Three-Amigos test gate (enforced later at Phase 3).** At Phase 3, every MUST FR needs ≥3 test cases covering a **happy path**, an **edge case**, and a **negative/failure** scenario (the gate requires a TC id ending `h` AND one ending `f`). So write each MUST FR's acceptance_criteria to support all three — at minimum one positive (expected behaviour) AND one negative/boundary (rejection, error, limit, empty/duplicate input). An FR whose ACs are **all positive** (e.g. a plain list/create) or **all negative** (e.g. a permission check) cannot satisfy the Phase-3 gate and forces a Phase-1 re-open + cascade — shape it correctly now. MUST FRs of type security, persistence, logic, or reporting especially need an explicit failure AC.
 - Every user story linked to a MUST FR must have ≥1 acceptance_criteria entry in Given/When/Then format
   Given: concrete system state | When: exact action or input | Then: verifiable assertion with specific value
 - user_personas: infer from IDEA.md — who uses this product, their tech level, goal, and pain point
