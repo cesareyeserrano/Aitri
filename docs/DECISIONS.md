@@ -1282,3 +1282,40 @@ So Phase 3 mandates a join-key (`ac_id`) whose target the upstream phase is not 
 **Trade-offs.** `.gitignore` rewriting is the most delicate step — kept minimal + surfaced in the upgrade report. Fresh clones re-establish their code-drift baseline (acceptable — code drift is per-workdir; the artifact-drift guarantee is preserved via the committed shared `.aitri`). Cross-machine code-drift history is not shared — by design. The residual git-conflict surface on the shared `.aitri` is real but meaningful (only on genuine concurrent pipeline ops, not the old timestamp noise) and minimized by the conditional-write rule.
 
 **Explicitly NOT changed:** the `events[]` cap (max-20 recent-activity — its consumer, Hub, is well-served; full audit history is a separate, non-existent consumer — see the rc.50-era backlog note). No new gate, no change to produced artifacts. The split is purely about WHERE state lives, to preserve the drift guarantee in teams. **Supersedes ADR-028** (which stays as the record of the deferral and its rationale).
+
+## ADR-046 — 2026-06-10 — Stack-aware project `profile` axis: REJECTED — declaration already covers stack breadth, more expressively
+
+**Status:** REJECTED — not implemented. Closes the "Stack-aware project profile" design study (removed from BACKLOG.md). The first rejection-class ADR; recorded so the question is not re-litigated from zero.
+
+**Context.** Open question: should `.aitri` carry a `profile` enum (`web | cli | service | library | embedded | …`) that conditionally enables/disables phase rules, NFR templates, and runner expectations? The motivating observation is correct and not disputed: Aitri's target spectrum is broad — web/mobile apps, bare endpoints, integrations, data pipelines, Linux binaries, backend-only/no-frontend, libraries/SDKs with no human user, HACS-style components, projects depending on external stacks (React/Node/…), and greenfield vs brownfield. The question is whether a `profile` axis is the right tool for that breadth.
+
+**Decision — do NOT add a profile axis.** Verified against the code, Aitri already absorbs the breadth through **declaration + optionality**, which is strictly more expressive than an enum:
+
+- **Declare, don't assume.** System Design (Phase 2, `architecture.md`) has a `## Deployment Architecture` section where the deployment model is stated explicitly (containerized / binary-native / **package-library** / serverless / static); Phase 5 (`deploy.md`) reads it and packages accordingly — it literally instructs "do NOT default to Docker." `verify-run` runs whatever `test_runner` / e2e runner the project declares, gating on exit code. → covers library, integration, HACS, Linux binary, endpoint, serverless.
+- **The human/UX surface is optional or non-blocking.** UX + Discovery are `OPTIONAL_PHASES` → backend-only/library/integration skip them. In Phase 1, the hard-required fields are only FRs + NFRs; `user_personas` and user-stories-per-MUST-FR are **warnings, not gates** (`phase1.js:172-184`) — a project with no human user passes Phase 1, it only gets a nudge. → covers backend-only / library-without-a-human-user.
+- **Greenfield vs brownfield is the entry command, not a setting** (`init` / `adopt` / `feature`), already first-class.
+- **External deps (React/Node) are the project's,** not Aitri's; the zero-dep invariant is about Aitri itself, which orchestrates the project's own toolchain. Non-issue.
+
+**Why a profile is the wrong tool (not merely unneeded):**
+1. **Projects are several types at once** (a backend endpoint that also ships a published client library and a CLI). An enum forces ONE label on a thing that is many; the declaration model expresses combinations natively.
+2. **It would duplicate the System Design declaration** → two sources of truth that can contradict (`profile:cli` vs `deployment:container` — which wins?).
+3. **It locks the enum to whatever is named first** — HACS, data-pipeline, mobile, serverless do not fit a `{web|cli|service|library|embedded}` set cleanly → perpetual enum churn or wrong-bucketing.
+4. It is a `.aitri` contract change Hub must absorb, for no offsetting gain.
+
+**Residual (real, but soft).** Some prompt *examples* lean web/human — the sample persona "End User, tech_level low|mid|high", NFR minimums like "GET /health". Per principle 4 these are acceptable conditional examples, not stack-locked imperatives (no defect). The mitigation — neutralizing those examples — was evaluated and **also declined for now**: changing the most-used phase on a hypothesis carries a real **regression risk to the proven majority (web) case** (the persona/user-story nudges genuinely improve web requirements) and would be guessing blind without a real non-web project in hand. Correct time to neutralize: with a real non-web example to calibrate against, done additively (an escape clause for no-human-user projects) rather than by softening the web nudge.
+
+**When this would be reconsidered (the honest bar).** Only if a stack needs the pipeline to differ **structurally** in a way declaration + optional-phases cannot express: the artifact chain itself must differ, a *core* phase must be added/removed beyond existing optionality, or two runners must run simultaneously. None has been observed.
+
+**Residual concern, folded — not dropped.** The legitimate underlying signal is that Aitri's non-web breadth is "works by design" but **unvalidated end-to-end** — the only third-party validation to date is a web stack (.NET + React). That is **not** a separate backlog item; it belongs to the **v2.0.0 promotion gate** (promotion wants diverse third-party adopters, not only web). Recorded here so the thread survives the study's closure.
+
+**Trade-off.** If a structural divergence later proves real, it is discovered later and fixed then — accepted over building a speculative, less-expressive axis now and freezing it into the `.aitri` contract.
+
+## ADR-047 — 2026-06-10 — `reconcile` post-approve drift nudge: ACCEPTED as-is, not "fixed" — the conservative false-positive is the design
+
+**Status:** ACCEPTED (the current behaviour is the decision). Closes the recurring "reconcile flags the just-approved build as drift after a push" backlog item — removed from BACKLOG.md so it is not re-litigated again (it had been discussed and re-analysed multiple times).
+
+**Behaviour.** After `approve 4`, committing + pushing the build makes `aitri status` nudge "N files changed outside pipeline — run reconcile". Cause: `approve 4` stamps `reconcileState.baseRef = HEAD` while the build is still uncommitted in the working tree; committing it advances HEAD past `baseRef`, so `git diff baseRef..HEAD` surfaces it. Mitigation exists: `aitri reconcile --resolve` advances the baseline (guarded by clean-tree + verify-passed + no-bugs).
+
+**Decision — accept it; do NOT build a fix.** This is conservative-by-design, not a defect: reconcile prefers a **false positive (a recoverable nag)** over a **false negative (silently absorbing real off-pipeline drift)** — the latter would break Aitri's central promise that the approved spec/build was not edited behind its back. A candidate fix was found and weighed (record an approved-build fingerprint at approve time — paths + content hashes — and let reconcile recognise an exact match instead of nagging; genuinely distinct from the three previously-rejected fixes and not blind). It was **declined on value**: the symptom is P3, already recoverable via `--resolve`; the fix means content-hashing the build (incl. untracked files, with binary/line-ending edge cases) inside the already-subtle reconcile mechanism (ADR-045 split), and a bug in that path would trade the safe failure mode for the dangerous one. Value-to-produced-software ≤ 4, severity non-critical → the decision matrix says do not implement.
+
+**Trade-off.** The operator lives with a one-line nag after each approved-build push, cleared by `reconcile --resolve`. Accepted as the permanent cost of keeping drift detection fail-safe. Re-open only if the friction escalates materially AND the fingerprint fix can be made rock-solid (no path to silent absorption).

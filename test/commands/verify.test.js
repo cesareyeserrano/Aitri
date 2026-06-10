@@ -1684,6 +1684,71 @@ describe('cmdVerifyComplete() — FR coverage gate is MUST-only (#2)', () => {
   });
 });
 
+// NFR-regression (rc.73): a MUST NFR whose test SKIPPED (not failed) reaches the deploy
+// gate untested — fr_coverage is FR-only, so it was invisible. verify-complete now surfaces
+// it (ADVISORY, never blocks) so the operator sees it at the deploy moment.
+describe('cmdVerifyComplete() — MUST-NFR skipped-test visibility (NFR-regression)', () => {
+  // FR-001 MUST (TC-001 passes) so the FR gate is satisfied; NFR-001 MUST (TC-002).
+  function seed(dir, nfrTcStatus) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'core', priority: 'MUST' }],
+      non_functional_requirements: [{ id: 'NFR-001', category: 'Regression', priority: 'MUST', requirement: 'login keeps working' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [
+        { id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' },
+        { id: 'TC-002', title: 'regression', requirement_id: 'NFR-001', expected_result: 'r' },
+      ],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+      files_created: [{ path: 'x.js' }], test_runner: 'node --test',
+    }));
+    const nfrResult = nfrTcStatus === 'skip'
+      ? { tc_id: 'TC-002', status: 'skip', notes: 'runs in the separate perf suite' } // notes: skipped-with-notes gate
+      : { tc_id: 'TC-002', status: 'pass' };
+    fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
+      executed_at: new Date().toISOString(), test_runner: 'node --test', exit_code: 0,
+      results: [{ tc_id: 'TC-001', status: 'pass' }, nfrResult],
+      fr_coverage: [{ fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' }],
+      summary: { total: 2, passed: nfrTcStatus === 'skip' ? 1 : 2, failed: 0, skipped: nfrTcStatus === 'skip' ? 1 : 0 },
+      low_confidence_tcs: [],
+    }));
+  }
+  function capture(fn) {
+    let err = '';
+    const origLog = console.log; const origErr = process.stderr.write;
+    console.log = () => {}; process.stderr.write = (c) => { err += c; return true; };
+    try { fn(); } finally { console.log = origLog; process.stderr.write = origErr; }
+    return err;
+  }
+
+  it('surfaces a MUST NFR whose test skipped — WITHOUT blocking', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-nfr-skip-'));
+    try {
+      seed(dir, 'skip');
+      let stderr = '';
+      assert.doesNotThrow(() => { stderr = capture(() =>
+        cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); });
+      assert.match(stderr, /MUST NFR\(s\) reached the deploy gate without a passing test/);
+      assert.match(stderr, /NFR-001/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('says nothing when the MUST NFR has a passing test', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-nfr-pass-'));
+    try {
+      seed(dir, 'pass');
+      const stderr = capture(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } }));
+      assert.doesNotMatch(stderr, /MUST NFR\(s\) reached the deploy gate/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('cmdVerifyComplete() — Z3 next-action respects phase 5 state', () => {
   function seedReady(dir, opts = {}) {
     const phase5Approved = opts.phase5Approved ?? false;

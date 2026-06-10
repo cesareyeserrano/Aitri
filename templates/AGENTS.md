@@ -61,6 +61,8 @@ If there is no `.aitri` yet, run `aitri init`. It creates `IDEA.md` (the seed) +
 
 For tests that genuinely cannot be automated (manual QA, external systems): `aitri tc mark-manual <TC-ID>` sets the TC's `automation` field to `manual` so the e2e coverage gate accepts it without an automated runner.
 
+- **MUST-NFR skipped at the deploy gate (advisory).** If `verify-complete` warns that a MUST NFR reached the deploy gate with no passing test (its test(s) skipped, not failed), do NOT ignore it: a skipped regression NFR is untested. Confirm it is genuinely verified elsewhere (e.g. a separate perf/security suite) or un-skip its test and re-run `verify-run`. Aitri cannot tell a forgotten `test.skip` from an externally-tested NFR, so it surfaces rather than blocks — the judgment is yours.
+
 **Test rigor signals (verify-run):**
 - `aitri verify-run --coverage-threshold <N>` measures line coverage and flags it below `N`. Works across stacks (node, `go test`, `pytest`, `jest`/`vitest`) — the coverage tool must already be in the project's deps.
 - `verify-run` flags **low-confidence TCs** (≤1 assertion — tests that may pass without verifying real behavior). This is a warning by default. A project can set `"strictAssertions": true` in `.aitri` to make `aitri verify-complete` **block** until each flagged TC has real assertions tied to its `expected_result`. If verify-complete blocks on this, add assertions that exercise the behavior (not constants / `assert.ok(true)`), then re-run `verify-run`.

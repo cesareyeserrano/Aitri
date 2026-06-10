@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { execSync } from 'node:child_process';
 import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate, configExists, homedirCaptureNote, clearCascadePending } from '../lib/state.js';
 
 function tmpDir() {
@@ -458,6 +459,53 @@ describe('writeLastSession()', () => {
     assert.equal(loaded.lastSession.event, 'complete requirements');
     assert.equal(loaded.lastSession.context, 'halfway through FR-001');
     fs.rmSync(dir, { recursive: true });
+  });
+
+  // TPA-10: getFilesTouched must work cross-platform. The HEAD→plain-diff fallback
+  // (formerly a shell `||`) and stderr suppression (formerly POSIX `2>/dev/null`,
+  // which cmd.exe cannot parse) are exercised here against a real git repo.
+  it('records files_touched in a git repo with commits (HEAD-diff branch)', () => {
+    const dir = tmpDir();
+    execSync('git init -q', { cwd: dir });
+    execSync('git config user.email t@t.t && git config user.name t', { cwd: dir });
+    fs.writeFileSync(path.join(dir, 'a.txt'), 'one');
+    execSync('git add -A && git commit -q -m init', { cwd: dir });
+    fs.writeFileSync(path.join(dir, 'a.txt'), 'two'); // tracked modification → shows in diff
+    const config = {};
+    writeLastSession(config, dir, 'complete requirements');
+    assert.deepEqual(config.lastSession.files_touched, ['a.txt'], 'HEAD-diff must list the modified file');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('does not throw in a git repo with no commits yet (plain-diff fallback)', () => {
+    const dir = tmpDir();
+    execSync('git init -q', { cwd: dir }); // no commit → `git diff HEAD` exits non-zero
+    const config = {};
+    assert.doesNotThrow(() => writeLastSession(config, dir, 'approve 1'));
+    assert.equal(config.lastSession.files_touched, undefined, 'no staged/tracked changes → field omitted');
+    fs.rmSync(dir, { recursive: true });
+  });
+});
+
+// ── Cross-platform shell-command hygiene (TPA-10 regression guard) ─────────────
+// execSync/spawnSync run through cmd.exe on Windows, which cannot parse the POSIX null
+// device path in a command string (a stderr redirect to it leaks an error to the
+// operator on every state-mutating command). Nothing in lib/ should hardcode that path:
+// silence stderr via the `stdio` option, and use os.devNull for a portable null file.
+describe('shell-command portability (TPA-10)', () => {
+  it('no lib/ file hardcodes the POSIX null device path', () => {
+    const libDir = path.join(import.meta.dirname, '..', 'lib');
+    const needle = ['/dev', 'null'].join('/'); // assembled so this guard does not flag itself
+    const offenders = [];
+    const walk = (d) => {
+      for (const entry of fs.readdirSync(d, { withFileTypes: true })) {
+        const p = path.join(d, entry.name);
+        if (entry.isDirectory()) walk(p);
+        else if (entry.name.endsWith('.js') && fs.readFileSync(p, 'utf8').includes(needle)) offenders.push(p);
+      }
+    };
+    walk(libDir);
+    assert.deepEqual(offenders, [], `Hardcoded POSIX null device breaks on Windows cmd.exe. Suppress stderr with stdio:['ignore','pipe','ignore']; use os.devNull for a portable null file. Offenders: ${offenders.join(', ')}`);
   });
 });
 
