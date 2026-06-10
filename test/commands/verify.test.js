@@ -1147,6 +1147,26 @@ describe('cmdVerifyRun() — Z1 verifyPassed invalidation', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  // §3.4 round / §3.8 (rc.64 adopter): exit≠0 AND zero detected TCs means the suite
+  // likely did NOT run (build/compile failure, crash, app holding the build output) —
+  // not "all tests skipped". Surface it so the per-TC "rename your function" notes are
+  // not mistaken for the real cause.
+  it('§3.8 — warns when the runner exits non-zero AND detects no TCs (build/lock, not all-skip)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-buildfail-'));
+    try {
+      seedProject(dir, { runnerScript: 'process.exit(1);' }); // no output, non-zero exit
+      let stderr = '';
+      const origErr = process.stderr.write; const origLog = console.log;
+      process.stderr.write = (c) => { stderr += c; return true; }; console.log = () => {};
+      try {
+        cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } });
+      } catch { /* a non-zero run may err downstream; the warning is already on stderr */ }
+      finally { process.stderr.write = origErr; console.log = origLog; }
+      assert.match(stderr, /produced NO recognizable TC results/);
+      assert.match(stderr, /did NOT run/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('rc.42 — warns when the runner exits non-zero but no TCs failed (exit-code divergence)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-divergence-'));
     try {
