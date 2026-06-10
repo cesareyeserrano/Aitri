@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, buildFRCoverage, buildACCoverage, scanTestContent, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates } from '../../lib/commands/verify.js';
+import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, buildFRCoverage, buildACCoverage, scanTestContent, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, resolveWinBin } from '../../lib/commands/verify.js';
 import { cmdStatus } from '../../lib/commands/status.js';
 
 describe('parseRunnerOutput()', () => {
@@ -2129,5 +2129,42 @@ describe('opt-in review gate (ADR-034 addendum)', () => {
       run(dir);
       assert.doesNotThrow(() => complete(dir));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+// §3.10 / Windows (rc.64 adopter): npm-family launchers are .cmd shims that spawn()
+// with shell:false cannot resolve on Windows. resolveWinBin maps them to .cmd on
+// win32 only — a no-op on POSIX (so this whole suite, which runs on POSIX, is
+// unaffected). The win32 branch is exercised by overriding process.platform.
+describe('resolveWinBin() — Windows npm-family .cmd resolution', () => {
+  function asPlatform(name, fn) {
+    const orig = Object.getOwnPropertyDescriptor(process, 'platform');
+    Object.defineProperty(process, 'platform', { value: name, configurable: true });
+    try { return fn(); } finally { Object.defineProperty(process, 'platform', orig); }
+  }
+
+  it('is a no-op on POSIX (returns the bare binary unchanged)', () => {
+    asPlatform('linux', () => {
+      assert.equal(resolveWinBin('npm'), 'npm');
+      assert.equal(resolveWinBin('npx'), 'npx');
+    });
+  });
+
+  it('maps npm-family shims to .cmd on win32', () => {
+    asPlatform('win32', () => {
+      assert.equal(resolveWinBin('npm'),  'npm.cmd');
+      assert.equal(resolveWinBin('npx'),  'npx.cmd');
+      assert.equal(resolveWinBin('yarn'), 'yarn.cmd');
+      assert.equal(resolveWinBin('pnpm'), 'pnpm.cmd');
+    });
+  });
+
+  it('leaves .exe-resolving binaries and already-extensioned commands untouched on win32', () => {
+    asPlatform('win32', () => {
+      assert.equal(resolveWinBin('node'),    'node');     // node.exe resolves
+      assert.equal(resolveWinBin('dotnet'),  'dotnet');   // dotnet.exe resolves
+      assert.equal(resolveWinBin('go'),      'go');
+      assert.equal(resolveWinBin('npm.cmd'), 'npm.cmd');  // already has an extension
+    });
   });
 });
