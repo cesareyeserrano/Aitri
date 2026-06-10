@@ -68,6 +68,20 @@ Use **only** for architectural decisions with cross-cutting impact (new command,
 - **REFACTOR** → Consolidate without breaking existing command APIs
 - **PROMPT** → Edit `templates/phases/` or `lib/personas/` with role coherence
 
+## Working method — the change lifecycle
+
+Aitri Core is **not** managed by Aitri's own pipeline (it is the dev repo — see the override at top). So it lacks the structural enforcement Aitri gives consumer projects: nothing *forces* the phases here. The substitute is this lightweight lifecycle — it delivers the pipeline's INTENT (intent before code → verify → trace → record → no drift) at solo-dev scale. It is a method, not ceremony: do not manufacture heavyweight process for a zero-dep CLI.
+
+**Every change flows through these five steps. Step 5 is the one that silently rots if skipped.**
+
+1. **Frame** — establish the *verified* problem before touching code. Run the *Feedback evaluation protocol before implementing* (real bug vs preference, root cause read from the code, generalizes?, invariants, what's sacrificed). **Never implement on an unverified hypothesis.**
+2. **Decide** — pick the leanest change that resolves the framed problem. If it is cross-cutting (new command, artifact-chain, invariant, non-trivial schema), apply the *Decision matrix*; if it is an architectural decision, it needs an ADR. Surface the trade-off *before* writing code, not after.
+3. **Build + verify** — implement with a **dedicated test for the new behavior**. `npm run test:all` green is the **only hard gate** — the test suite is Aitri Core's executable spec; keep it comprehensive and treat it as sacred. **Never ship red.** Green tests ≠ shippable, but red = not shippable, full stop.
+4. **Record** — bump the version if behavior/output changed; add a tight `CHANGELOG.md` entry; write an **ADR** if architectural; **update `docs/ARCHITECTURE.md` in the same commit if the change is architectural** (a stale anchor inverts the relationship); update `docs/integrations/*` if a schema/contract moved.
+5. **Hygiene** — leave the record true: shipped items LEAVE the backlog (→ CHANGELOG), discarded ones leave (→ DECISIONS or deleted), docs stay coherent. Doc governance for the local working notes: `docs/Aitri_Design_Notes/README.md`. **Drift accumulates exactly here — a change is not done until the record reflects reality.**
+
+The honest ceiling: the test suite is the only *structural* gate Aitri Core will ever have (it cannot pipe itself). Steps 1, 2, 4, 5 are disciplined judgment, not enforcement — which is why they must be followed deliberately, every time.
+
 ## System invariants
 
 These invariants are not negotiable. If a proposal violates them, Claude must say so before implementing.
