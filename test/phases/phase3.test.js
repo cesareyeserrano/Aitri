@@ -270,6 +270,18 @@ describe('Phase 3 — validate()', () => {
     assert.throws(() => PHASE_DEFS[3].validate(JSON.stringify(d)), /FR-001.*no TC id ending in 'f'/);
   });
 
+  // §3.4 (rc.64 adopter): Three-Amigos coverage gaps for ALL FRs are reported in one
+  // error, not one FR (and one sub-check) per complete cycle.
+  it('reports coverage gaps for ALL FRs in a single error (aggregation)', () => {
+    const d = JSON.parse(validP3());
+    d.test_cases[2].scenario = 'edge_case'; // FR-001 loses its negative scenario
+    d.test_cases[5].scenario = 'edge_case'; // FR-002 loses its negative scenario
+    let msg = '';
+    try { PHASE_DEFS[3].validate(JSON.stringify(d)); } catch (e) { msg = e.message; }
+    assert.match(msg, /FR-001.*no negative/, 'first FR named');
+    assert.match(msg, /FR-002.*no negative/, 'second FR named in the SAME error');
+  });
+
   it('[Rank 11] passes when all FRs have both h and f suffixed TCs', () => {
     assert.doesNotThrow(() => PHASE_DEFS[3].validate(validP3()));
   });
