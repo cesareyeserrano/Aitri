@@ -1,0 +1,1284 @@
+# Aitri — Decision Log (ADRs)
+
+> Immutable record of architecture decisions. Each entry explains the context, decision, and trade-off.
+> Once written, an entry is not modified — a new entry is added if the decision changes.
+
+---
+
+## ADR-001 — stdout as briefing delivery protocol
+**Date:** 2026-03-09
+**Status:** Active
+
+**Context:** We needed a mechanism for Aitri to deliver instructions to the agent without coupling to any specific model.
+
+**Decision:** `run-phase` prints the complete briefing to stdout. The agent reads and acts on it.
+
+**Trade-off:** The agent must be able to read stdin or capture stdout. Gain: full portability, CI/CD compatibility, zero coupling.
+
+---
+
+## ADR-002 — Filesystem as IPC between phases
+**Date:** 2026-03-09
+**Status:** Active
+
+**Context:** Each phase's artifacts are the input of the next. We needed a handoff mechanism between agents.
+
+**Decision:** Artifacts are plain files in the project directory. Handshake: file exists + passes `validate()`.
+
+**Trade-off:** No transactionality or file locking. Gain: simplicity, auditability, compatibility with any agent.
+
+---
+
+## ADR-003 — Zero external dependencies
+**Date:** 2026-03-09
+**Status:** Active
+
+**Context:** Aitri is installed globally (`npm install -g aitri`). Any dependency is a failure vector.
+
+**Decision:** `"dependencies": {}` permanent. Only Node.js built-ins (`fs`, `path`, `url`, `node:test`, `node:assert`).
+
+**Trade-off:** Cannot use JSON Schema validation libraries (ajv, zod). Validation is manual in `validate()`. Acceptable given the scope.
+
+---
+
+## ADR-004 — extractContext() to minimize context drift
+**Date:** 2026-03-09
+**Status:** Active
+
+**Context:** Passing full artifacts between phases inflates the agent's context and degrades output quality.
+
+**Decision:** Each phase defines `extractContext()` that filters only the fields the next agent needs. Phase 4 caps the SDD at 120 lines with `head()`.
+
+**Trade-off:** If relevant information falls outside the `head()` cap, the downstream agent won't see it. Mitigated by the SDD section order.
+
+---
+
+## ADR-005 — Artifact validation in aitri complete (not in run-phase)
+**Date:** 2026-03-09
+**Status:** Active
+
+**Context:** Agents can generate incomplete or malformed artifacts. We needed a hard gate.
+
+**Decision:** `aitri complete N` calls `p.validate(content)` before recording completion. If it fails, the pipeline does not advance.
+
+**Trade-off:** The agent has already written the file before validation. On failure, it must correct and re-call `complete`. No automatic file rollback.
+
+---
+
+## ADR-006 — Typed FRs with measurable acceptance criteria
+**Date:** 2026-03-09
+**Status:** Active
+
+**Context:** Agents generated FRs with vague acceptance criteria ("works correctly"). Phase 5 validation was a global unverifiable claim.
+
+**Decision:** Each MUST FR has `type` (UX|persistence|security|reporting|logic) with type-specific acceptance criteria. Phase 5 validates per FR, not globally.
+
+**Trade-off:** More work in Phase 1. The PM Persona must be more specific. Gain: real compliance, not declarative.
+
+---
+
+## ADR-007 — Mandatory Technical Debt Declaration in Phase 4
+**Date:** 2026-03-09
+**Status:** Active
+
+**Context:** Agents made silent substitutions (HTML table instead of chart, JSON instead of DB). The pipeline approved them without a record.
+
+**Decision:** `04_IMPLEMENTATION_MANIFEST.json` requires `technical_debt[]` field. Empty array only if zero substitutions were made. Phase 5 inherits and reports.
+
+**Trade-off:** The agent can declare false or incomplete debt. Better than silence — at least there is a record for human audit.
+
+---
+
+## ADR-008 — English as the single language for all project documentation
+**Date:** 2026-03-09
+**Status:** Active
+
+**Context:** Design notes and source code comments were mixing Spanish and English (Spanglish). This creates friction for contributors and makes the project less accessible.
+
+**Decision:** All documentation in `docs/`, all code comments, all README content, and all error messages are written in English. No exceptions.
+
+**Trade-off:** Initial translation effort for existing docs. Gain: consistency, contributor accessibility, professional standard.
+
+---
+
+## ADR-009 — Bug storage as `spec/BUGS.json`, not `.aitri` or individual markdown files
+**Date:** 2026-03-18
+**Status:** Active — pending implementation
+**Feature:** `aitri bug`
+
+**Context:** `aitri bug` needs persistent storage for bug records. Three options were evaluated:
+- Option A: Individual markdown files in `spec/bugs/BG-001.md` — human-readable, editable, consistent with SDLC-Studio's pattern
+- Option B: Embedded in `.aitri` config (e.g., `config.bugs[]`) — simple, managed by `state.js`
+- Option C: Single structured file `spec/BUGS.json` — machine-readable, human-inspectable, sits in the public artifact directory
+
+**Decision:** `spec/BUGS.json` (Option C).
+
+**Reasoning:**
+- Bugs are project artifacts, not pipeline state. `.aitri` is the state contract between phases; bugs are a separate concern that begins after deployment.
+- `spec/` is the canonical artifact directory already consumed by Hub and Graph. Placing bugs there makes them automatically part of the integration contract without changes to `docs/integrations/ARTIFACTS.md` beyond adding the new schema.
+- Individual markdown files (Option A) are unstructured — querying by severity, FR, or status requires text parsing. `BUGS.json` is directly queryable.
+- A single file is simpler than a directory of files. Merge conflicts are theoretical (Aitri is not designed for concurrent agent writes on the same project).
+
+**Trade-off:** `BUGS.json` is less human-editable than markdown. Mitigated by the fact that all mutations go through `aitri bug` commands, so direct editing should be rare.
+
+---
+
+## ADR-010 — `bug.js` owns BUGS.json I/O — does not go through `state.js`
+**Date:** 2026-03-18
+**Status:** Active — pending implementation
+**Feature:** `aitri bug`
+
+**Context:** `state.js` is the single point of read/write for `.aitri/` (invariant). The question was whether bug storage should also route through `state.js` or be managed independently.
+
+**Decision:** `bug.js` owns `spec/BUGS.json` read/write directly. `state.js` is not modified.
+
+**Reasoning:**
+- The `state.js` invariant applies specifically to `.aitri/config.json` — it exists to prevent multiple commands from reading/writing the pipeline state in inconsistent ways. It is not a general I/O abstraction for all project files.
+- `spec/BUGS.json` is a project artifact (like `01_REQUIREMENTS.json`), not pipeline state. Artifacts are always read directly by commands via `fs` — `validate.js`, `complete.js`, and `verify.js` all read artifacts directly.
+- Routing through `state.js` would bloat it with bug domain logic and break the clear separation between pipeline state and project artifacts.
+
+**Trade-off:** Two I/O patterns in the codebase (state.js for pipeline state, direct fs for artifacts). This is already the existing pattern — not new debt.
+
+---
+
+## ADR-011 — `aitri bug verify` requires `--tc` flag; no exception path
+**Date:** 2026-03-18
+**Status:** Active — pending implementation
+**Feature:** `aitri bug`
+
+**Context:** The bug lifecycle has a `fixed` state that requires a test case reference before closing. The design question was whether `--tc` should be required or optional with a warning.
+
+**Decision:** `--tc TC-XXX` is a required flag for `aitri bug verify`. The command exits with an error if omitted. The user can bypass by calling `aitri bug close` directly (which skips the verified state and prints a warning that no TC was linked).
+
+**Reasoning:**
+- The core value proposition of `aitri bug` over `aitri backlog` is exactly this enforcement: a bug must have a test case before it can be considered fixed. Making it optional defeats the purpose.
+- `aitri bug close` as an explicit escape hatch is honest — the user is making a conscious choice to close without a test, and the tool records that choice with a warning in the artifact.
+- `validate` warns (not errors) on bugs in `fixed` state without a TC reference, so the pipeline does not hard-block on a bypass — human judgment is preserved.
+
+**Trade-off:** Slightly more friction to close a bug. This is intentional — the friction is the feature.
+
+---
+
+## ADR-012 — `aitri review` checks JSON-to-JSON only; no prose parsing
+**Date:** 2026-03-18
+**Status:** Active — pending implementation
+**Feature:** `aitri review`
+
+**Context:** The initial proposal for `aitri review` included checks against `02_SYSTEM_DESIGN.md` prose (e.g., "FR references a component that doesn't appear in the architecture"). Several cross-document checks were evaluated.
+
+**Decision:** `aitri review` implements only JSON-to-JSON cross-references. All checks involving free-text parsing of markdown documents (`02_SYSTEM_DESIGN.md`) are excluded from this version.
+
+**Checks in scope:**
+- `01_REQUIREMENTS.json` ↔ `03_TEST_CASES.json` — FR coverage (MUST: error, SHOULD: warning)
+- `03_TEST_CASES.json` ↔ `04_TEST_RESULTS.json` — TC result coverage (missing result: warning, orphan result: error)
+
+**Checks explicitly excluded:**
+- FR mentions component not in system design prose → excluded (false positive risk)
+- NFR performance target with no test coverage → excluded (no structured field to parse against)
+- Module in design with no manifest package → excluded (text matching unreliable)
+
+**Reasoning:** A validator that blocks on false positives destroys trust faster than one that catches fewer real issues. JSON-to-JSON checks are deterministic and do not depend on naming conventions or prose structure. The excluded checks require semantic understanding of unstructured text that cannot be done reliably with built-in Node.js string operations.
+
+**Trade-off:** The cross-document check is incomplete — it does not catch inconsistencies in the design and manifest prose. This is acceptable because those inconsistencies are caught by Phase 5 validation and the human review checklist. The goal of `aitri review` is to surface mechanical inconsistencies early, not to replace human review.
+
+---
+
+## ADR-013 — `aitri review` warnings require explicit human acknowledgement in `complete`
+**Date:** 2026-03-18
+**Status:** Active — pending implementation
+**Feature:** `aitri review`
+
+**Context:** When `complete 3` auto-runs `review --phase 3` and finds warnings (e.g., SHOULD FR without a TC), the design question was: block, warn silently, or prompt.
+
+**Decision:** Errors block `complete` with no prompt. Warnings print a list and prompt: "Warnings found — acknowledge to continue? (y/N)". If the user answers N, `complete` exits without recording completion. If Y, completion proceeds and warnings are logged to the event stream.
+
+**Reasoning:**
+- Hard-blocking on warnings would be over-engineering — a SHOULD FR without a TC is a legitimate product decision, not a defect.
+- Silent warnings would be ignored. The pattern from `approve`'s isTTY gate is the right model: force the human to see the warning and make a conscious choice.
+- Logging the acknowledgement to the event stream preserves traceability — auditors can see the human was informed.
+- Non-TTY environments (CI/agents): warnings are printed but acknowledgement is auto-skipped (same isTTY pattern as approve/reject).
+
+**Trade-off:** One extra prompt in the `complete` flow when warnings exist. Consistent with Aitri's existing human-in-the-loop philosophy.
+
+---
+
+## ADR-014 — `adopt verify-spec` follows the run-phase/complete model; Aitri generates briefing, agent writes stubs
+**Date:** 2026-03-18
+**Status:** Active — pending implementation
+**Feature:** `adopt verify-spec`
+
+**Context:** The proposal required generating test stubs for uncovered AC items in a brownfield project. The question was whether Aitri should generate the stub code directly (requiring language-specific templates) or follow the existing model.
+
+**Decision:** `adopt verify-spec` is a briefing generator. It prints a structured prompt to stdout listing every uncovered AC item with context. The agent writes the actual stub code in the project's test framework. After writing stubs, the agent calls `aitri adopt verify-spec --complete` to register the new TCs in `03_TEST_CASES.json`.
+
+**Reasoning:**
+- Aitri's core model is: generate structured briefing → agent executes → agent calls complete. This is used by every phase (run-phase → agent → complete N). Deviating from this pattern would require Aitri to know the project's test framework, language, and file structure — introducing coupling that violates ADR-003 (zero dependencies) and ADR-001 (stdout as briefing delivery).
+- The agent already has full project context from earlier phases. It knows Go from `go.mod`, Python from `pyproject.toml`, TypeScript from `package.json`. The briefing tells it *what* to write; the agent decides *how*.
+- User confirmed this model explicitly: "Aitri si debe hacer todo para que el agente lo escriba bien, el agente si sabe de stack."
+
+**Trade-off:** Stub quality depends on the agent, not Aitri. The `"stub": true` flag in `03_TEST_CASES.json` is the mechanical tracking mechanism — whether the stub is well-written is a human review concern.
+
+---
+
+## ADR-015 — Stub TCs (`"stub": true`) are excluded from Phase 3 `complete` validation count
+**Date:** 2026-03-18
+**Status:** Active — pending implementation
+**Feature:** `adopt verify-spec`
+
+**Context:** `aitri complete 3` validates that every MUST FR has ≥1 TC. Stubs generated by `adopt verify-spec` are TCs with `"stub": true` and `"status": "unverified"`. The question was whether stubs count toward this requirement.
+
+**Decision:** Stubs do NOT count toward the Phase 3 complete validation. A MUST FR covered only by a stub TC is treated the same as a MUST FR with no TC — Phase 3 `complete` requires at least one non-stub TC per MUST FR.
+
+**Reasoning:**
+- Stubs are hypotheses — they are written to discover whether the code satisfies the AC, not as evidence that it does. Counting them as coverage would make the Phase 3 gate meaningless for brownfield projects.
+- The adopt verify-spec flow is an addendum to the standard pipeline, not a replacement for it. The Phase 3 QA work (writing real TCs) still must happen. Stubs are the starting point for that work, not the end.
+- This preserves the invariant: `aitri complete 3` passing means real test coverage exists, regardless of whether the project was greenfield or brownfield.
+
+**Trade-off:** Brownfield projects adopting via `verify-spec` must still write proper TCs in Phase 3. The stubs become the scaffolding for those TCs, not the TCs themselves. This is more work but produces a trustworthy pipeline.
+
+---
+
+## ADR-016 — `aitri bug` severity is informational; pipeline gates on status + FR type, not severity
+**Date:** 2026-03-18
+**Status:** Active — pending implementation
+**Feature:** `aitri bug`
+
+**Context:** When designing the `verify-complete` gate for bugs, the question was whether critical/high severity bugs should always block, regardless of FR linkage.
+
+**Decision:** Pipeline gates (verify-complete, validate) operate on bug `status` and linked `fr` type (MUST/SHOULD/COULD), not on `severity`. A `critical` bug not linked to any FR does not block. A `medium` bug linked to a MUST FR does block `verify-complete` if its status is `open` or `fixed`.
+
+**Reasoning:**
+- Severity is the user's assessment of impact — it is a communication tool, not a mechanical enforcement mechanism. The FR linkage is the authoritative signal: if the bug breaks a must-have requirement, the pipeline should not advance.
+- Blocking on severity alone would create false alarms for bugs that are cosmetically critical (e.g., "logo renders at wrong size" rated high) but not pipeline-blocking.
+- The existing pipeline model already has this principle: what matters is whether the requirement is satisfied, not how bad the symptom feels.
+
+**Trade-off:** A critical bug with no FR linkage does not auto-block. The human is expected to either link it to a FR or consciously decide it is safe to ship. `validate` will warn on all open bugs regardless of severity, ensuring visibility.
+
+---
+
+## ADR-017 — All Ultron-AP feedback features ship as a single version; no staggered releases
+**Date:** 2026-03-18
+**Status:** Active — pending implementation
+
+**Context:** The four features from the Ultron-AP feedback session (`aitri bug`, `aitri review`, `adopt verify-spec`, TDD recommendation in Phase 4) were initially planned as separate version bumps (v0.1.66, v0.1.67, v0.1.68). The user decided to consolidate.
+
+**Decision:** All four features ship together as a single version bump from v0.1.65.
+
+**Reasoning:**
+- The features are thematically coherent: they all address gaps in pipeline integrity discovered in a single real-world project run. They belong together as a release.
+- `aitri review` and `aitri bug` have integration points (`complete 3` runs review, `verify-complete` checks bugs). Shipping them together avoids a release where the integration is half-wired.
+- Single version = single `npm run test:all` gate. The test suite runs once on the full feature set, not three times on partial implementations.
+
+**Trade-off:** Larger implementation session. Acceptable — each feature is independently implementable from its BACKLOG.md entry.
+
+---
+
+## ADR-018 — Design Tokens are always required in 01_UX_SPEC.md; no conditional path
+**Date:** 2026-04-15
+**Status:** Active
+**Version:** v0.1.75
+
+**Context:** Phase UX previously required Design Tokens only "when any UX/visual FR specifies visual attributes." The conditional path allowed agents to produce a UX spec without any color, typography, or spacing definitions if they judged the FRs insufficiently visual. This created two problems:
+1. Every product has a visual layer that Phase 4 must implement. Without tokens, the developer has no source of truth and improvises — breaking the spec-as-contract model.
+2. The conditional gave the agent an escape route from the hardest design work. Agents consistently underspecified aesthetics when given the option.
+
+**Decision:** `## Design Tokens` is always a required section in `01_UX_SPEC.md`. `validate()` now throws if it is missing. The constraint in `ux.js` is unconditional. Tokens must be derived from: (1) archetype defaults, (2) explicit visual FRs if present, (3) product context otherwise. Every token must state its reason.
+
+**Reasoning:**
+- Aitri drives production of real code. The developer persona in Phase 4 implements exactly what the spec says. If the spec has no visual contract, the developer makes aesthetic decisions that are undocumented, non-reviewable, and non-reversible at the UX gate.
+- The archetype system already establishes sensible defaults for every product type. There is no legitimate case where a product has zero visual layer — even a CLI tool has a terminal color scheme if it has a UX spec at all.
+- Making tokens always required also forces the agent to declare the archetype reasoning explicitly, which improves the quality of the entire spec.
+
+**Trade-off:** Existing `01_UX_SPEC.md` artifacts without a `## Design Tokens` section will fail `aitri complete ux`. Projects must re-run Phase UX or add the section manually. This is acceptable — the missing section was always a spec deficiency, not a valid state.
+
+---
+
+## ADR-019 — Phase 3 injects 01_UX_SPEC.md as optional input; UI TCs required when present
+**Date:** 2026-04-15
+**Status:** Active
+**Version:** v0.1.75
+
+**Context:** Phase 3 (QA) previously had no awareness of the UX spec. It received only requirements and system design. When a UX spec existed, the QA agent had no explicit instruction to write TCs for component states, mobile behavior, or design token compliance — even though these are verifiable behaviors that Phase 4 must implement.
+
+**Decision:** Phase 3's `inputs` array now includes `01_UX_SPEC.md`. When present, `tests.md` renders an additional section requiring: (1) component state TCs (loading/error/empty per component in the Component Inventory), (2) mobile behavior TCs per screen at 375px, (3) design token compliance TC (contrast ratio, touch targets). These TCs must use `type: "e2e"`.
+
+**Reasoning:**
+- The existing gate "FR type UX: must include test for responsive layout at 375px viewport" was correct but insufficient. It applied only to FRs explicitly typed as UX. The new section covers the component-level behavior that the spec defines regardless of FR type granularity.
+- Design Tokens are now always required in the spec (ADR-018). It follows that Phase 3 must verify at least one token — otherwise the spec has a constraint with no enforcement path.
+- Phase 3 already has the pattern of conditional injection (feedback, bestPractices). Adding UX_SPEC is consistent with the existing architecture.
+
+**Trade-off:** Phase 3 briefings for projects with a UX spec are longer. The agent must generate more TCs. This is the correct trade-off — more spec coverage means more Phase 4 accountability.
+
+---
+
+## ADR-020 — `files_modified` added to Phase 4 manifest; gate accepts either field
+**Date:** 2026-04-16
+**Status:** Active
+**Version:** v0.1.76
+
+**Context:** Phase 4's `validate()` required `files_created` to be a non-empty array. This assumption — that every build phase creates at least one new file — is false for modification or redesign work (refactors, configuration changes, UI overhauls where all files already exist). In the `/Cesar` project, a feature that only modified existing files was blocked at `aitri complete 4` because `files_created` was empty.
+
+**Decision:** Add `files_modified: []` as an optional sibling field to `files_created`. The gate changes from "files_created must be non-empty" to "files_created OR files_modified must be non-empty". `files_created` is no longer strictly required — projects doing modification-only work can omit it entirely.
+
+**Reasoning:**
+- The original gate modeled greenfield development exclusively. Real projects include modification phases.
+- Both fields have different semantics: `files_created` = net-new files; `files_modified` = existing files changed. Keeping them separate preserves auditability and lets Phase 5 / subproducts distinguish between the two.
+- The gate remains strict: at least one must be non-empty. An agent cannot ship an empty manifest.
+
+**Trade-off:** The schema surface grows by one field. Subproducts reading `04_IMPLEMENTATION_MANIFEST.json` must now handle both fields. Documented in `docs/integrations/CHANGELOG.md` and `ARTIFACTS.md`.
+
+---
+
+## ADR-021 — Phase 3 validate() emits actionable error when TC references NFR id
+**Date:** 2026-04-16
+**Status:** Active
+**Version:** v0.1.76
+
+**Context:** When an agent writes test cases for non-functional requirements (NFR-xxx), Phase 3 `validate()` would run the min-3 / happy_path / negative gate against the NFR id and produce a confusing error: "NFR-001 has 1 test case(s) — min 3 required". The error didn't explain the model: NFRs are not valid TC targets in Aitri.
+
+**Decision:** Before the `byReq` loop, pre-build `knownFRIds` from `01_REQUIREMENTS.json` (if available). If a TC's `requirement_id` is not in `knownFRIds`, throw an actionable error explaining that NFRs must be modeled as FRs to get test coverage.
+
+**Reasoning:**
+- NFRs in Aitri inform Phase 2 (architecture constraints). They are not tested directly. Test coverage for NFR behavior flows through FRs (e.g. type: "security" for auth requirements).
+- The existing error message gave no guidance. The agent would not know why it failed or how to fix it.
+- The fix adds no new model concept — it just surfaces the existing model more clearly at validation time.
+
+**Trade-off:** The check requires reading `01_REQUIREMENTS.json` one additional time (before the existing cross-phase check also reads it). The cost is a single `fs.readFileSync` during `aitri complete 3`, which is a one-time operation with negligible overhead.
+
+---
+
+## ADR-022 — `buildProjectSnapshot()` as the single source of truth for observer commands
+**Date:** 2026-04-17
+**Status:** Active — Phase 1 of a multi-phase refactor (`status`, `resume`, `validate` rewrites follow)
+**Module:** `lib/snapshot.js`
+**Version:** none (internal addition, no observable CLI behavior; version bump will accompany the first consumer in a later phase)
+
+**Context:** `status`, `resume`, and `validate` each re-implement the same traversal of `.aitri` + `spec/` artifacts, and each reads only the root pipeline. Features created via `aitri feature init` live in `features/<name>/.aitri` and are invisible to these commands. Once a project's root pipeline is approved, subsequent feature work never updates what these commands report, producing an "initial-build snapshot" effect that Hub also inherits as a consumer of `.aitri`.
+
+Two secondary problems compound this:
+1. `status.js:193` and `resume.js:229` diverge in how they compute the next action — `status` suggests `aitri validate` when all core phases are approved without checking `verifyPassed`, while `resume` correctly gates on verify. The same pipeline state produces contradictory recommendations.
+2. There is no aggregated health signal for the project: audit freshness, drift across pipelines, blocking bugs across pipelines, and deploy-readiness are all computable from artifacts but never composed.
+
+**Decision:** Introduce a single pure function `buildProjectSnapshot(dir, { cliVersion, now })` in a new module `lib/snapshot.js`. It computes a canonical `ProjectSnapshot` object that aggregates:
+- The root pipeline plus every `features/*/.aitri` sub-pipeline.
+- Requirements, test coverage, bugs, technical debt, and backlog items across all pipelines.
+- Audit freshness derived from `fs.statSync(AUDIT_REPORT.md).mtime`.
+- Derived health signals (`deployable`, `deployableReasons`, `staleAudit`, `driftPresent`, `blockedByBugs`, `activeFeatures`, `versionMismatch`).
+- A priority-ordered `nextActions[]` covering all pipelines and all signals in a single list.
+
+The builder is pure (no stdout, no mutation of `.aitri`, no side effects beyond `fs` reads), deterministic given the same disk and `now`, and tolerant of malformed artifacts (each pipeline carries a `parseError` flag; aggregations skip malformed JSON silently).
+
+Observer commands (`status`, `resume`, `validate`) will be rewritten in later phases as thin projections over the snapshot. Phase 1 changes no command behavior and requires no version bump.
+
+**Reasoning:**
+- Three user intents — "where am I?" (status), "retake my work with full context" (resume), "can I ship?" (validate) — answer the same data sliced differently. A single builder eliminates the duplicated traversal code and the class of divergence bugs that arise when two commands compute the same predicate independently.
+- The current commands answer "how did the initial build go?", not "how is the project today?". Aggregating features and health signals into one object is what makes these commands reflect current reality.
+- A pure function is trivially unit-testable and cacheable. Hub can eventually consume the snapshot's JSON form (via `status --json` in a future phase) without coupling to Aitri's internal disk layout — replacing the current contract where Hub reads `.aitri` directly and re-implements discovery rules.
+- Keeping the snapshot in its own module (`lib/snapshot.js`) rather than growing `state.js` preserves the established separation: `state.js` exposes primitives (`loadConfig`, `readArtifact`, `hasDrift`); `snapshot.js` is composition. The invariant "only `state.js` touches `.aitri` directly" is preserved — `snapshot.js` uses its helpers.
+
+**Trade-off:** The builder becomes a central spine — a bug in it would affect `status`, `resume`, and `validate` simultaneously when the later phases ship. Mitigations: strict purity, broad unit test coverage with an injected `now`, and graceful degradation on malformed input. A regression is caught by the ~20 unit tests in `test/snapshot.test.js` before any command change.
+
+Audit freshness uses `fs.statSync(...).mtime` rather than a persisted `config.auditLastAt` field. Rationale: audit staleness is informational, not a deploy gate, so it does not justify extending the `.aitri` schema contract (`docs/integrations/SCHEMA.md`) or a version bump. `mtime` is manipulable (e.g., `git clone` resets it), but for an informational signal this is acceptable. If audit ever becomes gate-material, `config.auditLastAt` can be added in a dedicated ADR.
+
+Verify freshness (`tests.stalenessDays`) returns `null` in Phase 1 because `.aitri` does not persist a verify timestamp — `updatedAt` is bumped on every `saveConfig` and is not a reliable proxy. Documented as a known gap in `lib/snapshot.js`. If verify staleness becomes gate-material, `config.verifyRanAt` can be added in a future phase with an accompanying ADR and schema update.
+
+**Follow-up phases (sequence, not scope of this ADR):**
+- Phase 2: rewrite `status.js` over the snapshot (short view + `--json` for Hub).
+- Phase 3: expand `resume.js` to cover features, health signals, and the priority-ordered next actions.
+- Phase 4: rewrite `validate.js` over the snapshot; add `--explain` that lists `deployableReasons`.
+- Phase 5: migrate Hub to consume `aitri status --json` (the full snapshot) instead of parsing `.aitri` directly. Update `docs/integrations/*`.
+- Phase 6: make `aitri` with no arguments invoke `status` (change `bin/aitri.js:117` default branch).
+
+---
+
+## ADR-023 — 2026-04-17 — Observer command unification (phases 2–6 landed)
+
+**Context:** ADR-022 introduced `buildProjectSnapshot()` as the single source of truth for observer commands and laid out a six-phase rollout. Phases 2–6 completed together in v0.1.77. This ADR closes the loop and records deviations from the original plan.
+
+**What shipped:**
+- `lib/commands/status.js`, `lib/commands/resume.js`, and `lib/commands/validate.js` are now thin projections over `buildProjectSnapshot()`. The deploy-gate divergence bug (status suggesting `aitri validate` when phase 4 was approved without checking `verifyPassed`, while resume gated correctly) is resolved — all three commands share `snapshot.nextActions[]`.
+- `aitri resume` gained per-feature entries, a Health section for non-deployable projects, and a priority-ordered next-action list (up to 5).
+- `aitri validate` gained `--explain` and additive JSON fields (`deployable`, `deployableReasons`, `openBugs`, `blockingBugs`).
+- `aitri status --json` gained snapshot extensions (`snapshotVersion`, `features`, `bugs`, `backlog`, `audit`, `health`, `nextActions`) while preserving every legacy field consumed by Hub.
+- Bare `aitri` invoked inside a project now runs `aitri status`; outside a project it still shows help.
+
+**Deviation from ADR-022's Phase 5:** The original plan said "migrate Hub to consume `aitri status --json`". That phrasing was too strong. Hub serves both local and remote (GitHub-URL) projects, and `aitri status --json` is only reachable when the CLI is on PATH. Forcing Hub onto that surface would break its remote-project path. Decision: keep `.aitri` + `spec/` as the authoritative contract for remote consumers per `docs/integrations/SCHEMA.md` and `ARTIFACTS.md`; document `aitri status --json` as an **additive, CLI-only** surface in a new `docs/integrations/STATUS_JSON.md` that CLI-colocated consumers *may* use to avoid re-implementing aggregation. No Hub migration is required — it may adopt the new surface opportunistically.
+
+**Reasoning:**
+- Additive-only changes let existing Hub readers stay on their `INTEGRATION_LAST_REVIEWED = '0.1.76'` gate without surfacing an alert for a change that does not affect them.
+- Splitting "authoritative contract" from "convenience projection" keeps the remote-consumer guarantee intact (Hub never requires the `aitri` binary) while still giving local consumers a way to avoid duplicated logic.
+
+**Trade-off:** Two surfaces (raw files + `status --json`) must be kept in sync — any change to what the snapshot computes must be reflected in both `STATUS_JSON.md` and (if the change affects the raw files it reads) `SCHEMA.md` / `ARTIFACTS.md`. The maintenance cost is small because the snapshot is pure over the same inputs.
+
+**Follow-ups (not blocking):**
+- Persist `verifyRanAt` in `.aitri` so `tests.stalenessDays` becomes non-null. Requires a SCHEMA.md bump — separate ADR when prioritized. **Closed v0.1.79** — `verifyRanAt` and `auditLastAt` both persisted; both survive git clone (mtime fallback retained for legacy projects).
+- Consider moving `audit.stalenessDays` from `fs.mtime` to a persisted `auditLastAt` field if audit freshness ever becomes a deploy gate. **Closed v0.1.79** — same commit.
+
+---
+
+## ADR-024 — 2026-04-19 — Off-pipeline change detection via `normalizeState` (v0.1.80)
+
+**Context:** After Phase 4 is approved and `verify-complete` has passed, nothing in Aitri prevented the user or agent from editing source code without re-running the pipeline. The next `aitri validate` / `status` would still report the project as deployable because approvals and verify results are point-in-time snapshots of artifact state, not continuous contracts over the source tree. Silent drift in the code → approved state divergence undermined the deployment-readiness claim.
+
+**Options considered:**
+
+1. **Ignore** — document the limitation; push responsibility to git review.
+2. **Hash the entire source tree on every status call** — expensive; would walk `src/` / project root on every `status --json` poll from Hub.
+3. **Git-based baseline** — record the HEAD SHA at `approve 4` time; diff against current HEAD to detect changes. Fast, idiomatic, integrates with existing git workflows.
+4. **mtime-based baseline** — record an ISO timestamp at `approve 4` time; check mtime of source files. Works in non-git projects but unreliable (mtime resets on clone).
+5. **Block the next operation until the user acknowledges the change** — disruptive; doesn't match Aitri's passive-observer philosophy.
+
+**Decision:** Hybrid baseline approach. On `approve 4`:
+- If the project is a git repo: store `{ method: "git", baseRef: "<HEAD-SHA>" }` in `.aitri.normalizeState`.
+- Otherwise: store `{ method: "mtime", baseRef: "<ISO>" }`.
+
+A new command `aitri normalize` re-baselines after the user has classified the changes (by adding to BUGS.json, BACKLOG.json, starting a feature, or acknowledging them as trivial). The snapshot surfaces off-pipeline changes as a priority-4 next-action — informational, non-blocking — with two distinct reasons: `normalizeState.status === 'pending'` (explicitly requested) OR `normalize.uncountedFiles > 0` (git-detected at snapshot time).
+
+**Reasoning:**
+- Git-first keeps the common case cheap (one `git rev-list` comparison, no tree walk).
+- mtime fallback is honest about its unreliability — STATUS_JSON.md documents that `uncountedFiles` is `null` when `method: "mtime"` to avoid false signals.
+- Not blocking preserves the passive-observer philosophy (ADR-001, ADR-023). The user decides what to do about off-pipeline changes; Aitri surfaces the signal, no more.
+- Splitting "pending" (user explicitly ran `aitri normalize` and bailed out) from "uncountedFiles > 0" (snapshot-time detection) gives Hub two distinct dashboard states.
+
+**Trade-off:** Two detection paths mean two edge cases to test. mtime method doesn't survive git clone — the `uncountedFiles` count is `null` for non-git projects rather than wrong, which is the right call but requires consumers to handle the null. Added one `.aitri` field (`normalizeState`) — SCHEMA.md bumped, readers must stay defensive.
+
+**Scope note:** `normalize` is distinct from *drift* (ADR-012 era). Drift is "approved artifact was edited after approval"; normalize is "source code changed after the last build approval". Drift surfaces on artifacts (`01_REQUIREMENTS.json`, `04_IMPLEMENTATION_MANIFEST.json`, etc.); normalize surfaces on source files outside `spec/`. Both can be true at once; they do not overlap.
+
+---
+
+## ADR-025 — 2026-04-20 — Cross-pipeline test aggregation in observer surfaces (v0.1.81)
+
+**Context:** ADR-022 established `buildProjectSnapshot()` as the source of truth for observer commands, but `aggregateTests()` only surfaced per-pipeline `verify.summary` objects. A project with a root pipeline plus 8 feature sub-pipelines (e.g. 30 tests on root, ~256 across features) displayed `30/30` on `aitri status` — technically correct for the root scope, but misleading as a project-wide answer. Users and intermediating agents consistently misinterpreted the top-line number as the project total.
+
+**Decision:** Extend `aggregateTests()` to produce a `tests.totals` (sum across all pipelines with a verify.summary) and `tests.perPipeline` (list of `{ scope, passed, failed, total, ran }`). Surface `Σ all pipelines: Passed (N/M)` as a new line in `status` / `resume` text output whenever at least one feature has a verify summary. Add per-feature counts (`verify ✅ (53/61)`) to the feature listing. Emit a new top-level `tests` block in `status --json` — additive; existing `verify.summary` per pipeline preserved unchanged.
+
+**Reasoning:**
+- The data already existed inside the snapshot builder — the gap was purely display.
+- Additive JSON contract means Hub readers on `INTEGRATION_LAST_REVIEWED <= 0.1.80` see no change; Hub can opt into the new `tests` block when ready.
+- Pipelines without a verify summary contribute zero to `totals` (honest floor, not an estimate). `perPipeline[].ran = false` identifies them explicitly so consumers can distinguish "not run yet" from "zero tests".
+
+**Trade-off:** The text output now has one more line when features exist. Legacy smoke tests that compared exact strings would break if they asserted on the absence of `Σ` — acceptable because the change is opt-visible (only when features are present) and the added line is semantically correct for those projects.
+
+---
+
+## ADR-026 — 2026-04-20 — Semantic validation hardening in Phase 1 (v0.1.82)
+
+**Context:** ADR-006 established typed FRs with measurable acceptance criteria, and subsequent changes hardened `validate()` with vagueness checks on ACs (`BROAD_VAGUE` regex). But two gaps remained: vague *titles* ("La app debe funcionar correctamente") passed validation when ACs were specific, and copy-paste of the same AC set across multiple FRs (an anti-pattern of undifferentiated requirements) was not detected. Both were listed as examples in the "Calidad semántica de artifacts" Design Study from v0.1.55 era.
+
+**Decision:**
+- Extend the existing `BROAD_VAGUE` loop to also check `fr.title`. Rule: if the title matches `BROAD_VAGUE` AND fewer than 2 substantive tokens remain after stopword/vague-word removal, throw. A substantive token is ≥3 characters, not in the stopword list, and not in `BROAD_VAGUE`. Applied only to MUST FRs (same scope as the existing AC check).
+- Detect duplicate ACs across FRs via Jaccard similarity (≥0.9 threshold) on normalized AC sets (lowercase, punctuation stripped, whitespace collapsed). Applied to FRs with ≥3 ACs, any priority. Threshold 0.9 chosen so that legitimately parallel CRUD FRs (1 AC different out of 5) pass, but literal copy-paste (≤1 difference) fails.
+- Extend `BROAD_VAGUE` with Spanish qualifiers (`correctamente`, `adecuadamente`, etc.). Aitri targets bilingual projects (CLAUDE.md is ES-written); excluding Spanish was an implicit bias, not a design principle.
+
+**Reasoning:**
+- Both gaps had concrete false-positive floors: title vagueness requires a match AND token-count failure; duplicate AC detection requires ≥3 ACs on each side and ≥90% similarity. Neither triggers on legitimate edge cases (short titles without vague words, FRs with partial AC overlap).
+- The Design Study's broader question ("¿hasta dónde debe llegar Aitri?") had been answered de facto by the validation model of 2026-03-14 (mechanical checks only, human judges content). These two checks are mechanical and fall within that boundary.
+- The remaining gap from the original study — NFR traceability in Phase 2 — does not have a mechanical implementation with low false-positive risk and was left as an open Design Study with a maturation criterion (a real incident).
+
+**Trade-off:** Tightens the gate on Phase 1 — existing projects with vague titles or duplicated ACs will fail `complete 1` after upgrading. No retroactive re-validation (existing approvals untouched), so the gate only fires on the next Phase 1 run. Acceptable because both patterns were always wrong; the gate now surfaces the mistake earlier.
+
+**Scope note:** No schema change. `01_REQUIREMENTS.json` shape is identical. Readers need no updates. ARTIFACTS.md documents the new constraints; CHANGELOG.md flags the gate tightening for Hub review.
+
+---
+
+## ADR-027 — 2026-04-23 — `adopt --upgrade` as reconciliation protocol (v2.0.0)
+
+**Status:** Accepted. Implementation pending.
+
+**Context:** The original design intent of `aitri adopt --upgrade` was to keep existing Aitri-managed projects **functionally and technically current** as Aitri Core evolves. The name "adopt" reflects that: adopt the new contract, absorb the new capabilities, carry forward bug fixes and invariants. In practice, the command that exists does only two things: bump `aitriVersion` in `.aitri/config.json`, and infer `completedPhases` by walking artifact files on disk. Everything else — schema migration, state backfill (normalizeState, verifyRanAt, …), re-validation against new rules, capability opt-in — requires out-of-band manual intervention by the user.
+
+The v0.1.90 Ultron E2E session made this concrete: an Ultron project adopted at v0.1.65 needed **three separate commands** to be genuinely "at v0.1.90" — `adopt --upgrade`, then `normalize --init`, then manual rename of `tc.requirement` → `tc.requirement_id`. Each gap was fixed in v0.1.90 as an individual symptom (A1, A2, A3, A4 in FEEDBACK.md). That work was correct and still stands, but it reveals the architectural gap: **there is no orchestrator.** The gap-fills live as defensive reader tolerance (A1), pre-destruction guards (A2), manual-message corrections (A3), and side-channel flags (A4, `normalize --init`). They are belt-and-suspenders, not a protocol.
+
+`adopt --upgrade` is supposed to BE the protocol. Today it is not — it is a stub that the honest v0.1.90 message finally acknowledges ("bumps the version; artifacts are not migrated").
+
+**Options considered:**
+
+1. **Keep `adopt --upgrade` as cosmetic version sync; expose a separate `aitri migrate` command for actual reconciliation.** Splits the burden across two commands the user must remember to run. Contradicts the user's original design intent.
+2. **Auto-reconcile on every CLI invocation when `versionMismatch` is detected.** Low friction, but violates the "no silent writes" principle — Aitri would modify user artifacts without explicit consent.
+3. **Redesign `adopt --upgrade` into a full diagnose → plan → confirm → migrate → report protocol.** The command does what its name claims. User runs it consciously when prompted by the `versionMismatch` banner. Explicit, auditable, non-silent. **Selected.**
+4. **Block the entire CLI on `versionMismatch` until the user reconciles.** Disruptive. A user who just installed a new CLI on an old project should be able to run `aitri status` and see the mismatch before deciding to upgrade.
+
+**Decision:** In Aitri v2.0.0, `aitri adopt --upgrade` is redesigned into a **five-phase reconciliation protocol**:
+
+1. **DIAGNOSE** — compare the project's current on-disk state against what the running CLI version expects. Produce a catalog of drift across five categories:
+   - 🔴 BLOCKING — artifact shapes that downstream commands cannot read (e.g. legacy `tc.requirement` without `requirement_id`, legacy NFR `{title, constraint}` without `{category, requirement}`, misconfigured `artifactsDir`).
+   - 🟡 STATE-MISSING — `.aitri` fields introduced in later versions that the project lacks (`normalizeState`, `verifyRanAt`, `auditLastAt`, `lastSession`, `updatedAt`).
+   - 🟠 VALIDATOR-GAP — artifacts that pass their original validator but would fail the current one (e.g. FR titles that would fail v0.1.82 vagueness checks, TC IDs that will fail the canonical regex gate).
+   - 🔵 CAPABILITY-NEW — features introduced after the project was adopted that are opt-in-able mechanically (multi-FR `frs[]` array, bug audit trail fields for bugs closed after this run, agent instruction files).
+   - ⚪ STRUCTURE — project-layout inconsistencies (`artifactsDir` pointing to an empty directory, agent files missing, path capitalization mismatches internal to Aitri).
+
+2. **PLAN + REPORT** — print a human-readable plan grouped by drift category, separating what Aitri will migrate automatically (mechanical transformations) from what requires user or agent decision (content-judgment).
+
+3. **CONFIRM** — isTTY-gated `[y/N]` before any write. Non-interactive callers (CI) must pass `--yes`. `--dry-run` exits after the report. `--only <categories>` limits scope (e.g. `--only BLOCKING,STATE-MISSING`).
+
+4. **MIGRATE** — apply confirmed migrations atomically. Each migration registers a `.aitri.events[].upgrade_migration` entry with `from_version`, `to_version`, `category`, `target` (artifact path or config field), `before_hash`, `after_hash`, and `timestamp`. If any migration fails, the run rolls back all migrations applied in this invocation. `aitriVersion` is written **last** as the atomic commit point.
+
+5. **REPORT** — summary of applied migrations, items flagged for agent review, and next-step commands.
+
+Migration logic is organized in `lib/upgrade/migrations/` as a directory of versioned modules (`from-0.1.65.js`, `from-0.1.70.js`, etc.). Each module exports `diagnose(dir, config)` and `migrate(dir, config, plan)`. `adopt --upgrade` composes them in order — a v0.1.65 project upgrading to v2.0.0 runs all intermediate migrations in sequence.
+
+**Reasoning:**
+
+- The original design intent is sound and addresses a real pain: users upgrading Aitri should be able to bring their projects forward as a conscious act, not as a series of manual rituals discovered by trial.
+- The passive-producer invariant is preserved because every write is declared in the plan before it executes, and the user approves explicitly. Aitri migrates *shape*, never *meaning* — multi-FR TCs with comma-separated values are flagged for agent review, not auto-split.
+- The individual v0.1.90 fixes (A1 reader tolerance, A2 precondition) remain as **defensive layers** even when upgrade is run. Belt-and-suspenders is correct here: a precondition that rarely fires because upgrade would have fixed the drift is still valuable for the case where the user ran CLI commands before running upgrade.
+- `aitri normalize --init` is absorbed as a STATE-MISSING migration step inside upgrade. The standalone flag can remain for power users who want to stamp a baseline without running the full protocol, but the common path is through upgrade.
+- Event logging in `.aitri.events[]` keeps migrations auditable and gives Hub a signal it can surface ("3 migrations applied on upgrade from v0.1.65 → v2.0.0").
+- Staging migrations by source version (`from-0.1.65.js`, not `to-2.0.0.js`) means every past version has a defined migration path forward. New Aitri releases add new `from-*.js` modules; old ones are immutable history.
+
+**Trade-off:**
+
+- Significant implementation cost. Each migration must be designed, tested, and documented. The initial catalog (v0.1.65 → v2.0.0) has ~15 known migration points.
+- Doubles as a forcing function: Aitri maintainers must now declare migrations when they change contracts. A schema change without a corresponding migration in `lib/upgrade/migrations/` is a half-finished feature. This becomes a gate enforced by a new test (`test/upgrade-coverage.test.js`) similar to `test/release-sync.test.js`.
+- Increases surface area visible to Hub. New `.aitri.events[].upgrade_migration` entries extend the event log — Hub readers must tolerate unknown event types (they already do).
+- Breaking for any external script that assumed `adopt --upgrade` was silent/fast. The new command is interactive by default. Documented; `--yes` flag preserves non-interactive paths.
+
+**Scope note:**
+
+- This is the headline change of v2.0.0. Other v2.0.0 work (IDEA.md → spec/, TC ID canonical regex, command-surface audit outcomes) batches alongside it because v2.0.0 is already a breaking version.
+- The v0.1.90 defensive fixes (reader tolerance, verify-run precondition, normalize --init, honest adopt message, deployable banner, bug SHA audit, Docker deagnostic validate, agent-files guidance) **remain in place** in v2.0.0. None are removed. They become the fallback layer for cases where the upgrade protocol did not run or was skipped.
+- `lib/commands/normalize.js --init` flag is preserved as a direct-invocation path; the upgrade protocol calls the same underlying stamping logic.
+- `adopt scan` / `adopt apply` (greenfield adoption from existing code) are untouched. Only `adopt --upgrade` is redesigned.
+- `aitri init` is also untouched. Greenfield projects never need upgrade on creation; they are born on the current version.
+
+**Implementation gate:** An ADR acceptance does not authorize implementation. A v2.0.0 feature branch, an explicit catalog of known migrations, and a staged delivery plan (one migration module at a time, with its own tests) are prerequisites. The current v0.1.90 release stands; v2.0.0 starts from it.
+
+**Operational decisions (confirmed 2026-04-23):**
+
+1. **Feature branch.** Work happens on a dedicated branch (`v2.0.0` or `feat/upgrade-protocol`), not on `main`. After the feature is complete and tested end-to-end (including a re-run of the Ultron brownfield scenario against the new protocol), branch merges to `main`.
+2. **Granular commit history.** Each migration module lands as its own commit. No squash at merge. Rationale: a future migration that turns out wrong should be revertible without disturbing adjacent ones.
+3. **Staged delivery via pre-releases.** Catalog shipped in tandas, not as a single v2.0.0 release. Sequence: `v2.0.0-alpha.1` = BLOCKING migrations only; `v2.0.0-alpha.2` = STATE-MISSING added; `v2.0.0-alpha.3` = VALIDATOR-GAP reporting; `v2.0.0-alpha.4` = CAPABILITY-NEW + STRUCTURE. Each alpha re-validates against a real brownfield project (Ultron is the canary) before the next tanda begins. Final `v2.0.0` promotes the last alpha.
+4. **No intermediate v0.2.0.** The jump is directly from v0.1.x to v2.0.0. Rationale: the semantic shift (stub → protocol) warrants the major bump; diluting it into v0.2.0 first would send an incorrect signal about the magnitude of the change.
+
+**Next-session entry point:** fresh session starts by reading `CLAUDE.md` + this ADR (including the addendum below) + the v2.0.0 catalog in `BACKLOG.md`. First code change: create the branch, scaffold `lib/upgrade/` with `diagnose.js` + `index.js` skeletons (no migrations yet), and wire `adopt --upgrade` to call the new module as a clean replacement of the current legacy logic (see Addendum point 3). First migration module: `lib/upgrade/migrations/from-0.1.65.js` with the three BLOCKING transforms from Ultron (TC `requirement` rename, NFR shape rewrite, `artifactsDir` recovery). Tests before merge of each module.
+
+---
+
+### ADR-027 Addendum — 2026-04-23 — Implementation prerequisites
+
+Three technical details must be decided before the first line of code on the feature branch. They refine — not contradict — the main decision above.
+
+**Branch reminder:** all of the following is implemented on a dedicated branch (`feat/upgrade-protocol` preferred). `main` stays on v0.1.x until the branch merges.
+
+#### 1. Rollback mechanism — ordered writes + recovery message (no transactional rollback)
+
+The original decision text (line 514) says "If any migration fails, the run rolls back all migrations applied in this invocation" with `before_hash` as the anchor. That phrasing overclaims what Node on POSIX can guarantee for a sequence of `fs.writeFileSync` calls across multiple artifacts.
+
+**Refinement:** the MIGRATE phase does **not** promise transactional atomicity. It promises **ordered writes with a deferred version commit**:
+
+- Migrations execute in a deterministic order (BLOCKING → STATE-MISSING → CAPABILITY-NEW → STRUCTURE; VALIDATOR-GAP is report-only and does not write).
+- Each migration records `before_hash` in `.aitri.events[].upgrade_migration` **before** its write, and `after_hash` on success.
+- `aitriVersion` in `.aitri/config.json` is the **last** write of the entire run. If any migration throws mid-run, `aitriVersion` is not advanced — the project remains on the previous version in the eyes of every other Aitri command.
+- On mid-run failure: print the list of completed migrations, the failed one, and a recovery message: `Run: git checkout -- spec/ .aitri/ to restore pre-upgrade state, then re-run aitri adopt --upgrade after resolving the cause.` No auto-undo.
+
+**Why:** real atomicity across N JSON artifacts would require either a write-to-tmp + swap pattern per file (complicates migration authoring) or a journal-replay scheme (introduces its own failure modes). Neither is worth the added complexity when git already serves as the user's rollback mechanism for the common brownfield case.
+
+**Invariant:** no partial write to `.aitri/config.json`. `aitriVersion` is never advanced on a failed run.
+
+#### 2. Migrations transform shape, never meaning
+
+Every migration module must uphold: **mechanical shape transformations only.** No migration infers semantic content.
+
+Examples of permitted shape transforms:
+- Field rename: `tc.requirement` → `tc.requirement_id`.
+- Shape rewrite: NFR `{title, constraint}` → `{category, requirement}` where `category` is mapped by a finite lookup and `requirement` is a string copy.
+- Backfill from deterministic source: `updatedAt` ← current time; `verifyRanAt` ← newest `04_TEST_RESULTS.json` mtime.
+
+Examples of **forbidden** auto-transforms — these must flag for agent review instead:
+- Multi-FR TC with comma-separated `requirement_id` (e.g. `"FR-001, FR-002"`) → do **not** auto-split. Flag as VALIDATOR-GAP with the suggestion: "re-run Phase 3 with current briefing to re-author these TCs."
+- FR titles that would fail the v0.1.82 `BROAD_VAGUE` check → do **not** auto-rewrite. Flag, report, let the agent re-author.
+- TC IDs non-canonical under the future regex gate → do **not** auto-rename. Flag, report. Consumers reference TCs by ID; Aitri cannot safely rewrite references it does not own.
+
+**Why:** Aitri is a passive producer. Inferring meaning (splitting, paraphrasing, renaming references) crosses into content-authoring — the agent's job. A migration that guesses is worse than one that reports; a wrong guess corrupts the artifact chain silently.
+
+**Invariant in code:** each migration module comment block must declare `shape-only: true` and describe the transform in one sentence. Reviewers reject any module that derives new semantic content from existing content.
+
+#### 3. Clean replacement, not parallel execution
+
+The main-decision text ("call the new module alongside [not instead of] the current legacy logic") is revised to a clean replacement:
+
+- The current `adoptUpgrade` function in `lib/commands/adopt.js:637-723` contains two real migration-like behaviors today: `artifactsDir` recovery (lines 643-661) and `writeAgentFiles` regeneration (lines 714-722). Both are **moved into the new module**, not duplicated.
+- After the move, `adoptUpgrade` in `adopt.js` becomes a thin dispatcher: `return runUpgrade(dir, config, { VERSION, rootDir, ...flags });`.
+- The phase-inference logic currently in `adoptUpgrade` (lines 663-677, walking artifacts to populate `completedPhases`) also moves into the new module as a STATE-MISSING or STRUCTURE step, depending on whether the project was adopted pre-pipeline (STRUCTURE) or simply has completedPhases drift (STATE-MISSING). Decide at implementation time per the actual logic.
+
+**Why:** parallel paths complicate reasoning about invariants ("which code path runs if both fire?"). A single code path with all behavior consolidated is easier to test, review, and extend.
+
+**Invariant in code:** `lib/commands/adopt.js` contains no upgrade logic after the refactor, only the dispatcher. The file `lib/upgrade/index.js` is the single entry point.
+
+#### 4. Shape-only migrations preserve approval (no post-upgrade drift) — added 2026-04-24
+
+**Discovered by canary on real Ultron** (v0.1.89 → v0.1.90), not by fixture testing. The first Ultron run revealed that migrating 16 TCs + 4 NFRs changed their content hashes, which tripped `hasDrift` on every migrated phase. Immediately after upgrade, `aitri status` demanded re-approval of `requirements` + `tests`. That is semantically wrong under §2 — the agent-approved *content* did not change, only the serialization.
+
+**Refinement:** every shape-only migration that writes an approved artifact must also update `config.artifactHashes[phaseKey]` to match the new content, preserving the approval across the migration.
+
+**Rules:**
+
+- **Only update the hash when a hash was already stored.** If the phase was never approved (no entry in `config.artifactHashes`), do NOT synthesize a baseline. Stamping a hash on a non-approved phase would fake an approval that never existed.
+- **Do NOT touch `config.driftPhases[]`.** If a phase was already in drift (the user had modified the artifact outside the pipeline before running upgrade), the drift stays. The agent decides what to do with it — the migration does not silently clear the signal.
+- **The hash update happens INSIDE the migration's `apply(config)`**, right after the `fs.writeFileSync` for the new content. Same call, same closure, same `afterHash`. Reuses the hash computed during `diagnose()`.
+
+**Scope:**
+
+- Applies to every BLOCKING migration that rewrites an artifact tracked by `artifactHashes` (today: `01_REQUIREMENTS.json` → key `"1"`, `03_TEST_CASES.json` → key `"3"`). Future per-version modules that rewrite other phase artifacts must follow the same discipline.
+- Does NOT apply to STATE-MISSING backfills (no artifact write) or VALIDATOR-GAP findings (no write at all).
+
+**Why this is §2-compatible, not a §2 violation:**
+
+§2 says migrations transform *shape* and never *meaning*. An approval is semantic consent on *meaning*. Preserving the hash after a shape-only rewrite means "the approval you gave on the content still holds; only the serialization changed." If a migration ever infers content (e.g. splits a multi-FR TC), that's a §2 violation regardless of what we do with hashes — the hash preservation rule does not licence semantic changes.
+
+**Invariant in code:** the helper `updatePhaseHashIfApproved(config, phaseKey, newHash)` is the only legitimate writer of `config.artifactHashes` from inside a migration module. It checks `config.artifactHashes[phaseKey] !== undefined` before writing. Test coverage in `test/upgrade.test.js` asserts (a) hash is updated when approved, (b) hash is NOT stamped when not approved, (c) `driftPhases[]` is never modified.
+
+**Evidentiary note:** this rule exists because a real canary surfaced it. Fixture tests (which I designed to match my own code) did not — they all used non-approved phases, so the drift never triggered. When Hub becomes a canary target, the same discipline applies: if Hub surfaces a new class of post-upgrade surprise, the rule-set expands. Do not paper over real-project signals to preserve a green run.
+
+#### 5. `test/upgrade-coverage.test.js` gate — not implemented, by decision — added 2026-04-24
+
+The main-decision "Trade-off" section (see above) committed to a new CI gate analogous to `test/release-sync.test.js`: any change to `lib/phases/phase*.js validate()`, artifact schemas, or `.aitri` field set without a corresponding entry in the most recent `from-*.js` migration module would block CI. It does not exist and will not be written as part of `v2.0.0-alpha.1`.
+
+**Why not:**
+
+- `release-sync.test.js` (55 lines) validates mechanical regex equality: two constants match, four doc headers match a pattern. It is a real gate because the check is binary and local. The proposed upgrade-coverage gate is structurally different: it would need to decide whether a schema change is *additive-only* (no migration needed) or *breaking* (migration required). That is semantic judgment, not regex equality.
+- A naive implementation (e.g. "any diff in `lib/phases/phase*.js::validate()` without a touched migration module"). A version of this that forces all additive changes through a no-op migration entry becomes a checkbox test. Within 2-3 releases it is ignored or commented out. Then it is theater blocking CI.
+- No corresponding gate exists today for the other schema-drift risks Aitri tolerates (NFR tolerant reads, multiple TC shape aliases). Adding a heavyweight gate for upgrade migrations specifically is inconsistent.
+
+**What replaces it (softer forcing functions):**
+
+- **`docs/integrations/CHANGELOG.md` + ARTIFACTS.md + SCHEMA.md update discipline.** The CLAUDE.md rule already says schema changes must land with doc updates in the same commit. Enforced by human code review, not by CI.
+- **Canary on a second real project.** Evidence beats static check: a real brownfield project (Ultron, then Hub, then others) catches omissions the gate could only partially detect. This is the stronger signal.
+- **Test: each migration module has its own regression test in `test/upgrade.test.js`.** If someone adds a new migration without a test, the `test/upgrade.test.js` structure makes the omission visually obvious on review.
+
+**Reconsider if:** a future release introduces a schema change without a migration module and that omission reaches a real project. Evidence of the specific defect the gate was meant to prevent would justify writing it. Without that evidence, the gate is preventive architecture — exactly the kind of noise CLAUDE.md warns against.
+
+#### Summary of addendum decisions
+
+| # | Topic | Decision |
+|:---|:---|:---|
+| 1 | Rollback | Ordered writes + `aitriVersion` last + recovery message. No transactional atomicity. |
+| 2 | Shape vs meaning | Migrations transform shape only. Ambiguous content → flag for agent, never auto-resolve. |
+| 3 | Legacy coexistence | Clean replacement. Existing behaviors in `adoptUpgrade` absorb into the new module. |
+| 4 | Approval preservation | Shape-only migrations update `artifactHashes[phase]` to avoid post-upgrade drift. Only when phase was approved. `driftPhases[]` untouched. |
+| 5 | Coverage gate | `test/upgrade-coverage.test.js` is NOT written. Semantic judgment cannot be collapsed to regex equality. Doc discipline + real-project canary carry the load. Revisit if evidence of the specific defect emerges. |
+
+These five points are binding on the implementation. If during alpha.1 any of them proves wrong, a new addendum amends the specific point — none is silently discarded.
+
+### ADR-027 Amendment — 2026-05-02 — Migration module naming is heuristic, not contract
+
+**Context:** The original ADR text describes migration modules as `from-0.1.65.js`, `from-0.1.70.js`, etc. — implying per-source-version boundaries. In practice, a single module (`from-0.1.65.js`) has accumulated migrations introduced across v0.1.63 through v2.0.0-alpha.17. No splits have happened despite multiple version boundaries crossed.
+
+**Why it works without splits:** every diagnose function gates on **field presence** in the current `.aitri` or artifact, not on the source version of the project. A v0.1.65 project and a v0.1.80 project both run through the same diagnose chain; each finding either fires (field absent or shape legacy) or no-ops (field already canonical). The file name `from-0.1.65.js` documents the lowest source version the module aims to lift, not a strict per-version boundary.
+
+**Decision:** the `from-X.Y.Z.js` naming is a heuristic for the lowest source version covered, **not a contract** that each per-version delta gets its own file. Splits happen organically when a new module is naturally cohesive (e.g. a v2.x schema cluster that has no field-presence overlap with the existing module). Splitting prematurely — purely to honor the original per-boundary implication — would be cosmetic and would not improve the gating logic.
+
+**Trade-off:** the naming becomes informational rather than load-bearing. Future readers must know that field-presence gating is the actual contract, not the file name. This amendment makes that explicit so the discrepancy is no longer a recurring backlog item.
+
+**Re-open criterion:** if a future schema cluster (e.g. v0.2.0+ coordinated change) produces a natural split where field-presence patterns no longer overlap with the existing module, create `from-0.2.0.js` (or appropriate name). Until that organic split appears, the existing module is correct as-is.
+
+---
+
+## ADR-028 — 2026-04-24 — Open question: `.aitri` mixes shared and per-machine state
+
+**Status:** Open — no action until a second real signal.
+
+**Context:** During the Hub canary for v2.0.0-alpha.1 (FEEDBACK H3), Hub was observed to have `.aitri` listed in `.gitignore` with the comment `# Aitri config (project-specific, not shared)`. This creates an asymmetry with the integration contract:
+
+- Hub reads `.aitri` from other projects for pull-based change detection (per SCHEMA.md `updatedAt`).
+- Hub's own `.aitri` is not tracked, so any consumer of Hub-as-project sees nothing on a fresh clone.
+- `normalizeState.baseRef` is a git SHA but the file that stores it is not in git.
+
+The deeper issue: `.aitri/config.json` serializes two kinds of state in one file.
+
+**Shared state** (makes sense committed — Hub and future consumers depend on it):
+`approvedPhases`, `completedPhases`, `artifactHashes`, `events[]`, `updatedAt`, `verifyPassed`, `verifySummary`, `verifyRanAt`, `auditLastAt`, `rejections`, `aitriVersion`, `createdAt`, `projectName`.
+
+**Per-machine state** (noisy if committed):
+`lastSession.when` (local timestamp), `lastSession.agent` (detected env), `normalizeState.lastRun` (local event time), `normalizeState.baseRef` (meaningful only against the local workdir).
+
+When `.aitri` is committed, every `verify-run` / `complete` / `approve` / `checkpoint` rewrites per-machine fields and creates commit noise. That noise is the trigger a team cites when they decide to gitignore the file — at which point they lose the shared-state contract without realizing it.
+
+**Options considered:**
+
+1. **Split into `.aitri/config.json` (shared, tracked) + `.aitri/local.json` (per-machine, gitignored).** Clean design. Eliminates the trade-off entirely. Requires: breaking schema change, migration category in `lib/upgrade/`, update to SCHEMA.md, Hub contract update. Cost is moderate; the evidence is a single canary signal.
+2. **Document the current mixed schema + recommend commit + accept the noise.** Free. Teams make the choice consciously. Does not fix the underlying mix. Selected for now.
+3. **Do nothing — treat as Hub's local decision.** Dismissive. The mix is real; Hub's gitignoring is a predictable reaction, not a misconfiguration. Any team with more than one operator will hit the same trade-off.
+
+**Decision:** Option 2 now (documented in SCHEMA.md §"Should `.aitri` be committed?"). Option 1 stays open as an ADR-tracked question.
+
+**Rationale for deferring Option 1:**
+
+- **Single-canary evidence.** The `IDEA.md → spec/` move was dropped from v2.0.0 for exactly this reason — "opportunistic colado in the breaking-version window". Doing it with one signal would repeat that error.
+- **The cost is not trivial.** Splitting reshapes the file that every Aitri command and every subproduct reads. A breaking change here reverberates through Hub and any future consumer.
+- **The current trade-off is honest, not broken.** Documentation makes the choice explicit. Teams that care can gitignore and accept the consequences; teams that don't can commit and accept the noise.
+
+**Criterion to reopen (either condition):**
+
+- A second real project surfaces the same asymmetry (another team chooses to gitignore, or another consumer needs to read a gitignored `.aitri`).
+- A consumer (Hub or another subproduct) explicitly requests the split because the mix blocks a concrete feature.
+
+Without either, the gate is "architectural discomfort" — insufficient under the evidence-before-breakage discipline.
+
+**Scope of this ADR:** documentation only. No code changes, no test changes, no migration module. When reopened, this ADR is superseded by a new one that records the breaking-change decision.
+
+---
+
+## ADR-029 — 2026-04-28 — Output-contract tests must execute against the consumer, not string-match a designed shape
+
+**Status:** Active.
+
+**Context:** v2.0.0-alpha.6 shipped a fix for the Ultron-canary destructive bug (alpha.4: scope-blind `PIPELINE INSTRUCTION` could overwrite the parent's approved UX spec). The fix introduced `commandPrefix(featureRoot, scopeName) → 'feature <name> '` placed before the verb, producing strings like `aitri feature network-monitoring complete ux`. The full test suite (1012/1012 green) included new feature-context assertions in `approve.test.js`, `complete.test.js`, `reject.test.js`, `verify.test.js`, and `phaseUX.test.js` — every one passed.
+
+The Ultron canary on alpha.6 caught the regression at handoff #1: literal copy-paste of the emitted command failed with `Feature "complete" not found`. Reason — `feature.js:42-50` parses the **first token after `feature` as the verb**, not as the name. The actual CLI grammar is `aitri feature <verb> <name> <phase>`, not the inverted form alpha.6 emitted. 8/8 handoffs in the canary reported the same broken pattern; promotion of alpha.6 to v2.0.0 stable would have shipped the bug.
+
+**Why every test passed.** Each new assertion was of the form `assert.ok(out.includes('aitri feature foo run-phase architecture'))` — verifying that the output matched the string the test author **designed**. The author of the test was the same agent that designed the helper. Both held the same wrong mental model (single prefix before the verb). The test confirmed self-consistency, not correctness against the actual parser.
+
+**Decision:** When a test asserts properties of an output that another part of the system will parse, the assertion must execute the output against the actual parser logic (or a faithful local mirror of it), not match a string the test author chose. "The output must be parseable by the consumer" is the contract; "the output looks like X" is a proxy that fails when author and consumer mental models drift.
+
+**Implementation in alpha.7:** new `test/scope.test.js` block extracts every `aitri feature <X> <Y>` from a synthetic output stream and applies the dispatch logic from `feature.js` (first-token-is-verb) to verify `<X>` is a recognized verb. If the alpha.6 inversion ever reappears, this test fails on the first occurrence — without waiting for an external canary.
+
+**Trade-off:** more setup per output-contract test (the test must know enough about the consumer to reproduce its parse). Mitigation: when the consumer is internal (feature.js, phase validators, etc.), import its actual logic rather than mirror it. The cost is acceptable; the alternative — alpha.6 — is shipping broken contracts that pass green CI.
+
+**Where else this principle applies (radar, not commitments):**
+
+- **Manifest schema → `phase4.js::validate()`.** The build briefing presents fields as optional; the validator rejects when missing. Today's tests check the validator, not the briefing-against-validator pair. A round-trip test would assert that a manifest produced by following the briefing literally passes `validate()`. The Ultron canary's "alpha.7 manifest schema drift" finding is exactly this gap.
+- **Briefing → state transitions.** Tests check that `complete` updates state correctly when given a valid artifact. Less tested: the briefing the agent receives produces an artifact that the validator accepts.
+- **`status --json` → Hub readers.** ARTIFACTS.md and STATUS_JSON.md are the contracts; consumer code parses against them. A round-trip test would generate a representative snapshot, write it as `status --json` would, and parse it through Hub's reader (or a local mirror).
+
+**Rule for the test suite going forward:** when adding a test for any output Aitri produces that another piece of code or external consumer will read, the assertion shape must be "the consumer can parse this output correctly", not "this output contains the string I expected". If the consumer is internal, import or mirror the parse. If external, document the parse as part of the contract.
+
+**Scope of this ADR:** principle binding on future tests. Existing tests are not retroactively rewritten — they migrate to the new shape when their surface produces a defect that the round-trip variant would have caught.
+
+**Evidentiary note:** the alpha.6 → alpha.7 cycle is the third instance in this project where canary signal exposed a defect that internal tests missed (others: ADR-027 §4 hash-preservation, ADR-026 Phase 1 vagueness rule). The pattern — "tests written by the implementer, against fixtures the implementer chose, passing while real-project use exposes the defect" — is now explicit. The round-trip principle is the structural counter to the pattern, but it works only if applied; vigilance over each new test is required.
+
+---
+
+## ADR-030 — 2026-05-02 — A2 (cascading root → features upgrade) deferred indefinitely
+
+**Status:** Active (Deferred indefinitely with explicit re-open criteria).
+
+**Context:** `aitri adopt --upgrade` invoked at the project root operates on the root `.aitri` only. Sub-pipelines under `features/<name>/.aitri` are not touched — their `aitriVersion` and any pending migrations remain at whatever state they were last written. The asymmetry was first observed in the Zombite canary 2026-04-29 (`stabilizacion` feature kept `aitriVersion: null` after root upgrade).
+
+**Three reconfirmations, no consumer signal of harm:**
+
+1. **Zombite (2026-04-29, alpha.4 → alpha.13):** root upgrade produced normal results; `stabilizacion` feature `.aitri` left at the pre-upgrade state. Surfaced as A2. Operator was not blocked — feature commands continued to work because the gates the feature actually exercises are state-presence gates, not version-comparison gates.
+2. **Cesar shallow canary (2026-05-02 AM, alpha.4 → alpha.15 dry-run):** same shape — root mutates, 9 features remain INTACT. No defect surfaced; tooling continued to function.
+3. **Cesar deepening canary (2026-05-02 PM, alpha.4 → alpha.15 real):** confirmed for the third time. All 9 feature `.aitri` md5s INTACT after root upgrade. No defect. The N1 finding (legacy `.venv/`-relative manifest paths) was an alpha.9 cwd-change interaction that fired identically on root and on features when each was eventually upgraded — A2 cascading would not have helped the operator catch it earlier.
+
+**Decision:** A2 is deferred indefinitely. The original BACKLOG entry framed it as "Re-open for v2.0.0 pre-stable or v2.0.1" — that timeline came and went without action across alphas 3–18, and the case has accumulated negative evidence ("we keep finding it but no operator gets hurt").
+
+**Why deferral is the correct posture, not implementation:**
+
+- **No consumer harm in three observations.** The asymmetry exists; the consequences do not. Aitri's gates are field-presence based, so a feature `.aitri` at a stale `aitriVersion` continues to satisfy gates as long as the field shapes match what the running CLI expects (which migrations would have ensured at the project root anyway, since features and root share the same `lib/upgrade/migrations/` rules when invoked).
+- **Implementation cost is moderate-to-high.** Cascading requires deciding how `diagnose()` composes findings across scopes, how the report aggregates per-feature output, how `--dry-run` previews multi-scope changes without confusion, and whether per-feature confirmation is required (operators may want to upgrade root but skip a stale feature). None of these decisions has obvious right answers without consumer input.
+- **Premature implementation locks in answers without evidence.** The "right" composition rule depends on what consumers actually want: parallel cascade (all features at once), interactive per-feature, root-only with explicit `--features` flag, etc. Picking now is design-by-imagination per CLAUDE.md.
+
+**Re-open criteria (either condition):**
+
+1. A third-party adopter explicitly requests cascading because the current asymmetry blocks a concrete workflow they need (operator running `--upgrade` once at root and expecting features to follow).
+2. A future migration becomes load-bearing for feature-scope state in a way that the operator cannot reasonably trigger by entering each feature dir manually (e.g. a state field that drives a verify/approve gate in a way that fails silently when stale).
+
+Without either, the asymmetry stays. The BACKLOG entry remains as a tracking pointer to this ADR, not as a pending work item.
+
+**Scope of this ADR:** decision-only. No code change. The BACKLOG entry for A2 is updated to reference this ADR; no other action.
+
+**What this ADR does NOT decide:** if criterion (1) or (2) fires, the implementation strategy (parallel vs interactive vs explicit-flag) is open and must be designed against the actual consumer signal at that time. This ADR closes the question "should we implement now?" — not "how should we implement when triggered?".
+
+---
+
+## ADR-031 — 2026-05-03 — Destructive migrations: structural auto-fix where Aitri owns the schema; honor system elsewhere
+
+**Status:** Active.
+
+**Context:** Three consecutive alphas had to converge on the right shape of a single migration:
+
+- **alpha.17** introduced `diagnoseOrphanIdea` which absorbed `IDEA.md` content into `01_REQUIREMENTS.json#original_brief` and unlinked the file. No pre-flight check for downstream artifact references existed. Hub had `04_IMPLEMENTATION_MANIFEST.json::files_modified[i].path === "IDEA.md"`, plus 5 other references across feature artifacts. The unlink succeeded silently; `aitri verify-run` then failed with ENOENT on a Hub TC that grep'd `IDEA.md`.
+- **alpha.22** (hotfix, 2026-05-02 PM) — `aitri validate` was gating on `fs.existsSync('IDEA.md')` and falsely reporting `❌ IDEA.md` after absorption. Removal of an incorrect assumption (file-presence ≡ brief-present); not a new abstraction. Justified bypass of velocity gate per CLAUDE.md "Purpose over process" exception.
+- **alpha.24** (hotfix, 2026-05-02 night) added `findIdeaPathReferences()` — a regex-based pre-flight scan that emits a `validatorGap` and blocks the unlink when any artifact contains `\bIDEA\.md\b`. Reactive, conservative, all-or-nothing.
+
+The alpha.24 surface is incomplete. It detects, but it does not differentiate. A regex hit on `04_TEST_RESULTS.json` (a frozen record auto-generated by `verify-run`) is treated identically to a hit on `04_IMPLEMENTATION_MANIFEST.json::files_modified[i].path` (a live deliverable pointer). The operator gets a single "6 references" finding and is left to classify them by hand. For a project base growing past a single canary, that cost scales with adopter count: every consumer hitting this case repeats the same manual triage.
+
+**Principle violated by alpha.17 and partially codified by alpha.24:** *destructive on-disk operations in upgrade migrations must pre-flight scan for downstream references before proceeding.* alpha.24 implements the scan but stops at flag-only.
+
+**Refinement decided by this ADR (lands in alpha.25):** the scan must be **schema-aware**, not just regex-based. Each reference is classified into one of three buckets based on where Aitri's authority extends:
+
+1. **`auto_fixable`** — reference lives in a field Aitri owns (documented in `ARTIFACTS.md` and validated by `lib/phases/phase*.js::validate()`). The migration applies a mechanical shape transform (drop array element, drop entry) and re-stamps `artifactHashes[<phase>]`. This is §2-compliant: not semantic inference, but removal of a structurally invalid pointer to a file the migration itself is about to delete.
+2. **`narrative`** — reference lives anywhere else: free-form JSON fields (`test_data.*`), project-extension shapes (Hub's `verification.smoke_checks[i].command`), narrative bodies (Markdown `.md`), free-text strings (`technical_debt[i].substitution`). Aitri does not own these. Flag as `validatorGap` advisory; operator decides.
+3. **`frozen`** — reference lives in an artifact that is, by design, an immutable historical record: `04_TEST_RESULTS.json` (auto-generated by verify-run), `05_PROOF_OF_COMPLIANCE.json` (Phase 5 evidence). Modifying these falsifies history. **Skip silently** — do not surface as a finding requiring action.
+
+**Decision (operational rules):**
+
+- *Auto-fix is bounded by `validate()` enforcement.* If `phaseN.js::validate()` does not enforce the field's shape, Aitri does not auto-modify it. Free-form fields (`test_data: {}`, project-extension keys) stay narrative. This is the operational reading of §2 ("shape transforms only"): shape is what the validator owns; everything else is content.
+- *Pre-flight blocking decision is post-auto-fix.* The migration first applies all `auto_fixable` transforms, then re-evaluates. If `narrative.length > 0`, block the destructive op (preserves alpha.24's safety guarantee). If `narrative.length === 0`, proceed with the destructive op in the same migration run. Frozen refs never count toward the block.
+- *Frozen artifacts are silently skipped.* They appear in no finding, no advisory, no telemetry beyond an internal `frozenCount` for tests. Surfacing them encourages bad action (rewriting evidence); silence encourages correct action (leave them alone).
+- *Discovery primitive stays as regex (`/\bIDEA\.md\b/`).* Schema-walk drives classification of structured fields; regex drives classification of narrative bodies. Both feed the same three-bucket output.
+
+**Trade-off:** the classifier is wider than alpha.24's scan and requires a per-artifact field-path map. For new artifacts that don't yet appear in the map (a future v2.X artifact added to the chain), the default fallback is "narrative-flag everything" — conservative, the same as alpha.24. New artifacts opt in to `auto_fixable` only when explicitly registered in the classifier.
+
+**Why this ADR is broader than the IDEA.md case:** the principle is parameterized over *(destructive op, ref pattern)*, not over `IDEA.md` specifically. Future migrations that unlink, rename, or move any project-owned file (artifact or otherwise) inherit the same protocol: pre-flight scan classified by schema authority, structural auto-fix where Aitri owns, narrative flag elsewhere, frozen silently skipped. The classifier module (`lib/upgrade/idea-ref-classifier.js`) is named for its first instance but its shape is reusable — when a second case arises, generalize the module rather than duplicate it.
+
+**Why narrow-evidence rule does not block this ADR:** the case it codifies is a *removal of an incorrect assumption*, not a new speculative abstraction. alpha.17's silent unlink + alpha.22 + alpha.24 are three documented incidents; the next migration with the same shape (any future destructive op) inherits the same risk class. Codifying the principle is preventive against a class of bug that has already produced two consecutive hotfixes — not against a hypothetical future. CLAUDE.md "evidence narrow but only where applicable" explicitly carves out *"a removal of an incorrect assumption rather than the addition of a new abstraction"* as exempt from the third-party-canary gate.
+
+**Scope of this ADR:**
+- Decides: the three-category model and the auto-fix/block/skip rules.
+- Does not decide: the specific field-path map (which fields are `auto_fixable` for any given artifact). That map lives in code (`idea-ref-classifier.js`) and is updated as new auto-fixable cases are identified per consumer signal.
+- Does not decide: whether to extend auto-fix to free-form `test_data`. The current answer is no (§2 binding); a future ADR may revisit if a real consumer surfaces a need that narrative-flag cannot cover.
+
+### Addendum — 2026-05-03 (alpha.26) — Post-destructive on-disk audit protocol
+
+ADR-031 codified the **producer side** of the destructive-op contract (the migration that performs the unlink/rename/move). The Ultron blocker reported 2026-05-03 — re-running `aitri run-phase architecture` failed with `Missing required file: IDEA.md` after Phase 1 absorption — surfaced the missing **consumer side**: every code path that previously assumed the file's presence is a latent bug class that survives the producer fix.
+
+**Bug class.** When a destructive on-disk operation ships (here: `lib/commands/approve.js` archives `IDEA.md` into `01_REQUIREMENTS.json#original_brief` and unlinks the file on first approve of Phase 1, since v0.1.89), every callsite that was written before the change and depends on the file's presence becomes a future blocker. The blocker doesn't fire immediately because those callsites typically run BEFORE the destructive op (greenfield projects) or are gated by schema (artifact validators) — they fire on the **second pass**: re-runs, re-validations, re-builds on already-approved projects.
+
+**Three observed instances of this class so far:**
+1. `lib/commands/validate.js` gated on `fs.existsSync('IDEA.md')` → falsely reported `❌ IDEA.md` post-absorption. Closed by alpha.22 (`ideaBriefStatus` helper accepts either path).
+2. `lib/upgrade/migrations/from-0.1.65.js::diagnoseOrphanIdea` unlinked IDEA.md without scanning downstream artifacts → broke Hub. Closed by alpha.24 (regex pre-flight) + alpha.25 (schema-aware classifier).
+3. `lib/phases/phase2.js` and `lib/phases/phaseUX.js` declared `IDEA.md` as a required input, but `buildBriefing` never read `inputs['IDEA.md']`. The `run-phase.js` gate hard-failed on missing inputs even though the briefing was unaffected. Closed by alpha.26 (declaration removed; structural guard test added).
+
+**Three hotfixes on the same producer event = systemic gap, not three coincidences.** Per-incident fixes plug the hole the user just found; the next incident is wherever the next consumer hits the next stale assumption.
+
+**Audit protocol** (mandatory when a destructive on-disk op is added, applied retroactively for the IDEA.md case in alpha.26):
+
+1. Identify the file/path being removed.
+2. `grep -rn "<filename>" lib/ templates/ --include='*.js' --include='*.md'` — enumerate every callsite.
+3. Classify each callsite:
+   - **Pre-destructive consumer** (runs before the destructive op fires): unaffected, no change.
+   - **Post-destructive consumer** (runs after): must be updated to read from the new SSoT (e.g. `original_brief`) OR have its dependency on the file removed entirely (dead declaration).
+   - **The destructive op itself** (the producer): subject to ADR-031's pre-flight scan rules.
+4. Add a **structural guard test** that prevents regression at the type/schema level. For the IDEA.md case: `test/phases/inputs-contract.test.js` walks `PHASE_DEFS` and asserts no post-Phase-1 phase declares IDEA.md as a required input.
+5. Functional regression test for at least one real-world reproduction (e.g. `cmdRunPhase('architecture')` on an absorbed-brief fixture must not throw).
+6. Document the audit in this addendum so the next destructive op author knows the protocol exists.
+
+**Why this addendum is not a separate ADR.** The producer-side principle (ADR-031) and the consumer-side principle are two halves of the same invariant: *destructive on-disk operations carry a bidirectional audit obligation*. Splitting them into separate ADRs invites someone to read one and miss the other. The producer-side already lives here; the consumer-side joins it as the addendum.
+
+**Scope of this addendum:**
+- Decides: the bidirectional obligation is part of ADR-031's contract.
+- Decides: the post-destructive audit protocol is the operationalization of "consumer-side coverage".
+- Does not decide: whether to add a generic "files Aitri removes" registry that could automate the audit. That's a future enhancement gated on a second destructive op shipping (today only IDEA.md is removed; one data point is insufficient).
+
+### Addendum 2 — 2026-05-03 (alpha.27) — Producer-side at-approve-time pre-flight scan
+
+Addendum 1 codified the consumer-side audit (every callsite that depends on a file's presence must be enumerated when the destructive op ships). Addendum 2 closes the **fourth instance of the same bug class**: `lib/commands/approve.js::archiveIdeaIntoRequirements` (since v0.1.89) unlinks IDEA.md on first approve of Phase 1 without scanning whether downstream artifacts reference the file as a runtime path. Hub paid the cost: TC-015h + TC-018f referenced `IDEA.md` from `tests/integration/hub-web-only.test.js` via `readFileSync`, and `04_IMPLEMENTATION_MANIFEST.json::files_modified[i].path === "IDEA.md"`. After the v0.1.89-shipped approve absorbed and unlinked the file, those refs broke at the next `aitri verify-run` — silently in the spec, loudly in the test runner.
+
+**The four instances of the class** (chronological, all on the IDEA.md producer event):
+1. `validate.js` gating on `fs.existsSync('IDEA.md')` → falsely flagged absorbed-brief projects. Closed alpha.22.
+2. `lib/upgrade/migrations/from-0.1.65.js::diagnoseOrphanIdea` unlinking without pre-flight scan. Closed alpha.24 (regex pre-flight) + alpha.25 (schema-aware classifier).
+3. `lib/phases/{phase2,phaseUX}.js` declaring IDEA.md as required input (dead declaration; gate hard-failed on missing). Closed alpha.26.
+4. `lib/commands/approve.js::archiveIdeaIntoRequirements` running the destructive op without scanning. Closed by this release (alpha.27) — producer-side pre-flight scan added to approve.
+
+**Producer-side principle.** Addendum 1 (consumer-side) operates on already-shipped destructive ops, auditing every callsite. **Addendum 2 (producer-side) operates at the destructive op itself, gating it.**
+
+**Operational rule for any destructive on-disk operation in Aitri:**
+
+> Before executing the destructive op (unlink, rename, move), the producing command MUST classify downstream references using the schema-aware classifier (per ADR-031 §main). Apply auto_fixable transforms mechanically. If narrative refs remain, BLOCK the operation with an actionable error listing each ref by file + JSON-path. Frozen evidence is silently skipped.
+>
+> The destructive op proceeds only when post-classification narrative count is zero.
+
+**Why block instead of warn?** A warning operator can ignore is a future hotfix. The Hub case proved this: the v0.1.89 approve had no scan at all, no warn, no block — pure silent destruction. Addendum 1 retroactively added detection in the migrator (alpha.24/25), but operators who never ran `adopt --upgrade` saw nothing until verify-run failed days later. Hard block at the producer is the only surface that prevents the next case before it ships.
+
+**Auto-fix rules (same as ADR-031 §main):** drop element from documented manifest arrays (`files_created`, `files_modified`, `test_files`); re-stamp `artifactHashes[<phase>]` if the affected phase was approved; emit `approve_preflight_autofix` event with before/after hashes. Auto-fixes apply even when narrative blocks the op — they are independently valid structural cleanup; operator inspects via `git diff` and can revert if intentional.
+
+**No escape hatch for the block.** A `--accept-stale-refs` or `--force-absorb` flag would re-create the silent breakage Addendum 2 is closing. The operator's correct path is: edit refs, then re-run approve. This aligns with the principle established 2026-05-03 by the user: *IDEA.md is transient; refs that depend on its presence must be corrected, not silenced*. The advisory persistence in `diagnoseOrphanIdea`'s "ambiguous case" branch is also kept (no silencer flag). The advisory IS the design.
+
+**Scope of Addendum 2:**
+- Decides: at-approve-time pre-flight scan is the producer-side operationalization of ADR-031.
+- Decides: hard block on narrative; auto-fix structural; silently skip frozen.
+- Decides: no escape flag — the only correct response to the block is to edit refs.
+- Implementation note: only the IDEA.md absorption case exists today (`approve.js::archiveIdeaIntoRequirements`). The pattern reuses `lib/upgrade/idea-ref-classifier.js`. When a second destructive op ships, generalize the classifier and apply the same protocol.
+
+**Net effect of ADR-031 + addenda 1 + 2:**
+| Phase of destructive op | Coverage |
+|---|---|
+| Producer-time (when the op fires) | Addendum 2 — pre-flight scan in the command itself; block if refs would break |
+| Migration-time (retroactive for old projects) | ADR-031 §main + alpha.24/25 — classify, auto-fix, flag |
+| Consumer audit (codepaths assuming file presence) | Addendum 1 — enumerate every callsite, reclassify, structural guard test |
+
+The class is closed for IDEA.md. The pattern generalizes for any future destructive op.
+
+---
+
+## ADR-032 — 2026-05-21 — Seed-input elicitation: provenance contract over honor-system inference
+
+**Context.** Investigation (2026-05-20/21) of a reported regression — "the wizard is nonexistent" — found that in agent mode (the only real operating mode, stdin not a TTY) human input is structurally required at **zero** points:
+- The wizard's agent briefing ([wizard.js:165-179]) instructed the agent to *"infer as many fields as possible / only ask follow-ups for fields that genuinely could NOT be inferred"* (introduced v0.1.38). A strong model infers everything and asks nothing — the interview collapses to zero. Verified by code + canaries: every feature seed (Cesar, AITRI-HUB, Zombite) uses the blank `FEATURE_IDEA.md` template filled by the agent; Ultron's discovery is brownfield-derived with self-certified `Confidence: high`.
+- Both human surfaces in `approve.js` (`printApprovalSummary`, `askChecklist`) early-return on `!isTTY` — they no-op when an agent runs `approve`.
+- The "5-criterion pre-flight" and "Human Review checklists" are template text with **no** mechanical enforcement; the discovery confidence gate is honor-system (agent declares its own confidence).
+
+The seed is the garbage-in/garbage-out point of the whole artifact chain. "Input is the most valuable thing for Aitri to produce good results" (user, 2026-05-20).
+
+**Architectural ceiling (states the boundary honestly).** Aitri only ever talks to the agent, never to the human. It **cannot verify** that a human typed any free text. Therefore no design can *guarantee* human input. The maximum achievable is: (1) make the agent's path of least resistance "ask & confirm"; (2) make assumptions structured, blockable, and propagating; (3) make unconfirmed critical inputs auditable. A false `"confirmed"` is the agent lying — outside Aitri's enforcement boundary.
+
+**Tier model.** Inputs split by *(can the agent infer it reliably?) × (blast radius if wrong?)*:
+- **Tier A — must ask** (ground-truth only, high blast radius): `problem, users, baseline, success_metric, no_go_zone` — exactly the five existing IDEA.md Pre-flight criteria.
+- **Tier B — infer-then-confirm**: business rules, FR decomposition, North Star/JTBD, stack choice.
+- **Tier C — infer silently**: test data, edge cases, code structure, API shape — existing gates suffice.
+
+**Decision (D1 + D2; D3 deferred).**
+- **D1 (prompt):** rewrite the seed-creation surfaces (`wizard.js` agent briefing, `templates/IDEA.md`, `templates/FEATURE_IDEA.md`, Phase 1 `requirements.md`) to remove the explicit permission to collapse — present a draft, then confirm each Tier-A field with the user; mark anything inferred as an assumption. Soft (honor-system), necessary but insufficient alone.
+- **D2 (gate, the teeth):** optional additive fields `idea_provenance` (per Tier-A field → `confirmed | assumed`) + `idea_gaps` on `01_REQUIREMENTS.json`. `phase1.validate()` blocks on a **fresh seed** (Phase 1 not approved) when provenance is missing/invalid or an `"assumed"` field is not carried in `idea_gaps`. Runs **last** in `validate()`, fires only when a config is supplied (bare `validate(content)` skips → no test churn) and only on fresh seeds (re-runs of approved projects skip → no upgrade migration, existing projects never break). Generalizes the existing discovery-confidence pattern to the seed, which most projects reach without discovery.
+- **D3 (deferred):** just-in-time constraint confirmation before Phase 2 (compliance, data residency, deployment target — which Technical Risk Flags is blind to) and brand identity before UX. The efficiency layer; ship after D1+D2 prove out.
+
+**Decision matrix (D2):** Impact High · Value-to-produced-software 8 (seed is the chain's garbage-in point) · Severity Moderate (silent degradation — already the status quo) · Trade-off: provenance of free text is unverifiable (nudge + audit trail, not guarantee); +2 optional contract fields to maintain.
+
+**Anti-theater check.** Not "field present" validation. It changes the default (agent must classify provenance) and makes omitted ground truth a blocking, propagating gap — preventing a verifiable present defect (silent garbage-in seed), not a hypothetical one.
+
+**Objection on record (CLAUDE.md "evidence base").** The collapse is verified today (code + canaries) — that justifies D2 as prevention of a present, code-grounded defect. But whether the provenance contract *improves the software consumer projects produce* depends on real operator behavior that author canaries can only partially validate (they can confirm the gate fires and briefings don't collapse; they cannot confirm a third-party operator answers honestly). Treat tier-1 value as **provisional** until a non-author consumer validates. This does not gate the rc.4 ship (additive, non-breaking, reverts cleanly) but it does gate any future hardening (e.g. making provenance required on re-runs, or adding a status/resume surface) — seek external signal first.
+
+**Scope.**
+- Decides: Tier-A vocabulary = the five Pre-flight criteria; provenance is `confirmed|assumed`; gate is fresh-seed-only and additive.
+- Decides: no escape flag — the correct response to the block is to confirm with the user or record the gap (same posture as ADR-031 Addendum 2).
+- Does not decide: D3 timing/mechanism; whether to surface provenance in `status`/`resume` (deferred, needs a consumer asking); whether to harden `approve`'s TTY-gated checklist (separate finding).
+
+## ADR-033 — 2026-05-23 — `normalize --resolve` requires a clean behavioral working tree (git baselines)
+
+**Context.** Cesar canary, run via **Codex** (cross-agent — prior normalize findings rc.6/rc.7 were Claude), hit a self-inflicted second normalize cycle. `verify-run` forced a code edit (`TC-009f` literal-substring contract broke when a linter reordered imports); the edit was uncommitted when `--resolve` stamped `baseRef = HEAD`; committing the closure then surfaced the edit as fresh off-pipeline drift, costing a full second `normalize` + `--resolve`. Root cause is an asymmetry between commands meant to be used together: `verify-run` validates the **working tree** ([verify.js:436]), while detection and `--resolve` read **committed state only** (`git diff baseRef..HEAD`, [normalize.js:64]) and `--resolve` stamps HEAD ([normalize.js:199]) with no working-tree check. The recommended closure sequence in `templates/normalize.md` / `templates/AGENTS.md` had no "commit first" step, so the SSoT that consumer agents read led directly into the trap.
+
+**Rejected framing — "gate blind spot" (on record).** An intermediate analysis escalated this to a correctness defect: "an uncommitted `fr-change` would pass `--resolve` as accounted-for without anyone seeing it." This is false and self-contradictory. Uncommitted code is unshipped code; everything that ships passes through `baseRef..HEAD`. The re-flag the analysis called "the defect" is the detection *catching* the previously-invisible change — it cannot simultaneously be "the bug" and "what lets changes escape unseen." An uncommitted `fr-change` is surfaced at commit time, never absorbed. Recording the rejection so the false premise is not re-introduced as rationale in a future change: this is a **closure-sequence gap + avoidable friction**, not a safety hole. (The residual — an operator/agent lying to the honor-system TTY confirmation — is the same boundary as ADR-032, unchanged by working-tree state.)
+
+**Decision.** `--resolve` rejects (exit 1) when the working tree holds uncommitted behavioral files, before the TTY confirmation, with an actionable message (commit / `git stash -u`, then re-run). Scope:
+- **Git baselines only.** mtime baselines already read the working tree in `detectChanges()` — the asymmetry does not exist for them, and running `git status` there would mislead or fail. Fail-open if git is unavailable.
+- **Status semantics mirror detection** (`--diff-filter=ACMR` + untracked; pure deletions excluded — detection never counts them, so they cannot re-trigger). Path scope matches `gitChangedFiles()` (spec/, .aitri, feature pipeline, node_modules, non-behavioral allowlist excluded).
+- **Template fix** is the higher-leverage half: `normalize.md` Step 5 + `templates/AGENTS.md` now prescribe commit → verify → resolve and name the gate. The guard backstops agents that ignore prose.
+
+**Reject, not warn (decision on record).** The proportionality argument for warn ("the condition self-heals on the next commit") assumes a human reader who sees the line and acts. The established real consumer is an agent that steamrolls advisory output and answers `y`; a warning prints, `--resolve` exits 0, the agent sees success and proceeds — warn is a no-op on the actual consumer. Only a non-zero exit enters an agent's control loop and forces commit→retry. Independent of the agent point, warn back-loads the full second normalize cycle (the friction reproduced); reject front-loads one commit. The earlier warn position was wrong and is retracted here.
+
+**Anti-theater check.** Not "field present" validation. It prevents a reproduced, code-grounded friction (the double-cycle) and enforces a real coherence property — `baseRef` points to the committed state `verify` validated, not a HEAD missing edits that `verify-run` exercised. Verifiable from code + present case, so CLAUDE.md's "wait for more consumers" reflex does not apply; the cross-agent reproduction (Codex) strengthens but does not gate it.
+
+**Not an architectural change.** No new command, artifact, phase, or schema — a precondition added to an existing command. Logged as an ADR (rather than only CHANGELOG) for the rejected-framing record and the warn-vs-reject rationale, per the decision-log mandate to record objections raised during discussion.
+
+**Scope.**
+- Decides: `--resolve` requires a clean behavioral working tree on git baselines; reject over warn; deletions excluded; template prescribes commit-first.
+- Does not decide: making detection itself working-tree-aware (rejected — structural, enlarges bug surface, the guard solves the class more cheaply); any change to the honor-system TTY confirmation (ADR-032 boundary, unchanged).
+
+## ADR-034 — 2026-05-25 — Pre-2.0.0 deep audit: prioritize rigor on produced code over documentation rigor; zero-dep correction; theater rejections
+
+**Context.** A full pre-promotion audit (UX, pipeline coherence, command surface, human-validation gates, personas/prompts, security coverage). The audit's organizing conclusion, reaffirmed by the user: **the deliverable is the produced code, not the artifact trail.** Per "Purpose over process," verification of produced code is the tier-1 surface; documentation/artifact-consistency rigor is necessary but ranks below it. Several previously-planned items were re-weighted down because they harden the paper trail, not the code.
+
+**The verification spine (the eje).** The only verification that is not theater is grounded in execution/measurement, never in field presence. Aitri's crown jewel (`verify-run` executes real tests) sits on this axis; the audit found it half-built and half-stack. rc.9 ships the first two:
+- **C1 — stack-agnostic coverage (shipped rc.9).** `--coverage-threshold` instrumented node only; now node/`go test`/`pytest`/`jest`/`vitest` via `injectCoverageFlag()`, parsed by an extended `parseCoverageOutput()`, persisted as additive `04_TEST_RESULTS.json#line_coverage`. Serves the non-node canaries (Cesar pytest, Go-on-RPi) that had no coverage signal.
+- **C2 — opt-in assertion-density gate (shipped rc.9).** Low-confidence TCs (≤1 assertion) persisted as additive `low_confidence_tcs`; opt-in `.aitri#strictAssertions` makes `verify-complete` block on them. Default unchanged (warning).
+
+**C3 (mutation testing) — DROPPED; zero-dep reasoning corrected (decision on record).** Mutation was already in the immutable Discarded list. Pulling it forward conflicted with that record; surfaced before any code was written. The discard's stated basis was partly a **category error**: it argued mutation "violates zero-dep." It does not. Zero-dep constrains what **Aitri imports**, not what Aitri **orchestrates** — Aitri already spawns project-local tools (pytest, go, Playwright). Orchestrating a *project-declared* mutation tool (in the consumer's own deps) adds zero deps to Aitri, same pattern as the Playwright dispatch. The real, valid basis stands and is why C3 stays dropped: **C2 covers ~60% of the same problem at zero cost, and no adopter has asked.** Disposition: keep dropped on **evidence** grounds, not policy. Re-open criterion: a security/production-critical adopter needing rigor deeper than C2 — implemented then as project-declared orchestration, never a bundled or globally-installed tool. The BACKLOG Discarded entry's reason is corrected accordingly.
+
+**Zero-dep policy itself — KEPT (decision on record).** Question raised: is zero-dep harmful given Aitri builds software? No. It is a real, differentiated security/longevity posture for a tool agents run with write access, and it has never actually blocked Aitri (built-ins suffice for Aitri's language-agnostic job — schema, cross-artifact consistency, output parsing). "Use the best verification tools" is satisfied by **orchestrating the consumer's tools**, which zero-dep fully permits. Even the hardest case (deep multi-language static analysis) resolves to orchestration, not an Aitri dep. The tension was imaginary, born of the import-vs-orchestrate conflation above.
+
+**Dispositions for the remaining audit items (queued, not yet shipped).**
+- **A1/A2/A3 (R2) — stack-agnosticism, will ship.** `deploy.md` hardcodes Dockerfile/docker-compose unconditionally (invariant #4 violation); DevOps persona + UX persona (`375px` breakpoints, incl. its own CLI-tool archetype) reinforce web/container assumptions. Fix = local conditionals (consistent with the "Stack-aware project profile" study's "runner dispatch is enough until 2 dimensions appear" stance — no `profile` axis).
+- **F1 (R3) — security forcing-function, will ship (narrow).** Security is real but opt-in across the pipeline; Phase 1 will force the agent to *answer* whether security applies (Y/N + why), like it already does for observability/CI/CD. A dedicated security meta-persona (F2) is **deferred** — speculative without a security-sensitive adopter.
+- **D1/D2 (R5) — consistency gates, will ship (lowest priority).** D1: Phase 5 `level ≥ complete ⇒ fr_coverage covered` (claim-vs-evidence consistency, not presence). D2: AC-traceability legacy skip → error. These harden the trail; ranked below the code-rigor work per the re-prioritization.
+- **B1/B2 (R4) — human gate.** B1: `approve` prints the checklist content always (today it no-ops the summary + checklist on `!isTTY`). B2: **resolved** — default is print-and-proceed (autonomy preserved for CI/agent runs); opt-in `.aitri#humanApprovalGate` makes `approve` block in non-TTY so serious projects get a real review window (humans read/comment/modify; comments via git/PR, modifications caught by existing drift detection). Agent instruction: treat `approve` as a checkpoint, do not auto-chain phases. **Trade-off on record:** with the flag off, a fully-autonomous run can approve all phases without a human; the window is opt-in, not universal — deliberate, to avoid forcing TTY (which would break CI).
+- **P1 — reviewer verdict stays advisory (decision on record).** The optional Code Review phase emits PASS/FAIL but does not gate Phase 5. Keep advisory + document it; making an optional phase a hard blocker adds friction with no evidence of a defect it would catch. Real rigor is C1/C2 + the human gate.
+- **P2 (R2) — architect persona gets a ❌/✅ ADR example** (only generative persona lacking few-shot).
+
+**Personas/prompts assessment.** Well-built (handoff framing, few-shot, anti-faking, skepticism priming). The one substantive finding: they lean on the LLM's honor-system at the points LLMs are least reliable (reviewer "I read every file"; developer `@aitri-trace`/no-TODO self-attestation). The antidote already exists (ADR-032 provenance contract = mechanical contract over self-attestation) and the fix is mechanical backstop (the C/B work), not prompt rewrites. P3 (Never→Always reframing) and P4 (CONSTRAINTS/REASONING redundancy) deferred — no tier-1 evidence.
+
+**Rejected as theater (on record, so the false premises are not re-introduced).** Each only validates field presence and prevents no real defect — prohibited by CLAUDE.md's "structural gate without defect evidence is theater":
+- Phase 2 "does the design mention the FR types?" — a regex over section text cannot judge design quality; "is the design good?" is human by deliberate design.
+- Phase 3 vagueness regex on given/when/then — false positives (already seen with domain terms in Phase 1); placeholder gate already exists.
+- Phase 4 `@aitri-trace`/TODO presence scan — the agent writes the token; the defect persists.
+- verify-run write-ordering nitpick — `verify-complete` already gates afterward.
+- TTY-required `approve` — breaks agent mode (the real mode); the right answer is B2's opt-in gate.
+
+**The actual 2.0.0 gate is unchanged and non-code:** at least one third-party adopter validating end-to-end (BACKLOG promotion gate). None of the above substitutes for it.
+
+**Scope.**
+- Decides: code-rigor-over-doc-rigor prioritization; C1/C2 shipped; C3 dropped on evidence with zero-dep reasoning corrected; zero-dep kept; B2 print+opt-in-gate; P1 advisory; the theater rejections.
+- Does not decide: whether C3/F2 ever ship (gated on a security/production adopter); the `profile` axis (separate study); E1 next-action-marker unification (queued, R6).
+
+---
+
+## ADR-035 — 2026-05-29 — Enforce the canonical TC-id at authoring time; one grammar shared by the Phase 3 gate and the verify-run parser
+
+**Status:** Active
+
+**Context.** Three layers had an opinion about the shape of a TC id and only two agreed in code:
+- The **template** (`templates/phases/tests.md`) *teaches* the canonical form (`TC-001h`, `TC-E2E-001h`) and explicitly warns that other shapes "verify-run cannot parse."
+- The **`verify-run` parser** (`extractTCId`) *requires* it: a parsed runner-output id is linked to a plan id by string equality (`detected.get(tc.id)` in `lib/commands/verify.js`). An id the parser cannot round-trip is unlinkable.
+- **`phase3.validate()`** *did not enforce it.* It checked uniqueness, per-FR `h`/`f` suffixes, types — but never the id grammar itself.
+
+The gap was an honor system between the template and the parser. Hub's `hub-folder-scan` feature exercised it: an agent authored `TC-e2eFolderScan` / `TC-e2eFolderEmpty` (descriptive, no numeric block). They passed Phase 3 (the FR's `h`/`f` quota was met by a separate numbered `TC-021` series), then `verify-run` could not link them and they dropped to `skip`. A green test the system could not credit = degraded produced software. The first response was a half-finished patch that *loosened the parser* to accept digit-free ids — fixing the symptom in the wrong layer: it condoned off-convention naming and widened the parser to match stray `TC-<word>` log tokens (`TC-PASS`, `TC-NOTES`) into phantom TCs.
+
+This closes the **"Phase 3 canonical TC id regex"** item, which had been Discarded (2026-04-23) pending a second evidence case. Hub is that case. Per CLAUDE.md's narrow-evidence rule, the wait-for-more-consumers reflex does **not** apply here: this is a limitation verifiable in code today and a real (author-owned) project producing degraded output — the fix is the removal of an incorrect honor-system assumption, not a speculative abstraction.
+
+**Decision.**
+1. The canonical-id grammar becomes a **single source of truth** in `lib/tc-id.js`: `extractTCId` (moved verbatim from `verify.js`, re-exported there for back-compat) and `isCanonicalTCId(id) = extractTCId(id) === id`. A leaf module — `phase3.js` importing it cannot create the cycle that importing `verify.js` would (`verify.js → snapshot.js → phases/index.js → phase3.js`).
+2. **Revert** the digit-free parser branch. The numeric block is required on purpose.
+3. **Phase 3 gate:** reject any `test_cases[].id` that does not round-trip through the shared parser, naming the offenders and the canonical form. Because the gate and the parser are literally the same function, they cannot drift again.
+4. **Deterministic rename suggestion** (`suggestCanonicalTCId`): when the only defect is a glued pure-letter namespace (`TC-NFR010h` → `TC-NFR-010h`), the gate prints the exact fix — the dominant real case (the Hub scan found ~30 such ids, mostly glued NFR forms). It deliberately refuses to guess for (a) digit-bearing namespaces (`TC-E2E001h` — ambiguous, the very reason the separator exists) and (b) descriptive ids with no numeric block (`TC-e2eFolderScan` — a human must assign the number). Every suggestion is re-checked for canonicity before being offered.
+
+**Trade-off.** A project with non-canonical ids will fail `complete 3` where it previously passed (and silently mis-verified later). Acceptable — it converts a silent downstream failure into a loud, fixable authoring error at the right phase, with a message that says how to fix it. Fresh-validation only: existing approved projects are not re-validated until they re-run Phase 3, so no migration is forced (Hub fixes its two ids by hand). The gate enforces an UPPERCASE namespace (the parser normalizes to it); a project using a lowercase namespace must uppercase it — correct, because the lowercase form never actually linked in `verify-run`.
+
+**Why not enforce at the parser instead (the patch's approach).** Loosening the parser would (a) accept ids the convention forbids, eroding the contract the template teaches; (b) re-introduce the phantom-TC false-positive surface the numeric anchor exists to prevent; (c) leave the authoring/linking asymmetry in place for the next non-canonical shape. Enforcing at authoring time keeps the parser strict and makes its strictness safe.
+
+**Second divergent grammar, same fix.** A sweep for other ad-hoc TC-id parsing found one: the `@aitri-tc` marker scanner in `scanTestContent` (`verify.js:283`) used its own `TC-[A-Za-z0-9]+`, which truncated namespaced ids at the second hyphen (`TC-E2E-001h` → `TC-E2E`) and named the wrong TC in the assertion-density (C2) report. Routed through `extractTCId` so the marker scanner shares the SSoT grammar too. All runner-output parsers (`parseVitest`/`parsePytest`/`parseGo`/…) already used `extractTCId`; this was the last divergent reader.
+
+**Scope.**
+- Decides: canonical-id grammar is SSoT in `lib/tc-id.js`; Phase 3 enforces it via round-trip; the deterministic rename suggestion; the digit-free parser loosening is reverted; the `@aitri-tc` marker scanner is unified onto the SSoT; the Discarded "Phase 3 canonical TC id regex" item is closed (shipped).
+- Does not decide: any change to the grammar itself (namespace casing, suffix vocabulary) — out of scope; this only enforces the existing one.
+
+---
+
+## ADR-036 — 2026-05-30 — Upgrade migrations must transform at apply time, never write a diagnose-time snapshot
+
+**Status:** Active
+
+**Context.** `adopt --upgrade` runs every `diagnose*` function against the current on-disk project, collecting findings. `migrate()` then applies each auto-migratable finding's `apply()` **sequentially, with no re-read between them**. Each artifact-writing finding had captured a full-file `afterContent` at *diagnose* time and its `apply()` did `fs.writeFileSync(full, afterContent)`. When two findings target the same file — `diagnoseNonFunctionalRequirements` (NFR shape rewrite) and the orphan-IDEA absorb in `diagnoseOrphanIdea`, both on `01_REQUIREMENTS.json` — the second `apply()` overwrote the first with a snapshot taken before the first ran. By `diagnose()` order the IDEA absorb always wins, so the NFR rewrite was silently reverted while the upgrade report claimed both applied. Triggers on the exact pre-0.1.89 population the migrator targets (legacy NFRs + an orphan `IDEA.md`). The brief was not lost (absorb wrote last and includes it), but a BLOCKING migration became a reported-success no-op. Found by a defect hunt on the upgrade module.
+
+**Decision.** Artifact-writing migration `apply()`s MUST re-read the file at apply time and mutate the current on-disk content — never persist a diagnose-time snapshot. Codified as `rewriteArtifactInPlace(full, mutate)` in `from-0.1.65.js`: it re-reads, runs `mutate(data)` against fresh content, writes, and returns the actual before/after hashes (which the finding stamps onto itself so the `upgrade_migration` event matches final disk). Each `mutate` is written to be idempotent-safe (it guards the fields it may have already changed), because it now runs against whatever is currently on disk rather than a known snapshot. Destructive side effects (the IDEA `unlinkSync`) run only after a successful write, so a re-read failure cannot lose data.
+
+**Invariant for future migration authors:** if your `apply()` writes a whole artifact file, route it through `rewriteArtifactInPlace` (or re-read equivalently). Writing a precomputed full-file blob is the clobber bug. Diagnose-time `beforeHash`/`afterHash` may still be computed for the dry-run preview, but the real run's recorded hashes come from the apply-time read/write.
+
+**Trade-off.** `apply()` now does one extra read+parse per artifact write (negligible — upgrades are rare and the files are small). The mutate functions must be idempotent-safe, which is slightly more code than a blind overwrite — accepted, because it also makes a double-run safe. Alternative considered and rejected: serialize/merge same-target writes at the `migrate()` orchestration layer — infeasible, because the precomputed-blob design gives the orchestrator no way to merge two full-file snapshots without understanding each transform.
+
+**Scope.**
+- Decides: artifact-writing `apply()`s re-read at apply time via `rewriteArtifactInPlace`; the three current writers (TC rename, NFR rewrite, IDEA absorb) are converted; IDEA unlink is gated on write success.
+- Does not decide: a broader migration-framework refactor — the helper is the minimal invariant that closes the clobber class; richer migration composition is unneeded until a migration must transform a file a third writer also touches.
+
+---
+
+## ADR-037 — 2026-05-30 — Code-quality gates: the verification spine enforces well-built code, not only passing tests (orchestrate, don't bundle)
+
+**Status:** Active
+
+**Context.** Aitri's verification spine answered one question — *"do the tests pass?"* — via `verify-run` executing the project's real suite and `verify-complete` + `fr_coverage` gating the pipeline on functional behavior (every MUST FR traced to a passing test). That functional layer is strong and is the core of Aitri. But the tool markets itself as **SDLC + CI/CD**, and a serious SDLC gate also asks *"is the code well-built?"* — lint, type-check, security, coverage. None of those were enforced: lint/type-check were honor-system checklist items in the Phase 4 briefing (the agent attests), security was only a yes/no Phase-1 question, coverage was an opt-in flag. A project could pass Aitri end-to-end with green tests and a broken linter, unsafe code, or no type-checking. The author flagged the gap directly: without code QA, Aitri risks being process ceremony that does not raise the floor on the produced software — which contradicts "Purpose over process."
+
+**Decision.** Add **code-quality gates** to the verification spine, built on the pattern already proven by `test_runner`: **Aitri orchestrates the project's declared QA commands and gates on their exit codes — it never bundles or implements analyzers.**
+
+- **Schema (additive):** `04_IMPLEMENTATION_MANIFEST.json#quality_gates: [{ name?, command, required? }]`. The project declares its own `eslint`/`tsc`/`ruff`/`mypy`/`go vet`/`gosec`/etc.
+- **Execution:** `runQualityGates` in `verify.js` runs each `command` via `spawnSync` (same as the test runner), judging by **exit code** (0 = pass). A missing tool (ENOENT) is `error` — it could not certify the code, so a `required` error is treated like a fail (a declared-but-uninstalled gate is a setup defect, not a silent pass). Results land in `04_TEST_RESULTS.json#quality_gates`.
+- **Gating:** `required` defaults to `true`. A failing `required` gate resets `verifyPassed` and blocks `verify-complete`, exactly like a failing test. `required: false` gates are surfaced but never block (gradual adoption of security/mutation/etc.).
+- **Discipline:** the Phase 4 briefing now requires the agent to wire the project's lint/type-check (and offer security) as `quality_gates`, with per-stack examples; `phase4.validate()` emits a non-blocking nudge when none are declared. The seriousness comes from the briefing forcing declaration; the gate enforces it.
+
+**Why orchestrate, not bundle.** Zero-dep constrains what Aitri *imports*, not what it *runs* — Aitri already spawns the project's pytest/playwright. Running the project's declared linter adds zero deps to Aitri and keeps it stack-agnostic (Aitri needs no knowledge of what `ruff` is — only its exit code). Bundling analyzers would violate zero-dep AND couple Aitri to specific stacks; both are non-starters. This is the same import-vs-orchestrate distinction corrected in ADR-034.
+
+**Constitution (CLAUDE.md) impact — clarified, not weakened.** This does not loosen any invariant. It makes the *purpose* explicit: the verification spine includes code-quality gates, orchestrated from project-declared commands. Added as an engineering principle plus a clarifying clause on zero-dep (import vs orchestrate). Model-agnostic, stack-agnostic, persona-ceiling, artifact-chain — all respected (no new persona; no new phase; one additive manifest field + one additive results field).
+
+**Decision matrix.** Impact High (new artifact field + new gate + verify lifecycle change). Value-to-produced-software 9/10 (enforcing lint/type-check/security directly prevents shipped defects — the core deliverable). Severity Moderate, mitigated by additivity (no `quality_gates` declared → behavior unchanged). Trade-off: more manifest surface; honor-system remains on the *declaration* (did the agent declare all available tools? is the linter config strict?) — but execution and gating are mechanical (exit code), which is the same boundary as tests.
+
+**What this does NOT do (honest boundary).** It cannot judge whether the declared linter is a *good* linter, whether the agent declared every available tool, or whether a passing gate is meaningful — those stay human-reviewable (the `approve` gate) and partially mechanical (assertion-density C2 for tests). It is the floor, not a guarantee of quality.
+
+**Scope.**
+- Decides: `quality_gates` declared in the manifest, run by `verify-run`, gated by `verify-complete`/`verifyPassed`; `required` defaults true; ENOENT = error = blocking-if-required; Phase 4 briefing forces declaration; orchestrate-not-bundle; the CLAUDE.md clarification.
+- Does not decide: folding coverage (`--coverage-threshold`) into `quality_gates` (deferred follow-up — coverage already works via its own mechanism); making code review (reviewer persona) a hard gate (stays advisory per ADR-034 P1); auto-detecting the stack's tools (the project declares them — auto-detection would re-introduce stack assumptions).
+
+---
+
+## ADR-038 — 2026-05-30 — Code-review verdict: opt-in hard gate (`reviewGate`), advisory by default
+
+**Status:** Active
+
+**Context.** ADR-034 P1 kept the optional Code Review phase's PASS/CONDITIONAL_PASS/FAIL verdict **advisory** — not a hard gate on Phase 5 — reasoning that making an optional phase a blocker adds friction with no evidence of a defect it would catch, and that real rigor lives in the mechanical gates (tests, assertion-density) plus the human approve gate. ADR-037 then built the mechanical code-quality gates (lint/type-check/security/coverage) and explicitly deferred "make code-review a hard gate." With the code-QA floor now in place, the author asked to close that follow-up.
+
+**Decision.** Add an **opt-in** gate, not a blanket reversal. `.aitri#reviewGate` (default `false`, absent) — when `true`, a `FAIL` verdict in `04_CODE_REVIEW.md` blocks `aitri verify-complete`. Default behavior is unchanged: the verdict stays advisory (ADR-034 P1 preserved). Same opt-in pattern as `strictAssertions` (ADR-034) and `humanApprovalGate` (rc.12) — serious projects raise the bar; MVPs are unaffected. `CONDITIONAL_PASS`/`PASS` never block; an absent `04_CODE_REVIEW.md` never blocks (review stays optional). The verdict is read from the `## Verdict` section via `extractReviewVerdict` (placeholder menus stripped; worst-verdict precedence).
+
+**Honest boundary (why this is weaker than the mechanical gates).** The verdict is **agent-written** — `reviewGate` makes a *written* FAIL binding, it does not detect review quality or force a review to exist. An agent could write PASS, or skip review entirely, to avoid the gate. So this is a soft/honor-system gate, deliberately opt-in: it has value for a team that runs review and wants its FAIL to be non-ignorable, but it is not a substitute for the mechanical floor (tests + `quality_gates`) or the human approve gate. This is exactly why it is NOT on by default — turning an honor-system verdict into a universal hard block would be the "structural gate without defect evidence" theater CLAUDE.md warns against. As an opt-in, the project that enables it is making an informed choice.
+
+**Scope.**
+- Decides: `reviewGate` opt-in flag; FAIL-only blocking at `verify-complete`; default stays advisory (ADR-034 P1 intact); verdict extracted from the `## Verdict` section.
+- Does not decide: forcing a code review to exist; gating on CONDITIONAL_PASS; any mechanical verification of review quality (out of reach — the reviewer is an LLM/human judgment layer).
+
+---
+
+## ADR-039 — 2026-05-31 — Intake redesign: IDEA is the raw seed, Discovery is the (proportional) understanding engine
+
+**Status:** Accepted — phased implementation pending (see plan in BACKLOG).
+
+**Context.** The intake layer — where a user's intent becomes the seed for the whole pipeline — is Aitri's highest-leverage and least-coherent surface. A full-pipeline phase audit + a focused 3-agent intake review (2026-05-31) found: (1) IDEA.md (a rich 8-section template) and the optional Discovery phase OVERLAP — both ask problem/users/success, so it is unclear which is input and which is output; (2) in agent mode (the real mode) intent is INFERRED, not elicited — the provenance gate at `complete 1` reads a file the agent wrote alone, and the provenance record dies unread; (3) there is no way to feed a complex project's real context (folders, mockups, prior docs, an existing repo); (4) the `wizard` (the one elicitation tool) is off the agent path entirely; (5) Aitri's artifact names are non-standard vs industry (no PRD/TRD vocabulary). The author confirmed the direction and answered the open product questions.
+
+**Decision.** Re-aim the intake around a clear direction with five pillars:
+
+1. **IDEA = raw input (the intent seed), not a rich template.** Either a one-liner ("an app that does X") or pointers to existing context (a `## Context Sources` section listing folders/repos/docs/URLs). For NEW projects the template becomes thin: the intent in the user's words + Context Sources + (optional) a one-line success statement. Everything structured is DERIVED, not pre-filled.
+2. **Discovery = the understanding engine, and it is CANONICAL.** It (a) INGESTS — if IDEA references Context Sources the agent reads them and synthesizes; (b) ELICITS — asks what is missing; (c) CONFIRMS — see pillar 4. Output `00_DISCOVERY.md` is the structured, confirmed understanding. Both artifacts are kept on purpose: IDEA = what the user *said* (immutable raw intent), DISCOVERY = what Aitri *understood* (derived, with provenance) — full intent→understanding traceability.
+3. **Proportionality (the author's constraint — do NOT run a giant process for a landing-page MVP, but DO support agile iteration).** Canonical ≠ heavy. Discovery's DEPTH scales to the project: a trivial MVP is a ~30-second confirmation of the three high-stakes inputs; a complex system is ingestion + a real interview. Agile iteration is served by the existing FEATURE pipeline — ship the light MVP, then add features as mini-pipelines (each also proportional). The pipeline is not a one-shot waterfall; the feature loop is the agile loop.
+4. **Blocking confirmation of the three irreversible inputs.** Discovery cannot complete without the human confirming the problem, the success metric, and the no-go zone — the inputs whose errors are unrecoverable downstream. This is the deferred ADR-032 "D3 just-in-time confirmation", finally placed where a human is actually present (discovery), not buried in the agent's solo write at `complete 1`. The provenance gate distinguishes confirmed-from-source / confirmed-by-user / assumed. Blocking is only these three (cheap to confirm even for an MVP), NOT all eight fields.
+5. **Context ingestion is orchestrated, not built (zero-dep).** Aitri does not implement a file/folder reader — the agent already reads files. Aitri defines the `## Context Sources` convention and the discovery briefing instructs: read the sources first, derive from them, confirm what is not explicit. Same orchestrate-don't-bundle pattern as tests and quality_gates (ADR-037).
+
+**Terminology.** Artifact file names are a public contract (Hub + existing projects) and are NOT renamed. Instead, map them to industry-standard vocabulary in help/docs/human output so they are recognizable: IDEA ≈ project brief/vision; 00_DISCOVERY ≈ product discovery; 01_REQUIREMENTS ≈ PRD/SRS; 01_UX_SPEC ≈ UX/design spec; 02_SYSTEM_DESIGN ≈ TRD/SDD; 03_TEST_CASES ≈ test plan; 05_PROOF_OF_COMPLIANCE ≈ compliance/traceability report. Zero breakage; a UX/docs layer.
+
+**Feature symmetry.** A feature is a mini-project: FEATURE_IDEA (raw seed + context) → feature discovery (ingests the PARENT project + the feature intent) → feature requirements. PLUS a feature-specific capture that exists nowhere today — the regression boundary (`## Touch Points` + `## Must Not Break`), threaded into the feature's Phase 1 so Phase 3 can test against it. This closes the one feature-specific defect class (silent breakage of parent behavior).
+
+**Trade-offs / what is sacrificed.** More intake design surface; discovery becomes load-bearing (a weak discovery degrades everything downstream — mitigated by the blocking confirmation + proportional depth). The blocking confirmation adds a human touch-point that, in fully-autonomous CI runs, must degrade gracefully (a non-TTY fallback: the agent conducts the confirmation and records provenance, same as the wizard's agent-briefing path — never a hard stop that breaks CI).
+
+**What this does NOT do.** It does not build a context-ingestion engine (agent reads files). It does not rename artifacts. It does not force a heavy process on trivial projects (proportionality). It does not introduce a rigid project-`profile` enum (the deferred "Stack-aware profile" study stays deferred) — depth is driven by the intent + a light "this is an MVP, keep it light" signal, not a fixed taxonomy.
+
+**Compatibility.** The thin-IDEA template applies to NEW projects only; existing projects keep their rich IDEA (the provenance gate is fresh-seed-only — no break). The discovery→requirements wiring already shipped (rc.28).
+
+**Scope.**
+- Decides: IDEA = raw seed; Discovery = canonical, proportional understanding engine that ingests + elicits + confirms; blocking confirmation of problem/success/no-go (D3 placed in discovery); context ingestion via `## Context Sources` (orchestrated); industry-terminology mapping in docs/help (no rename); feature regression boundary.
+- Does not decide: the exact thinning of the IDEA template (pillar 1 — to be finalized in implementation); whether discovery's interview and the wizard interview merge into one code path (likely yes — to be confirmed in implementation); a project-profile enum (stays deferred).
+
+### Addendum 1 — 2026-06-01 — Two planned steps dropped after a first-hand rigor pass
+
+A rigor pass (reading the code directly, not trusting prior subagent analysis) was run before implementing the two remaining pillar-1 steps. Both dissolved against existing code. Recording the reversal, per the rule that objections raised in discussion are logged even when they overturn a prior decision.
+
+- **Step 3b — blocking confirmation gate in discovery — DROPPED as theater.** The decision above placed "blocking confirmation of problem/success/no-go" *in discovery* (the deferred D3). On re-read, `lib/phases/phase1-checks.js::IDEA_PROVENANCE_FIELDS = ['problem','users','baseline','success_metric','no_go_zone']` already gates exactly those three (plus two more) at `aitri complete 1`, before approve. A discovery-side confirmation gate would be a **strict subset** of the existing phase-1 provenance gate AND would share its honor-system hole (an agent can mark `confirmed` without asking — the code cannot tell). Adding a second gate that prevents no defect the first does not already cover is theater (CLAUDE.md prohibition). The confirmation goal is already served by soft levers that shipped: discovery briefing (rc.31) + AGENTS.md guidance (rc.33) tell the agent to confirm; the phase-1 provenance gate is the mechanical contract; provenance is visible at approve (rc.29). No second gate.
+
+- **Step 3 — thin the IDEA template — DROPPED as net-negative.** Two findings: (1) the context-ingestion pillar this step was meant to add (`## Context Sources`) **already exists** — `lib/commands/run-phase.js:161-170` scans the `idea/` folder and lists assets in every phase briefing, `lib/commands/init.js:25-31` creates the folder + README, and `templates/IDEA.md` already documents it under `## Assets`. A new section would duplicate an existing one. (2) Thinning the rich sections removes real scaffolding for solo / fast-path users who skip discovery, and breaks the coupling with `lib/phases/phase1.js:252` (the buildBriefing empty-section warning reads the `Problem / Target Users / Business Rules / Success Criteria` headers). The "IDEA = raw seed" *concept* is already documented (AGENTS.md rc.33, terminology map rc.32). Net: tier-2 tidiness with a real downside and no verifiable defect fixed.
+
+**Disposition.** The intake redesign is substantially complete. Its real value shipped across rc.29–rc.33 (provenance visible at approve, feature regression boundary, discovery ingests context proportionally, industry-terminology map, AGENTS.md "capturing intent" section) plus the pre-existing `idea/`-folder ingestion. The two remaining steps were the speculative tail; the rigor pass dissolved both. Pillar-5b (unify the wizard interview with `--guided` discovery + give `--guided` a non-TTY agent-briefing fallback — `run-phase.js` hard-errors today) stays open in BACKLOG as the one genuine remaining item, gated on a real consumer asking for it.
+
+---
+
+## ADR-040 — 2026-06-01 — Human-in-the-loop checkpoints vs autonomous PTY agents
+
+**Status:** Accepted (thesis + dispositions). Producer-side instruction-hardening and the structured `source` field are scoped but NOT yet implemented — tracked in BACKLOG.
+
+**Context.** The first third-party adopter (Inchcape / DSB-AT-POC, run by GitHub Copilot CLI / Claude Sonnet 4.5) defeated **both** of Aitri's human-in-the-loop checkpoints in a single Phase 1 session — something no author canary surfaced, because the author never auto-answers his own gates:
+
+1. **Approval.** `aitri approve` printed its isTTY confirmation prompt (`Have you reviewed…? (y/N)`); the agent used a `write_powershell` tool to type `y` 15 seconds later. The human never approved ("¿por qué se aprobó? yo no la aprobé").
+2. **Content provenance.** The agent populated `01_REQUIREMENTS.json` from a project folder and marked all five Tier-A fields `idea_provenance: "confirmed"`, `idea_gaps: []` — including a `success_metric` (North Star "80% adoption in 6 months") that appears agent-generated, not present in the source docs. The provenance gate passed silently (0 assumed → 0 gaps required).
+3. **Source provenance (the author's sharpening).** The folder it ingested (`Pre_Requirements_Definitions/`) was **never designated by the user** — the agent discovered it by scanning the project and assumed it authoritative. It could have been a stale draft, a template, or another project's docs. `AGENTS.md` only instructs "if the user pointed you at a folder…"; it is silent on self-discovered context, and Aitri has a designated channel (the `idea/` folder, auto-listed in briefings) that the agent bypassed.
+
+**Thesis.** Aitri's human checkpoints assume the operator answering them is a human. An autonomous agent driving a PTY breaks that assumption: it can type `y`, and it can write `"confirmed"`. Both are the same root — *an agent decides for the human at an irreversible point* — and both are the honor-system limit that the code already half-acknowledges (`phase1-checks.js`: "Aitri cannot verify provenance of free text"; the isTTY gate protects against non-interactive CI, never against an interactive non-human).
+
+**What is mechanically defensible vs irreducibly honor-system.**
+
+- **Irreducible (document honestly, do not pretend to fix):** Aitri cannot distinguish a human keystroke from an agent-injected keystroke on a TTY, nor verify the honesty of free-text provenance. `humanApprovalGate`'s hard block fires only on `!isTTY` (`approve.js:394`) — correct for CI, defeated by a PTY agent. No in-band mechanism is robust when the agent controls stdin, stdout, and the filesystem; a confirmation the agent can read it can satisfy. Pretending otherwise (a "stronger" prompt, a second gate) is theater of the kind ADR-039 Addendum 1 already rejected.
+- **Defensible, producer-side (ship): instruction-hardening.** `AGENTS.md` + the Phase 1 / discovery briefings gain an explicit rule: context the **user designated** (the `idea/` folder, a path they gave) may ground `"confirmed"`; context the agent **self-discovered** is `"assumed"` → `idea_gaps`, and its source is confirmed with the user before it is trusted. This shapes what compliant agents do (tier 1) and adds a distinction that does not exist today — unlike the dropped discovery gate, it is additive, not redundant. It helps every agent that loads its instruction file (Claude Code, Codex, Gemini, and Copilot — `init` already writes `.github/copilot-instructions.md`); it does not help an agent that ignores the file, which is the irreducible part.
+- **Defensible, checkpoint-visibility (ship, cheap): louder approve-time signal.** The approve summary already surfaces provenance counts (rc.29). When it is "N confirmed · 0 assumed" *and* context was auto-ingested, nudge the human to verify the high-stakes inputs (esp. `success_metric`) were confirmed *with them*, not inferred from docs.
+- **Deferred, pending a second signal: structured `source` on provenance.** Make each `"confirmed"` carry a short `source` ("user said X" / "doc Y"), additive and optional (no type change to the existing enum), surfaced at approve. It raises the cost of a dishonest `"confirmed"` and improves the reviewer's signal — but it is still honor-system at root and adds schema + briefing + approve surface. Per the evidence-base discipline (one third-party data point), hold it until a second consumer confirms the need, exactly as Step 3b/3 were held/dropped.
+
+**Decision.** Ship the two producer-side levers (instruction-hardening + louder approve nudge) as the response to this adopter; document the irreducible limit in the same instruction so operators of autonomous agents know the checkpoints are advisory against a non-human operator and that `humanApprovalGate` + a human running `approve` is the only hard stop. Defer the `source` field. Do **not** add a new mechanical gate that a PTY agent would defeat.
+
+**Trade-off.** Instruction-hardening only reaches agents that honor their instruction files; the Copilot run that triggered this ADR did not visibly honor the `.github/copilot-instructions.md` Aitri generated. The residual risk — an autonomous agent that ignores instructions and auto-answers every checkpoint — is not closable in-band and is stated as such. The alternative (a heavier mechanical gate) buys no real protection against that agent and taxes every honest one.
+
+**Objection logged.** The `source` field could itself become a second honor-system declaration (the agent writes a plausible source for content it invented). That is precisely why it is deferred rather than shipped on a single data point — the same caution that dissolved the ADR-039 discovery gate.
+
+---
+
+## ADR-041 — 2026-06-02 — The `ac_id` traceability chain is half-built (Phase 3 requires a join-key Phase 1 does not enforce)
+
+**Status:** DECIDED 2026-06-02 (rc.36) — **option B shipped.** `ac_id` is now required only when Phase 1 provides structured AC ids; optional otherwise (`lib/phases/phase3.js`, reqs pre-read, presence check gated on `knownAcIds.size > 0`). Option A (finish the full traceability chain) is parked in BACKLOG as a future feature whose load-bearing piece is a real *consumer* (AC-level coverage), gated on a real adopter wanting it. rc.35 added the salience/error mitigations; rc.36 made the structural call.
+
+**Context.** The second third-party session blocked in Phase 3 on `ac_id`. Verified in code, the chain is inconsistent:
+- `lib/phases/phase3.js:100` — every test case MUST carry an `ac_id` (hard error, always).
+- `lib/phases/phase3.js:207` — the VALUE of `ac_id` is cross-validated against `01_REQUIREMENTS.json` **only when** `user_stories[].acceptance_criteria` carry structured `{ id, ... }` objects. If Phase 1's acceptance_criteria are plain strings (the common case — and what `lib/phases/phase1.js` accepts), the cross-check degrades to a non-blocking warning.
+- `lib/phases/phase1.js` does **not** require `user_stories[].acceptance_criteria` to be structured objects with ids — plain strings pass.
+
+So Phase 3 mandates a join-key (`ac_id`) whose target the upstream phase is not required to produce. When Phase 1 has no structured ACs, the agent must still supply an `ac_id` that traces to nothing — busywork that, in the canary, led the agent to invent formats (`AC-FR-001-1`) and stall. This is the "structural gate that prevents no real defect" pattern the constitution warns against, AND a real schema-chain incoherence (the same class the rc.26–28 audit found: a join-key required downstream but unenforced upstream). The rc.13 decision that made `ac_id` unconditionally mandatory predates this evidence.
+
+**Options (not yet chosen).**
+- **A — Enforce structured ACs in Phase 1.** When `user_stories` are present, require `acceptance_criteria` to be `[{ id, text }]` (not plain strings). Then `ac_id` always has a real target and the chain is whole. Cost: a Phase 1 schema tightening affecting every project; plain-string ACs (today valid, widely used) would need migration or a grace path. Highest integrity, highest blast radius.
+- **B — Make `ac_id` presence conditional.** Align `:100` with `:207`: require `ac_id` only when Phase 1 actually has structured AC ids; otherwise it is optional (trace via `requirement_id` + `user_story_id`, which are already mandatory). Removes the hollow requirement; smallest change; matches the canary's own suggestion. Cost: slightly weaker nominal traceability when Phase 1 is unstructured (but it was nominal anyway — the warning already admitted it can't be validated).
+- **C — Status quo + the rc.35 mitigations only.** Keep `ac_id` mandatory, rely on the consolidated briefing + the now-explicit error (lists available ids / tells the agent to use `AC-001` when none exist). Cost: the hollow requirement remains; depends on the agent reading the briefing (the very thing the canary did not do).
+
+**Lean (for discussion, not decided).** B is the most defensible against the constitution (don't require a join-key with no target) and the lowest-risk. A is the "correct" long-term shape if real AC-level traceability is a goal Aitri wants to guarantee — but that is a product decision about how much rigor to force, and it should be made deliberately, ideally with a second consumer signal on whether AC-level traceability is actually used downstream (verify-run keys on FR/NFR ids, not AC ids — so today nothing consumes `ac_id` mechanically, which argues for B).
+
+**Evidence-base note.** The blocker is real and code-verified (agent-independent — any agent writing plain-string ACs hits it). The *behavioural* colour around it (the agent inventing formats, then recommending a gate-skip) is from one agent/OS (Copilot CLI / Sonnet 4.5 / Windows) and is not generalized — consistent with the ADR-040 discipline.
+
+---
+
+## ADR-042 — 2026-06-03 — Naming & vocabulary cleanup: clear names + homologation, not change-for-change
+
+**Status:** DESIGN ACCEPTED — implementation phased and pending (no code yet). This ADR is the blueprint; each phase ships as its own test-verified release.
+
+**Context.** Reviewing Aitri as "an AI product for the IT industry," the author asked whether the artifact/command names are professional and industry-aligned, or "invented." A first-principles analysis (not change-for-change):
+
+- Most names are ALREADY clear AND standard (`01_REQUIREMENTS`, `02_SYSTEM_DESIGN`, `03_TEST_CASES`). The "jargon vs clear" tension is narrow — they are just not the *acronyms* (PRD/SRS/TRD/SDD) some pattern-match on.
+- Homologation is PARTIAL: only some artifacts map to an industry document type (requirements→PRD, design→design-doc, tests→test-plan). `04_IMPLEMENTATION_MANIFEST` and `05_PROOF_OF_COMPLIANCE` are Aitri-specific concepts with NO industry equivalent — acronymising cannot fix what feels "invented" about them.
+- Modern-AI-product lens: modern tooling uses CLEAR names; the formal acronyms (SRS/SDD/TRD) read as IEEE/waterfall/enterprise-regulated/academic — *dated*, not modern. PRD is the one exception (modern + ubiquitous). So full acronymisation would make Aitri look LESS modern, not more.
+
+**Decisions.**
+
+1. **DO NOT full-acronym-rename the artifact chain.** Clear, descriptive names are more aligned with a modern AI product than academic acronyms, and partial homologation is impossible. The market matters: modern-dev → clear names win; regulated-enterprise → formal acronyms expected. Aitri targets the former by default.
+
+2. **Strengthen the homologation LAYER instead** (gets "explanatory + recognised" without a risky rename): each artifact carries its industry identity prominently (e.g. an internal header "Product Requirements Document (PRD)"); `aitri help`/docs lead with the recognised term where one genuinely exists. Filenames stay clear; recognition comes from context. (Extends the rc.32 `≈` map.)
+
+3. **DO rename `normalize` → `reconcile`** — the single worst command name. "Normalize" communicates nothing about what it does ("detect + classify code changes made outside the pipeline"). `reconcile` does. Full, clean rename (NO alias — per the author's clean-break principle): the command, the `.aitri` state field `normalizeState` → `reconcileState`, the `status --json` contract fields (`normalize`, `normalizeState`, `normalizeBaseline`, reason `normalize_pending` → `reconcile_*`), `lib/normalize-patterns.js` → `reconcile-patterns.js`, `templates/phases/normalize.md` → `reconcile.md`, AGENTS.md, help, docs, and the ~300 test references.
+
+4. **DO rename the two Aitri-specific "weird" artifacts:** `04_IMPLEMENTATION_MANIFEST.json` → `04_BUILD_REPORT.json`; `05_PROOF_OF_COMPLIANCE.json` → `05_TRACEABILITY.json` ("traceability" is the precise industry term for what it is — a requirements traceability/compliance report). Clean rename, no dual-naming.
+
+5. **DO NOT rename** `validate`, `complete`, `rehash`, `tc`. Individually reasonable; rename = churn > value (change-for-change). One doc-only clarification: `complete <phase>` validates one phase vs `validate` checks all for deploy — explain the difference in help, do not rename.
+
+6. **The `idea/` unit-folder structure is NOT part of this ADR** — separate, higher-risk, parked (the `.aitri`/root-identity reshape). This ADR is vocabulary only.
+
+**Migration (verified clean — no re-adopt).** Re-adopting old projects was rejected: `adopt` resets `currentPhase`/`approvedPhases` (`adopt.js:486`), so it would *lose pipeline progress* — costlier than migrating. The migrations are trivial because of how state is keyed:
+- `normalizeState → reconcileState`: a one-line field rename in `lib/upgrade/migrations/` — the migrator already does exactly this pattern (`requirement → requirement_id`, etc.).
+- Artifact renames (04/05): `.aitri` keys `artifactHashes` by **phase number, not filename** (`artifactHashes["4"]`), so state is unaffected — the migrator just renames the file on disk (`mv 04_IMPLEMENTATION_MANIFEST.json 04_BUILD_REPORT.json`); the phase-keyed hash still matches the unchanged content.
+- The `status --json` contract changes are documented in `docs/integrations/` (marked breaking); Hub adapts later (author's call: do not block on Hub).
+
+**The real regression risk is the sweep, not the migration.** ~300 `normalize` references — but NOT all are the command/state: `normalizeAC` (phase1), string normalisation (tc-id) must NOT be touched. The sweep is context-aware (never a blind `sed`), and the full test suite (94 normalize + 75 snapshot tests) is the backstop, run after every block.
+
+**Implementation plan (phased, each a test-verified release).**
+1. `normalize → reconcile` (command + state + contract + migration + sweep). Highest-value name fix.
+2. `04`/`05` artifact renames + on-disk file-rename migration + contract docs.
+3. Homologation layer (industry identity in artifact headers + help/docs).
+
+**Trade-offs.** Clean breaks mean old muscle memory / scripts break — accepted at pre-v2-stable with few projects; the migrator (`adopt --upgrade`) carries existing projects across without re-authoring. The homologation layer adds prose to maintain but is the low-risk way to satisfy "professional + recognised."
+
+**Objections logged.** (a) "Reconcile" is also slightly less common than "normalize" as an English word — but it *describes the action*, which "normalize" does not; clarity wins. (b) Renaming artifacts is a contract change even with Hub freed — mitigated by documenting it in the integration contract so Hub's adaptation is mechanical. (c) Doing nothing was considered — rejected only for the genuinely-opaque names (`normalize`, `04`/`05`); explicitly chosen for everything else (no change-for-change).
+
+---
+
+## ADR-043 — 2026-06-03 — Intake ground-truth: provenance sources (#5) + just-in-time constraint confirmation (#8)
+
+**Status:** DESIGN — approved to build. Both reopened after the author saw their value once separated from each other.
+
+**Context.** Two intake refinements, distinct but both about handling ground-truth honestly:
+- **#5 provenance source.** `idea_provenance` records each Tier-A field as `confirmed`/`assumed`, but the human at approve only sees counts. They cannot tell WHICH "confirmed" came from the IDEA vs which the agent inferred and labelled confirmed. rc.44 added the all-confirmed nudge (#4) — a general "double-check" — but not WHICH field is weak.
+- **#8 constraints just-in-time.** Constraints (tech stack, budget, deadline, existing systems, compliance) are all asked upfront in IDEA.md. Some are not known at seed time, or asking everything upfront is heavy; and the ones that matter for architecture/UX are best confirmed right before those phases.
+
+**Decision — #5: a new additive `idea_provenance_sources` field (NOT a type change to `idea_provenance`).**
+- Schema: additive optional `idea_provenance_sources: { problem, users, baseline, success_metric, no_go_zone }` — each a short string ("IDEA.md states it", "user confirmed in chat", "inferred from product type"). The existing `idea_provenance` enum is unchanged (schema-evolution rule: never change a field's type — new field instead).
+- Briefing (`requirements.md`): for each Tier-A field, record where the value came from in `idea_provenance_sources`.
+- Validation (`phase1`): on a fresh seed, WARN (not block) when a `confirmed` field has no source. Deliberately a warning, not a gate — the field is honor-system (the agent can fabricate a source), so a hard gate would be theater; the value is VISIBILITY at the human checkpoint, not mechanical enforcement.
+- Approve display (`summarizeRequirements`): show the source per field so a weak one (`success_metric ← inferred from product type`) stands out next to a strong one (`problem ← IDEA.md`). This is the concrete upgrade over the rc.44 nudge: the human sees WHICH input is weak, not just "all confirmed, double-check".
+- Honesty caveat (logged): still honor-system. It raises the bar (the agent must write a traceable source) and improves the reviewer's catch-rate — it does not prevent a fabricated source. Accepted because it ADDS information to the checkpoint (unlike a redundant gate), at additive-schema cost only.
+
+**Decision — #8: producer-side just-in-time constraint confirmation in the architecture + UX briefings (no schema change, no hard gate).**
+- The author's refinement is the core rule: **if the constraint is already clear in `01_REQUIREMENTS.json` (`constraints` + `technology_preferences`), use it — do NOT re-ask. Only if a phase-relevant constraint is missing or vague, confirm it with the user just before that phase.** Same logic as provenance (use what's stated; confirm what's missing), applied to constraints at the moment they bite.
+- `architecture.md` gains a "Constraint check before designing" block — categories that shape architecture: tech stack / languages, infrastructure / hosting, budget / cost, timeline / deadline, existing systems to integrate, security / compliance. Instruction: use the ones in requirements; for any missing category, confirm with the user FIRST (they are expensive to change after the design) and mark anything assumed.
+- `phaseUX.md` gains the UX-relevant version: design system / branding, accessibility level, device / viewport targets, performance budget.
+- Producer-side instruction (like ADR-040 #3), not a gate — low-risk, no pipeline-flow change. The agent that loads its briefing gets the just-in-time prompt; the irreducible residual (agent ignores it) is the same honor-system boundary documented elsewhere.
+
+**Why both are worth it now (vs the rejected #5-as-first-framed).** Separated, each has clear value the author confirmed: #8 is a real workflow improvement (confirm constraints when they matter, reuse the IDEA when present); #5's source makes the IDEA-vs-inferred distinction VISIBLE per field — which is exactly the author's "use it if it's in the idea, flag it if not" instinct, surfaced at the checkpoint. The earlier "defer #5" call was made before that framing; the author's reframing is the new signal.
+
+**Trade-offs.** #5 adds an (additive) schema field + integration-contract surface to maintain. #8 adds briefing prose to keep fresh. Both are honor-system at the irreducible edge (an agent can fabricate a source or ignore the constraint prompt) — accepted because both improve the HONEST agent's output and the human's visibility, which is the realistic lever.
+
+## ADR-044 — 2026-06-04 — Borrowed SDLC/QA methodology provenance: Given/When/Then (BDD, not Gherkin) + MUST/SHOULD/NICE (a MoSCoW variant)
+
+**Status:** ACCEPTED — recording decisions already embedded in the pipeline. Doc-only: no code, template, or schema change; no version bump. These are NOT new gates — adding mechanical enforcement stays out of scope unless a real defect in produced software appears.
+
+**Context.** Aitri borrows two well-known software-methodology conventions but never recorded the lineage or — more load-bearing — the deliberate *boundary*. The mechanism is designed (schema fields + persona + template + briefing) yet `DECISIONS.md` had no entry, so a future agent or adopter can mistake each convention for its better-known full form and "complete" it in a way that breaks a core invariant. This is the CLAUDE.md "discussed but not protected" gap, closed here.
+
+**Decision — 1: Given/When/Then is BDD grammar, embedded as JSON fields, deliberately NOT Gherkin / `.feature` / Cucumber.**
+- Acceptance criteria and test cases use `given`/`when`/`then` (`03_TEST_CASES.json` fields; `lib/personas/qa.js`; `templates/phases/tests.md`; requirements ACs). The lineage is BDD (Behaviour-Driven Development).
+- It is embedded as plain JSON string fields inside the artifacts — NOT as Gherkin `.feature` files, and NOT wired to Cucumber or any BDD runner. Deliberate, on two invariants:
+  - **Zero-dep (principle 1):** a `.feature`/Cucumber pipeline forces a BDD runner into the consumer's toolchain. GWT-as-data forces nothing — the project's own runner executes the tests; Aitri only structures the spec.
+  - **Stack-agnostic (principle 4):** Gherkin assumes a step-definition runner. GWT-as-prose-with-concrete-values works for any stack (a Go table test, a pytest function, a Playwright spec) because it is a *writing discipline*, not an execution format.
+- **SPEC-SEALED is honor-system BY DESIGN.** The "concrete values, no abstract language" rule (`qa.js`, `tests.md`) is a persona instruction, not a mechanical gate. A vagueness regex over given/when/then was evaluated and **rejected as theater** (recorded earlier in this log under the audit's theater-rejections): it false-positives on legitimate domain terms (already observed on Phase-1 ACs) and a placeholder gate already exists. Re-open only on a real defect in produced software, never "for completeness".
+- **Boundary for future agents:** do NOT add `.feature` generation, Cucumber, or a BDD runner. That breaks zero-dep and stack-agnosticism. GWT stays a data + writing convention.
+
+**Decision — 2: `priority: MUST | SHOULD | NICE` is a MoSCoW variant; the enum is a contract — do not widen it to standard MoSCoW.**
+- Standard MoSCoW is MUST / SHOULD / COULD / WON'T. Aitri's enum is **MUST / SHOULD / NICE**, with the fourth bucket routed elsewhere:
+  - **NICE ≡ MoSCoW COULD** — renamed for plain-language clarity (`templates/phases/requirements.md`).
+  - **WON'T-have ≡ `no_go_zone`** — a separate scope artifact (a Tier-A seed input), not a priority value. "Out of scope" is modelled as the no-go boundary, not as a requirement priority.
+- `priority === 'MUST'` is a load-bearing read contract across `phase1/3/4/5.js`, `audit.js`, `approve.js`, `resume.js`, `adopt.js`: a MUST FR drives every MUST coverage/compliance gate. An agent or adopter who writes the MoSCoW-standard `COULD` or `WONT` produces a value the pipeline silently treats as non-MUST (dropped from every MUST gate), or that `phase1` validation rejects with a confusing error.
+- **Decision: keep the enum as-is and document it; do NOT accept `COULD`/`WONT` as aliases.** Widening a contract for no consumer is the wrong move (same discipline as the rest of this log). The fix for the divergence is *documentation* (this ADR), not a wider enum.
+- **Doc inconsistency noted (verified NOT a code defect):** an earlier bug-gating ADR in this log references "MUST/SHOULD/COULD" in prose while the enum is NICE; and the bug-blocking code (`getBlockingBugs`) actually keys on bug `severity` (critical/high), not on linked-FR priority at all. Both are wording drift with no runtime effect — flagged so the prose is read against the code, not the other way around.
+
+**Trade-offs.** Doc-only: the cost is one ADR to keep current; the benefit is two invariants (zero-dep, the priority contract) protected against a plausible "let's finish the standard form" regression, plus a divergence made legible. No mechanical enforcement is added — consistent with the rule that a structural gate without defect evidence is theater. If a real consumer hits the COULD/WONT trap, or genuinely needs Gherkin output, that evidence re-opens the specific question; until then, the convention plus this record is the right level of protection.
+
+## ADR-045 — 2026-06-04 — Split `.aitri` into a shared `.aitri` file + per-machine `.aitri.local` sibling — supersedes ADR-028's deferral
+
+**Status:** ACCEPTED — implemented (rc.51). Reopens ADR-028, which deferred this pending a second signal. The reopening trigger is NOT "architectural discomfort" (the bar ADR-028 set): it is that the current mix **silently breaks Aitri's core guarantee in a team** (below), plus an explicit owner decision to support multi-dev. Hub is not a blocker — owner's call: Hub adapts, provided the integration contract is complete and correct.
+
+**Revised during implementation (directory → sibling).** The first design made `.aitri` a directory (`.aitri/config.json` + `.aitri/local.json`). Implementing it broke ~15 tests + the feature subsystem via `EISDIR`, because much of Aitri's own code and many test fixtures treat `.aitri` as a file. The shipped design keeps `.aitri` a **single file** (shared) and adds a **sibling `.aitri.local`** (per-machine): churn collapsed to the checkpoint tests, Hub is untouched (it reads `.aitri` exactly as before), and the migration needs no file→directory conversion. Same guarantee, far less risk — the risk-mitigation the owner asked for. The directory-collision layout (`.aitri/` already a folder) remains supported as a fallback. The bullets below describe the SHIPPED (sibling) design.
+
+**Context — the real reason (the drift-guarantee chain).** `.aitri` mixes two kinds of state. The per-machine fields (`lastSession`, `reconcileState`) rewrite on nearly every command, so committing `.aitri` creates constant git noise → teams react by gitignoring the whole file (observed on the Hub canary, FEEDBACK H3). But `.aitri` also holds `artifactHashes` — the baseline for **artifact-drift detection** (`hasDrift`, `lib/state.js:311`), which is Aitri's central promise: *the approved spec has not been edited behind Aitri's back*. Gitignoring `.aitri` throws that baseline away, so **a teammate's fresh clone cannot detect spec drift at all** — the core guarantee fails silently in multi-dev. The split lets the baseline be committed (`config.json`) while the noise is ignored (`local.json`). This is tier-1 (the produced-software guarantee), not hygiene — which is why it clears the ADR-028 reopen bar that "architectural discomfort" did not.
+
+**Decision — `.aitri` stays a single file (shared, tracked); per-machine state moves to a sibling `.aitri.local` (gitignored).** `configFilePath()` keeps resolving `.aitri`; a new `localFilePath()` resolves `.aitri.local` (or `.aitri/local.json` in the rare collision layout, still supported).
+
+- **Field partition — denylist, not allowlist.** `LOCAL_FIELDS = ['lastSession', 'reconcileState']`; everything else is shared. New fields default to **shared/committed** — the safe default for the contract (a shared field accidentally going local is invisible to teammates and breaks the contract; the reverse is mere noise). SHARED therefore = `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`, `verifySummary`, `verifyRanAt`, `lastVerifyRun`, `auditLastAt`.
+
+- **`reconcileState` → LOCAL (whole object).** `baseRef` is a git SHA *"meaningful only against the local workdir"* (ADR-028's words); `status`/`lastRun` are per-machine. This **decouples the two drift mechanisms**: **artifact drift** (baseline = `artifactHashes`, SHARED → works cross-machine after the split — the tier-1 win) from **code drift** (baseline = `reconcileState.baseRef`, inherently per-workdir → stays local, re-established per clone). The core guarantee rides on artifact drift, which is preserved; code drift is per-machine by nature.
+
+- **Read (`loadConfig`).** Read `.aitri` (shared) and, if present, merge `.aitri.local` over it: `{ ...DEFAULTS, ...shared, ...local }`. The rest of the codebase still sees ONE config object — no call-site changes. A missing `.aitri.local` (legacy project / fresh clone) is the normal case.
+
+- **Write (`saveConfig`) — the load-bearing detail.** Always split: `.aitri.local` is written on every save (gitignored → churn is free); the shared `.aitri` is written **ONLY when a shared field other than `updatedAt` actually changed** (diff the shared partition, excluding `updatedAt`, against on-disk `.aitri`). Otherwise a command that only touched `lastSession` would bump `updatedAt` and re-dirty the tracked file — the exact noise the split removes. An old single-file `.aitri` (per-machine fields inline) auto-migrates on its first save: the shared file is rewritten without them and `.aitri.local` appears. Both writes stay under the existing `dir`-scoped lock.
+
+- **Migration.** New projects (`init`): the first `saveConfig` produces the split (`.aitri` + `.aitri.local`); `init` fixes `.gitignore`. Existing projects (`adopt --upgrade`): no file→directory conversion needed — the file content auto-migrates on the upgrade's `saveConfig`, and `runUpgrade` calls `ensureAitriGitignore` to correct the `.gitignore`. Fresh clone (`.aitri` committed, `.aitri.local` absent): when `reconcile` finds phase 4 approved but no local `reconcileState`, it auto-stamps `baseRef = HEAD` (artifact-drift detection needs no init — it works from the committed `artifactHashes`).
+
+- **`.gitignore` (new responsibility — Aitri previously only *scanned* it).** `lib/gitignore.js::ensureAitriGitignore` — surgical + idempotent: removes a legacy bare `.aitri` (which would hide the now-shared file) and its stale comment, ignores `.aitri.local` + `.aitri.lock`, preserves every other line. Called by `init` and `runUpgrade`; the upgrade report surfaces the change (it touches the user's file).
+
+- **Hub / contract.** Hub reads `.aitri` exactly as before — same path, same shared fields (`updatedAt`, `approvedPhases`, `artifactHashes`, …). Only the two per-machine fields (`lastSession`, `reconcileState`) move out to `.aitri.local`, which Hub never read. So Hub is effectively **unaffected** — a side benefit, not the reason for sibling (the driver was Aitri-internal churn). `status --json` is unchanged (loadConfig merges). SCHEMA.md documents the split + the new `.aitri.local`; integration CHANGELOG records the two fields' relocation.
+
+**Trade-offs.** `.gitignore` rewriting is the most delicate step — kept minimal + surfaced in the upgrade report. Fresh clones re-establish their code-drift baseline (acceptable — code drift is per-workdir; the artifact-drift guarantee is preserved via the committed shared `.aitri`). Cross-machine code-drift history is not shared — by design. The residual git-conflict surface on the shared `.aitri` is real but meaningful (only on genuine concurrent pipeline ops, not the old timestamp noise) and minimized by the conditional-write rule.
+
+**Explicitly NOT changed:** the `events[]` cap (max-20 recent-activity — its consumer, Hub, is well-served; full audit history is a separate, non-existent consumer — see the rc.50-era backlog note). No new gate, no change to produced artifacts. The split is purely about WHERE state lives, to preserve the drift guarantee in teams. **Supersedes ADR-028** (which stays as the record of the deferral and its rationale).

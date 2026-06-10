@@ -148,7 +148,8 @@ This `CLAUDE.md` is a **conversation protocol**, not an enforcement mechanism. I
 - **Tests (`npm run test:all`)** — the only binary enforcement. If a change breaks tests, it does not ship.
 - **Integration contracts (`docs/integrations/`)** — SCHEMA.md / ARTIFACTS.md + `test/release-sync.test.js` prevent silent drift between code and contract.
 - **Subproduct canaries (Hub)** — if Hub stops reading correctly after a change, that is a signal of undeclared breaking change. Detect it before release, not after.
-- **Decision log (`docs/Aitri_Design_Notes/DECISIONS.md`)** — immutable ADRs. Every relevant architectural decision (new command, invariant change, non-trivial schema change) is recorded with context + decision + trade-off. Objections raised during discussion are recorded too — if a decision later fails, the log shows whether a signal visible at the time was ignored.
+- **Decision log (`docs/DECISIONS.md`)** — immutable, committed ADRs. Every relevant architectural decision (new command, invariant change, non-trivial schema change) is recorded with context + decision + trade-off. Objections raised during discussion are recorded too — if a decision later fails, the log shows whether a signal visible at the time was ignored.
+- **Architecture anchor (`docs/ARCHITECTURE.md`)** — committed. The stable mental map proposals are validated against. **Update it in the same commit as any architectural change** (new command, invariant, artifact-chain, or `.aitri`/artifact-contract change). A stale anchor inverts the relationship — the code starts defining the doc instead of the doc defining Aitri. (Doc governance for the local-only working notes: `docs/Aitri_Design_Notes/README.md`.)
 
 If a proposal passes this file but leaves no trace in any of the four mechanisms above, it is not protected — it was only discussed. Protecting it = adding it to the test suite, the contract, the canary, or the decision log.
 
