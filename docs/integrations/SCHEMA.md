@@ -259,7 +259,7 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 
 ## Should `.aitri` be committed?
 
-**Yes — commit `.aitri`; its per-machine sibling `.aitri.local` is gitignored.** As of v2.0.0-rc.51 ([ADR-045](../Aitri_Design_Notes/DECISIONS.md)) the state is **split**: `.aitri` carries only **shared** state and is meant to travel with the repo; per-machine state lives in `.aitri.local`, which `aitri init` / `aitri adopt --upgrade` add to `.gitignore`. Committing `.aitri` is what makes the pipeline state and the drift baseline available to teammates and to Hub.
+**Yes — commit `.aitri`; its per-machine sibling `.aitri.local` is gitignored.** As of v2.0.0-rc.51 ([ADR-045](../DECISIONS.md)) the state is **split**: `.aitri` carries only **shared** state and is meant to travel with the repo; per-machine state lives in `.aitri.local`, which `aitri init` / `aitri adopt --upgrade` add to `.gitignore`. Committing `.aitri` is what makes the pipeline state and the drift baseline available to teammates and to Hub.
 
 ### The split (ADR-045)
 

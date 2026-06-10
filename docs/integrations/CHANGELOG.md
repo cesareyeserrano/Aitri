@@ -342,7 +342,7 @@ The next-actions ladder (consumed indirectly by subproducts via `aitri status --
 
 ## v2.0.0-alpha.27 (2026-05-03) — `aitri approve 1` pre-flight scan (producer-side IDEA.md absorption gate) — additive
 
-**`aitri approve 1` now scans downstream artifacts for IDEA.md references before executing the absorb + unlink** (additive — new event type `approve_preflight_autofix`, new error message surface; no schema field changed; no existing event-shape modified). Closes the producer-side gap of the alpha.17 → alpha.22 → alpha.24 → alpha.25 → alpha.26 → alpha.27 hotfix arc per [ADR-031 Addendum 2](../Aitri_Design_Notes/DECISIONS.md#addendum-2--2026-05-03-alpha27--producer-side-at-approve-time-pre-flight-scan).
+**`aitri approve 1` now scans downstream artifacts for IDEA.md references before executing the absorb + unlink** (additive — new event type `approve_preflight_autofix`, new error message surface; no schema field changed; no existing event-shape modified). Closes the producer-side gap of the alpha.17 → alpha.22 → alpha.24 → alpha.25 → alpha.26 → alpha.27 hotfix arc per [ADR-031 Addendum 2](../DECISIONS.md#addendum-2--2026-05-03-alpha27--producer-side-at-approve-time-pre-flight-scan).
 
 **Behaviour change for subproducts: minimal.** No artifact field changed; no `.aitri` field added or removed; existing `upgrade_migration` event shape unchanged. New event type `approve_preflight_autofix` is additive — old readers ignore unknown event types per the existing reader-guidance contract (SCHEMA.md: "unknown event types MUST be tolerated").
 
@@ -420,7 +420,7 @@ The next-actions ladder (consumed indirectly by subproducts via `aitri status --
 
 ## v2.0.0-alpha.25 (2026-05-03) — orphan IDEA.md classified-ref handling — additive
 
-**`aitri adopt --upgrade` now classifies stale IDEA.md references into three buckets and auto-fixes the structural ones in fields Aitri owns** (additive — no schema change, no event-shape change, finding text is CLI-only and not part of any subproduct contract). Refines alpha.24's all-or-nothing pre-flight scan into a schema-aware classifier per [ADR-031](../Aitri_Design_Notes/DECISIONS.md#adr-031--2026-05-03--destructive-migrations-structural-auto-fix-where-aitri-owns-the-schema-honor-system-elsewhere).
+**`aitri adopt --upgrade` now classifies stale IDEA.md references into three buckets and auto-fixes the structural ones in fields Aitri owns** (additive — no schema change, no event-shape change, finding text is CLI-only and not part of any subproduct contract). Refines alpha.24's all-or-nothing pre-flight scan into a schema-aware classifier per [ADR-031](../DECISIONS.md#adr-031--2026-05-03--destructive-migrations-structural-auto-fix-where-aitri-owns-the-schema-honor-system-elsewhere).
 
 **No subproduct-visible contract change.** All effects are confined to the upgrade migration's behavior on `04_IMPLEMENTATION_MANIFEST.json` array elements (`files_created[*]`, `files_modified[*]`, `test_files[*]`) plus the `validatorGap` finding's `reason` text. Subproducts that read `.aitri.upgradeFindings[]` continue to receive the same shape (`{category, target, transform, reason, recordedAt}`) — only the `reason` text is more precise.
 
@@ -724,7 +724,7 @@ Second staged pre-release on branch `feat/upgrade-protocol`. No schema field cha
 - Makes the default recommendation explicit (commit `.aitri`) and enumerates the consequences of gitignoring it (Hub change detection breaks, drift baseline is per-machine, approval state is per-machine, `reconcileState.baseRef` references untracked state).
 - Documents that the current schema mixes shared state (`approvedPhases`, `artifactHashes`, `events[]`, …) and per-machine state (`lastSession.when`, `reconcileState.lastRun`, `reconcileState.baseRef`) in one file. Explicit trade-off rather than unstated asymmetry.
 - **Subproduct impact:** Hub and other consumers MUST NOT treat a missing `.aitri` on a fresh clone as corruption — it is a valid state for projects that chose to gitignore. Updated guidance in the section addresses this directly.
-- Tension tracked as [ADR-028](../Aitri_Design_Notes/DECISIONS.md#adr-028--2026-04-24--open-question-aitri-mixes-shared-and-per-machine-state) (open question; `.aitri/local.json` split deferred until a second signal).
+- Tension tracked as [ADR-028](../DECISIONS.md#adr-028--2026-04-24--open-question-aitri-mixes-shared-and-per-machine-state) (open question; `.aitri/local.json` split deferred until a second signal).
 
 **`adopt --upgrade --dry-run` — new CLI flag (safety infrastructure)**
 - Runs the full diagnose pipeline and prints the report with `(DRY-RUN — no changes written)` banner and `◻️` markers, without writing artifacts, mutating `.aitri`, appending `upgrade_migration` events, or regenerating agent instruction files.

@@ -112,67 +112,14 @@ test/smoke.js             E2E CLI tests
 
 ---
 
-## Command Flow
+## Command surface & dev process — live sources, not duplicated here
 
-```
-aitri init            → creates IDEA.md + .aitri config
-aitri run-phase N     → prints briefing to stdout (agent acts on it)
-aitri complete N      → validates artifact + records completion
-aitri approve N       → approves phase, shows next step
-aitri reject N        → records rejection + feedback, prints re-run command
-aitri verify-run      → RUNS the project's test suite (child_process), parses TC results,
-                        writes 04_TEST_RESULTS.json, runs declared quality_gates by exit code
-aitri verify-complete → gate: all TCs pass + MUST-FR coverage + required quality_gates → unlocks Phase 5
-aitri reconcile       → classify code changes made outside the pipeline (was `normalize`, rc.40)
-aitri status          → shows pipeline status with ASCII UI
-aitri validate        → verifies all artifacts present and approved
-```
+Intentionally NOT inventoried in this anchor — they change every release and would rot. Read them at the source:
+- **Command surface / flow** → `aitri help` (authoritative, always current).
+- **Dev process · version-bump policy · release checklist · impact analysis** → `CLAUDE.md` (the *Working Method* + *Critical rules*).
+- **What shipped, when** → `docs/Aitri_Design_Notes/CHANGELOG.md`.
 
----
-
-## Development Pipeline
-
-### When to run tests
-
-Run `npm test` before:
-- Any `npm i -g .` (local install)
-- Any `npm publish`
-- Any change to `lib/phases/`, `lib/personas/`, or `lib/state.js`
-
-**All tests must pass. Zero failures accepted. (`npm run test:all`)**
-
-### Impact analysis — what breaks what
-
-| File changed | Impact zone | Action required |
-| :--- | :--- | :--- |
-| `lib/phases/` | All validate() + all briefings + extractContext() | Full test run + manual smoke test of briefing output |
-| `lib/personas/` | All briefings that use the persona | Full test run |
-| `lib/state.js` | All commands (every command calls loadConfig/saveConfig) | Full test run |
-| `lib/commands/` | Affected command only | Targeted manual test of changed command |
-| `bin/aitri.js` | Command routing | Manual test of affected commands |
-| `templates/` | Only `aitri init` output | Manual `aitri init` in a temp dir |
-| `docs/` | Documentation only | No test needed |
-
-### Version bump policy
-
-Do NOT bump version for: typos, comment fixes, documentation updates, test additions, internal refactors with no behavior change.
-
-**Bump patch (X.Y.Z+1):** bug fixes, warning improvements, error message clarity — behavior identical from the user's perspective.
-
-**Bump minor (X.Y+1.0):** new commands, new `validate()` rules, new phase behaviors, new extractContext fields — backward compatible for existing projects.
-
-**Bump major (X+1.0.0):** breaking changes to artifact schemas (field renamed/removed), pipeline structure changes (phases added/removed), commands renamed or removed.
-
-**Pre-release semver (`X.Y.Z-rc.N`):** the v2.0.0 staging cycle on `feat/upgrade-protocol` moved from `alpha.N` to `rc.N` (currently rc.71). Each rc bumps `N`. The release-sync test enforces `package.json` ↔ `bin/aitri.js VERSION` ↔ `docs/integrations/*.md` headers (SCHEMA, README, ARTIFACTS, STATUS_JSON). The rc number is the iteration counter, not a severity dimension. **Promotion to stable is gated on a third-party adopter validating end-to-end** — not author canaries alone (CLAUDE.md Critical rule). That gate is now MET (DSB-AT-POC validated end-to-end across two rounds, rc.52→rc.64); promotion is a deliberate decision, currently held by choice. Doc governance: most of `docs/Aitri_Design_Notes/*` is untracked/local (BACKLOG, dev CHANGELOG, FEEDBACK, scratch with a `_` prefix), but **`ARCHITECTURE.md` and `DECISIONS.md` live at `docs/` and ARE committed** (team artifacts) — see `docs/Aitri_Design_Notes/README.md`.
-
-**Release checklist:**
-1. `npm run test:all` — all tests pass
-2. Bump `package.json` version + `bin/aitri.js` VERSION const (keep in sync)
-3. Bump headers in `docs/integrations/SCHEMA.md`, `README.md`, `ARTIFACTS.md`, `STATUS_JSON.md` (release-sync test enforces)
-4. Update `docs/Aitri_Design_Notes/CHANGELOG.md` — add new version entry
-5. Update `docs/integrations/CHANGELOG.md` — add entry tagged `— additive` or `— breaking` (linter enforces)
-6. `npm i -g .` — verify local install
-7. `npm publish` — only when explicitly decided (currently: not for pre-release alphas)
+This doc keeps only the durable architecture (above) + the non-negotiable rejections (below). `ARCHITECTURE.md` and `DECISIONS.md` are committed team artifacts at `docs/`; the rest of the dev working notes are kept local to the maintainer.
 
 ---
 
