@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.73+
+**Aitri version:** v2.0.0-rc.75+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -396,7 +396,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
 | `04_CODE_REVIEW.md` | `aitri review` | Present if code review was run |
 | `BUGS.json` | `aitri bug add` / `aitri verify-run` | Present if any bug has been registered |
 | `BACKLOG.json` | `aitri backlog add` | Present if any backlog item has been registered |
-| `AUDIT_REPORT.md` | `aitri audit` | Present if an on-demand audit has been run |
+| `AUDIT_REPORT.md` | `aitri audit` / `aitri audit coverage` | Present if an on-demand audit has been run. `audit coverage` appends a "Requirements Coverage" section (idea→FR completeness) |
 
 Check `approvedPhases[]` and `completedPhases[]` in `.aitri` to determine which optional artifacts exist before attempting to read them.
 

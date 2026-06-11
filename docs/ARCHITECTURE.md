@@ -61,7 +61,7 @@ lib/phases/context.js     extractContext() utilities + head() function
 lib/personas/             One file per persona:
                           pm, architect, qa, developer, devops,
                           ux, discovery, reviewer (phase-bound),
-                          adopter, auditor (meta — not phase-bound)
+                          adopter, auditor, coverage-auditor (meta — not phase-bound)
 lib/state.js              loadConfig / saveConfig (merges .aitri + .aitri.local) / readArtifact /
                           writeLastSession / writeSessionContext / writeFrSnapshot / detectAgent /
                           hasDrift / cascadeInvalidate — single point of .aitri I/O (invariant)
@@ -73,7 +73,7 @@ lib/prompts/render.js     Template renderer: {{KEY}} / {{#IF_KEY}} placeholders
 templates/phases/         All prompt content:
                           requirements, architecture, tests, build, deploy,
                           phaseUX, phaseDiscovery, phaseReview,
-                          audit, auditPlan, reconcile
+                          audit, auditPlan, auditCoverage, reconcile
 lib/reconcile-patterns.js isBehavioralFile() — SSoT for what `aitri reconcile`/snapshot count
 templates/IDEA.md         Initial project template for the user
 templates/AGENTS.md       Instruction file template (copied verbatim to 5 per-agent files:

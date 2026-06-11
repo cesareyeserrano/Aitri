@@ -496,3 +496,44 @@ describe('cmdResume() — narrative session context (TPA-5)', () => {
     assert.ok(!/No narrative context saved/i.test(out), 'a finished pipeline should not nag for narrative context');
   });
 });
+
+// ── Requirements Coverage nudge (ADR-048) ─────────────────────────────────────
+
+describe('cmdResume() — Requirements Coverage nudge (ADR-048)', () => {
+  it('suggests `aitri audit coverage` when Phase 1 is approved and never audited', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1], completedPhases: [1] }));
+    writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.match(out, /Requirements Coverage — Independent Check Suggested/);
+    assert.match(out, /aitri audit coverage/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT suggest it once audited and requirements unchanged', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1], completedPhases: [1], coverageAuditLastAt: '2999-01-01T00:00:00.000Z' }));
+    writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.doesNotMatch(out, /aitri audit coverage/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('re-suggests it when requirements changed after the last coverage audit', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1], completedPhases: [1], coverageAuditLastAt: '2000-01-01T00:00:00.000Z' }));
+    writeFile(dir, '01_REQUIREMENTS.json', requirementsJson); // mtime now > 2000 → changed since
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.match(out, /Requirements changed since the last coverage audit/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT suggest it before Phase 1 is approved', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [], completedPhases: [] }));
+    writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.doesNotMatch(out, /aitri audit coverage/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});

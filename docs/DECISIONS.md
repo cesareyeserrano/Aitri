@@ -1319,3 +1319,30 @@ So Phase 3 mandates a join-key (`ac_id`) whose target the upstream phase is not 
 **Decision — accept it; do NOT build a fix.** This is conservative-by-design, not a defect: reconcile prefers a **false positive (a recoverable nag)** over a **false negative (silently absorbing real off-pipeline drift)** — the latter would break Aitri's central promise that the approved spec/build was not edited behind its back. A candidate fix was found and weighed (record an approved-build fingerprint at approve time — paths + content hashes — and let reconcile recognise an exact match instead of nagging; genuinely distinct from the three previously-rejected fixes and not blind). It was **declined on value**: the symptom is P3, already recoverable via `--resolve`; the fix means content-hashing the build (incl. untracked files, with binary/line-ending edge cases) inside the already-subtle reconcile mechanism (ADR-045 split), and a bug in that path would trade the safe failure mode for the dangerous one. Value-to-produced-software ≤ 4, severity non-critical → the decision matrix says do not implement.
 
 **Trade-off.** The operator lives with a one-line nag after each approved-build push, cleared by `reconcile --resolve`. Accepted as the permanent cost of keeping drift detection fail-safe. Re-open only if the friction escalates materially AND the fingerprint fix can be made rock-solid (no path to silent absorption).
+
+## ADR-048 — 2026-06-10 — `audit coverage`: an independent requirements-completeness audit (idea→FR fidelity), nudged at resume
+
+**Status:** ACCEPTED — Phase A to build. Adds an audit MODE that checks whether the requirements fully cover the client's original request, run with fresh-session independence. Distinct from the existing code/architecture audit.
+
+**Context — the gap + the evidence.** Aitri's mechanical gates and the existing `audit` verify INTERNAL consistency and CODE quality, never the requirements' FIDELITY to the original intent. The code-auditor explicitly does *"not evaluate against a spec"* ([auditor.js](../lib/personas/auditor.js)). So a requirement set that DROPPED something the client asked for passes every gate — and everything downstream is faithfully built on an incomplete spec. This is **evidenced, not speculative**: round-2 §3.2 — the adopter's root requirements were re-captured **15→25 FRs**; the first capture missed **10 MUST FRs (40%)** at the idea→requirements translation. (The existing rc.59 source-capture audit covers idea_context ASSETS→FR; this covers the IDEA PROSE / discovery / feature-seed → FR — the complement.)
+
+**Why `audit`, not a gate.** A completeness check ("does every client need map to an FR?") is semantic → a mechanical gate would manufacture false confidence (the CLAUDE.md theater warning). `audit` is already advisory and model-judged, so it is the honest home. Two design choices make it trustworthy:
+1. **Independence (the load-bearing idea).** The audit is most valuable run in a FRESH session, where the agent did NOT write the requirements → no self-grading bias. So `resume` NUDGES it (conditionally), placing the review at the moment of maximum independence and zero token cost (a suggestion, not an auto-run). This is what makes a model-judged review honest here — it is not the author grading their own work.
+2. **Two-stage, false-positive-bounded.** Stage 1 (mechanical, Aitri): feed `{IDEA/00_DISCOVERY + the FR list + the explicit out-of-scope boundaries}`. Stage 2 (model): list client needs with no covering FR. Feeding out-of-scope bounds false positives; advisory output (never auto-fails) makes a false positive a "review this", not a block.
+
+**Decision — Phase A (build now, evidenced):**
+- **New meta-persona `coverage-auditor`** (`lib/personas/`) — distrusts requirements COMPLETENESS, not code quality. Posture: adversarial about omission — assume something was dropped until each client need is traced to an FR or an explicit out-of-scope line. Distinct from `auditor` (code-only, "not against a spec"); justified by principle 5 (distinct role, no persona cap).
+- **New sub-command `aitri audit coverage`** (`lib/commands/audit.js`) — generates the coverage briefing from `{discovery/idea + FR list + out-of-scope}`; the agent writes findings to a "Requirements Coverage" section of `AUDIT_REPORT.md` (reuse the existing off-pipeline artifact — no new artifact, no schema contract). Findings route to: re-open Phase 1 (add the FR) or record the out-of-scope decision.
+- **New template** `templates/phases/auditCoverage.md`.
+- **`resume` nudge** — conditional: requirements exist AND (coverage audit never run OR FRs changed since the last one). Persist a marker `coverageAuditLastAt` (additive `.aitri` field, shared, documented in SCHEMA.md) so the nudge stops once run and re-fires when FRs change.
+
+**Decision matrix:**
+| Dimension | Evaluation | Justification / Trade-off |
+|:---|:---|:---|
+| **Impact** | Medium | New audit mode + resume output + 1 additive `.aitri` field. No change to the core 1–5 chain or any gate. |
+| **Value to produced software** | 8 | Catches scope loss at the SOURCE (idea→FR), the earliest, highest-leverage point; evidenced (§3.2, 40% under-capture). |
+| **Severity** | Moderate | If it fails it under-reports (a missed gap) — same as today; it never blocks, so no false-negative-to-deploy. |
+| **Justification** | Fidelity-to-intent is the one thing gates cannot check; `audit` (advisory, model-judged) is the honest vehicle; the fresh-session run removes self-grading bias. |
+| **Trade-off** | New persona + sub-command + template to maintain; model-judged → false positives, bounded by feeding out-of-scope + advisory-only; one additive `.aitri` field (Hub-safe); independence holds fully only in a NEW session (the nudge targets session-start resume). |
+
+**Deferred — Phase B (NOT now).** Making the CODE auditor adversarial/staged (mechanical pre-pass → per-dimension deep read → adversarial refute-pass). The right direction for strictness, but there is NO evidence its single-shot form failed — the adopter's defects were planning/coverage, not code-audit misses. Build when evidenced.

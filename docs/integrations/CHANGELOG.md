@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.75 (2026-06-10) — new `.aitri#coverageAuditLastAt` field + `audit coverage` sub-command + AUDIT_REPORT "Requirements Coverage" section ([ADR-048](../DECISIONS.md)) — additive
+
+- **`.aitri#coverageAuditLastAt`** (shared, committed) — ISO timestamp of the last `aitri audit coverage` run. Old readers ignore it; it only drives the `resume` coverage nudge. Hub-safe.
+- **`aitri audit coverage`** — a new audit sub-command: an independent idea→FR completeness audit (does every client request map to an FR?). Off-pipeline, advisory; does not gate.
+- **`AUDIT_REPORT.md`** may now carry a `### Requirements Coverage` section (appended by `audit coverage`) alongside the existing Bugs/Backlog/Observations. Readers that key on the existing headings are unaffected.
+
 ## v2.0.0-rc.64 (2026-06-06) — new `.aitri#frSnapshots` field (TPA-11) — additive
 
 New optional shared field `frSnapshots: object<string, array<string>> | null` in `.aitri`. Keyed by phase (as string), each value is the `functional_requirements[].id` set the phase was approved against. Written on `approve` of a downstream phase; read by `run-phase` to show the FR delta (added/removed) when re-deriving a phase a cascade reset.

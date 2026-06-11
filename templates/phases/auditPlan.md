@@ -16,14 +16,15 @@
 {{AUDIT_REPORT}}
 
 ## Planning Protocol
-1. Read the full Audit Report above
+1. Read the full Audit Report above — it may contain findings from the code audit (`aitri audit`) AND/OR a requirements-coverage audit (`aitri audit coverage`). Route each section to the right action.
 2. For each **Findings → Bugs** entry: propose the exact `aitri bug add` command to run
 3. For each **Findings → Backlog** entry: propose the exact `aitri backlog add` command to run
 4. For each **Observations** entry: decide whether to defer, monitor, or promote to Backlog — give a one-line reason
-5. Group all actions by urgency: Immediate (blocking bugs), Queued (backlog items), Monitored (observations)
-6. Add a pipeline recommendation: is the project ready to continue, or do critical findings block the next phase?
-7. Present the Action Plan below to the user
-8. Execute each command the user confirms
+5. For each **Requirements Coverage** gap (UNCOVERED / PARTIAL): this is a SCOPE decision, NOT a bug or backlog item — route it to the requirements. Propose either re-opening Phase 1 to add the missing FR (`aitri run-phase 1`, which re-derives Phase 1 and cascade-invalidates downstream), OR recording the client's need as an explicit out-of-scope decision. Never file a coverage gap as a bug/backlog item — that buries a missing requirement as ordinary debt.
+6. Group all actions by urgency: Immediate (blocking bugs), Queued (backlog items), Monitored (observations), Scope (coverage gaps — decide add-FR vs out-of-scope)
+7. Add a pipeline recommendation: is the project ready to continue, or do critical findings (including uncovered MUST-level needs) block the next phase?
+8. Present the Action Plan below to the user
+9. Execute each command the user confirms
 
 ## Action Plan Format
 Present this plan to the user:
@@ -42,6 +43,11 @@ QUEUED — Add to backlog:
 
 MONITORED — Observations deferred:
   [OBS-N] [title] — [one sentence: why deferred and when to revisit]
+
+SCOPE — Client needs missing from the requirements (from `audit coverage`):
+  [GAP-N] [the client need] — add the FR OR record out-of-scope
+  $ aitri run-phase 1     # if adding the FR — re-derives Phase 1, cascades downstream
+  [... or: "out-of-scope — <one-line reason>" if the need is intentionally excluded]
 
 Pipeline recommendation:
   [One sentence: ready to continue pipeline / blocked by N critical findings / recommend re-audit after fixes]

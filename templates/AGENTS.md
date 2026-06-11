@@ -101,6 +101,8 @@ If `aitri status` shows all phases approved and `deployable: Ready`:
 
 If `aitri status` recommends `aitri audit` — run it. The audit is a separate evaluative pass on the completed pipeline; it produces `AUDIT_REPORT.md` and informs whether deploy readiness has degraded since the last audit.
 
+- **`aitri audit coverage` — the idea→requirements completeness check (run it when `resume` suggests it).** This is a DIFFERENT audit from the code audit: it compares the client's original request (discovery / original brief / IDEA) against the functional requirements and lists any client need that no FR covers — the silent scope loss that no mechanical gate catches. `resume` suggests it once Phase 1 is approved and again whenever the requirements change. It is most valuable in a FRESH session, where you did not write these requirements and review them without bias. Advisory — it never blocks. Act on its findings: re-open Phase 1 to add a missing FR, or record an explicit out-of-scope decision.
+
 If `aitri resume` says the project is idle (all green, no drift, fresh verify, fresh audit), there is nothing to do. Do not invent work.
 
 **Before pausing or handing off, save the narrative thread.** Aitri auto-persists *where* you are (phase state, events, last action, files touched) but not *why* or *what's next* — the one thing the next session (or another dev) cannot reconstruct. Run `aitri checkpoint --context "what you're doing, why, what's next"`; it persists across later pipeline actions and `aitri resume` surfaces it. If `resume` shows "⚠ No narrative context saved", write one. There is no auto-summary (it would cost tokens for no gain) — you write the line, Aitri keeps it.

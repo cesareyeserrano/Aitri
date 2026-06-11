@@ -174,6 +174,12 @@ If the answer is "maybe not", make expected_result more specific.
   ❌ expected_result: "audio plays"
   ✅ expected_result: "audio plays within 100ms of trigger with no gap on loop"
 
+**All types — the expected_result must verify what its acceptance criterion NAMES, not an easier neighbour.**
+Cross-check every test against its linked AC (`ac_id`): the expected_result must assert the SAME observable the AC states — derive it from the AC, do not substitute a weaker proxy that happens to be easier to write. A specific, mutation-resistant result that verifies the *wrong* thing is still a coverage gap, and a passing run then certifies a requirement that was never tested.
+  ❌ AC "exports a valid PDF containing every invoice line item" → expected_result: "a .pdf file exists in ./out"
+  ✅ expected_result: "./out/invoice-123.pdf opens as valid PDF and contains all 3 line items from order 123"
+This is the one check Aitri cannot make for you: it verifies that the `ac_id` link exists, never that the test honours it. Taking the easy path here passes every gate and ships an untested requirement.
+
 {{#IF_UX_SPEC}}
 ## UX Spec — Additional TC Requirements
 

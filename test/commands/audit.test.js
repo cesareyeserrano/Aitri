@@ -8,6 +8,7 @@ import {
   auditReportPath,
   buildPipelineState,
   buildRequirementsSummary,
+  buildIntentSources,
   cmdAudit,
 } from '../../lib/commands/audit.js';
 
@@ -260,5 +261,105 @@ describe('auditor persona', () => {
   it('CONSTRAINTS include file-reference requirement', async () => {
     const { CONSTRAINTS } = await import('../../lib/personas/auditor.js');
     assert.match(CONSTRAINTS, /file/i);
+  });
+});
+
+// ── audit coverage (ADR-048) ──────────────────────────────────────────────────
+
+function captureStdout(fn) {
+  let out = '';
+  const origOut = process.stdout.write.bind(process.stdout);
+  const origErr = process.stderr.write.bind(process.stderr);
+  process.stdout.write = (c) => { out += c; return true; };
+  process.stderr.write = () => true;
+  try { fn(); } finally { process.stdout.write = origOut; process.stderr.write = origErr; }
+  return out;
+}
+
+describe('buildIntentSources()', () => {
+  it('extracts original_brief from 01_REQUIREMENTS.json + discovery + root IDEA.md', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '00_DISCOVERY.md', '# Discovery\nClient wants monthly PDF export.');
+    writeArtifact(dir, '01_REQUIREMENTS.json', { original_brief: 'Invoicing app with PDF export', functional_requirements: [] });
+    fs.writeFileSync(path.join(dir, 'IDEA.md'), 'raw seed text');
+    const { discovery, originalBrief, idea } = buildIntentSources(dir, { artifactsDir: 'spec' });
+    assert.match(discovery, /monthly PDF export/);
+    assert.match(originalBrief, /Invoicing app with PDF export/);
+    assert.match(idea, /raw seed text/);
+  });
+
+  it('returns empty strings when no intent source exists', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    const { discovery, originalBrief, idea } = buildIntentSources(dir, { artifactsDir: 'spec' });
+    assert.equal(discovery, '');
+    assert.equal(originalBrief, '');
+    assert.equal(idea, '');
+  });
+});
+
+describe('cmdAudit — coverage sub-command', () => {
+  it('errs when there are no functional requirements', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    const err = captureErr();
+    captureStdout(() => cmdAudit({ dir, args: ['coverage'], err }));
+    assert.match(err.captured() || '', /no functional requirements/i);
+  });
+
+  it('errs when FRs exist but no intent source (no discovery/brief/idea)', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '01_REQUIREMENTS.json', { functional_requirements: [{ id: 'FR-001', priority: 'MUST', title: 'export' }] });
+    const err = captureErr();
+    captureStdout(() => cmdAudit({ dir, args: ['coverage'], err }));
+    assert.match(err.captured() || '', /no intent source/i);
+  });
+
+  it('generates a coverage briefing (intent + FRs) and persists coverageAuditLastAt', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '00_DISCOVERY.md', '# Discovery\nSuccess: monthly PDF export for clients.');
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      original_brief: 'Invoicing app',
+      functional_requirements: [{ id: 'FR-001', priority: 'MUST', title: 'create invoice' }],
+    });
+    const err = noErr;
+    const out = captureStdout(() => cmdAudit({ dir, args: ['coverage'], err }));
+    assert.match(out, /Requirements Coverage Audit/);          // template title
+    assert.match(out, /monthly PDF export/);                    // intent fed in
+    assert.match(out, /FR-001/);                                // FR summary fed in
+    assert.match(out, /Invoicing app/);                         // original_brief fed in
+    const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    assert.ok(cfg.coverageAuditLastAt, 'coverageAuditLastAt must be persisted');
+  });
+});
+
+describe('coverage-auditor persona', () => {
+  it('exports ROLE, CONSTRAINTS, REASONING', async () => {
+    const m = await import('../../lib/personas/coverage-auditor.js');
+    assert.ok(typeof m.ROLE === 'string' && m.ROLE.length > 0);
+    assert.ok(typeof m.CONSTRAINTS === 'string' && m.CONSTRAINTS.length > 0);
+    assert.ok(typeof m.REASONING === 'string' && m.REASONING.length > 0);
+  });
+
+  it('posture is completeness/omission, distinct from the code auditor', async () => {
+    const { ROLE, CONSTRAINTS } = await import('../../lib/personas/coverage-auditor.js');
+    assert.match(ROLE, /complete|drop|cover/i);          // about completeness, not code smells
+    assert.match(CONSTRAINTS, /out-of-scope|out of scope/i); // bounds false positives on intentional exclusions
+  });
+});
+
+describe('cmdAudit — plan routes Requirements Coverage gaps (ADR-048)', () => {
+  it('plan briefing routes a coverage gap to a scope action (not a bug/backlog)', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, 'AUDIT_REPORT.md',
+      '### Requirements Coverage\n**[GAP-1]** `UNCOVERED` — monthly PDF export for clients\n');
+    const out = captureStdout(() => cmdAudit({ dir, args: ['plan'], err: noErr }));
+    assert.match(out, /Requirements Coverage/);        // protocol acknowledges the section
+    assert.match(out, /run-phase 1|out-of-scope/i);    // routed to a scope decision
+    assert.match(out, /monthly PDF export for clients/); // the report content is fed in
   });
 });
