@@ -5,6 +5,16 @@
 
 ---
 
+## [2.0.0-rc.80] — 2026-06-12 — Unified seed lifecycle: absorb + ARCHIVE, no materialized copies (ADR-050)
+
+The product and its features now treat seed briefs identically — fixing the inconsistency the Phase-D canary surfaced (root `IDEA.md` deleted at approve 1 vs feature `FEATURE_IDEA.md` left to rot, plus a confusing duplicated `IDEA.md` copy inside features).
+
+- **Approve 1 now MOVES the seed to `archive/` inside its unit instead of deleting it** (`aitri/product/archive/IDEA.md`, `<feature>/archive/FEATURE_IDEA.md`; flat legacy: `<root>/archive/`). Absorption into `01_REQUIREMENTS.json#original_brief` is unchanged — contracts and `audit coverage` intact. The human keeps the readable document; the folder name signals "history".
+- **Feature materialization removed:** phases read `FEATURE_IDEA.md` directly in feature scope (`seedPath()` in state.js; the inputs map keeps the `IDEA.md` key so templates stay scope-blind). No more `FEATURE_IDEA.md` + `IDEA.md` duplication. A pre-rc.80 materialized copy is cleaned up at approve 1 when byte-identical.
+- **Why keeping the file is safe:** re-runs ignore seeds BY CONTENT (once `01_REQUIREMENTS.json` exists it is the SSoT) — deletion was only ever protecting against repo-browsing agents. That protection is now the `archive/` convention: Aitri never lists `archive/` in briefings (mechanical) + a new AGENTS.md rule ("historical — never current intent, skip in reviews; it only costs context").
+- Layout migration carries `archive/IDEA.md` file-level. Key seed-lifecycle paths live in `state.js` (`seedPath`/`seedArchiveDir`) per the single-point invariant.
+- Tests: 4 dedicated lifecycle tests (root contained + flat archive, feature no-copy, feature absorb+archive+copy-cleanup) in `test/layout.test.js`. Suite 1547 green.
+
 ## [2.0.0-rc.79] — 2026-06-12 — LAYOUT-1 Phase D: real-canary findings fixed (4)
 
 Phase-D validation ran all four canary configurations against real projects: a FULL pipeline (init → phases 1–5 → verify-run/complete → validate deployable → feature init) on a fresh contained project (taskcli, 30 real e2e tests, every gate exercised by an agent authoring real artifacts); a legacy flat project operating untouched under the new CLI (Zombite draft — byte-identical, no container leaks); a real adoption (SDLC-GRAPH, Next.js → contained); and a real migration (Drafts/T — a pre-versioned, root-artifact, git-less project: upgrade → git init → dry-run → migrate → pipeline resumes with approvals intact, no false drift, no reconcile noise). Findings, all fixed:

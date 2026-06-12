@@ -7,6 +7,8 @@ For the full command surface and flags, run `aitri help`. This document covers t
 
 **Project layout — THIS project's paths (rendered for its layout, use them literally):** seed brief `{{IDEA_FILE}}` · supporting assets `{{IDEA_CONTEXT_DIR}}/` · artifacts `{{SPEC_DIR}}/` · features `{{FEATURES_DIR}}/<name>/` · narrative backlog `{{BACKLOG_FILE}}`. Aitri's briefings always print layout-correct paths too. Two similar names, two different things: `.aitri` (dotted file at the project root) is the STATE; an `aitri/` folder (if this project has one) is the CONTENT container.
 
+**`archive/` is historical — never current intent.** When Phase 1 is approved, the seed brief (`IDEA.md` / a feature's `FEATURE_IDEA.md`) is absorbed into that pipeline's `01_REQUIREMENTS.json#original_brief` and the file MOVES to `archive/` inside its unit. Anything in an `archive/` folder is a historical record: do NOT read it as current intent, do not base requirements/design/code on it, and skip it during reviews (it only costs context) — the approved artifacts in `spec/` are the only current truth. Read an archived seed only when explicitly doing intent archaeology (e.g. `aitri audit coverage` work).
+
 ---
 
 ## Starting a session

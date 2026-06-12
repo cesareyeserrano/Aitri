@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.80 (2026-06-12) — seed briefs archived (not deleted) at approve 1; feature seeds read directly ([ADR-050](../DECISIONS.md)) — additive
+
+- At approve of Phase 1, the seed file now MOVES to `archive/` inside its unit instead of being deleted. `01_REQUIREMENTS.json#original_brief` is written exactly as before — readers of that field are unaffected. Readers that inferred pipeline state from the seed file's ABSENCE should rely on `original_brief`/approvedPhases instead (the documented signals).
+- Features no longer get a materialized `IDEA.md` copy; their seed is `FEATURE_IDEA.md` end-to-end.
+- New conventional folder `archive/` may appear inside units (and at the root of flat legacy projects post-approve). Historical record — consumers should ignore it.
+
 ## v2.0.0-rc.78 (2026-06-11) — flat→contained migration (`adopt --upgrade --layout`) + adopt produces the contained layout — additive
 
 - **`aitri adopt --upgrade --layout`** — opt-in migration of a legacy flat project to the contained layout. After it runs, the project's `.aitri` carries `layoutRoot: "aitri"` and `artifactsDir: "aitri/product/spec"`, and every Aitri-owned path moves under `aitri/` (features wholesale; feature configs unchanged). Readers that follow the rc.76 rules (build paths from `artifactsDir`/`layoutRoot`, never hardcode) need no change. A `layout_migrated` event is appended to `events[]` (new event type — additive; readers must tolerate unknown event types, per the existing events contract).

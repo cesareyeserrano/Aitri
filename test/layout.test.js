@@ -385,3 +385,78 @@ describe('emission — briefing paths (rc.77)', () => {
     assert.ok(!flat.includes('aitri/features'), 'no contained path in flat briefing');
   });
 });
+
+// ── seed lifecycle (rc.80, ADR-050): absorb + archive, no materialized copy ───
+
+describe('seed lifecycle — absorb + archive (ADR-050)', () => {
+  it('root approve 1 absorbs IDEA.md and MOVES it to aitri/product/archive/', async () => {
+    const { cmdApprove } = await import('../lib/commands/approve.js');
+    const dir = tmpDir();
+    try {
+      writeFile(dir, '.aitri', JSON.stringify({
+        projectName: 'T', layoutRoot: 'aitri', artifactsDir: 'aitri/product/spec',
+        approvedPhases: [], completedPhases: [1],
+      }));
+      writeFile(dir, 'aitri/product/IDEA.md', '# brief to archive\n');
+      writeFile(dir, 'aitri/product/spec/01_REQUIREMENTS.json', '{"project_name":"T","functional_requirements":[]}');
+      captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      assert.ok(!fs.existsSync(path.join(dir, 'aitri', 'product', 'IDEA.md')), 'seed leaves its live location');
+      assert.equal(fs.readFileSync(path.join(dir, 'aitri', 'product', 'archive', 'IDEA.md'), 'utf8'),
+        '# brief to archive\n', 'seed lands in archive/ verbatim — moved, not deleted');
+      const reqs = JSON.parse(fs.readFileSync(path.join(dir, 'aitri', 'product', 'spec', '01_REQUIREMENTS.json'), 'utf8'));
+      assert.equal(reqs.original_brief, '# brief to archive\n', 'absorption into original_brief unchanged');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('flat legacy approve 1 archives to <root>/archive/ (same lifecycle, flat location)', async () => {
+    const { cmdApprove } = await import('../lib/commands/approve.js');
+    const dir = tmpDir();
+    try {
+      writeFile(dir, '.aitri', JSON.stringify({
+        projectName: 'T', artifactsDir: 'spec', approvedPhases: [], completedPhases: [1],
+      }));
+      writeFile(dir, 'IDEA.md', '# flat brief\n');
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', '{"project_name":"T","functional_requirements":[]}');
+      captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      assert.ok(!fs.existsSync(path.join(dir, 'IDEA.md')));
+      assert.ok(fs.existsSync(path.join(dir, 'archive', 'IDEA.md')));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('feature run-phase 1 reads FEATURE_IDEA.md directly — NO materialized IDEA.md copy', () => {
+    const dir = tmpDir();
+    try {
+      captureAll(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.80' }));
+      captureAll(() => cmdFeature({ dir, args: ['init', 'pay'], err: noopErr, rootDir: ROOT_DIR }));
+      writeFile(dir, 'aitri/features/pay/FEATURE_IDEA.md', IDEA_CONTENT);
+      const { stdout } = captureAll(() =>
+        cmdFeature({ dir, args: ['run-phase', 'pay', '1'], err: noopErr, rootDir: ROOT_DIR })
+      );
+      assert.ok(stdout.length > 200, 'briefing builds from FEATURE_IDEA.md');
+      assert.ok(!fs.existsSync(path.join(dir, 'aitri', 'features', 'pay', 'IDEA.md')),
+        'the rc.80 fix: no IDEA.md copy is materialized in the feature');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('feature approve 1 absorbs FEATURE_IDEA.md, archives it, and cleans a pre-rc.80 copy', () => {
+    const dir = tmpDir();
+    try {
+      captureAll(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.80' }));
+      captureAll(() => cmdFeature({ dir, args: ['init', 'pay'], err: noopErr, rootDir: ROOT_DIR }));
+      const fdir = path.join(dir, 'aitri', 'features', 'pay');
+      writeFile(dir, 'aitri/features/pay/FEATURE_IDEA.md', '# pay seed\n');
+      // simulate a pre-rc.80 materialized copy
+      writeFile(dir, 'aitri/features/pay/IDEA.md', '# pay seed\n');
+      writeFile(dir, 'aitri/features/pay/spec/01_REQUIREMENTS.json', '{"project_name":"pay","functional_requirements":[]}');
+      const fcfg = JSON.parse(fs.readFileSync(path.join(fdir, '.aitri'), 'utf8'));
+      fcfg.completedPhases = [1];
+      fs.writeFileSync(path.join(fdir, '.aitri'), JSON.stringify(fcfg));
+      captureAll(() => cmdFeature({ dir, args: ['approve', 'pay', '1'], err: noopErr, rootDir: ROOT_DIR }));
+      assert.ok(!fs.existsSync(path.join(fdir, 'FEATURE_IDEA.md')), 'seed moved out of the live location');
+      assert.equal(fs.readFileSync(path.join(fdir, 'archive', 'FEATURE_IDEA.md'), 'utf8'), '# pay seed\n');
+      assert.ok(!fs.existsSync(path.join(fdir, 'IDEA.md')), 'pre-rc.80 materialized copy cleaned up');
+      const reqs = JSON.parse(fs.readFileSync(path.join(fdir, 'spec', '01_REQUIREMENTS.json'), 'utf8'));
+      assert.equal(reqs.original_brief, '# pay seed\n');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.79+
+**Aitri version:** v2.0.0-rc.80+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -39,7 +39,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `createdAt` | `string` ISO 8601 | `null` | Timestamp of `aitri init` |
 | `aitriVersion` | `string` | `null` | CLI version used to initialize or upgrade |
 | `artifactsDir` | `string` | `""` | Subdirectory for artifacts, POSIX separators. `"aitri/product/spec"` for projects created or adopted by rc.76+/rc.78+ (contained layout) and for flat projects migrated via `adopt --upgrade --layout`; `"spec"` for rc.75-and-earlier projects; `""` for pre-rc.78 adoptions and pre-v0.1.20. Always build paths from this field — never hardcode a value |
-| `layoutRoot` | `string` | `""` (flat) | **Additive, rc.76+ (LAYOUT-1/ADR-049).** Container folder for everything Aitri-owned. `"aitri"` for contained projects: the root unit lives in `<layoutRoot>/product/` (IDEA.md, idea_context/, spec/), `BACKLOG.md` at `<layoutRoot>/`, features in `<layoutRoot>/features/`. `""`/absent = legacy flat layout. The structure under `layoutRoot` is convention, not config. `.aitri` itself always stays at the project root |
+| `layoutRoot` | `string` | `""` (flat) | **Additive, rc.76+ (LAYOUT-1/ADR-049).** Container folder for everything Aitri-owned. `"aitri"` for contained projects: the root unit lives in `<layoutRoot>/product/` (IDEA.md, idea_context/, spec/, and `archive/` for absorbed seeds — rc.80), `BACKLOG.md` at `<layoutRoot>/`, features in `<layoutRoot>/features/`. `""`/absent = legacy flat layout. The structure under `layoutRoot` is convention, not config. `.aitri` itself always stays at the project root |
 
 ---
 

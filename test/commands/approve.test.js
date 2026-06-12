@@ -160,8 +160,9 @@ describe('cmdApprove() — first approve of phase 1 archives IDEA.md', () => {
     assert.equal(last.ideaArchived, true);
   });
 
-  it('prints user notice about archive + delete', () => {
-    assert.ok(output.includes('IDEA.md archived'), 'user must be told what happened');
+  it('prints user notice about absorb + archive (rc.80: moved, not deleted)', () => {
+    assert.ok(output.includes('IDEA.md absorbed'), 'user must be told what happened');
+    assert.ok(output.includes('archive/'), 'notice must name the archive location');
   });
 });
 
