@@ -1,8 +1,8 @@
 # Aitri — Architecture Reference
 
 > **Anchor document.** Any architectural proposal must be validated against this doc first — AND this doc must be UPDATED when an architectural change ships (new command, invariant, artifact-chain, or `.aitri`/artifact contract change — the same trigger as an ADR). A stale anchor inverts the relationship: the code ends up defining the doc instead of the doc defining Aitri.
-> Last updated: 2026-06-10 (v2.0.0-rc.71).
-> This is the stable mental map; the detailed dated record is `DECISIONS.md` (ADRs) + the dev `CHANGELOG.md`. **Architectural evolution since rc.45:** the `.aitri` + `.aitri.local` state split (ADR-045, rc.51) — shared committed state vs per-machine local; the verification spine (`verify-run`/`verify-complete` gate on MUST-FR coverage + project-declared `quality_gates`, judged by exit code); the `adopt --upgrade` reconciliation protocol (`lib/upgrade/`); and the rc.58–71 third-party-adopter hardening of the state machinery — cascade invalidation on re-derivation, the phase-ordering gate (`upstreamProducers`), drift/`cascadedPhases`/`frSnapshots` steering, durable `sessionContext`, and stack-aware Windows binary resolution.
+> Last updated: 2026-06-11 (v2.0.0-rc.75).
+> This is the stable mental map; the detailed dated record is `DECISIONS.md` (ADRs) + `CHANGELOG.md` (both committed at `docs/`). **Architectural evolution since rc.45:** the `.aitri` + `.aitri.local` state split (ADR-045, rc.51) — shared committed state vs per-machine local; the verification spine (`verify-run`/`verify-complete` gate on MUST-FR coverage + project-declared `quality_gates`, judged by exit code); the `adopt --upgrade` reconciliation protocol (`lib/upgrade/`); the rc.58–71 third-party-adopter hardening of the state machinery — cascade invalidation on re-derivation, the phase-ordering gate (`upstreamProducers`), drift/`cascadedPhases`/`frSnapshots` steering, durable `sessionContext`, and stack-aware Windows binary resolution; and the rc.72–75 fidelity layer — the `audit coverage` idea→FR completeness audit (ADR-048, `coverage-auditor` persona, `coverageAuditLastAt`), the MUST-NFR-skip deploy-gate advisory, and the FR↔test prompt floor.
 
 ---
 
@@ -117,7 +117,7 @@ test/smoke.js             E2E CLI tests
 Intentionally NOT inventoried in this anchor — they change every release and would rot. Read them at the source:
 - **Command surface / flow** → `aitri help` (authoritative, always current).
 - **Dev process · version-bump policy · release checklist · impact analysis** → `CLAUDE.md` (the *Working Method* + *Critical rules*).
-- **What shipped, when** → `docs/Aitri_Design_Notes/CHANGELOG.md`.
+- **What shipped, when** → `docs/CHANGELOG.md`.
 
 This doc keeps only the durable architecture (above) + the non-negotiable rejections (below). `ARCHITECTURE.md` and `DECISIONS.md` are committed team artifacts at `docs/`; the rest of the dev working notes are kept local to the maintainer.
 
