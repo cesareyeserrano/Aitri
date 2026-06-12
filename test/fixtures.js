@@ -14,7 +14,8 @@
 
 import fs from 'fs';
 import path from 'path';
-import { loadConfig, saveConfig } from '../lib/state.js';
+import { loadConfig, saveConfig, layoutEmissionVars } from '../lib/state.js';
+import { render } from '../lib/prompts/render.js';
 import { writeAgentFiles } from '../lib/agent-files.js';
 import { ensureAitriGitignore } from '../lib/gitignore.js';
 
@@ -39,8 +40,8 @@ export function initFlatProject({ dir, rootDir, VERSION }) {
 
   const ideaPath = path.join(dir, 'IDEA.md');
   if (!fs.existsSync(ideaPath)) {
-    const tpl = path.join(rootDir, 'templates', 'IDEA.md');
-    fs.writeFileSync(ideaPath, fs.readFileSync(tpl, 'utf8'));
+    // Rendered with flat-layout values (templates carry layout placeholders since rc.77).
+    fs.writeFileSync(ideaPath, render('IDEA', layoutEmissionVars(config)));
   }
 
   const ignorePath = path.join(dir, '.gitignore');
@@ -58,6 +59,6 @@ export function initFlatProject({ dir, rootDir, VERSION }) {
     fs.writeFileSync(backlogPath, fs.readFileSync(tpl, 'utf8'));
   }
 
-  writeAgentFiles(dir, rootDir);
+  writeAgentFiles(dir, rootDir, config);
   saveConfig(dir, config);
 }

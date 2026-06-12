@@ -5,6 +5,18 @@
 
 ---
 
+## [2.0.0-rc.77] — 2026-06-11 — LAYOUT-1 Phase B: emission surface — agent files and briefings print layout-correct paths
+
+rc.76 made the pipeline layout-aware; this release makes everything Aitri *prints or generates* layout-correct, so an agent in a contained project is never steered to a flat-era path.
+
+- **Agent instruction files are now RENDERED per project** ([agent-files.js](../lib/agent-files.js) → `render('AGENTS', layoutEmissionVars(config))`). `templates/AGENTS.md` carries layout placeholders (`{{IDEA_FILE}}`, `{{IDEA_CONTEXT_DIR}}`, `{{SPEC_DIR}}`, `{{FEATURES_DIR}}`, `{{BACKLOG_FILE}}`) — a contained project's CLAUDE.md/AGENTS.md/etc. read `aitri/product/idea_context`, a legacy project's read `idea_context`. The rc.76 interim "resolve paths yourself" note is replaced by a rendered **"THIS project's paths"** line. Highest-impact surface: 1 template × 5 files per project.
+- **`layoutEmissionVars(config)`** (new in [state.js](../lib/state.js) — layout knowledge stays at the single point): POSIX, root-relative display values; `SPEC_DIR` is `'.'` for legacy root-artifact projects so `{{SPEC_DIR}}/BUGS.json` stays valid there.
+- **Briefings:** Phase 1's provenance rule names the layout-resolved context dir (`{{CONTEXT_DIR}}`: `feature_context` in features, `aitri/product/idea_context` contained, `idea_context` flat); Phase 4's feature-runner guidance names `{{FEATURES_DIR}}/<name>/` resolved through the PARENT project's layout; `audit coverage` names the seed brief's real location (`{{IDEA_FILE}}`).
+- **`templates/IDEA.md` is rendered at init** — its asset examples (`idea_context/screens/home.png` …) now show the project's actual context path.
+- `init` passes its in-memory config to `writeAgentFiles` (a loadConfig fallback there would render the pre-init layout); other callers (adopt, upgrade) load from disk post-save.
+- Tests: 6 new in `test/layout.test.js` (rendered agent files contained + flat regression + no unrendered braces; IDEA.md examples; phase-1 provenance dir in root/feature scopes; phase-4 FEATURES_DIR both layouts). Suite 1526 green.
+- Remaining for LAYOUT-1: Phase C (opt-in `adopt --upgrade` directory migration + adopt producing contained) and Phase D (canaries ×3, then v2 stable).
+
 ## [2.0.0-rc.76] — 2026-06-11 — LAYOUT-1 Phase A: contained project layout — new projects under an `aitri/` container (ADR-049)
 
 New consumer projects no longer scatter Aitri's entries across the project root. `aitri init` now creates **one container**: `aitri/product/{IDEA.md, idea_context/, spec/}` + `aitri/BACKLOG.md` + (on first `feature init`) `aitri/features/<name>/`. `.aitri` stays at the project root (project identity and `findProjectRoot` are layout-independent); agent instruction files stay at the root (agents require them there). `product/` vs `features/` makes the tree teach Aitri's mental model — the product definition vs the increments. Industry-aligned (Spec Kit `.specify/`, Kiro `.kiro/`, OpenSpec `openspec/`). Full rationale + the rejected `idea/`-as-unit shape: ADR-049.

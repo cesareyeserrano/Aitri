@@ -33,7 +33,7 @@
 {{/IF_REQUIREMENTS_SUMMARY}}
 
 ## Coverage Audit Protocol
-1. Read the FULL artifacts, not just the summaries above: `{{ARTIFACTS_BASE}}/00_DISCOVERY.md` (if present), `{{ARTIFACTS_BASE}}/01_REQUIREMENTS.json` (its `original_brief` and `functional_requirements`), and any root `IDEA.md`. The summaries are orientation, not proof.
+1. Read the FULL artifacts, not just the summaries above: `{{ARTIFACTS_BASE}}/00_DISCOVERY.md` (if present), `{{ARTIFACTS_BASE}}/01_REQUIREMENTS.json` (its `original_brief` and `functional_requirements`), and any seed brief still on disk (`{{IDEA_FILE}}`). The summaries are orientation, not proof.
 2. Extract every client-expressed need + the explicit out-of-scope boundaries (Step 1).
 3. Trace each need to an FR — COVERED / PARTIAL / UNCOVERED (Step 2).
 4. Run the skeptical pass — drop out-of-scope and renamed-but-covered needs (Step 3).

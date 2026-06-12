@@ -295,3 +295,93 @@ describe('snapshot detectUncountedChanges filter inputs', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// ── emission surface (rc.77): rendered agent files + briefings ────────────────
+
+describe('emission — rendered agent files (rc.77)', () => {
+  it('contained init: agent files carry the contained paths, no unrendered braces', () => {
+    const dir = tmpDir();
+    try {
+      captureAll(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.77' }));
+      for (const f of ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md']) {
+        const content = fs.readFileSync(path.join(dir, f), 'utf8');
+        assert.ok(content.includes('aitri/product/idea_context'), `${f} must name the contained context dir`);
+        assert.ok(content.includes('aitri/product/spec/BUGS.json'), `${f} must name the contained bugs path`);
+        assert.ok(content.includes('aitri/features/<name>/'), `${f} must name the contained features dir`);
+        assert.ok(content.includes('aitri/BACKLOG.md'), `${f} must name the contained backlog`);
+        assert.ok(!content.includes('{{'), `${f} must have no unrendered placeholders`);
+      }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('flat fixture: agent files keep the flat paths (legacy regression)', () => {
+    const dir = tmpDir();
+    try {
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.75' });
+      const content = fs.readFileSync(path.join(dir, 'AGENTS.md'), 'utf8');
+      assert.ok(content.includes('`idea_context/`'), 'flat agents read the flat context dir');
+      assert.ok(content.includes('spec/BUGS.json'), 'flat bugs path');
+      assert.ok(!content.includes('aitri/product'), 'no contained paths leak into flat files');
+      assert.ok(!content.includes('{{'), 'no unrendered placeholders');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('IDEA.md template renders the layout-resolved asset examples', () => {
+    const dir = tmpDir();
+    try {
+      captureAll(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.77' }));
+      const idea = fs.readFileSync(path.join(dir, 'aitri', 'product', 'IDEA.md'), 'utf8');
+      assert.ok(idea.includes('aitri/product/idea_context/screens/home.png'),
+        'contained IDEA.md examples must use the contained context path');
+      assert.ok(!idea.includes('{{'), 'no unrendered placeholders in IDEA.md');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('emission — briefing paths (rc.77)', () => {
+  it('phase-1 briefing names the layout-resolved context dir in the provenance rule', () => {
+    const dir = tmpDir();
+    try {
+      captureAll(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.77' }));
+      writeFile(dir, 'aitri/product/IDEA.md', IDEA_CONTENT);
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+      );
+      assert.ok(stdout.includes('`aitri/product/idea_context/` folder'),
+        'contained provenance rule must point at the contained context dir');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('feature phase-1 briefing names feature_context/ (flat feature interior)', () => {
+    const dir = tmpDir();
+    try {
+      captureAll(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.77' }));
+      captureAll(() => cmdFeature({ dir, args: ['init', 'pay'], err: noopErr, rootDir: ROOT_DIR }));
+      writeFile(dir, 'aitri/features/pay/FEATURE_IDEA.md', IDEA_CONTENT);
+      const { stdout } = captureAll(() =>
+        cmdFeature({ dir, args: ['run-phase', 'pay', '1'], err: noopErr, rootDir: ROOT_DIR })
+      );
+      assert.ok(stdout.includes('`feature_context/` folder'),
+        'feature provenance rule points at the feature-local context dir');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('build briefing resolves FEATURES_DIR through the layout', async () => {
+    const { PHASE_DEFS } = await import('../lib/phases/index.js');
+    const minimalInputs = {
+      '01_REQUIREMENTS.json': JSON.stringify({ functional_requirements: [] }),
+      '02_SYSTEM_DESIGN.md': '# design',
+      '03_TEST_CASES.json': JSON.stringify({ test_cases: [] }),
+    };
+    const contained = PHASE_DEFS[4].buildBriefing({
+      dir: '/p', inputs: minimalInputs, artifactsBase: '/p/aitri/product/spec',
+      config: { layoutRoot: 'aitri' },
+    });
+    assert.ok(contained.includes('aitri/features/<name>/'), 'contained build briefing names aitri/features/');
+    const flat = PHASE_DEFS[4].buildBriefing({
+      dir: '/p', inputs: minimalInputs, artifactsBase: '/p/spec', config: {},
+    });
+    assert.ok(flat.includes('(features/<name>/)'), 'flat build briefing keeps features/');
+    assert.ok(!flat.includes('aitri/features'), 'no contained path in flat briefing');
+  });
+});

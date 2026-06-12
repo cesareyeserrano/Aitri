@@ -74,9 +74,9 @@
 ## Assets
 
 <!-- Optional. List Figma links, mockup paths, reference docs, or any external context.
-     Files dropped in the idea_context/ folder are automatically listed in every phase briefing.
+     Files dropped in the {{IDEA_CONTEXT_DIR}}/ folder are automatically listed in every phase briefing.
      Example:
      Figma: https://figma.com/file/abc123/MyApp
-     Mockup: idea_context/screens/home.png
-     Spec doc: idea_context/PRD-v2.pdf
-     Reference: idea_context/competitor-analysis.md -->
+     Mockup: {{IDEA_CONTEXT_DIR}}/screens/home.png
+     Spec doc: {{IDEA_CONTEXT_DIR}}/PRD-v2.pdf
+     Reference: {{IDEA_CONTEXT_DIR}}/competitor-analysis.md -->

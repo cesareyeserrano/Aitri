@@ -5,7 +5,7 @@ All agents (Claude, Codex, Gemini, GitHub Copilot, etc.) must follow these rules
 
 For the full command surface and flags, run `aitri help`. This document covers the **rules** — what to run, when, and why — not every command's syntax.
 
-**Project layout — resolve paths from `.aitri`, never assume them.** Projects created by Aitri rc.76+ are CONTAINED: everything Aitri-owned lives under an `aitri/` folder — the root unit in `aitri/product/` (`IDEA.md`, `idea_context/`, `spec/`), `BACKLOG.md` at `aitri/`, features in `aitri/features/<name>/`. Older projects are FLAT (those same entries at the project root). When this file mentions a path like `IDEA.md`, `idea_context/`, or `spec/`, it means the layout-resolved location: read `layoutRoot` and `artifactsDir` from `.aitri`, or simply use the literal paths Aitri's own briefings print — they are always layout-correct. Two similar names, two different things: `.aitri` (dotted file at the project root) is the STATE; `aitri/` (folder) is the CONTENT container.
+**Project layout — THIS project's paths (rendered for its layout, use them literally):** seed brief `{{IDEA_FILE}}` · supporting assets `{{IDEA_CONTEXT_DIR}}/` · artifacts `{{SPEC_DIR}}/` · features `{{FEATURES_DIR}}/<name>/` · narrative backlog `{{BACKLOG_FILE}}`. Aitri's briefings always print layout-correct paths too. Two similar names, two different things: `.aitri` (dotted file at the project root) is the STATE; an `aitri/` folder (if this project has one) is the CONTENT container.
 
 ---
 
@@ -26,11 +26,11 @@ If `aitri resume` or `aitri status` reports a version mismatch (CLI version vs p
 
 ## Starting a NEW project — capturing intent is the highest-leverage step
 
-If there is no `.aitri` yet, run `aitri init`. It creates `IDEA.md` (the seed) + config. **The intent you capture here is the only unrecoverable input — everything downstream is faithful execution of it.** So before generating anything:
+If there is no `.aitri` yet, run `aitri init`. It creates `{{IDEA_FILE}}` (the seed) + config. **The intent you capture here is the only unrecoverable input — everything downstream is faithful execution of it.** So before generating anything:
 
-- **Read the provided context FIRST.** If the user pointed you at files, the `idea_context/` folder (root project) or `feature_context/` (a feature), a repo, mockups, or a prior doc/PRD, READ them and derive the problem/users/success from that material. Do not re-ask what a provided document already states. (For greenfield projects, run `aitri wizard` for a guided interview, or write `IDEA.md` directly.)
-- **Designated vs self-discovered context — this decides `confirmed` vs `assumed`.** Context the user *designated* (the `idea_context/` / `feature_context/` folder, or a path/file they pointed you to) may ground a `confirmed` provenance. Context you *found on your own* by scanning the project — a folder nobody told you to use — is `assumed` until you confirm its source with the user: it could be stale, a draft, or another project's material. Never treat a self-discovered folder as authoritative ground truth without confirming it first.
-- **Source-capture advisory at `complete requirements`.** If `idea_context/` (or `feature_context/`) holds assets, `complete` lists them and asks you to confirm the FRs reflect them — Aitri cannot verify asset coverage mechanically. **Visual assets (mockups/Figma/PDFs) Aitri cannot read at all:** for each, either capture it as a UX-type FR (which triggers the UX phase) or state explicitly that it is out of scope. A listed asset with no corresponding FR is the single most common silent scope loss — treat the advisory as a real checklist, not noise. Assets left in a legacy `idea/` folder are NOT scanned; move them to `idea_context/`.
+- **Read the provided context FIRST.** If the user pointed you at files, the `{{IDEA_CONTEXT_DIR}}/` folder (root project) or `feature_context/` (a feature), a repo, mockups, or a prior doc/PRD, READ them and derive the problem/users/success from that material. Do not re-ask what a provided document already states. (For greenfield projects, run `aitri wizard` for a guided interview, or write `{{IDEA_FILE}}` directly.)
+- **Designated vs self-discovered context — this decides `confirmed` vs `assumed`.** Context the user *designated* (the `{{IDEA_CONTEXT_DIR}}/` / `feature_context/` folder, or a path/file they pointed you to) may ground a `confirmed` provenance. Context you *found on your own* by scanning the project — a folder nobody told you to use — is `assumed` until you confirm its source with the user: it could be stale, a draft, or another project's material. Never treat a self-discovered folder as authoritative ground truth without confirming it first.
+- **Source-capture advisory at `complete requirements`.** If `{{IDEA_CONTEXT_DIR}}/` (or `feature_context/`) holds assets, `complete` lists them and asks you to confirm the FRs reflect them — Aitri cannot verify asset coverage mechanically. **Visual assets (mockups/Figma/PDFs) Aitri cannot read at all:** for each, either capture it as a UX-type FR (which triggers the UX phase) or state explicitly that it is out of scope. A listed asset with no corresponding FR is the single most common silent scope loss — treat the advisory as a real checklist, not noise. Assets left in a legacy `idea/` folder are NOT scanned; move them to `{{IDEA_CONTEXT_DIR}}/`.
 - **Confirm the three high-stakes inputs with the user — do NOT silently infer them:** the real problem, the success metric (measurable), and the no-go zones / out-of-scope. These are the inputs whose errors are unrecoverable. Mark anything you inferred as `[ASSUMPTION] …` so Phase 1's provenance gate tracks it.
 - **Match the effort to the project (proportional).** A landing-page MVP needs a tight, honest pass — a clear problem, the user, one measurable success, the obvious out-of-scope — not a giant process. A complex system needs full context ingestion + elicitation. Don't manufacture ceremony for something small. Iterate agile: ship the MVP, then add capabilities as **features** (`aitri feature init <name>`), each its own proportional mini-pipeline.
 - **Optional:** `aitri run-phase discovery` produces a structured, confirmed problem understanding (`00_DISCOVERY.md`) that Phase 1 reads — recommended for anything beyond trivial; it is where the context-ingest + confirm above is formalized. Add `--guided` to run a fixed problem-definition interview; in agent mode (no TTY) it prints the questions for YOU to put to the user, then the discovery briefing.
@@ -128,7 +128,7 @@ The bias toward "treat as feature" is intentional only for **behavioral** ambigu
 
 ## Feature sub-pipelines
 
-Features are independent sub-pipelines under `features/<name>/`. Each has its own `01_REQUIREMENTS.json`, tests, manifest, etc.
+Features are independent sub-pipelines under `{{FEATURES_DIR}}/<name>/`. Each has its own `01_REQUIREMENTS.json`, tests, manifest, etc.
 
 - All feature commands prefix as `aitri feature <verb> <name> [<phase>]`. Examples: `aitri feature run-phase auth requirements`, `aitri feature approve auth 1`, `aitri feature verify-run auth`.
 - Always follow the PIPELINE INSTRUCTION at the end of each feature command — it emits the correctly scoped next-action with the right prefix.
@@ -138,7 +138,7 @@ Features are independent sub-pipelines under `features/<name>/`. Each has its ow
 
 ## Bugs lifecycle
 
-`aitri bug add` writes to `spec/BUGS.json`. Subsequent transitions:
+`aitri bug add` writes to `{{SPEC_DIR}}/BUGS.json`. Subsequent transitions:
 
 - `aitri bug fix <BG-ID>` — developer marks it resolved.
 - `aitri bug verify <BG-ID>` — auto-set when the linked TC passes in `verify-run`, or manual.
@@ -150,7 +150,7 @@ Critical and high severity bugs in `open` or `in_progress` state block: `verify-
 
 ## Backlog and audit (off-pipeline)
 
-- `aitri backlog` — manages `spec/BACKLOG.json` (CLI-tracked items). The project root also gets a hand-written `BACKLOG.md` for narrative items — both surfaces coexist; Aitri does not parse the Markdown version.
+- `aitri backlog` — manages `{{SPEC_DIR}}/BACKLOG.json` (CLI-tracked items). The project also gets a hand-written `{{BACKLOG_FILE}}` for narrative items — both surfaces coexist; Aitri does not parse the Markdown version.
 - `aitri audit` — evaluative pass on the completed pipeline. Produces `AUDIT_REPORT.md`. Deploy gate prefers a fresh audit (<60 days).
 
 ---
