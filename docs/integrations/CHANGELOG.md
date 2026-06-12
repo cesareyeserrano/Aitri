@@ -18,6 +18,11 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.82 (2026-06-12) — BUGS.json `files_changed` filter widened (adversarial-review hardening) — additive
+
+- The `files_changed` field of a closed bug (BUGS.json) now excludes more Aitri-owned paths: in addition to the artifacts dir and `.aitri`, it now also excludes the contained-layout container, `node_modules/`, and feature sub-pipeline artifacts (it routes through the shared `isAitriStatePath`). Consumers that read `files_changed` as "the source files a bug's fix touched" get a cleaner list; no field shape change. Documented in ARTIFACTS.md.
+- No schema-shape changes in rc.81/rc.82 — both were behavior/robustness fixes on the rc.78 migration and rc.80 seed lifecycle (the `archive/` move on the upgrade path, layout-aware orphan-seed absorption, feature-scope ref classification). The `archive/` folder and `layout_migrated` event introduced rc.78–80 remain as documented.
+
 ## v2.0.0-rc.80 (2026-06-12) — seed briefs archived (not deleted) at approve 1; feature seeds read directly ([ADR-050](../DECISIONS.md)) — additive
 
 - At approve of Phase 1, the seed file now MOVES to `archive/` inside its unit instead of being deleted. `01_REQUIREMENTS.json#original_brief` is written exactly as before — readers of that field are unaffected. Readers that inferred pipeline state from the seed file's ABSENCE should rely on `original_brief`/approvedPhases instead (the documented signals).

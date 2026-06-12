@@ -39,17 +39,17 @@ No phase advances automatically — the pipeline is always under human control.
 
 | Phase | Persona | Artifact |
 | :--- | :--- | :--- |
-| [optional] Discovery | Facilitator | `spec/00_DISCOVERY.md` |
-| **1 — Requirements** | Product Manager | `spec/01_REQUIREMENTS.json` |
-| [optional] UX | UX Designer | `spec/01_UX_SPEC.md` |
-| **2 — Architecture** | Software Architect | `spec/02_SYSTEM_DESIGN.md` |
-| **3 — Test Design** | QA Engineer | `spec/03_TEST_CASES.json` |
-| **4 — Implementation** | Developer | `spec/04_BUILD_REPORT.json` |
-| [optional] Code Review | Reviewer | `spec/04_CODE_REVIEW.md` |
-| ✦ Verify _(required gate)_ | — | `spec/04_TEST_RESULTS.json` |
-| **5 — Deployment** | DevOps Engineer | `spec/05_TRACEABILITY.json` |
+| [optional] Discovery | Facilitator | `00_DISCOVERY.md` |
+| **1 — Requirements** | Product Manager | `01_REQUIREMENTS.json` |
+| [optional] UX | UX Designer | `01_UX_SPEC.md` |
+| **2 — Architecture** | Software Architect | `02_SYSTEM_DESIGN.md` |
+| **3 — Test Design** | QA Engineer | `03_TEST_CASES.json` |
+| **4 — Implementation** | Developer | `04_BUILD_REPORT.json` |
+| [optional] Code Review | Reviewer | `04_CODE_REVIEW.md` |
+| ✦ Verify _(required gate)_ | — | `04_TEST_RESULTS.json` |
+| **5 — Deployment** | DevOps Engineer | `05_TRACEABILITY.json` |
 
-Each artifact is the handoff contract to the next phase. Optional phases enrich the pipeline but never block it.
+Each artifact is the handoff contract to the next phase. Optional phases enrich the pipeline but never block it. New projects keep all artifacts under `aitri/product/spec/` (the contained layout — see Quick Start); projects from before the contained layout keep them in a root `spec/` until they opt into migration.
 
 ---
 
@@ -60,25 +60,28 @@ mkdir my-app && cd my-app
 aitri init
 ```
 
-`aitri init` creates:
+`aitri init` creates one `aitri/` container holding everything it owns, plus the per-agent instruction files at the project root:
 
-- `IDEA.md` — describe your project here
-- `AGENTS.md` — pipeline rules for any AI agent in this repo
-- `spec/` — all pipeline artifacts are saved here
-- `idea_context/` — drop mockups, PDFs, or Figma exports here; referenced automatically in every briefing
+- `aitri/product/IDEA.md` — describe your project here
+- `AGENTS.md` (and `CLAUDE.md`, `GEMINI.md`, …) — pipeline rules for any AI agent in this repo (at the root, where agents look)
+- `aitri/product/spec/` — all pipeline artifacts are saved here
+- `aitri/product/idea_context/` — drop mockups, PDFs, or Figma exports here; referenced automatically in every briefing
+- `aitri/features/<name>/` — each feature is its own sub-pipeline (created by `aitri feature init`)
 
-Fill in `IDEA.md`, then run the pipeline:
+`.aitri` (pipeline state) stays at the project root. Aitri's briefings always print the exact, layout-correct path to save each artifact — you never hardcode them. Projects created before the contained layout keep the flat shape (`IDEA.md` + `spec/` at the root) and can migrate with `aitri adopt --upgrade --layout`.
+
+Fill in `aitri/product/IDEA.md`, then run the pipeline:
 
 ```bash
 # Phase 1 — Requirements
 aitri run-phase 1
-# → agent reads briefing, saves spec/01_REQUIREMENTS.json
+# → agent reads briefing, saves aitri/product/spec/01_REQUIREMENTS.json
 aitri complete 1
 aitri approve 1
 
 # Phase 2 — Architecture
 aitri run-phase 2
-# → agent reads briefing, saves spec/02_SYSTEM_DESIGN.md
+# → agent reads briefing, saves aitri/product/spec/02_SYSTEM_DESIGN.md
 aitri complete 2
 aitri approve 2
 
@@ -104,7 +107,7 @@ aitri approve 5
 
 | Command | Description |
 | :--- | :--- |
-| `aitri init` | Initialize a new project. Creates `IDEA.md`, `AGENTS.md`, `spec/`, `idea_context/`. |
+| `aitri init` | Initialize a new project. Creates the `aitri/` container (`aitri/product/IDEA.md`, `aitri/product/spec/`, `aitri/product/idea_context/`) + the per-agent instruction files at the root. |
 | `aitri init <path>` | Initialize at the specified path instead of the current directory. |
 | `aitri wizard` | Guided interview that writes `IDEA.md` from your answers. |
 | `aitri wizard --depth quick\|standard\|deep` | Control interview depth. Default: `quick`. |
@@ -147,12 +150,12 @@ Auto-detects: Jest, Vitest, Pytest, Playwright.
 
 | Command | Description |
 | :--- | :--- |
-| `aitri bug add --title "..." [--severity critical\|high\|medium\|low] [--fr FR-XXX] [--tc TC-NNN]` | Register a bug in `spec/BUGS.json`. |
+| `aitri bug add --title "..." [--severity critical\|high\|medium\|low] [--fr FR-XXX] [--tc TC-NNN]` | Register a bug in the pipeline's `BUGS.json` (under the artifacts dir). |
 | `aitri bug list` / `fix <id>` / `verify <id>` / `close <id>` | Lifecycle: `open → fixed → verified → closed`. |
 | `aitri tc verify <TC-ID> --result pass\|fail --notes "..."` | Record a manual TC execution (for `automation: "manual"` TCs). Counts toward `04_TEST_RESULTS.json` summary. |
-| `aitri backlog [list\|add\|done]` | Project-level tech-debt backlog in `spec/BACKLOG.json`. |
+| `aitri backlog [list\|add\|done]` | Project-level tech-debt backlog in the pipeline's `BACKLOG.json` (under the artifacts dir). |
 | `aitri review` | Cross-artifact semantic consistency check (requirements → TCs → results). Optional before verify-run. |
-| `aitri audit` | On-demand holistic audit — agent writes `spec/AUDIT_REPORT.md` with findings (bugs, backlog, observations). Off-pipeline. |
+| `aitri audit` | On-demand holistic audit — agent writes `AUDIT_REPORT.md` (under the artifacts dir) with findings (bugs, backlog, observations). Off-pipeline. |
 | `aitri audit plan` | Read `AUDIT_REPORT.md` and propose exact `bug add` / `backlog add` commands for each finding. |
 | `aitri reconcile` | Baseline off-pipeline code changes after Phase 4 approval — prevents silent drift outside the briefing→complete→approve loop. |
 
@@ -192,36 +195,36 @@ Bring an existing project into the Aitri pipeline.
 
 ### Phase 1 — Requirements
 
-**Artifact:** `spec/01_REQUIREMENTS.json`
-**Reads:** `IDEA.md`, `spec/00_DISCOVERY.md` (if present)
+**Artifact:** `01_REQUIREMENTS.json`
+**Reads:** `IDEA.md`, `00_DISCOVERY.md` (if present)
 
 Produces functional requirements (FRs), non-functional requirements (NFRs), user stories, and constraints. Every MUST-priority FR includes acceptance criteria specific enough to write a test against. Aitri validates FR count, AC specificity, and schema on `complete`.
 
 ### Phase 2 — Architecture
 
-**Artifact:** `spec/02_SYSTEM_DESIGN.md`
-**Reads:** `spec/01_REQUIREMENTS.json`, `spec/01_UX_SPEC.md` (if present)
+**Artifact:** `02_SYSTEM_DESIGN.md`
+**Reads:** `01_REQUIREMENTS.json`, `01_UX_SPEC.md` (if present)
 
 Tech stack with justifications, data model, API design, security design, performance strategy, deployment architecture, and risk analysis.
 
 ### Phase 3 — Test Design
 
-**Artifact:** `spec/03_TEST_CASES.json`
-**Reads:** `spec/01_REQUIREMENTS.json`, `spec/02_SYSTEM_DESIGN.md`
+**Artifact:** `03_TEST_CASES.json`
+**Reads:** `01_REQUIREMENTS.json`, `02_SYSTEM_DESIGN.md`
 
 Test cases mapped to every MUST-priority FR, each with a precise expected result. Aitri validates on `complete` that every MUST FR has at least one test case and that no placeholder results remain.
 
 ### Phase 4 — Implementation
 
-**Artifact:** `spec/04_BUILD_REPORT.json`
-**Reads:** `spec/01_REQUIREMENTS.json`, `spec/02_SYSTEM_DESIGN.md`, `spec/03_TEST_CASES.json`
+**Artifact:** `04_BUILD_REPORT.json`
+**Reads:** `01_REQUIREMENTS.json`, `02_SYSTEM_DESIGN.md`, `03_TEST_CASES.json`
 
 File structure, component breakdown, setup commands, and a technical debt register. When re-running Phase 4 after failing tests, Aitri automatically injects the failing test cases into the briefing.
 
 ### Phase 5 — Deployment
 
-**Artifact:** `spec/05_TRACEABILITY.json`
-**Reads:** All prior artifacts + `spec/04_TEST_RESULTS.json`
+**Artifact:** `05_TRACEABILITY.json`
+**Reads:** All prior artifacts + `04_TEST_RESULTS.json`
 **Requires:** `aitri verify-complete` to have passed
 
 Deployment configuration (Dockerfile, docker-compose) and a compliance record mapping every MUST FR to its verification evidence.
@@ -232,7 +235,7 @@ Deployment configuration (Dockerfile, docker-compose) and a compliance record ma
 
 ### Discovery — before Phase 1
 
-**Artifact:** `spec/00_DISCOVERY.md`
+**Artifact:** `00_DISCOVERY.md`
 
 Structured problem definition: the problem, the users, success criteria, and explicit out-of-scope decisions. Phase 1 reads it automatically when present.
 
@@ -244,7 +247,7 @@ aitri approve discovery
 
 ### UX Specification — after Phase 1, before Phase 2
 
-**Artifact:** `spec/01_UX_SPEC.md`
+**Artifact:** `01_UX_SPEC.md`
 
 User flows, screen inventory, component states (default, loading, error, empty, disabled), and Nielsen usability compliance. Phase 2 reads it automatically when present.
 
@@ -258,7 +261,7 @@ aitri approve ux
 
 ### Code Review — after Phase 4, before verify
 
-**Artifact:** `spec/04_CODE_REVIEW.md`
+**Artifact:** `04_CODE_REVIEW.md`
 
 Independent review of the implementation against requirements and test specs. Surfaces coverage gaps and deviations before running the test suite.
 

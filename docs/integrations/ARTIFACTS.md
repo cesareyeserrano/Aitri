@@ -369,7 +369,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
       "fix_at":           "ISO8601 (optional, v0.1.90+) — timestamp paired with fix_commit_sha",
       "close_commit_sha": "string (optional, v0.1.90+) — HEAD at the moment of `aitri bug close`",
       "close_at":         "ISO8601 (optional, v0.1.90+) — timestamp paired with close_commit_sha",
-      "files_changed":    "string[] (optional, v0.1.90+) — paths modified between fix_commit_sha..close_commit_sha, excluding spec/ and .aitri"
+      "files_changed":    "string[] (optional, v0.1.90+) — paths modified between fix_commit_sha..close_commit_sha, excluding Aitri-owned state (artifacts dir, the contained-layout container, .aitri*, node_modules, and feature sub-pipeline artifacts — the shared isAitriStatePath filter; widened in rc.82, was spec/+.aitri only)"
     }
   ]
 }
@@ -378,7 +378,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
 **Lifecycle:** `open → fixed → verified → closed`
 - `fixed`: developer marks resolved (`aitri bug fix`) — optionally links a TC. If the project is a git repo, `fix_commit_sha` + `fix_at` are captured automatically.
 - `verified`: auto-set by `verify-run` when linked TC passes, or manually via `aitri bug verify`
-- `closed`: archived. If the project is a git repo, `close_commit_sha` + `close_at` are captured. When both `fix_commit_sha` and `close_commit_sha` are present and differ, `files_changed` records the diff (filtered, excludes `spec/` and `.aitri`).
+- `closed`: archived. If the project is a git repo, `close_commit_sha` + `close_at` are captured. When both `fix_commit_sha` and `close_commit_sha` are present and differ, `files_changed` records the diff (filtered through the shared `isAitriStatePath`: excludes the artifacts dir, the contained-layout container, `.aitri*`, `node_modules`, and feature sub-pipeline artifacts — rc.82; previously `spec/`+`.aitri` only).
 
 **Audit trail (v0.1.90+):** the fix/close SHA pair plus `files_changed` provides a non-honor-system record of which commit range resolved each bug. Missing if the project has no git repo or HEAD is unreadable — behaviour degrades silently, lifecycle still works.
 
