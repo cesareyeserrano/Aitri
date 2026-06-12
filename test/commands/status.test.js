@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { cmdInit } from '../../lib/commands/init.js';
+import { initFlatProject } from '../fixtures.js';
 import { cmdStatus } from '../../lib/commands/status.js';
 import { loadConfig, saveConfig } from '../../lib/state.js';
 
@@ -29,7 +29,7 @@ function captureJson(fn) {
 describe('cmdStatus --json', () => {
   it('returns valid JSON with required top-level fields', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
     assert.ok(typeof result.project === 'string');
     assert.ok(typeof result.dir === 'string');
@@ -46,7 +46,7 @@ describe('cmdStatus --json', () => {
   // consumer reading them got undefined. Guard that they are present.
   it('health emits the full documented field set incl. driftPresent + staleVerify', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
     for (const k of ['deployable', 'deployableReasons', 'staleAudit', 'blockedByBugs',
                      'activeFeatures', 'versionMismatch', 'driftPresent', 'staleVerify']) {
@@ -58,14 +58,14 @@ describe('cmdStatus --json', () => {
 
   it('driftPhases is empty when no phases have drift', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
     assert.deepEqual(result.driftPhases, []);
   });
 
   it('driftPhases uses stored driftPhases[] field when present (v0.1.58+ path)', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.58' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.58' });
     const config = loadConfig(dir);
     config.approvedPhases  = [1];
     config.completedPhases = [1];
@@ -77,7 +77,7 @@ describe('cmdStatus --json', () => {
 
   it('driftPhases contains key of drifted phase', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const specDir = path.join(dir, 'spec');
     fs.mkdirSync(specDir, { recursive: true });
     fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), JSON.stringify({ v: 1 }));
@@ -92,7 +92,7 @@ describe('cmdStatus --json', () => {
 
   it('all core phases present with not_started status on fresh project', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
     const corePhases = result.phases.filter(p => !p.optional);
     assert.equal(corePhases.length, 5);
@@ -101,7 +101,7 @@ describe('cmdStatus --json', () => {
 
   it('nextAction is aitri run-phase requirements on fresh project', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
     assert.equal(result.nextAction, 'aitri run-phase requirements');
     assert.equal(result.allComplete, false);
@@ -109,7 +109,7 @@ describe('cmdStatus --json', () => {
 
   it('phase status is approved when phase is in approvedPhases', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const config = loadConfig(dir);
     config.approvedPhases = [1, 2];
     config.completedPhases = [1, 2];
@@ -123,7 +123,7 @@ describe('cmdStatus --json', () => {
 
   it('phase status is completed when in completedPhases but not approvedPhases', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const config = loadConfig(dir);
     config.completedPhases = [1];
     saveConfig(dir, config);
@@ -134,7 +134,7 @@ describe('cmdStatus --json', () => {
 
   it('drift is true when artifact hash differs from stored hash', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const specDir = path.join(dir, 'spec');
     fs.mkdirSync(specDir, { recursive: true });
     const artifactPath = path.join(specDir, '01_REQUIREMENTS.json');
@@ -151,7 +151,7 @@ describe('cmdStatus --json', () => {
 
   it('drift is false when artifact matches stored hash', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const specDir = path.join(dir, 'spec');
     fs.mkdirSync(specDir, { recursive: true });
     const artifactFile = path.join(specDir, '01_REQUIREMENTS.json');
@@ -177,7 +177,7 @@ describe('cmdStatus --json', () => {
 
   it('versionMismatch is true when project version differs from CLI version', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.00' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.00' });
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
     assert.equal(result.versionMismatch, true);
     assert.equal(result.aitriVersion, '0.1.00');
@@ -186,14 +186,14 @@ describe('cmdStatus --json', () => {
 
   it('versionMismatch is false when versions match', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
     assert.equal(result.versionMismatch, false);
   });
 
   it('verify phase appears when phase 4 is approved', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const config = loadConfig(dir);
     config.approvedPhases = [1, 2, 3, 4];
     config.completedPhases = [1, 2, 3, 4];
@@ -208,7 +208,7 @@ describe('cmdStatus --json', () => {
 
   it('allComplete is true and nextAction is aitri validate when all 5 phases approved and verify passed', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const config = loadConfig(dir);
     config.approvedPhases = [1, 2, 3, 4, 5];
     config.completedPhases = [1, 2, 3, 4, 5];
@@ -222,7 +222,7 @@ describe('cmdStatus --json', () => {
 
   it('optional phases absent from output when artifact does not exist', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
     const optional = result.phases.filter(p => p.optional);
     assert.equal(optional.length, 0);
@@ -230,7 +230,7 @@ describe('cmdStatus --json', () => {
 
   it('tests block emitted with totals + perPipeline aggregation (v0.1.81+)', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.81' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.81' });
     const config = loadConfig(dir);
     config.verifyPassed  = true;
     config.verifySummary = { passed: 30, failed: 0, skipped: 0, total: 30 };
@@ -256,7 +256,7 @@ describe('cmdStatus --json', () => {
 
   it('text features section — failing features first, counts shown for both pass and fail (v0.1.83+)', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.83' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.83' });
 
     // Mark root fully approved so features are visible / pipeline rendering is stable
     const rootCfg = loadConfig(dir);
@@ -309,7 +309,7 @@ describe('cmdStatus --json', () => {
 
   it('text output unaffected when --json flag absent', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     let out = '';
     const orig = console.log.bind(console);
     console.log = (...a) => { out += a.join(' ') + '\n'; };
@@ -321,7 +321,7 @@ describe('cmdStatus --json', () => {
   // A1 (alpha.3) — upgrade findings count line
   it('shows unresolved upgrade findings line when findings exist', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     const cfg = loadConfig(dir);
     cfg.upgradeFindings = [
       { target: '03_TEST_CASES.json', transform: 'TCs with non-canonical requirement (2)', reason: 'multi-FR', recordedAt: '2026-04-24T00:00:00Z' },
@@ -339,7 +339,7 @@ describe('cmdStatus --json', () => {
 
   it('does not show upgrade findings line when none exist', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
     let out = '';
     const orig = console.log.bind(console);
     console.log = (...a) => { out += a.join(' ') + '\n'; };
@@ -354,7 +354,7 @@ describe('cmdStatus --json', () => {
   // top — easy to misread as "ready to ship". Surface deployable explicitly.
   it('shows "deployable Not ready" when deploy gate is blocked by version mismatch', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.50' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.50' });
     const cfg = loadConfig(dir);
     cfg.approvedPhases = [1];
     saveConfig(dir, cfg);
@@ -370,7 +370,7 @@ describe('cmdStatus --json', () => {
 
   it('does not show deployable line on a fresh project with no progress', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.99' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.99' });
     let out = '';
     const orig = console.log.bind(console);
     console.log = (...a) => { out += a.join(' ') + '\n'; };
@@ -387,7 +387,7 @@ describe('cmdStatus --json', () => {
 
 describe('cmdStatus --json bugs payload', () => {
   function setupBugs(dir, bugs) {
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.99' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.99' });
     fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
     fs.writeFileSync(path.join(dir, 'spec/BUGS.json'), JSON.stringify({ bugs }, null, 2));
   }
@@ -421,7 +421,7 @@ describe('cmdStatus --json bugs payload', () => {
 
   it('empty BUGS.json → bySeverity all zero + openIds empty', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.99' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.99' });
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.99', args: ['--json'] }));
     assert.deepEqual(result.bugs.bySeverity, { critical: 0, high: 0, medium: 0, low: 0 });
     assert.deepEqual(result.bugs.openIds, []);

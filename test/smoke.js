@@ -12,6 +12,10 @@ import path           from 'path';
 import { describe, it, before, after } from 'node:test';
 import assert         from 'node:assert/strict';
 
+// Contained layout (LAYOUT-1, rc.76+): init creates the root unit under aitri/product/.
+const UNIT = path.join('aitri', 'product');
+const SPEC = path.join('aitri', 'product', 'spec');
+
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 
 const VALID_REQUIREMENTS = JSON.stringify({
@@ -90,7 +94,7 @@ describe('Aitri CLI — Smoke Test', () => {
 
   it('aitri init creates IDEA.md and .aitri config', () => {
     aitri('init', tmpDir);
-    assert.ok(fs.existsSync(path.join(tmpDir, 'IDEA.md')), 'IDEA.md should exist');
+    assert.ok(fs.existsSync(path.join(tmpDir, UNIT, 'IDEA.md')), 'IDEA.md should exist');
     assert.ok(fs.existsSync(path.join(tmpDir, '.aitri')), '.aitri should exist');
   });
 
@@ -104,7 +108,7 @@ describe('Aitri CLI — Smoke Test', () => {
   });
 
   it('aitri complete 1 fails when artifact has too few FRs', () => {
-    fs.writeFileSync(path.join(tmpDir, 'spec', '01_REQUIREMENTS.json'), INVALID_REQUIREMENTS_FEW_FRS);
+    fs.writeFileSync(path.join(tmpDir, SPEC, '01_REQUIREMENTS.json'), INVALID_REQUIREMENTS_FEW_FRS);
     const out = aitriShouldFail('complete 1', tmpDir);
     assert.match(out, /Min 5 functional_requirements/);
   });
@@ -116,7 +120,7 @@ describe('Aitri CLI — Smoke Test', () => {
   });
 
   it('aitri complete 1 succeeds with valid artifact', () => {
-    fs.writeFileSync(path.join(tmpDir, 'spec', '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
+    fs.writeFileSync(path.join(tmpDir, SPEC, '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
     const out = aitri('complete 1', tmpDir);
     assert.match(out, /Phase requirements.*complete/i);
   });
@@ -170,7 +174,7 @@ describe('Aitri CLI — Smoke Test', () => {
       '## Out of Scope\n- No payroll. No multi-currency. No accounting integration.\n',
       '## Discovery Confidence\nConfidence: high\nEvidence gaps: none\nHandoff decision: ready — all sections grounded in user input\n',
     ].join('\n').repeat(2);
-    fs.writeFileSync(path.join(tmpDir, 'spec', '00_DISCOVERY.md'), discoveryContent);
+    fs.writeFileSync(path.join(tmpDir, SPEC, '00_DISCOVERY.md'), discoveryContent);
     const out = aitri('complete discovery', tmpDir);
     assert.match(out, /complete/i);
     const out2 = aitri('approve discovery', tmpDir);
@@ -184,7 +188,7 @@ describe('Aitri CLI — Smoke Test', () => {
       '## Nielsen Compliance\n### Dashboard\n- H1: status updates within 1s\n- H8: minimal controls visible\n',
       '## Design Tokens\nArchetype: ENTERPRISE/INTERNAL\nColor roles:\n- background: #FFFFFF (reason: light-only per archetype)\n- surface: #F8F9FA\n- primary: #0066CC\n- accent: #0052A3\n- error: #CC0000\n- text-primary: #1A1A1A\n- text-secondary: #6B7280\n- border: #E5E7EB\nType scale:\n- font-family: "Inter" — reason: high legibility in dense layouts\n- sizes: 12/14/16/20/24px\n- weights: 400/500/700\nSpacing scale: 4/8/12/16/24/32/48px\n',
     ].join('\n').repeat(2);
-    fs.writeFileSync(path.join(tmpDir, 'spec', '01_UX_SPEC.md'), uxContent);
+    fs.writeFileSync(path.join(tmpDir, SPEC, '01_UX_SPEC.md'), uxContent);
     const out = aitri('complete ux', tmpDir);
     assert.match(out, /complete/i);
     const out2 = aitri('approve ux', tmpDir);
@@ -269,9 +273,9 @@ describe('Aitri CLI — Smoke Test', () => {
     try {
       const out = aitri(`init ${target}`, cwdForTest);
       assert.match(out, /initialized/i);
-      assert.ok(fs.existsSync(path.join(target, 'IDEA.md')),       'IDEA.md should be in target dir');
+      assert.ok(fs.existsSync(path.join(target, UNIT, 'IDEA.md')),       'IDEA.md should be in target dir');
       assert.ok(fs.existsSync(path.join(target, '.aitri')),        '.aitri should be in target dir');
-      assert.ok(!fs.existsSync(path.join(cwdForTest, 'IDEA.md')),  'IDEA.md must NOT be created in cwd');
+      assert.ok(!fs.existsSync(path.join(cwdForTest, 'aitri')),     'the aitri/ container must NOT be created in cwd');
       const cfg = JSON.parse(fs.readFileSync(path.join(target, '.aitri'), 'utf8'));
       assert.equal(cfg.projectName, 'new-project', 'projectName must match target folder name');
     } finally {
@@ -299,7 +303,7 @@ describe('Aitri CLI — Smoke Test', () => {
 
   it('[v0.1.26] aitri status shows DRIFT when artifact modified after approval', () => {
     // Modify 01_REQUIREMENTS.json after Phase 1 was approved
-    const artifactPath = path.join(tmpDir, 'spec', '01_REQUIREMENTS.json');
+    const artifactPath = path.join(tmpDir, SPEC, '01_REQUIREMENTS.json');
     const original = fs.readFileSync(artifactPath, 'utf8');
     const modified = JSON.parse(original);
     modified.project_name = 'MODIFIED AFTER APPROVAL';
@@ -314,7 +318,7 @@ describe('Aitri CLI — Smoke Test', () => {
   });
 
   it('[v0.1.26] aitri validate shows DRIFT when artifact modified after approval', () => {
-    const artifactPath = path.join(tmpDir, 'spec', '01_REQUIREMENTS.json');
+    const artifactPath = path.join(tmpDir, SPEC, '01_REQUIREMENTS.json');
     const original = fs.readFileSync(artifactPath, 'utf8');
     const modified = JSON.parse(original);
     modified.project_name = 'MODIFIED AFTER APPROVAL';
@@ -335,10 +339,10 @@ describe('Aitri CLI — Smoke Test', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-ux-warn-'));
     try {
       execSync('aitri init', { cwd: dir, encoding: 'utf8' });
-      fs.writeFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
+      fs.writeFileSync(path.join(dir, SPEC, '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
       execSync('aitri complete 1', { cwd: dir, encoding: 'utf8' });
       // Modify artifact after complete — drift gate must block approve in non-TTY
-      fs.writeFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), '{not valid json}');
+      fs.writeFileSync(path.join(dir, SPEC, '01_REQUIREMENTS.json'), '{not valid json}');
       let threw = false;
       try {
         execSync('aitri approve 1 2>&1', { cwd: dir, encoding: 'utf8' });
@@ -387,7 +391,7 @@ describe('Aitri CLI — Smoke Test', () => {
       'None detected — Node.js and PostgreSQL are compatible with all stated NFRs.',
       ...Array(10).fill('Extra design content line.'),
     ].join('\n');
-    fs.writeFileSync(path.join(tmpDir, 'spec', '02_SYSTEM_DESIGN.md'), design);
+    fs.writeFileSync(path.join(tmpDir, SPEC, '02_SYSTEM_DESIGN.md'), design);
     // complete 2 requires phase 1 approved (already done) and the artifact to exist
     const out = aitri('complete 2', tmpDir);
     assert.match(out, /Phase architecture.*complete/i);
@@ -447,9 +451,9 @@ describe('Aitri CLI — run-phase smoke', () => {
   before(() => {
     rpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rp-'));
     execSync('aitri init', { cwd: rpDir, encoding: 'utf8' });
-    fs.writeFileSync(path.join(rpDir, 'IDEA.md'), LONG_IDEA);
-    fs.writeFileSync(path.join(rpDir, 'spec', '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
-    fs.writeFileSync(path.join(rpDir, 'spec', '02_SYSTEM_DESIGN.md'), DESIGN_MD);
+    fs.writeFileSync(path.join(rpDir, UNIT, 'IDEA.md'), LONG_IDEA);
+    fs.writeFileSync(path.join(rpDir, SPEC, '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
+    fs.writeFileSync(path.join(rpDir, SPEC, '02_SYSTEM_DESIGN.md'), DESIGN_MD);
   });
 
   after(() => fs.rmSync(rpDir, { recursive: true, force: true }));
@@ -534,13 +538,13 @@ describe('Aitri CLI — complete 3 h/f naming gate', () => {
   after(() => fs.rmSync(gateDir, { recursive: true, force: true }));
 
   it('complete 3 passes with valid h/f-suffixed TCs', () => {
-    fs.writeFileSync(path.join(gateDir, 'spec', '03_TEST_CASES.json'), VALID_TCS);
+    fs.writeFileSync(path.join(gateDir, SPEC, '03_TEST_CASES.json'), VALID_TCS);
     const out = aitri('complete 3', gateDir);
     assert.match(out, /Phase tests.*complete/i);
   });
 
   it('complete 3 rejects TCs missing h suffix (Rank 11 gate)', () => {
-    fs.writeFileSync(path.join(gateDir, 'spec', '03_TEST_CASES.json'), NO_H_TCS);
+    fs.writeFileSync(path.join(gateDir, SPEC, '03_TEST_CASES.json'), NO_H_TCS);
     const out = aitriShouldFail('complete 3', gateDir);
     assert.match(out, /no TC id ending in 'h'/i);
   });
@@ -554,7 +558,7 @@ describe('Aitri CLI — resume + checkpoint smoke', () => {
   before(() => {
     rcDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rc-'));
     execSync('aitri init', { cwd: rcDir, encoding: 'utf8' });
-    fs.writeFileSync(path.join(rcDir, 'spec', '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
+    fs.writeFileSync(path.join(rcDir, SPEC, '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
     execSync('aitri complete 1', { cwd: rcDir, encoding: 'utf8' });
     execSync('aitri approve 1', { cwd: rcDir, encoding: 'utf8' });
   });
@@ -738,7 +742,7 @@ describe('Aitri CLI — feature smoke', () => {
 
   it('aitri feature init creates feature directory with .aitri and FEATURE_IDEA.md', () => {
     aitri('feature init payments', featureProjectDir);
-    const featureDir = path.join(featureProjectDir, 'features', 'payments');
+    const featureDir = path.join(featureProjectDir, 'aitri', 'features', 'payments');
     assert.ok(fs.existsSync(featureDir), 'feature dir must be created');
     assert.ok(fs.existsSync(path.join(featureDir, '.aitri')), 'feature .aitri must exist');
     assert.ok(fs.existsSync(path.join(featureDir, 'FEATURE_IDEA.md')), 'FEATURE_IDEA.md must exist');
@@ -824,7 +828,7 @@ describe('Aitri CLI — bug smoke', () => {
   it('aitri bug add --title creates BUGS.json', () => {
     aitri('bug add --title "Login fails with valid credentials" --severity high', bugDir);
     assert.ok(
-      fs.existsSync(path.join(bugDir, 'spec', 'BUGS.json')),
+      fs.existsSync(path.join(bugDir, SPEC, 'BUGS.json')),
       'BUGS.json must be created after bug add'
     );
   });
@@ -843,7 +847,7 @@ describe('Aitri CLI — bug smoke', () => {
   it('aitri bug fix BG-001 marks bug as fixed', () => {
     const out = aitri('bug fix BG-001', bugDir);
     assert.match(out, /fixed|BG-001/i);
-    const bugs = JSON.parse(fs.readFileSync(path.join(bugDir, 'spec', 'BUGS.json'), 'utf8'));
+    const bugs = JSON.parse(fs.readFileSync(path.join(bugDir, SPEC, 'BUGS.json'), 'utf8'));
     const bug = bugs.bugs.find(b => b.id === 'BG-001');
     assert.equal(bug.status, 'fixed', 'bug status must be fixed after bug fix');
   });
@@ -855,7 +859,7 @@ describe('Aitri CLI — bug smoke', () => {
 
   it('aitri bug add with --fr and --tc links to requirement and test case', () => {
     aitri('bug add --title "Export CSV produces wrong delimiter" --severity medium --fr FR-003 --tc TC-003f', bugDir);
-    const bugs = JSON.parse(fs.readFileSync(path.join(bugDir, 'spec', 'BUGS.json'), 'utf8'));
+    const bugs = JSON.parse(fs.readFileSync(path.join(bugDir, SPEC, 'BUGS.json'), 'utf8'));
     const bug = bugs.bugs.find(b => b.title.includes('Export CSV'));
     assert.ok(bug, 'linked bug must exist');
     assert.equal(bug.fr, 'FR-003');
@@ -863,7 +867,7 @@ describe('Aitri CLI — bug smoke', () => {
   });
 
   it('BUGS.json is valid JSON after multiple bug operations', () => {
-    const raw = fs.readFileSync(path.join(bugDir, 'spec', 'BUGS.json'), 'utf8');
+    const raw = fs.readFileSync(path.join(bugDir, SPEC, 'BUGS.json'), 'utf8');
     assert.doesNotThrow(() => JSON.parse(raw), 'BUGS.json must remain valid JSON');
     const bugs = JSON.parse(raw);
     assert.ok(Array.isArray(bugs.bugs), 'bugs.bugs must be an array');
@@ -901,7 +905,7 @@ describe('Aitri CLI — review smoke', () => {
   before(() => {
     reviewDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-review-smoke-'));
     execSync('aitri init', { cwd: reviewDir, encoding: 'utf8' });
-    fs.writeFileSync(path.join(reviewDir, 'spec', '01_REQUIREMENTS.json'), REVIEW_REQUIREMENTS);
+    fs.writeFileSync(path.join(reviewDir, SPEC, '01_REQUIREMENTS.json'), REVIEW_REQUIREMENTS);
     execSync('aitri complete 1', { cwd: reviewDir, encoding: 'utf8' });
     execSync('aitri approve 1', { cwd: reviewDir, encoding: 'utf8' });
   });

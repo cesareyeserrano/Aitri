@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.75+
+**Aitri version:** v2.0.0-rc.76+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -38,7 +38,8 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `projectName` | `string` | `path.basename(dir)` | Project name |
 | `createdAt` | `string` ISO 8601 | `null` | Timestamp of `aitri init` |
 | `aitriVersion` | `string` | `null` | CLI version used to initialize or upgrade |
-| `artifactsDir` | `string` | `""` | Subdirectory for artifacts. `"spec"` for new projects; `""` for adopted or pre-v0.1.20 |
+| `artifactsDir` | `string` | `""` | Subdirectory for artifacts, POSIX separators. `"aitri/product/spec"` for projects created by rc.76+ (contained layout); `"spec"` for rc.75-and-earlier projects; `""` for adopted or pre-v0.1.20. Always build paths from this field — never hardcode a value |
+| `layoutRoot` | `string` | `""` (flat) | **Additive, rc.76+ (LAYOUT-1/ADR-049).** Container folder for everything Aitri-owned. `"aitri"` for contained projects: the root unit lives in `<layoutRoot>/product/` (IDEA.md, idea_context/, spec/), `BACKLOG.md` at `<layoutRoot>/`, features in `<layoutRoot>/features/`. `""`/absent = legacy flat layout. The structure under `layoutRoot` is convention, not config. `.aitri` itself always stays at the project root |
 
 ---
 
@@ -177,6 +178,10 @@ Emitted once per migration applied by `aitri adopt --upgrade`. The event log is 
 
 Full path: `path.join(projectDir, artifactsDir, artifactFilename)`
 When `artifactsDir` is `""` (empty string), artifact is at `projectDir` root.
+This formula already covers the contained layout (rc.76+): `artifactsDir` is
+`"aitri/product/spec"` there, so readers that build paths from the field keep
+working with zero layout knowledge. Readers that hardcoded `"spec"` break —
+always read the field, and default a MISSING field to `""` (not `"spec"`).
 
 ---
 
@@ -214,12 +219,16 @@ function hasDrift(projectDir, config, phaseKey) {
 
 ## Feature sub-pipelines
 
-`aitri feature init <name>` creates sub-pipelines at `<project>/features/<name>/`.
+`aitri feature init <name>` creates sub-pipelines at
+`<project>/<layoutRoot>/features/<name>/` — i.e. `<project>/aitri/features/<name>/`
+for contained projects (rc.76+), `<project>/features/<name>/` for legacy flat ones.
 Each feature has its own `.aitri` with the same schema as the parent project.
-`artifactsDir` is always `"spec"` for features.
+`artifactsDir` is always `"spec"` for features (feature-relative — the feature
+interior stays flat in both layouts; a feature config never carries `layoutRoot`).
 
 ```js
-const featuresDir = path.join(projectDir, 'features');
+const parentState = readStateFile(projectDir);
+const featuresDir = path.join(projectDir, parentState.layoutRoot || '', 'features');
 if (fs.existsSync(featuresDir)) {
   for (const entry of fs.readdirSync(featuresDir)) {
     const featureDir = path.join(featuresDir, entry);
@@ -266,7 +275,7 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 
 | File | Content | Git |
 |---|---|---|
-| `.aitri` | **Shared** — `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `cascadedPhases`, `frSnapshots`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`/`verifySummary`/`verifyRanAt`/`lastVerifyRun`, `auditLastAt`, `coverageAuditLastAt` | **committed** |
+| `.aitri` | **Shared** — `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `layoutRoot`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `cascadedPhases`, `frSnapshots`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`/`verifySummary`/`verifyRanAt`/`lastVerifyRun`, `auditLastAt`, `coverageAuditLastAt` | **committed** |
 | `.aitri.local` | **Per-machine** — `lastSession` (`.at`, `.agent`, …), `sessionContext` (`.text`, `.at`) and `reconcileState` (`baseRef`, `method`, `status`, `lastRun`) | **gitignored** |
 
 `saveConfig` writes `.aitri` only when a shared field other than `updatedAt` changed, so committing it no longer creates per-command noise — the noise that previously pushed teams to gitignore the whole file now lives in `.aitri.local`. `loadConfig` merges both files; every reader still sees one config object. (An old single-file `.aitri` with per-machine fields inline auto-migrates on its first save; `adopt --upgrade` also fixes the project's `.gitignore`. A pre-existing `.aitri/` *folder* uses `.aitri/config.json` + `.aitri/local.json` instead — supported as a fallback.)

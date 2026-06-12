@@ -25,7 +25,7 @@ import path from 'path';
 import { runUpgrade } from '../lib/upgrade/index.js';
 import { diagnose, migrateAll } from '../lib/upgrade/diagnose.js';
 import * as from065 from '../lib/upgrade/migrations/from-0.1.65.js';
-import { cmdInit }    from '../lib/commands/init.js';
+import { initFlatProject } from './fixtures.js';
 import { cmdReject }  from '../lib/commands/reject.js';
 import { loadConfig, saveConfig, appendEvent, hashArtifact, hasDrift } from '../lib/state.js';
 
@@ -80,7 +80,7 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
   it('writes aitriVersion last (commit point per ADR-027 Addendum §1)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
       assert.equal(loadConfig(dir).aitriVersion, '0.1.99');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -89,7 +89,7 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
   it('STATE-MISSING: infers completedPhases from on-disk artifacts', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), '{}');
@@ -107,7 +107,7 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
   it('STATE-MISSING: does not re-mark phases that are already approved', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), '{}');
@@ -128,7 +128,7 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
   it('STRUCTURE: corrects artifactsDir to root when spec/ is empty but artifacts sit at root', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), '{}');
 
       silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
@@ -142,7 +142,7 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
   it('STRUCTURE: leaves artifactsDir untouched when artifacts are in the configured dir', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), '{}');
@@ -156,7 +156,7 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
   it('CAPABILITY-NEW: regenerates agent instruction files when missing', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       for (const f of ['CLAUDE.md', 'GEMINI.md', '.codex/instructions.md', '.github/copilot-instructions.md']) {
         const p = path.join(dir, f);
         if (fs.existsSync(p)) fs.rmSync(p);
@@ -171,7 +171,7 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
   it('is tolerant of projects with no artifacts', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       assert.doesNotThrow(() =>
         silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }))
       );
@@ -208,7 +208,7 @@ describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
   it('skips a phase whose artifact is on disk but only has a `started` event (in_progress)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeArtifact(dir, '01_REQUIREMENTS.json');
       writeArtifact(dir, '02_SYSTEM_DESIGN.md', '# Design\n'.repeat(5));
       // Phase 1 has a `completed` event so the alpha.11 hasNoEventHistory
@@ -230,7 +230,7 @@ describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
   it('skips a phase that has an entry in config.rejections — round-trip through cmdReject', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeArtifact(dir, '01_REQUIREMENTS.json');
       writeArtifact(dir, '03_TEST_CASES.json');
 
@@ -267,7 +267,7 @@ describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
     // are not auto-completed. Real run output must equal dry-run output.
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
 
       // Phase 1 approved.
       const c0 = loadConfig(dir);
@@ -336,7 +336,7 @@ describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
     // the buffer must still be inferred when missing from completedPhases.
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeArtifact(dir, '01_REQUIREMENTS.json');
 
       const c0 = loadConfig(dir);
@@ -357,7 +357,7 @@ describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
     // evidence of in_progress", which is different from "in_progress".
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeArtifact(dir, '01_REQUIREMENTS.json');
       // Force an empty events buffer — represents a legacy project.
       const c0 = loadConfig(dir);
@@ -383,7 +383,7 @@ describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
   it('skips a phase whose artifact is on disk but has zero events when buffer is non-empty', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeArtifact(dir, '01_REQUIREMENTS.json');
       writeArtifact(dir, '02_SYSTEM_DESIGN.md', '# Design\n'.repeat(5));
 
@@ -410,7 +410,7 @@ describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
   it('reports a phase skipped for "no event history" under Preserved (operator action required)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeArtifact(dir, '01_REQUIREMENTS.json');
       writeArtifact(dir, '02_SYSTEM_DESIGN.md', '# Design\n'.repeat(5));
 
@@ -439,7 +439,7 @@ describe('lib/upgrade — STATE-MISSING preserves operator intent', () => {
     // wrongly infer them completed.
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
 
       const c0 = loadConfig(dir);
       c0.approvedPhases = [1];
@@ -480,7 +480,7 @@ describe('lib/upgrade — diagnose composer', () => {
   it('returns an empty catalog when no drift is present', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       const cat = diagnose(dir, loadConfig(dir));
       assert.deepEqual(cat.blocking,      []);
       assert.deepEqual(cat.stateMissing,  []);
@@ -523,7 +523,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — BLOCKING: TC.requirement → re
   it('renames single-FR requirement to requirement_id (mechanical)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [
         { id: 'TC-001', requirement: 'FR-001', title: 'Login ok' },
         { id: 'TC-002', requirement: 'FR-002', title: 'Logout ok' },
@@ -541,7 +541,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — BLOCKING: TC.requirement → re
   it('FLAGS comma-separated multi-FR TCs — does not auto-split (§2)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [
         { id: 'TC-001', requirement: 'FR-001, FR-002', title: 'Combined' },
       ]);
@@ -556,7 +556,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — BLOCKING: TC.requirement → re
   it('is idempotent: re-running after migration is a no-op', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [{ id: 'TC-001', requirement: 'FR-001' }]);
 
       silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
@@ -572,7 +572,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — BLOCKING: TC.requirement → re
   it('leaves TCs already on the new shape untouched', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [{ id: 'TC-001', requirement_id: 'FR-001', title: 'Already modern' }]);
       silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
 
@@ -587,7 +587,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — BLOCKING: NFR shape rewrite', (
   it('renames constraint → requirement (mechanical)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeReqs(dir, {
         non_functional_requirements: [
           { id: 'NFR-001', category: 'Performance', constraint: '<100ms' },
@@ -604,7 +604,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — BLOCKING: NFR shape rewrite', (
   it('normalizes title → category when title is a valid category (case-insensitive lookup)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeReqs(dir, {
         non_functional_requirements: [
           { id: 'NFR-001', title: 'performance', requirement: '<100ms' },
@@ -624,7 +624,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — BLOCKING: NFR shape rewrite', (
   it('FLAGS NFRs whose title is free-text — does not infer category (§2)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeReqs(dir, {
         non_functional_requirements: [
           { id: 'NFR-001', title: 'Fast response time', constraint: '<100ms' },
@@ -646,7 +646,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — event log', () => {
   it('appends upgrade_migration events with before/after hashes', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [{ id: 'TC-001', requirement: 'FR-001' }]);
 
       silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
@@ -668,7 +668,7 @@ describe('lib/upgrade — diagnose composer surfaces module findings', () => {
   it('routes per-module findings into catalog categories', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [
         { id: 'TC-001', requirement: 'FR-001' },           // mechanical
         { id: 'TC-002', requirement: 'FR-001, FR-002' },   // flag
@@ -684,7 +684,7 @@ describe('lib/upgrade — diagnose composer surfaces module findings', () => {
   it('migrateAll returns migrated + flagged per module', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [
         { id: 'TC-001', requirement: 'FR-001' },
         { id: 'TC-002', requirement: 'FR-001, FR-002' },
@@ -1581,7 +1581,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
   it('PRE-FLIGHT auto-fix: re-stamps artifactHashes[4] when Phase 4 was approved', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeReqsArtifact(dir);
       fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
       const manifestRel = 'spec/04_BUILD_REPORT.json';
@@ -2058,7 +2058,7 @@ describe('lib/upgrade — no-op UX on already-current project', () => {
   it('prints "already current" and skips "Already tracked" section when re-running at same version', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.99' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.99' });
       writeTcs(dir, [{ id: 'TC-001', requirement_id: 'FR-001' }]);
       // First run — mostly no-op but with inferred phase 3; not what we test here.
       silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
@@ -2076,7 +2076,7 @@ describe('lib/upgrade — no-op UX on already-current project', () => {
   it('shows the version arrow when actually bumping', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       const out = captureStdout(() =>
         runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR })
       );
@@ -2092,7 +2092,7 @@ describe('lib/upgrade — no-op UX on already-current project', () => {
     // reading "no-op" could skip the upgrade and leave the project pinned.
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.99' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.99' });
       writeTcs(dir, [{ id: 'TC-001', requirement_id: 'FR-001' }]);
       // First run tracks phase 3 so skipped[] becomes non-empty afterwards.
       silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
@@ -2108,7 +2108,7 @@ describe('lib/upgrade — no-op UX on already-current project', () => {
   it('dry-run on already-current project still says "would be a no-op"', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.99' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.99' });
       writeTcs(dir, [{ id: 'TC-001', requirement_id: 'FR-001' }]);
       silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR }));
       const out = captureStdout(() =>
@@ -2124,7 +2124,7 @@ describe('lib/upgrade — approval preservation (Option B)', () => {
   it('TC migration updates config.artifactHashes[3] so hasDrift is false after upgrade', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [{ id: 'TC-001', requirement: 'FR-001' }]);
       const specDir = path.join(dir, 'spec');
       // Pretend Phase 3 was approved with the pre-migration shape.
@@ -2146,7 +2146,7 @@ describe('lib/upgrade — approval preservation (Option B)', () => {
   it('NFR migration updates config.artifactHashes[1]', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeReqs(dir, {
         non_functional_requirements: [{ id: 'NFR-001', title: 'Performance', constraint: '<100ms' }],
       });
@@ -2169,7 +2169,7 @@ describe('lib/upgrade — approval preservation (Option B)', () => {
   it('does NOT stamp a hash for a phase that was never approved', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [{ id: 'TC-001', requirement: 'FR-001' }]);
       // No approvedPhases, no artifactHashes entry.
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
@@ -2183,7 +2183,7 @@ describe('lib/upgrade — approval preservation (Option B)', () => {
   it('does NOT modify config.driftPhases (pre-existing drift is preserved)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeTcs(dir, [{ id: 'TC-001', requirement: 'FR-001' }]);
       const c0 = loadConfig(dir);
       c0.driftPhases = ['3']; // legacy on-disk form; canonicalised to [3]
@@ -2337,7 +2337,7 @@ describe('lib/upgrade — dry-run preview', () => {
   it('dryRun=true does not bump aitriVersion', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       silence(() => runUpgrade({ dir, VERSION: '9.9.9', rootDir: ROOT_DIR, dryRun: true }));
       assert.equal(loadConfig(dir).aitriVersion, '0.1.10', 'version must not change in dry-run');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
@@ -2349,7 +2349,7 @@ describe('lib/upgrade — dry-run preview', () => {
     // byte-for-byte unchanged.
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       const tcPath = path.join(specDir, '03_TEST_CASES.json');
@@ -2371,7 +2371,7 @@ describe('lib/upgrade — dry-run preview', () => {
   it('dryRun=true does not append upgrade_migration events', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(
@@ -2390,7 +2390,7 @@ describe('lib/upgrade — dry-run preview', () => {
   it('dryRun=true does not infer completedPhases into .aitri', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), '{}');
@@ -2407,7 +2407,7 @@ describe('lib/upgrade — dry-run preview', () => {
   it('dryRun=true prints a DRY-RUN banner in the report', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       let output = '';
       const origLog = console.log;
       console.log = (msg = '') => { output += msg + '\n'; };
@@ -2426,7 +2426,7 @@ describe('lib/upgrade — dry-run preview', () => {
   it('dryRun=true does not regenerate agent instruction files', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       // Remove agent files created by cmdInit so dry-run would otherwise recreate them.
       for (const f of ['CLAUDE.md', 'GEMINI.md', '.codex/instructions.md', '.github/copilot-instructions.md']) {
         try { fs.rmSync(path.join(dir, f), { force: true }); } catch {}
@@ -2446,7 +2446,7 @@ describe('lib/upgrade — dry-run preview', () => {
     // next-action ladder can surface it beyond the upgrade report.
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(
@@ -2474,7 +2474,7 @@ describe('lib/upgrade — dry-run preview', () => {
     // disappear automatically once the agent has re-authored the artifacts.
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       const tcPath = path.join(specDir, '03_TEST_CASES.json');
@@ -2504,7 +2504,7 @@ describe('lib/upgrade — dry-run preview', () => {
   it('dryRun=true does NOT mutate .aitri.upgradeFindings (preview must not persist)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(
@@ -2525,7 +2525,7 @@ describe('lib/upgrade — dry-run preview', () => {
   it('migrateAll({ dryRun: true }) returns the same findings as a real migrate without mutating', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(

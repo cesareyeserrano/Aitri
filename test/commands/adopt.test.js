@@ -9,7 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { cmdAdopt, scanCodeQuality, scanSecretSignals, scanInfrastructure, scanTestHealth } from '../../lib/commands/adopt.js';
-import { cmdInit }  from '../../lib/commands/init.js';
+import { initFlatProject } from '../fixtures.js';
 import { loadConfig, saveConfig } from '../../lib/state.js';
 
 const ROOT_DIR = path.resolve(process.cwd());
@@ -503,7 +503,7 @@ describe('suite', () => {
 describe('aitri adopt --upgrade', () => {
   it('updates aitriVersion when upgrading', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
     cmdAdopt({ dir, args: ['--upgrade'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn });
     const config = loadConfig(dir);
     assert.equal(config.aitriVersion, '0.1.35');
@@ -511,7 +511,7 @@ describe('aitri adopt --upgrade', () => {
 
   it('infers completedPhases from existing artifacts', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
     writeArtifact(dir, 'spec', '01_REQUIREMENTS.json', '{"functionalRequirements":[]}');
     writeArtifact(dir, 'spec', '02_SYSTEM_DESIGN.md', '# Design\n'.repeat(5));
 
@@ -524,7 +524,7 @@ describe('aitri adopt --upgrade', () => {
 
   it('does not overwrite already-approved phases', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
     writeArtifact(dir, 'spec', '01_REQUIREMENTS.json', '{}');
 
     const config = loadConfig(dir);
@@ -539,7 +539,7 @@ describe('aitri adopt --upgrade', () => {
 
   it('infers optional phase discovery when artifact exists', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
     writeArtifact(dir, 'spec', '00_DISCOVERY.md', '# Discovery\n'.repeat(5));
 
     cmdAdopt({ dir, args: ['--upgrade'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn });
@@ -549,7 +549,7 @@ describe('aitri adopt --upgrade', () => {
 
   it('handles no artifacts gracefully', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
     assert.doesNotThrow(() =>
       cmdAdopt({ dir, args: ['--upgrade'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn })
     );
@@ -563,7 +563,7 @@ describe('aitri adopt --upgrade', () => {
     try {
       // Simulate state left by a misapplied 'adopt apply': config has artifactsDir='spec',
       // spec/ exists but is empty, real artifacts are at project root.
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), '{}', 'utf8');
 
       cmdAdopt({ dir, args: ['--upgrade'], VERSION: '0.1.70', rootDir: ROOT_DIR, err: makeErr().fn });
@@ -577,7 +577,7 @@ describe('aitri adopt --upgrade', () => {
   it('does not change artifactsDir when artifacts are found in the configured dir', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       writeArtifact(dir, 'spec', '01_REQUIREMENTS.json', '{}');
 
       cmdAdopt({ dir, args: ['--upgrade'], VERSION: '0.1.70', rootDir: ROOT_DIR, err: makeErr().fn });
@@ -589,7 +589,7 @@ describe('aitri adopt --upgrade', () => {
 
   it('throws on unknown subcommand', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.35' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.35' });
     const e = makeErr();
     assert.throws(
       () => cmdAdopt({ dir, args: ['--unknown'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: e.fn }),
@@ -600,7 +600,7 @@ describe('aitri adopt --upgrade', () => {
   it('prints agent-files guidance when upgrade generates them (F13)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       // cmdInit already writes agent files, so delete them first so --upgrade
       // has something to regenerate.
       for (const f of ['CLAUDE.md', 'GEMINI.md', '.codex/instructions.md', '.github/copilot-instructions.md']) {
@@ -618,7 +618,7 @@ describe('aitri adopt --upgrade', () => {
   it('omits agent-files guidance when no new files were generated', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       // cmdInit already wrote agent files, so --upgrade creates nothing new.
       const out = captureLog(() =>
         cmdAdopt({ dir, args: ['--upgrade'], VERSION: '0.1.90', rootDir: ROOT_DIR, err: makeErr().fn })
@@ -632,7 +632,7 @@ describe('aitri adopt --upgrade', () => {
 
 describe('cmdAdopt verify-spec', () => {
   function setupWithReqs(dir, frs, tcs) {
-    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
     const config = loadConfig(dir);
     const specDir = path.join(dir, 'spec');
     fs.mkdirSync(specDir, { recursive: true });
@@ -677,7 +677,7 @@ describe('cmdAdopt verify-spec', () => {
 
   it('errors when 01_REQUIREMENTS.json is missing', () => {
     const dir = tmpDir();
-    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
+    initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.65' });
     assert.throws(
       () => cmdAdopt({ dir, args: ['verify-spec'], VERSION: '0.1.65', rootDir: ROOT_DIR, err: (m) => { throw new Error(m); } }),
       /01_REQUIREMENTS.json not found/

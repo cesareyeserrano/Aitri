@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { cmdInit }    from '../../lib/commands/init.js';
+import { initFlatProject } from '../fixtures.js';
 import { cmdBacklog, openBacklogCount } from '../../lib/commands/backlog.js';
 
 const ROOT_DIR = path.resolve(process.cwd());
@@ -19,7 +19,7 @@ function tmpDir() {
 
 function setup() {
   const dir = tmpDir();
-  cmdInit({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.64' });
+  initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.64' });
   return dir;
 }
 

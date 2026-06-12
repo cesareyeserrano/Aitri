@@ -60,13 +60,14 @@ describe('aitri init — version tracking', () => {
   });
 });
 
-describe('aitri init — context folder (rc.37)', () => {
-  it('creates idea_context/ (not idea/) with a README', () => {
+describe('aitri init — context folder (rc.37; contained under aitri/product/ since rc.76)', () => {
+  it('creates aitri/product/idea_context/ (not idea/) with a README', () => {
     const dir = tmpDir();
     cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' });
-    assert.ok(fs.existsSync(path.join(dir, 'idea_context')), 'idea_context/ must be created');
-    assert.ok(fs.existsSync(path.join(dir, 'idea_context', 'README.md')), 'idea_context/README.md must exist');
+    assert.ok(fs.existsSync(path.join(dir, 'aitri', 'product', 'idea_context')), 'aitri/product/idea_context/ must be created');
+    assert.ok(fs.existsSync(path.join(dir, 'aitri', 'product', 'idea_context', 'README.md')), 'idea_context README.md must exist');
     assert.ok(!fs.existsSync(path.join(dir, 'idea')), 'the old idea/ folder must NOT be created');
+    assert.ok(!fs.existsSync(path.join(dir, 'idea_context')), 'idea_context/ must NOT be created at the root for new projects');
   });
 
   // TPA-3: a legacy idea/ folder is no longer scanned — warn early at init so its
@@ -201,16 +202,17 @@ describe('aitri init — agent instruction files', () => {
   });
 });
 
-describe('aitri init — BACKLOG.md scaffold (alpha.21)', () => {
-  // The backlog scaffold lands at the project root with the canonical Entry
-  // Standard so consumer projects do not reinvent the format. Idempotent —
-  // re-running init never clobbers a hand-written BACKLOG.md.
-  it('creates BACKLOG.md at the project root from templates/BACKLOG.md', () => {
+describe('aitri init — BACKLOG.md scaffold (alpha.21; at aitri/ container level since rc.76)', () => {
+  // The backlog scaffold lands at the container level (project-wide — its items
+  // become features, so it lives ABOVE the product/ unit) with the canonical
+  // Entry Standard so consumer projects do not reinvent the format. Idempotent —
+  // re-running init never clobbers a hand-written backlog.
+  it('creates aitri/BACKLOG.md from templates/BACKLOG.md', () => {
     const dir = tmpDir();
     try {
       cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-alpha.21' });
-      const backlogPath = path.join(dir, 'BACKLOG.md');
-      assert.ok(fs.existsSync(backlogPath), 'BACKLOG.md must be created at project root');
+      const backlogPath = path.join(dir, 'aitri', 'BACKLOG.md');
+      assert.ok(fs.existsSync(backlogPath), 'BACKLOG.md must be created at the aitri/ container level');
       const content = fs.readFileSync(backlogPath, 'utf8');
       assert.ok(/Entry Standard/.test(content), 'scaffold must include the Entry Standard section');
       assert.ok(/Minimum entry format/.test(content), 'scaffold must include the format block');
@@ -218,15 +220,23 @@ describe('aitri init — BACKLOG.md scaffold (alpha.21)', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('does not overwrite an existing BACKLOG.md', () => {
+  it('does not overwrite an existing aitri/BACKLOG.md and never touches a root BACKLOG.md', () => {
     const dir = tmpDir();
     try {
-      const backlogPath = path.join(dir, 'BACKLOG.md');
-      fs.writeFileSync(backlogPath, '# my hand-written backlog\n- [ ] one item\n');
+      // A root BACKLOG.md is the USER's file (not a documented pre-init Aitri
+      // artifact) — init must leave it alone and scaffold its own in aitri/.
+      const rootBacklog = path.join(dir, 'BACKLOG.md');
+      fs.writeFileSync(rootBacklog, '# my hand-written backlog\n- [ ] one item\n');
       cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-alpha.21' });
-      const content = fs.readFileSync(backlogPath, 'utf8');
-      assert.equal(content, '# my hand-written backlog\n- [ ] one item\n',
-        're-running init must not overwrite a hand-written BACKLOG.md');
+      assert.equal(fs.readFileSync(rootBacklog, 'utf8'), '# my hand-written backlog\n- [ ] one item\n',
+        'init must not touch a user-owned root BACKLOG.md');
+      const aitriBacklog = path.join(dir, 'aitri', 'BACKLOG.md');
+      assert.ok(fs.existsSync(aitriBacklog), 'the Aitri scaffold lands in aitri/');
+      // Idempotency: re-init must not clobber the container backlog either.
+      fs.writeFileSync(aitriBacklog, '# edited\n');
+      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-alpha.21' });
+      assert.equal(fs.readFileSync(aitriBacklog, 'utf8'), '# edited\n',
+        're-running init must not overwrite a hand-edited aitri/BACKLOG.md');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

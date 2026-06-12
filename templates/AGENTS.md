@@ -5,6 +5,8 @@ All agents (Claude, Codex, Gemini, GitHub Copilot, etc.) must follow these rules
 
 For the full command surface and flags, run `aitri help`. This document covers the **rules** — what to run, when, and why — not every command's syntax.
 
+**Project layout — resolve paths from `.aitri`, never assume them.** Projects created by Aitri rc.76+ are CONTAINED: everything Aitri-owned lives under an `aitri/` folder — the root unit in `aitri/product/` (`IDEA.md`, `idea_context/`, `spec/`), `BACKLOG.md` at `aitri/`, features in `aitri/features/<name>/`. Older projects are FLAT (those same entries at the project root). When this file mentions a path like `IDEA.md`, `idea_context/`, or `spec/`, it means the layout-resolved location: read `layoutRoot` and `artifactsDir` from `.aitri`, or simply use the literal paths Aitri's own briefings print — they are always layout-correct. Two similar names, two different things: `.aitri` (dotted file at the project root) is the STATE; `aitri/` (folder) is the CONTENT container.
+
 ---
 
 ## Starting a session

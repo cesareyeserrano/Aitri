@@ -18,6 +18,19 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.76 (2026-06-11) — contained project layout (LAYOUT-1): new `.aitri#layoutRoot` field, new default `artifactsDir` value ([ADR-049](../DECISIONS.md)) — additive
+
+New projects created by `aitri init` group everything Aitri-owned under one container:
+`aitri/product/{IDEA.md, idea_context/, spec/}` + `aitri/BACKLOG.md` + `aitri/features/<name>/`.
+`.aitri` stays at the project root. Existing projects keep their flat layout untouched.
+
+- **`.aitri#layoutRoot`** (shared, committed; default `""` = flat) — `"aitri"` for contained projects. Old readers that ignore it keep working **as long as they build paths from `artifactsDir`** (next bullet) and from the `path` fields in `status --json`.
+- **`artifactsDir` new value** — `"aitri/product/spec"` for contained projects. No type or semantic change: the documented formula `path.join(projectDir, artifactsDir, file)` is unchanged. **Action for readers that hardcoded `"spec"` or default a missing `artifactsDir` to `"spec"`:** read the field, and default a MISSING field to `""` (the documented default) — a `"spec"` fallback silently misreads both adopted (`""`) and contained (`"aitri/product/spec"`) projects.
+- **Feature discovery** — features live at `<layoutRoot>/features/<name>/`. Feature configs are unchanged (`artifactsDir: "spec"`, feature-relative; never carry `layoutRoot`).
+- **`status --json` / `validate --json` are unchanged** — their payloads already carry absolute `path`/`dir` fields, which remain the right way to locate things. `layoutRoot` is read from `.aitri` directly when a consumer needs to construct non-artifact paths.
+- `IDEA.md`, `idea_context/`, `BACKLOG.md` locations for contained projects: under the container as above. Readers that reference them should resolve via `layoutRoot` (`<layoutRoot>/product/IDEA.md` etc.).
+- `aitri adopt` still produces the flat layout in rc.76 (it operates on existing codebases); it moves to the contained layout together with the opt-in legacy migration in a later rc.
+
 ## v2.0.0-rc.75 (2026-06-10) — new `.aitri#coverageAuditLastAt` field + `audit coverage` sub-command + AUDIT_REPORT "Requirements Coverage" section ([ADR-048](../DECISIONS.md)) — additive
 
 - **`.aitri#coverageAuditLastAt`** (shared, committed) — ISO timestamp of the last `aitri audit coverage` run. Old readers ignore it; it only drives the `resume` coverage nudge. Hub-safe.

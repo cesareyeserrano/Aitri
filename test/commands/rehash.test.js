@@ -17,7 +17,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
-import { cmdInit } from '../../lib/commands/init.js';
+import { initFlatProject } from '../fixtures.js';
 import { cmdRehash } from '../../lib/commands/rehash.js';
 import { loadConfig, saveConfig, hashArtifact } from '../../lib/state.js';
 
@@ -55,7 +55,7 @@ function captureErr(fn) {
  *   - git initialized and the artifact committed so the clean-git gate can pass
  */
 function seedDriftedProject(dir) {
-  cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+  initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
   const specDir = path.join(dir, 'spec');
   fs.mkdirSync(specDir, { recursive: true });
   const artPath = path.join(specDir, '01_REQUIREMENTS.json');
@@ -90,7 +90,7 @@ describe('cmdRehash — refusal gates (no TTY needed)', () => {
   it('refuses when phase has no stored hash (never approved)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), '{}');
@@ -105,7 +105,7 @@ describe('cmdRehash — refusal gates (no TTY needed)', () => {
   it('no-ops (not an error) when stored and current hashes already match', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       const content = '{"project_name":"x"}';
@@ -132,7 +132,7 @@ describe('cmdRehash — refusal gates (no TTY needed)', () => {
   it('refuses when git is not available (directory is not a git repo)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), '{}');
@@ -152,7 +152,7 @@ describe('cmdRehash — refusal gates (no TTY needed)', () => {
   it('refuses when the artifact is untracked (git repo but never committed)', () => {
     const dir = tmpDir();
     try {
-      cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       const specDir = path.join(dir, 'spec');
       fs.mkdirSync(specDir, { recursive: true });
       fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), '{}');

@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v2.0.0-rc.75+
+**Aitri version:** v2.0.0-rc.76+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -80,7 +80,11 @@ The `"verify"` entry uses `status: "passed" | "not_run"` and may include a `veri
 
 ## `features[]`
 
-One entry per feature sub-pipeline discovered under `features/<name>/.aitri`.
+One entry per feature sub-pipeline discovered under
+`<layoutRoot>/features/<name>/.aitri` — `aitri/features/` for contained
+projects (rc.76+, see `layoutRoot` in [SCHEMA.md](./SCHEMA.md)), `features/`
+for legacy flat ones. The `path` field is absolute either way — prefer it over
+reconstructing the location.
 
 ```jsonc
 {

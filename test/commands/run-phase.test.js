@@ -148,7 +148,7 @@ describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () =>
       cmdRunPhase({ dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
     );
     assert.ok(stderr.includes('no longer scanned'), 'should warn that idea/ is no longer scanned');
-    assert.ok(stderr.includes('mv idea idea_context'), 'should give the rename command');
+    assert.ok(stderr.includes('mv idea/* idea_context/'), 'should give the move command (layout-resolved target)');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 

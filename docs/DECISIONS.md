@@ -1346,3 +1346,28 @@ So Phase 3 mandates a join-key (`ac_id`) whose target the upstream phase is not 
 | **Trade-off** | New persona + sub-command + template to maintain; model-judged → false positives, bounded by feeding out-of-scope + advisory-only; one additive `.aitri` field (Hub-safe); independence holds fully only in a NEW session (the nudge targets session-start resume). |
 
 **Deferred — Phase B (NOT now).** Making the CODE auditor adversarial/staged (mechanical pre-pass → per-dimension deep read → adversarial refute-pass). The right direction for strictness, but there is NO evidence its single-shot form failed — the adopter's defects were planning/coverage, not code-audit misses. Build when evidenced.
+
+## ADR-049 — 2026-06-11 — Contained project layout (`aitri/` container, `product/`+`features/` units) — LAYOUT-1
+
+**Status:** ACCEPTED — Phase A shipped rc.76 (new projects + dual-layout core). Emission surface and the opt-in legacy migration follow in the next rcs. This ADR also formally REJECTS the original `idea/`-as-unit shape.
+
+**Context.** Aitri scattered ~6 entries at a consumer project's root (`IDEA.md`, `idea_context/`, `spec/`, `BACKLOG.md`, `features/`, `.aitri`) — a historical accident of MVP evolution: the root unit's content grew in place while `features/` was born properly contained. Industry peers namespace into one folder (Spec Kit `.specify/`, Kiro `.kiro/`, OpenSpec `openspec/`). The clutter reads invasive/unprofessional at first contact — a product/adoption cost paid during the entire v2-stable era, and a breaking layout change is only acceptable at a major: v2 IS that vehicle, and no v3 cargo exists. Value is tier-2/brand, accepted explicitly by the author as a product call (the decision matrix scores tier-1 value ≈ 1 — engineering alone would not justify this; the matrix measures the wrong axis for a storefront decision).
+
+**Decision — the contained layout (new projects, rc.76+):**
+```
+<project>/
+├── .aitri                  # stays at the root — project identity is layout-independent
+├── AGENTS.md CLAUDE.md …   # agent files — agents require them at the root
+├── aitri/                  # THE container — everything Aitri-owned
+│   ├── product/            #   the root unit: IDEA.md, idea_context/, spec/
+│   ├── BACKLOG.md          #   project-level (items become features → lives above the units)
+│   └── features/<name>/    #   the increments — interior stays FLAT (already a unit)
+└── src/ …                  # user's code — untouched
+```
+- Schema: `artifactsDir` ABSORBS the unit path (`'aitri/product/spec'`, POSIX) — consumers using the documented `path.join(projectDir, artifactsDir, file)` formula need zero layout knowledge. One additive field `layoutRoot: 'aitri'` (default `''` = flat) covers the non-artifact entries; structure under it is convention, not config.
+- Code: layout knowledge lives ONLY in `lib/state.js` helpers (`productSubdir`/`ideaPath`/`ideaContextDir`/`backlogMdPath`/`featuresDir`) — preserving the state.js single-point invariant. The previously-duplicated spec/.aitri prefix filters centralize in `reconcile-patterns.js#isAitriStatePath` (layout-aware SSoT).
+- Legacy projects: byte-identical behavior (`layoutRoot` absent → flat). They migrate only via an explicit opt-in `adopt --upgrade` migration (later rc): offered never imposed, clean-git-tree gate, dry-run default, isTTY confirm, idempotency guard. `adopt` keeps producing flat until that rc.
+
+**Rejected — `idea/`-as-unit (the original backlog shape).** Two independent kills: (1) **symmetry paradox** — the safe variant (`.aitri` stays at root) does not achieve the unit symmetry that was its only goal, and the variant that achieves it must move `.aitri` (the root-identity reshape, the highest-risk change available); (2) **name collision** — `idea/` was the legacy assets folder (TPA-3 cost an adopter ~50% scope; `init` actively warns about it), so reusing it would give one name three generations of meaning. The container design dissolves both: containment (not symmetry) is the goal, `.aitri` stays put, and `aitri/product/` collides with nothing. Unit-folder name `product/` chosen over `main/` (git connotation), `core/` (reads as code core next to src/), `idea/` (undersells the content + burned name).
+
+**Trade-offs accepted:** dual-layout support in core until legacy projects migrate (bounded — not forever); `aitri/` ↔ `.aitri` name proximity (documented explicitly in SCHEMA.md and the agent-instruction template; an analysis agent already confused them once); deeper artifact paths; the rc.76 emission surface still prints some flat-era literal paths (templates/AGENTS.md, console strings) until the next rc. Deliberately out of scope (own decision later, post-LAYOUT-1): unifying `FEATURE_IDEA.md`→`IDEA.md` materialization and the `idea_context`/`feature_context` name pair.
