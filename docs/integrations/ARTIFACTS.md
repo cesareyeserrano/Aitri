@@ -66,13 +66,13 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
   "idea_provenance": "object (optional, v2.0.0-rc.4+) — provenance of the five Tier-A seed inputs. Keys: problem, users, baseline, success_metric, no_go_zone. Each value is \"confirmed\" (the human stated/approved it) or \"assumed\" (the agent inferred it). Required by the gate on a fresh seed; historical once Phase 1 is approved.",
   "idea_provenance_sources": "object (optional, v2.0.0-rc.45+) — per-field source of each Tier-A input. Same keys as idea_provenance; each value a short string of where the value came from (e.g. \"IDEA.md\", \"user confirmed\", \"inferred from product type\"). Surfaced at approve so a weak source stands out; a \"confirmed\" field with no source is warned (not blocked). Additive — old readers ignore it.",
   "idea_gaps": "string[] (optional, v2.0.0-rc.4+) — tracked gaps for assumed Tier-A inputs. Each entry references the assumed field by key, e.g. \"baseline: no current metric — confirm with owner\". Also accepted nested as project_summary.idea_gaps.",
-  "original_brief": "string (optional, v0.1.89+) — full content of IDEA.md absorbed at first approve of Phase 1; the file is removed from disk after archive. Historical reference only — never read by Aitri or downstream phases for behavioral decisions."
+  "original_brief": "string (optional, v0.1.89+) — full content of the seed brief (IDEA.md) absorbed at first approve of Phase 1. Since v2.0.0-rc.80 (ADR-050) the file is MOVED to the unit's archive/ folder — never deleted (pre-rc.80 versions deleted it). Historical reference only — never read by Aitri or downstream phases for behavioral decisions."
 }
 ```
 
 **Validation rules (enforced by `aitri complete 1`):**
 - Required fields: `project_name`, `functional_requirements`, `user_stories`, `non_functional_requirements`
-- Minimum 5 `functional_requirements`; minimum 3 `non_functional_requirements`
+- Minimum 5 `functional_requirements`; minimum 3 `non_functional_requirements` — **root pipelines only.** Feature sub-pipelines are increments and have a lower floor: minimum 2 FRs / 1 NFR (a real 4-FR feature was being blocked by the greenfield floor). Consumers validating feature artifacts must use the feature floor
 - Every FR and NFR must have a non-empty string `id`, unique within each list (v2.0.0-rc.26+). The id is the join key — phase 3 ties each TC to one via `requirement_id`/`frs`, phase 5 demands a compliance entry per MUST id. A missing id collapsed to an `undefined` key downstream; a duplicate silently masked one requirement's coverage. Format (`FR-xxx`/`NFR-xxx`) stays a convention; downstream keys on membership, not the prefix.
 - All MUST FRs must have a `type` field and at least one `acceptance_criteria` entry
 - **Structured AC ids** (v2.0.0-rc.48+, [ADR-041](../DECISIONS.md) option A) — when `user_stories[].acceptance_criteria` entries are structured objects (`{ id, text }`), every such `id` must be a non-empty string and **unique across all user stories**. It is the finer join key that `03_TEST_CASES.json#test_cases[].ac_id` traces to and that `04_TEST_RESULTS.json#ac_coverage` rolls up on; a duplicate masks one criterion's AC-level coverage. Enforced **only** when structured ACs are present — plain-string ACs and projects with none are unaffected (additive).
@@ -84,10 +84,10 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
 - `original_brief` (v0.1.89+) is additive — not validated, present only after first approve of Phase 1; safe to ignore for old readers
 - **Seed-input provenance gate (v2.0.0-rc.4+)** — on a *fresh seed* (Phase 1 not yet in `approvedPhases[]`), `idea_provenance` is required: all five Tier-A keys present, each `"confirmed"` or `"assumed"`, and every `"assumed"` field carried in `idea_gaps`. Once Phase 1 is approved the seed is sealed and the gate is skipped on re-runs — existing approved projects do not break on upgrade. `idea_provenance` / `idea_gaps` are additive and safe to ignore for old readers.
 
-**Phase 1 input handling (v0.1.89+):**
-- **First run** (no `01_REQUIREMENTS.json` yet): the agent reads `IDEA.md` from project root as seed input.
-- **Re-runs** (`01_REQUIREMENTS.json` exists and parses): the agent reads the current `01_REQUIREMENTS.json` as the SSoT and refines it. `IDEA.md` is irrelevant by design — never reloaded.
-- **Archive on first approve**: `aitri approve 1` (first time) absorbs `IDEA.md` into `01_REQUIREMENTS.json.original_brief` and removes the file. Subsequent re-runs cannot drift against a stale brief because the brief no longer exists as a live input.
+**Phase 1 input handling (v0.1.89+; archive semantics v2.0.0-rc.80+, ADR-050):**
+- **First run** (no `01_REQUIREMENTS.json` yet): the agent reads the seed brief as input — `<layoutRoot>/product/IDEA.md` for contained projects (rc.76+), `IDEA.md` at the project root for legacy flat ones (features: `FEATURE_IDEA.md` in the feature dir).
+- **Re-runs** (`01_REQUIREMENTS.json` exists and parses): the agent reads the current `01_REQUIREMENTS.json` as the SSoT and refines it. The seed file is irrelevant by design — never reloaded.
+- **Archive on first approve**: `aitri approve 1` (first time) absorbs the seed into `01_REQUIREMENTS.json.original_brief` and MOVES the file to the unit's `archive/` folder (rc.80+ — never deleted; pre-rc.80 versions deleted it). Subsequent re-runs cannot drift against a stale brief because the brief no longer exists as a live input; `archive/` is a historical record consumers should ignore.
 - **Reset to seed**: delete `01_REQUIREMENTS.json` (the `original_brief` field preserves the seed text for manual recovery).
 
 **Phase gate:** Approved when `"1"` is in `approvedPhases[]`.
@@ -259,7 +259,8 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
     "skipped": 1,
     "skipped_e2e": 1,
     "skipped_no_marker": 0,
-    "manual": 1
+    "manual": 1,
+    "manual_verified": 0
   },
   "line_coverage": 87.5,
   "low_confidence_tcs": [
@@ -281,6 +282,8 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 **`quality_gates`** (optional, v2.0.0-rc.21+) — per-gate code-quality results, present only when the manifest declares `quality_gates`. A command-gate entry: `{ name, command, required, status: "pass"|"fail"|"error", exit_code: number|null, output?: string }` (`status: "error"` = tool not found / ENOENT). A coverage-gate entry: `{ name, threshold, measured: number|null, required, status }` (`status: "error"` when `measured` is null — coverage could not be parsed). A `required` gate that is not `pass` blocks `verify-complete` and resets `verifyPassed`. `output` (command gates) is the last ~600 chars of stdout+stderr. Tests verify behavior; these verify the code is well-built (lint/type-check/security/coverage). See ADR-037.
 
 **`summary` counts** (v2.0.0-rc.20+) — `passed`/`failed`/`skipped`/`manual` are all counted by per-result `status`, so `passed + failed + skipped + manual === total`. `skipped_e2e` + `skipped_no_marker` partition `skipped`. `manual` counts results still awaiting manual verification (status `manual`); a manual TC that a human verified via `aitri tc verify` carries its verdict (`pass`/`fail`) and is counted there, with `manual_verified` reporting how many manual TCs were verified. (Before rc.20 `manual` was a declared-manual count that overlapped `passed`/`failed`.)
+
+**This `summary` object is the canonical shape** — `verify-complete` persists it verbatim into `.aitri#verifySummary`, and `status --json` re-emits it as the synthetic `verify` phase entry's `verifySummary`. SCHEMA.md and STATUS_JSON.md reference this definition rather than redefining it.
 
 **Status values:**
 - `pass` — TC detected in runner output as passing

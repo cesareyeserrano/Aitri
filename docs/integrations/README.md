@@ -45,8 +45,8 @@ Subproducts (Hub, future tools)
 | Optional: Code Review | `<project>/<artifactsDir>/04_CODE_REVIEW.md` | Phase 4 review output |
 | Optional: Bugs | `<project>/<artifactsDir>/BUGS.json` | Bug registry — open, fixed, verified, closed |
 | Optional: Backlog | `<project>/<artifactsDir>/BACKLOG.json` | Tech-debt / deferred-work registry (priority-ordered) |
-| Optional: Audit | `<project>/<artifactsDir>/AUDIT_REPORT.md` | On-demand technical audit findings (bugs, backlog, observations) |
-| Feature pipelines | `<project>/features/<name>/` | Sub-pipelines with same structure |
+| Optional: Audit | `<project>/<artifactsDir>/AUDIT_REPORT.md` | On-demand audit findings: code audit (bugs, backlog, observations), plus optional "Requirements Coverage" (`audit coverage`) and "Security" (`audit security`) sections |
+| Feature pipelines | `<project>/<layoutRoot>/features/<name>/` | Sub-pipelines with same structure — `aitri/features/` for contained projects (rc.76+), `features/` for legacy flat ones (see `layoutRoot` in [SCHEMA.md](./SCHEMA.md)) |
 | Derived snapshot (CLI-only) | `aitri status --json` | Aggregated pipeline + features + health + priority-ordered next actions. See [STATUS_JSON.md](./STATUS_JSON.md). Requires the `aitri` binary on PATH — remote consumers must read `.aitri` + `<artifactsDir>/` directly. |
 
 ---
@@ -133,4 +133,4 @@ Aitri Core is a CLI with no UI. The visual identity of the ecosystem is defined 
 
 ## Maintenance rule
 
-When `.aitri` schema or any artifact schema changes in Aitri, the relevant document in this directory **must be updated in the same commit**. This is enforced by convention — no tooling.
+When `.aitri` schema or any artifact schema changes in Aitri, the relevant document in this directory **must be updated in the same commit**. Partially enforced by `test/release-sync.test.js` (version headers of these four documents must match `package.json`, and every CHANGELOG.md entry heading must carry an `additive`/`breaking` marker); the **content** staying truthful is enforced by convention and review.

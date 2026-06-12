@@ -74,7 +74,7 @@ Root pipeline phase list. One entry per phase, plus a synthetic `"verify"` entry
 }
 ```
 
-The `"verify"` entry uses `status: "passed" | "not_run"` and may include a `verifySummary: { passed, total, failed, skipped, manual_verified }` field.
+The `"verify"` entry uses `status: "passed" | "not_run"` and may include a `verifySummary` field — the persisted `04_TEST_RESULTS.json#summary` object verbatim (canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`).
 
 ---
 
@@ -211,12 +211,14 @@ Priority-ordered list of suggested commands. Priority is a stable small integer 
 |---:|---|
 | 1 | Version mismatch or missing `aitriVersion` |
 | 2 | Drift on an approved phase (any pipeline) |
-| 3 | One or more critical/high bugs open |
+| 3 | One or more critical/high bugs open, **or** unresolved upgrade findings (`upgradeFindings[]` non-empty on any pipeline — artifacts need agent re-authoring) |
 | 4 | `reconcileState.status === 'pending'` on root, **or** `reconcile.uncountedFiles > 0` (off-pipeline source changes detected at snapshot time) |
 | 5 | Phase 4 approved but verify not yet passed (any pipeline) |
 | 6 | Pending phase work (any pipeline) |
-| 7 | Deployable → `aitri validate` |
+| 7 | All approved + verify passed: `aitri validate` (deploy-readiness confirmation) when the audit is missing/stale, **or** per-pipeline `verify-run` refresh suggestions when the audit is fresh but a pipeline's verify is stale (>14 days) |
 | 9 | Audit missing or stale (>60 days) |
+
+A priority can emit more than one action (e.g. several stale pipelines at 7). Consumers should treat the `reason` string as display text, not parse it — the stable fields are `priority`, `scope`, `command`, `severity`.
 
 ---
 

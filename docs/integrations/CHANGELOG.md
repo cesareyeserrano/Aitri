@@ -18,6 +18,17 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.83 doc-audit (2026-06-12) — documentation corrections, no contract change — additive
+
+A line-by-line audit of these five documents against the code. No schema or behavior changed in this entry — these are corrections where the documents had drifted from long-shipped behavior:
+
+- **ARTIFACTS.md:** seed lifecycle wording updated to rc.80 reality (the seed is MOVED to `archive/` at approve 1, never deleted — the doc still described the pre-rc.80 deletion); seed read path is layout-aware (`<layoutRoot>/product/IDEA.md`, not "project root"); Phase-1 floor documents the feature-scope minimum (2 FR / 1 NFR vs root's 5/3); `04_TEST_RESULTS.json#summary` example now includes `manual_verified` and is declared the canonical shape.
+- **SCHEMA.md:** `verifySummary` documented as the full persisted `summary` object (it was under-documented as 4 fields); the ADR-045 split table now lists ALL shared fields (`upgradeFindings`, `strictAssertions`, `humanApprovalGate`, `reviewGate` were missing) and states the deny-list rule (new fields are shared by default).
+- **STATUS_JSON.md:** priority ladder completed — priority 3 also fires for unresolved upgrade findings; priority 7 also fires for per-pipeline stale-verify refreshes; `verifySummary` references the canonical ARTIFACTS.md shape.
+- **README.md:** feature-pipelines path is layout-aware; the audit row names the coverage/security sections; the maintenance rule credits `test/release-sync.test.js` for what it actually enforces.
+
+Readers that implemented against the previous text: the only semantic surprises were under-documentation (more fields/triggers exist than documented) — nothing previously documented was removed or changed shape.
+
 ## v2.0.0-rc.83 (2026-06-12) — `aitri audit security` + `securityAuditLastAt` ([ADR-051](../DECISIONS.md)) — additive
 
 - New `.aitri` shared field `securityAuditLastAt` (ISO 8601, default absent) — timestamp of the last `aitri audit security` invocation. Optional; old readers unaffected. Documented in SCHEMA.md.
