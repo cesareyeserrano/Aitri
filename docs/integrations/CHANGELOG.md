@@ -18,6 +18,11 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.78 (2026-06-11) — flat→contained migration (`adopt --upgrade --layout`) + adopt produces the contained layout — additive
+
+- **`aitri adopt --upgrade --layout`** — opt-in migration of a legacy flat project to the contained layout. After it runs, the project's `.aitri` carries `layoutRoot: "aitri"` and `artifactsDir: "aitri/product/spec"`, and every Aitri-owned path moves under `aitri/` (features wholesale; feature configs unchanged). Readers that follow the rc.76 rules (build paths from `artifactsDir`/`layoutRoot`, never hardcode) need no change. A `layout_migrated` event is appended to `events[]` (new event type — additive; readers must tolerate unknown event types, per the existing events contract).
+- **`adopt apply` / `adopt apply --from` now create contained projects** (`layoutRoot: "aitri"`, `artifactsDir: "aitri/product/spec"`) — previously `"spec"`. The legacy guard is unchanged: projects with artifacts at the root are routed to `--upgrade` and keep `""`.
+
 ## v2.0.0-rc.76 (2026-06-11) — contained project layout (LAYOUT-1): new `.aitri#layoutRoot` field, new default `artifactsDir` value ([ADR-049](../DECISIONS.md)) — additive
 
 New projects created by `aitri init` group everything Aitri-owned under one container:

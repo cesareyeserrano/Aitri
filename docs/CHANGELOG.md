@@ -5,6 +5,17 @@
 
 ---
 
+## [2.0.0-rc.78] — 2026-06-11 — LAYOUT-1 Phase C: opt-in flat→contained migration + adopt produces the contained layout
+
+The transition piece: legacy projects can now MOVE to the contained layout — explicitly, never automatically — and `adopt` stops producing new flat projects.
+
+- **`aitri adopt --upgrade --layout`** — the only operation in Aitri that moves directories in a user's repo, so every gate is mechanical, in order: already contained → no-op; **git repo with a fully clean tree REQUIRED** (the recovery contract is `git checkout -- .` — no rollback machinery exists, by design); custom `artifactsDir` → refuse (hand-tuned project, migrate manually); `aitri/` path existing and non-empty → refuse (a partial previous attempt is inspect-and-restore, never merge). Then: full move plan printed; `--dry-run` exits there; **agents (no TTY) are hard-blocked** — moving a user's directories is a human call; TTY confirm (y/N) before anything moves. Config is written AFTER all moves succeed, so a mid-move crash leaves a coherent old-layout project for git to restore.
+- **What moves:** `IDEA.md`, `idea_context/` → `aitri/product/`; artifacts → `aitri/product/spec/` (whole `spec/`, or per-file for root-artifact `artifactsDir:""` projects); `BACKLOG.md` → `aitri/`; `features/` → `aitri/features/` wholesale — feature configs are feature-relative and need **no rewrite**. Artifact CONTENT is never rewritten (hardcoded `cd spec && …` runner paths are flagged in the plan for the agent — ADR-027 §2). Agent instruction files are deleted + re-rendered so their paths match the new layout (`regenerateAgentFiles`, the destructive variant only this flow calls).
+- **Offer, not nag:** a regular `adopt --upgrade` on a flat project appends one info line offering the migration (dry-run command included). Nothing else changes in the upgrade. `templates/AGENTS.md` tells agents to surface the offer to the user, never run it.
+- **`adopt apply` (and `--from`) now produce the contained layout** for fresh adoptions, same as `init` — a scan-written root `IDEA.md` is moved into `aitri/product/` verbatim. The artifacts-at-root legacy guard still routes existing Aitri projects to `--upgrade`; existing projects keep their layout untouched.
+- Mechanics live in `lib/upgrade/layout-migration.js` (plan/execute split — deliberately NOT a registered auto-migration); the interactive gates live in adopt.js.
+- Tests: new `test/layout-migration.test.js` (14 — every refuse gate, both move-plan variants, end-to-end execution with a mid-flight feature, root-artifact variant, refusal moves nothing, dry-run wrapper) + smoke for the agent-mode block + adopt suites updated to the contained contract. Suite 1541 green.
+
 ## [2.0.0-rc.77] — 2026-06-11 — LAYOUT-1 Phase B: emission surface — agent files and briefings print layout-correct paths
 
 rc.76 made the pipeline layout-aware; this release makes everything Aitri *prints or generates* layout-correct, so an agent in a contained project is never steered to a flat-era path.

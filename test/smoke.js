@@ -673,7 +673,8 @@ describe('Aitri CLI — adopt smoke', () => {
     aitri('adopt apply', adoptDir);
 
     assert.ok(fs.existsSync(path.join(adoptDir, '.aitri')), '.aitri must be created');
-    assert.ok(fs.existsSync(path.join(adoptDir, 'spec')), 'spec/ must be created');
+    assert.ok(fs.existsSync(path.join(adoptDir, SPEC)), 'aitri/product/spec must be created (contained adoption, rc.78)');
+    assert.ok(fs.existsSync(path.join(adoptDir, UNIT, 'IDEA.md')), 'the scan-written brief moves into the unit');
 
     const config = JSON.parse(fs.readFileSync(path.join(adoptDir, '.aitri'), 'utf8'));
     assert.deepEqual(config.completedPhases, [], 'apply must not mark any phases — pipeline starts from Phase 1');
@@ -683,8 +684,8 @@ describe('Aitri CLI — adopt smoke', () => {
     const adoptDir2 = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-adopt-noidea-'));
     try {
       aitri('adopt apply', adoptDir2);
-      assert.ok(fs.existsSync(path.join(adoptDir2, 'IDEA.md')), 'placeholder IDEA.md must be created');
-      const idea = fs.readFileSync(path.join(adoptDir2, 'IDEA.md'), 'utf8');
+      assert.ok(fs.existsSync(path.join(adoptDir2, UNIT, 'IDEA.md')), 'placeholder IDEA.md must be created in the unit');
+      const idea = fs.readFileSync(path.join(adoptDir2, UNIT, 'IDEA.md'), 'utf8');
       assert.ok(idea.includes('Stabilization'), 'placeholder must mention stabilization');
     } finally {
       try { fs.rmSync(adoptDir2, { recursive: true, force: true }); } catch {}
@@ -696,16 +697,16 @@ describe('Aitri CLI — adopt smoke', () => {
     try {
       fs.writeFileSync(path.join(adoptDir3, 'IDEA.md'), '# My Custom Idea\nKeep this content.\n');
       aitri('adopt apply', adoptDir3);
-      const idea = fs.readFileSync(path.join(adoptDir3, 'IDEA.md'), 'utf8');
-      assert.ok(idea.includes('My Custom Idea'), 'existing IDEA.md must not be overwritten');
+      const idea = fs.readFileSync(path.join(adoptDir3, UNIT, 'IDEA.md'), 'utf8');
+      assert.ok(idea.includes('My Custom Idea'), 'existing brief is moved into the unit, content intact');
     } finally {
       try { fs.rmSync(adoptDir3, { recursive: true, force: true }); } catch {}
     }
   });
 
   it('aitri adopt --upgrade syncs existing artifacts into completedPhases', () => {
-    // adoptDir already has .aitri from apply above; simulate phases 1+2 artifacts
-    const specDir = path.join(adoptDir, 'spec');
+    // adoptDir already has a CONTAINED .aitri from apply above; simulate phases 1+2 artifacts
+    const specDir = path.join(adoptDir, SPEC);
     fs.mkdirSync(specDir, { recursive: true });
     fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), '{}');
     fs.writeFileSync(path.join(specDir, '02_SYSTEM_DESIGN.md'), '# Design');
@@ -714,6 +715,31 @@ describe('Aitri CLI — adopt smoke', () => {
     const config = JSON.parse(fs.readFileSync(path.join(adoptDir, '.aitri'), 'utf8'));
     assert.ok(config.completedPhases.includes(1), 'phase 1 must be synced');
     assert.ok(config.completedPhases.includes(2), 'phase 2 must be synced');
+  });
+
+  it('aitri adopt --upgrade --layout is blocked in agent mode (no TTY)', () => {
+    // The migration moves project directories — a human decision. Non-TTY must
+    // print the plan context and exit non-zero without moving anything.
+    const migDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-adopt-layout-'));
+    try {
+      execSync('git init -q', { cwd: migDir });
+      execSync('aitri init', { cwd: migDir, encoding: 'utf8' });
+      // Rewrite to a FLAT config so the migration is applicable.
+      const cfgPath = path.join(migDir, '.aitri');
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      delete cfg.layoutRoot;
+      cfg.artifactsDir = 'spec';
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+      fs.renameSync(path.join(migDir, 'aitri', 'product', 'IDEA.md'), path.join(migDir, 'IDEA.md'));
+      fs.rmSync(path.join(migDir, 'aitri'), { recursive: true, force: true });
+      fs.mkdirSync(path.join(migDir, 'spec'), { recursive: true });
+      execSync('git add -A && git -c user.email=t@t -c user.name=t commit -q -m flat --no-gpg-sign', { cwd: migDir });
+      const out = aitriShouldFail('adopt --upgrade --layout', migDir);
+      assert.match(out, /blocked in agent mode|human decision/i, 'agent-mode block must explain itself');
+      assert.ok(fs.existsSync(path.join(migDir, 'IDEA.md')), 'nothing moved');
+    } finally {
+      try { fs.rmSync(migDir, { recursive: true, force: true }); } catch {}
+    }
   });
 
   it('aitri adopt scan error is actionable when invoked outside project', () => {

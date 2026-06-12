@@ -170,26 +170,32 @@ describe('aitri adopt apply', () => {
     assert.ok(fs.existsSync(path.join(dir, '.aitri')), '.aitri must be created');
   });
 
-  it('creates spec/ directory', () => {
+  it('creates the contained artifacts dir (aitri/product/spec) — rc.78', () => {
     const dir = tmpDir();
     fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
     run(dir);
-    assert.ok(fs.existsSync(path.join(dir, 'spec')), 'spec/ must be created');
+    assert.ok(fs.existsSync(path.join(dir, 'aitri', 'product', 'spec')), 'aitri/product/spec must be created');
+    const config = loadConfig(dir);
+    assert.equal(config.layoutRoot, 'aitri');
+    assert.equal(config.artifactsDir, 'aitri/product/spec');
+    assert.ok(!fs.existsSync(path.join(dir, 'spec')), 'no flat spec/ for fresh adoptions');
   });
 
-  it('does not overwrite existing IDEA.md', () => {
+  it('moves an existing root IDEA.md into the unit, content intact — rc.78', () => {
     const dir = tmpDir();
     fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Existing Idea\nDo not overwrite.');
     run(dir);
-    const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
-    assert.ok(idea.includes('Existing Idea'), 'must not overwrite existing IDEA.md');
+    assert.ok(!fs.existsSync(path.join(dir, 'IDEA.md')), 'root brief is MOVED, not duplicated');
+    const idea = fs.readFileSync(path.join(dir, 'aitri', 'product', 'IDEA.md'), 'utf8');
+    assert.ok(idea.includes('Existing Idea'), 'content must be kept verbatim');
   });
 
-  it('creates placeholder IDEA.md when scan was not run', () => {
+  it('creates placeholder IDEA.md (at the unit path) when scan was not run', () => {
     const dir = tmpDir();
     run(dir);
-    assert.ok(fs.existsSync(path.join(dir, 'IDEA.md')), 'IDEA.md must be created as placeholder');
-    const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
+    const unitIdea = path.join(dir, 'aitri', 'product', 'IDEA.md');
+    assert.ok(fs.existsSync(unitIdea), 'placeholder IDEA.md must be created in the unit');
+    const idea = fs.readFileSync(unitIdea, 'utf8');
     assert.ok(idea.includes('Stabilization'), 'placeholder must mention stabilization');
   });
 
@@ -270,8 +276,8 @@ describe('aitri adopt apply', () => {
     try {
       fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
       run(dir);
-      const backlogPath = path.join(dir, 'BACKLOG.md');
-      assert.ok(fs.existsSync(backlogPath), 'adopt apply must create BACKLOG.md when absent');
+      const backlogPath = path.join(dir, 'aitri', 'BACKLOG.md');
+      assert.ok(fs.existsSync(backlogPath), 'adopt apply must create the container BACKLOG.md when absent');
       const content = fs.readFileSync(backlogPath, 'utf8');
       assert.ok(/Entry Standard/.test(content), 'scaffold must include the Entry Standard section');
       assert.ok(/## Open/.test(content), 'scaffold must include the Open section');
@@ -324,23 +330,24 @@ describe('aitri adopt apply --from', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('creates IDEA.md from README content', () => {
+  it('creates IDEA.md (at the unit path) from README content', () => {
     const dir = tmpDir();
     try {
       fs.writeFileSync(path.join(dir, 'README.md'), 'An invoicing tool for freelancers.', 'utf8');
       run(dir, 3);
-      const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
+      const idea = fs.readFileSync(path.join(dir, 'aitri', 'product', 'IDEA.md'), 'utf8');
       assert.ok(idea.includes('invoicing'), 'IDEA.md should use README content');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('does not overwrite existing IDEA.md (from scan) when --from is used', () => {
+  it('moves a scan-written root IDEA.md into the unit when --from is used — rc.78', () => {
     const dir = tmpDir();
     try {
       fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea('invoicing tool content'), 'utf8');
       run(dir, 2);
-      const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
-      assert.ok(idea.includes('invoicing'), 'existing IDEA.md must not be overwritten by --from');
+      assert.ok(!fs.existsSync(path.join(dir, 'IDEA.md')), 'root brief is MOVED into the unit');
+      const idea = fs.readFileSync(path.join(dir, 'aitri', 'product', 'IDEA.md'), 'utf8');
+      assert.ok(idea.includes('invoicing'), 'content must be kept verbatim');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -368,13 +375,13 @@ describe('aitri adopt apply --from', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('does not overwrite existing IDEA.md', () => {
+  it('keeps an existing brief verbatim (moved to the unit, never overwritten)', () => {
     const dir = tmpDir();
     try {
       fs.writeFileSync(path.join(dir, 'IDEA.md'), 'Existing content.', 'utf8');
       run(dir, 3);
-      const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
-      assert.equal(idea, 'Existing content.', 'existing IDEA.md must not be overwritten');
+      const idea = fs.readFileSync(path.join(dir, 'aitri', 'product', 'IDEA.md'), 'utf8');
+      assert.equal(idea, 'Existing content.', 'existing brief must not be overwritten');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
