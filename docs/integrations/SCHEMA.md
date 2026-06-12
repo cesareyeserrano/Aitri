@@ -104,7 +104,7 @@ Written automatically by `complete`, `approve`, `verify-run`, `verify-complete`,
 }
 ```
 
-Valid `event` values: `"started"`, `"completed"`, `"approved"`, `"rejected"`, `"upgrade_migration"` (v2.0.0+)
+Valid `event` values: `"started"`, `"completed"`, `"approved"`, `"rejected"`, `"upgrade_migration"` (v2.0.0+), `"rehash"` (v2.0.0-alpha.3+), `"approve_preflight_autofix"` (v2.0.0-alpha.27+), `"layout_migrated"` (v2.0.0-rc.78+ — emitted once by `adopt --upgrade --layout`)
 
 Optional fields by type:
 - `"rejected"` → includes `"feedback": "text"`
