@@ -5,6 +5,21 @@
 
 ---
 
+## [2.0.0-rc.82] — 2026-06-12 — Adversarial-review fixes (10): multi-agent review of rc.76–81 confirmed and hardened
+
+A 5-dimension adversarial multi-agent review of the whole LAYOUT-1 series (each finding challenged by reproduce + impact refuters; I arbitrated the rest when verifier capacity ran out). 1 finding fully confirmed, 9 more validated by triage and fixed; 3 refuted (rejected with the refuters' arguments); 1 behavior change documented.
+
+- **CONFIRMED — orphan-seed absorb was flat-only** ([from-0.1.65.js](../lib/upgrade/migrations/from-0.1.65.js)): `diagnoseOrphanIdea` looked for the seed at the literal project ROOT, so a migrated project with an unabsorbed seed never got absorbed again — `original_brief` stayed empty forever, the seed rotted at the contained live path as current-looking intent, and a factually false "was absorbed in a prior upgrade" diagnostic fired. Now layout-aware (`seedPath`), and the absorbed-mode message only claims absorption when `original_brief` actually exists (new "missing" mode otherwise). Dedicated test.
+- **Preflight idea-ref gate is now scope- and layout-aware** ([idea-ref-classifier.js](../lib/upgrade/idea-ref-classifier.js)): `\bIDEA\.md\b` can never match `FEATURE_IDEA.md` ('_' is a word char), so feature approve-1 had zero protection over the file it actually archives; and the feature-spec scan hardcoded flat `features/`, silently skipping contained projects. Seed sets per scope (root: IDEA.md; feature: FEATURE_IDEA.md + the pre-rc.80 copy name) + `featuresDir` resolution; approve threads its scope.
+- **Migration hardening** ([layout-migration.js](../lib/upgrade/layout-migration.js)): `features/` is claimed by OWNERSHIP MARKER (≥1 `features/<name>/.aitri`), never by name — a user-owned features/ dir (e.g. Cucumber) is left in place with a note; timestamp-suffixed archived seeds (`archive/IDEA-<stamp>.md`) are carried; gitignored files under moved paths are surfaced in the plan (git cannot restore them — the recovery hint now says so).
+- **User-authored agent files survive migration** ([agent-files.js](../lib/agent-files.js)): `regenerateAgentFiles` only deletes files carrying the Aitri template marker; a hand-written pre-Aitri CLAUDE.md is kept and reported.
+- **`adopt apply` never clobbers an existing unit seed** (scan→apply re-run warned instead of silently overwriting `aitri/product/IDEA.md`); **`adopt apply --from` gains the artifacts-at-root guard** plain apply already had.
+- **`approve` archive move is graceful**: a failed move (e.g. a stray file named `archive`) warns and leaves the seed in place instead of crashing mid-approve (absorption is idempotent).
+- **Display/paths polish**: the legacy `idea/` upgrade hint prints the layout-resolved context dir; `init`'s committed README strings are POSIX-normalized on Windows; `isAitriStatePath` keeps the historical literal `spec/` exclusion for the `'.'` artifactsDir alias.
+- **Documented behavior change (kept, was silent in rc.76):** `bug close`'s `files_changed` trail now also excludes `node_modules/` and feature-pipeline artifacts (it routes through the shared `isAitriStatePath`) — an improvement over the old spec/-and-.aitri-only filter, now on the record.
+- **Rejected with the refuters' arguments:** approve's artifact-write-before-move (unreachable trigger, benign idempotent half-state); the FEATURE_IDEA severity framing as "the Hub incident" (no deletion since rc.80 — fixed as hardening, not as data-loss); contract-coherence dimension ran partially (verifier capacity) — its strongest claims were spot-checked inline.
+- Tests: +8 dedicated (ownership marker, archived variants, gitignored note, kept agent files, contained orphan absorb, classifier scope/layout, '.'-alias). Suite 1555 green.
+
 ## [2.0.0-rc.81] — 2026-06-12 — Round-2 canary fixes: upgrade-path absorption aligned with ADR-050 + migration notice polish
 
 Round-2 canaries (csv-export feature pipeline 1–5 on the contained taskcli — including feature `verify-run` with a feature-relative runner, 21/21 + parent 30/30 regression green and the project deployable; Zombite, the real `'.'`-alias project: alpha.23 → upgrade with on-disk artifact renames → migration, 9 paths, approvals intact; T2, the oldest pre-version legacy: upgrade → migrate → **deployable Ready** end to end). Two findings, fixed:
