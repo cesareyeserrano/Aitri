@@ -1347,7 +1347,7 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md absorption', () 
     fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify(data, null, 2));
   }
 
-  it('migrates: Phase 1 approved + IDEA.md present + original_brief missing → absorb + unlink', () => {
+  it('migrates: Phase 1 approved + IDEA.md present + original_brief missing → absorb + ARCHIVE (rc.80)', () => {
     const dir = tmpDir();
     try {
       writeLegacyConfig(dir, { approvedPhases: [1] });
@@ -1356,7 +1356,10 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md absorption', () 
 
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
 
-      assert.equal(fs.existsSync(path.join(dir, 'IDEA.md')), false, 'IDEA.md must be removed');
+      assert.equal(fs.existsSync(path.join(dir, 'IDEA.md')), false, 'IDEA.md must leave its live location');
+      assert.equal(fs.readFileSync(path.join(dir, 'archive', 'IDEA.md'), 'utf8'),
+        '# Brief\n\nThe original idea text.\n',
+        'rc.80/ADR-050: the upgrade-path absorption ARCHIVES the seed, same as approve');
       const after = JSON.parse(fs.readFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), 'utf8'));
       assert.equal(after.original_brief, '# Brief\n\nThe original idea text.\n',
         'original_brief must contain the verbatim IDEA.md content');

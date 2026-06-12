@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.81] — 2026-06-12 — Round-2 canary fixes: upgrade-path absorption aligned with ADR-050 + migration notice polish
+
+Round-2 canaries (csv-export feature pipeline 1–5 on the contained taskcli — including feature `verify-run` with a feature-relative runner, 21/21 + parent 30/30 regression green and the project deployable; Zombite, the real `'.'`-alias project: alpha.23 → upgrade with on-disk artifact renames → migration, 9 paths, approvals intact; T2, the oldest pre-version legacy: upgrade → migrate → **deployable Ready** end to end). Two findings, fixed:
+
+- **Upgrade-path IDEA absorption now ARCHIVES instead of deleting** (`from-0.1.65.js`): the migration that absorbs an orphan `IDEA.md` into `original_brief` during `adopt --upgrade` still used the pre-rc.80 unlink — inconsistent with the approve-time lifecycle (ADR-050). It now moves the seed to the unit's `archive/`, same as approve. Test updated to the archive contract.
+- **Migration success message names the transient off-pipeline notice**: between executing the layout migration and committing the move, `status`/`resume` correctly report "files changed outside pipeline" (the baseline predates the move); the message now says it clears itself at the commit — verified live on Zombite (7 transient → 0 after commit).
+
+Suite 1547 green.
+
 ## [2.0.0-rc.80] — 2026-06-12 — Unified seed lifecycle: absorb + ARCHIVE, no materialized copies (ADR-050)
 
 The product and its features now treat seed briefs identically — fixing the inconsistency the Phase-D canary surfaced (root `IDEA.md` deleted at approve 1 vs feature `FEATURE_IDEA.md` left to rot, plus a confusing duplicated `IDEA.md` copy inside features).
