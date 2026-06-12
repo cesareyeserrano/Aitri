@@ -161,6 +161,23 @@ describe('planLayoutMigration — move plan', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('plans per-file moves for the undefined and "." root-artifact aliases (Phase-D canaries)', () => {
+    for (const alias of [undefined, '.']) {
+      const dir = flatGitProject({ rootArtifacts: true });
+      try {
+        const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+        if (alias === undefined) delete cfg.artifactsDir; else cfg.artifactsDir = alias;
+        fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify(cfg, null, 2));
+        gitCommitAll(dir, 'alias');
+        const plan = planLayoutMigration(dir);
+        assert.equal(plan.ok, true, `alias ${String(alias)} must be migratable`);
+        const byFrom = Object.fromEntries(plan.moves.map(m => [m.from, m.to]));
+        assert.equal(byFrom['01_REQUIREMENTS.json'], 'aitri/product/spec/01_REQUIREMENTS.json');
+        assert.equal(byFrom['spec'], undefined, 'no whole-spec move for root-artifact aliases');
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    }
+  });
+
   it('plans per-file moves for a root-artifact project (artifactsDir "")', () => {
     const dir = flatGitProject({ rootArtifacts: true });
     try {
@@ -277,6 +294,32 @@ describe('aitri adopt --upgrade --layout (wrapper gates)', () => {
         ),
         /not clean/i
       );
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+// ── Phase-D finding #4: NFR-targeted TCs accepted end to end ──────────────────
+
+describe('cross-artifact review accepts NFR-targeted TCs (Phase-D fix)', () => {
+  it('a TC with requirement_id NFR-001 passes the cross-artifact check', async () => {
+    const { runReview } = await import('../lib/commands/review.js');
+    const dir = tmpDir();
+    try {
+      writeFile(dir, '.aitri', JSON.stringify({ projectName: 'x', artifactsDir: 'spec', aitriVersion: 'x' }));
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', JSON.stringify({
+        functional_requirements: [{ id: 'FR-001', title: 't', priority: 'MUST', type: 'logic', acceptance_criteria: ['x'] }],
+        non_functional_requirements: [{ id: 'NFR-001', category: 'Performance', requirement: 'fast' }],
+      }));
+      writeFile(dir, 'spec/03_TEST_CASES.json', JSON.stringify({
+        test_cases: [
+          { id: 'TC-001h', requirement_id: 'FR-001' },
+          { id: 'TC-NFR-001h', requirement_id: 'NFR-001' },
+          { id: 'TC-BAD-001h', requirement_id: 'FR-999' },
+        ],
+      }));
+      const { errors } = runReview(dir, { artifactsDir: 'spec' }, 'phase3');
+      assert.ok(!errors.some(e => e.includes('NFR-001')), 'NFR target must be accepted');
+      assert.ok(errors.some(e => e.includes('FR-999')), 'unknown ids are still rejected');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

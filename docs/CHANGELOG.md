@@ -5,6 +5,18 @@
 
 ---
 
+## [2.0.0-rc.79] — 2026-06-12 — LAYOUT-1 Phase D: real-canary findings fixed (4)
+
+Phase-D validation ran all four canary configurations against real projects: a FULL pipeline (init → phases 1–5 → verify-run/complete → validate deployable → feature init) on a fresh contained project (taskcli, 30 real e2e tests, every gate exercised by an agent authoring real artifacts); a legacy flat project operating untouched under the new CLI (Zombite draft — byte-identical, no container leaks); a real adoption (SDLC-GRAPH, Next.js → contained); and a real migration (Drafts/T — a pre-versioned, root-artifact, git-less project: upgrade → git init → dry-run → migrate → pipeline resumes with approvals intact, no false drift, no reconcile noise). Findings, all fixed:
+
+1. **Migration gate refused real root-artifact aliases.** `artifactsDir: '.'` (alpha-era projects — Zombite) was rejected as "custom", and `undefined` (pre-v0.1.20 — Drafts/T) was treated as `'spec'`, which would have MOVED NOTHING while re-pointing the config — a broken project. `planLayoutMigration` now treats `''`/`undefined`/`'.'` uniformly as root-artifact (per-file moves); only a genuinely custom value refuses.
+2. **`layoutEmissionVars` rendered `spec/` for root-artifact projects** (undefined artifactsDir) — agent files pointed at a folder that doesn't exist. All three root aliases now render `'.'`.
+3. **`adopt apply` advertised `idea_context/` without creating it** — init creates the folder + README; adopt now does too.
+4. **Gate contradiction trapped agents on NFR-targeted TCs** (found live during the taskcli pipeline): phase-3's Three-Amigos gate DEMANDS h/e/f triplets for `requirement_id: NFR-xxx`, while the cross-artifact check at `complete 3` rejected NFR ids as nonexistent — an agent obeying one gate fails the other, in a loop. The cross-artifact check now accepts NFR ids as TC targets (phase3 already did); unknown ids still reject.
+
+- Tests: root-alias plan cases + NFR-target cross-artifact case (test/layout-migration.test.js). Suite 1543 green.
+- Phase-D status: all four scenarios CLEAN after fixes. Remaining before stable: author-canary soak at the user's pace.
+
 ## [2.0.0-rc.78] — 2026-06-11 — LAYOUT-1 Phase C: opt-in flat→contained migration + adopt produces the contained layout
 
 The transition piece: legacy projects can now MOVE to the contained layout — explicitly, never automatically — and `adopt` stops producing new flat projects.
