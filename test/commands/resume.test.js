@@ -537,3 +537,65 @@ describe('cmdResume() — Requirements Coverage nudge (ADR-048)', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });
+
+// ── Security Audit nudge (ADR-051) ────────────────────────────────────────────
+
+const securityRequirementsJson = JSON.stringify({
+  project_name: 'TestProject',
+  functional_requirements: [
+    { id: 'FR-001', title: 'User login', priority: 'MUST', type: 'security', acceptance_criteria: ['rejects invalid token'] },
+  ],
+  non_functional_requirements: [
+    { id: 'NFR-001', category: 'Security', requirement: 'All endpoints require authentication' },
+  ],
+}, null, 2);
+
+describe('cmdResume() — Security Audit nudge (ADR-051)', () => {
+  const phase4Approved = { approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4] };
+
+  it('suggests `aitri audit security` when Phase 4 is approved, security NFRs exist, never audited', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig(phase4Approved));
+    writeFile(dir, '01_REQUIREMENTS.json', securityRequirementsJson);
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.match(out, /Security — Adversarial Audit Suggested/);
+    assert.match(out, /aitri audit security/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT suggest it when the project declares no security NFRs (explicit not-applicable decision)', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig(phase4Approved));
+    writeFile(dir, '01_REQUIREMENTS.json', requirementsJson); // performance NFR only
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.doesNotMatch(out, /aitri audit security/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT suggest it before Phase 4 is approved (no code to attack yet)', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1], completedPhases: [1] }));
+    writeFile(dir, '01_REQUIREMENTS.json', securityRequirementsJson);
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.doesNotMatch(out, /aitri audit security/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT suggest it once audited and requirements unchanged', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ ...phase4Approved, securityAuditLastAt: '2999-01-01T00:00:00.000Z' }));
+    writeFile(dir, '01_REQUIREMENTS.json', securityRequirementsJson);
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.doesNotMatch(out, /aitri audit security/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('re-suggests it when requirements changed after the last security audit', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ ...phase4Approved, securityAuditLastAt: '2000-01-01T00:00:00.000Z' }));
+    writeFile(dir, '01_REQUIREMENTS.json', securityRequirementsJson); // mtime now > 2000 → changed since
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.match(out, /Requirements changed since the last security audit/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});

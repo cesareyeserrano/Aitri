@@ -79,6 +79,7 @@ Tests not matching TC-XXX: naming are auto-classified as skip — verify-complet
 - Error handling: input validation + async try-catch + HTTP errors
 - Follow EXACT tech stack from System Design
 - Traceability headers on key functions: /** @aitri-trace FR-ID: FR-001, US-ID: US-001, AC-ID: AC-001, TC-ID: TC-001 */
+- Traces live in SOURCE, never in shipped public output: any asset served verbatim to end users (public HTML/CSS/JS, browser-rendered templates, static files) must NOT contain @aitri-trace comments, FR/UX/TC IDs, internal decision comments, or leftover debug logging (console.log/print). Keep traces in server-side/source files, or strip comments in a build step before serving — leaked traces hand the project's internal requirements map to anyone who views source.
 - Test paths and fixtures: use relative paths or `os.tmpdir()` — no hardcoded absolute paths with usernames or machine-specific routes
 
 ## CI/CD Deliverable (mandatory when NFR requires it)
@@ -154,6 +155,11 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
       must be in the project's deps) and the gate passes when measured ≥ threshold. required defaults true.
     If the project genuinely has no quality tooling, omit quality_gates — but prefer wiring at least a
     linter, because Aitri's promise is well-built code, not only passing tests.
+    Security gate: if 01_REQUIREMENTS.json declares security NFRs, a security gate is EXPECTED — wire
+    the scanner your stack supports (examples above) or, when none exists for the stack, a project
+    script of exit-code checks (secrets grep, exposed-docs probe, headers check). Omitting it on a
+    project with declared security NFRs requires a one-line reason in technical_debt — security
+    promises without a mechanical re-check are honor-system only.
 
 {{#IF_BEST_PRACTICES}}
 {{BEST_PRACTICES}}
@@ -198,6 +204,7 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4   →   aitri {{SCOPE_VERB}}ap
   [ ] No TODO/FIXME/PLACEHOLDER in production code
   [ ] .env.example covers all environment_variables listed in manifest
   [ ] @aitri-trace headers on key functions reference real FR/US/AC/TC IDs
+  [ ] No @aitri-trace, internal comments, or console.log in publicly-served assets — grep the served HTML/CSS/JS output for "aitri-trace": must return nothing
   [ ] Tech stack matches 02_SYSTEM_DESIGN.md exactly — no unrequested substitutions
   [ ] Open each file in test_files[]: verify every TC assertion tests REAL behavior — not assert.ok(true), assert.equal(1,1), or constant expressions
   [ ] aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} assertion density warnings reviewed — investigate any TC with ≤1 assertion

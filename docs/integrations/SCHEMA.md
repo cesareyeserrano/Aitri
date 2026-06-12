@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.82+
+**Aitri version:** v2.0.0-rc.83+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -58,6 +58,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `lastVerifyRun` | `object\|null` | `null` | Last `verify-run`'s counts, written on EVERY run regardless of pass/fail: `{ passed, failed, skipped, manual, at }`. Unlike `verifySummary` (only on verify-complete success), this persists the raw run result so the no-op-loop guard survives event-log eviction. Read this for "what did the last run produce" (v2.0.0-rc.25+) |
 | `auditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit` invocation. Persisted because `AUDIT_REPORT.md` mtime resets on git clone (v0.1.79+) |
 | `coverageAuditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit coverage` invocation (the idea→FR completeness audit). Persisted so the `resume` coverage nudge stops once run and re-fires when requirements change (v2.0.0-rc.75+, [ADR-048](../DECISIONS.md)) |
+| `securityAuditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit security` invocation (the adversarial security audit). Subproducts can compose a security-gap signal from this field: security NFRs declared in `01_REQUIREMENTS.json` + this field absent/stale ⇒ surface "security audit suggested" to the operator (v2.0.0-rc.83+, [ADR-051](../DECISIONS.md)) |
 | `rejections` | `object<string, Rejection>` | `{}` | Map of phase key → last rejection. Key is phase as string (`"1"`, `"2"`, etc.) |
 | `lastSession` | `object\|null` | `null` | Session checkpoint — see schema below. Written automatically by state-mutating commands. Its `.context` is ephemeral (overwritten by the next action); the durable narrative lives in `sessionContext` |
 | `sessionContext` | `object\|null` | `null` | Durable narrative thread (the "what/why/next"). Set by `aitri checkpoint --context`; SURVIVES later state transitions (unlike `lastSession.context`). Schema: `{ text: string, at: "ISO" }`. Per-machine — the personal thread; cross-dev action traceability is in shared `events[]`. `aitri resume` shows it and flags staleness/absence (v2.0.0-rc.60+) |
@@ -275,7 +276,7 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 
 | File | Content | Git |
 |---|---|---|
-| `.aitri` | **Shared** — `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `layoutRoot`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `cascadedPhases`, `frSnapshots`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`/`verifySummary`/`verifyRanAt`/`lastVerifyRun`, `auditLastAt`, `coverageAuditLastAt` | **committed** |
+| `.aitri` | **Shared** — `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `layoutRoot`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `cascadedPhases`, `frSnapshots`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`/`verifySummary`/`verifyRanAt`/`lastVerifyRun`, `auditLastAt`, `coverageAuditLastAt`, `securityAuditLastAt` | **committed** |
 | `.aitri.local` | **Per-machine** — `lastSession` (`.at`, `.agent`, …), `sessionContext` (`.text`, `.at`) and `reconcileState` (`baseRef`, `method`, `status`, `lastRun`) | **gitignored** |
 
 `saveConfig` writes `.aitri` only when a shared field other than `updatedAt` changed, so committing it no longer creates per-command noise — the noise that previously pushed teams to gitignore the whole file now lives in `.aitri.local`. `loadConfig` merges both files; every reader still sees one config object. (An old single-file `.aitri` with per-machine fields inline auto-migrates on its first save; `adopt --upgrade` also fixes the project's `.gitignore`. A pre-existing `.aitri/` *folder* uses `.aitri/config.json` + `.aitri/local.json` instead — supported as a fallback.)

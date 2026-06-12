@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.82+
+**Aitri version:** v2.0.0-rc.83+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -396,7 +396,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
 | `04_CODE_REVIEW.md` | `aitri review` | Present if code review was run |
 | `BUGS.json` | `aitri bug add` / `aitri verify-run` | Present if any bug has been registered |
 | `BACKLOG.json` | `aitri backlog add` | Present if any backlog item has been registered |
-| `AUDIT_REPORT.md` | `aitri audit` / `aitri audit coverage` | Present if an on-demand audit has been run. `audit coverage` appends a "Requirements Coverage" section (idea→FR completeness) |
+| `AUDIT_REPORT.md` | `aitri audit` / `aitri audit coverage` / `aitri audit security` | Present if an on-demand audit has been run. `audit coverage` appends a "Requirements Coverage" section (idea→FR completeness); `audit security` appends a "Security" section (RQ-SEC remediation requirements) |
 
 Check `approvedPhases[]` and `completedPhases[]` in `.aitri` to determine which optional artifacts exist before attempting to read them.
 
@@ -474,6 +474,21 @@ Each entry:
 ```
 
 Findings that map to bugs should be promoted to `BUGS.json` via `aitri bug add`. Findings that map to tech debt should be promoted to `BACKLOG.json` via `aitri backlog add`. Observations remain in AUDIT_REPORT.md as awareness items.
+
+Optional sections appended by the audit sub-commands (v2.0.0-rc.83+):
+
+```markdown
+### Requirements Coverage   ← appended by `aitri audit coverage` (ADR-048)
+Each gap: **[GAP-N]** `[UNCOVERED|PARTIAL]` — the client need, its source, and the suggested scope action.
+
+### Security                ← appended by `aitri audit security` (ADR-051)
+Coverage statement (surfaces audited: static / runtime), then each finding:
+  **[RQ-SEC-NNN]** `[P0|P1|P2]` — Title
+  - Severity + attack scenario · Evidence · Acceptance criteria · Suggested implementation
+Plus a proposed quality_gate verification script (the permanent re-check for `verify`).
+```
+
+Subproducts that surface AUDIT_REPORT.md can detect these headings to show coverage/security findings separately. The freshness signals are `coverageAuditLastAt` / `securityAuditLastAt` in `.aitri` (see SCHEMA.md) — prefer them over file mtime, which resets on git clone.
 
 ---
 

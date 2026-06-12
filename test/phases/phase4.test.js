@@ -205,6 +205,24 @@ describe('Phase 4 — buildBriefing() (BL-004)', () => {
       'briefing must include skeleton and hardening phases');
   });
 
+  // SEC-TRACE-1: @aitri-trace mandated in source must never reach publicly-served
+  // assets — a deployed Aitri-built site leaked its full FR/UX map through HTML/JS
+  // comments (external security scan, 2026-05-29). The briefing AND the developer
+  // persona must carry the no-shipping rule, or every web project leaks by default.
+  it('briefing forbids @aitri-trace in publicly-served assets (SEC-TRACE-1)', () => {
+    assert.ok(briefing.includes('never in shipped public output'),
+      'briefing must state traces live in source, never in shipped public output');
+    const reviewSection = briefing.slice(briefing.indexOf('Human Review'));
+    assert.ok(reviewSection.includes('publicly-served assets'),
+      'Human Review must include the publicly-served assets check');
+  });
+
+  it('developer persona forbids shipping traces in public assets (SEC-TRACE-1)', async () => {
+    const { CONSTRAINTS, REASONING } = await import('../../lib/personas/developer.js');
+    assert.match(CONSTRAINTS, /Never ship @aitri-trace/);
+    assert.match(REASONING, /Bad trace placement/);
+  });
+
   it('briefing contains US-ID in @aitri-trace example (BL-006)', () => {
     assert.ok(briefing.includes('US-ID'), 'briefing @aitri-trace must include US-ID for full traceability');
   });

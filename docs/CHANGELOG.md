@@ -5,6 +5,19 @@
 
 ---
 
+## [2.0.0-rc.83] — 2026-06-12 — Security layer: `aitri audit security` (SEC-AUDIT-1) + trace-shipping fix (SEC-TRACE-1) — ADR-051
+
+Evidence: an external security scan of a deployed site built with Aitri conventions (2026-05-29) returned Medium-High risk — and one finding was caused by Aitri itself (`@aitri-trace` comments leaking the internal FR/UX map through public HTML/CSS/JS, mandated by the build prompts with no shipping rule). Every other finding was deployed-surface class, invisible to static scanners, tests, and the per-phase security threading: the pipeline proved *intent*, nothing audited *exposure*.
+
+- **SEC-TRACE-1 (fix):** `build.md` + the developer persona now rule that traceability lives in SOURCE only — never in assets served verbatim to end users (strip in a build step or keep server-side). Phase-4 Human Review gains the mechanical check (grep served output for `aitri-trace` → must return nothing).
+- **SEC-AUDIT-1 (feature): `aitri audit security`** — third audit sub-command (ADR-048 pattern). New meta-persona `security-auditor`: attacker-first, outside-in, evidence-per-finding, strictly passive/non-destructive. Audits BOTH surfaces — static (code, repo, secrets, dependencies, build output) and runtime (deployed/local endpoints, headers, exposed docs, shipped assets) — with an honest coverage statement when one is unreachable. Knowledge model: framework names + the agent's current knowledge + the project's own scanners; no embedded vulnerability checklist (it would rot), no bundled analyzer (zero-dep, ADR-034/037).
+- Findings land as **RQ-SEC remediation requirements** (P0/P1/P2, attack scenario, evidence, acceptance criteria) in a "Security" section of `AUDIT_REPORT.md`; `audit plan` routes them (P0 → bug, P1/P2 → requirements/backlog) and proposes creating the audit's **quality_gate verification script** — the permanent, mechanical re-check `verify` runs every cycle. The audit is the snapshot; the gate is the protection.
+- `build.md` now EXPECTS a security `quality_gates` entry whenever security NFRs are declared (omission needs a declared reason in technical_debt).
+- `resume` nudges `audit security` once Phase 4 is approved on a project with declared security NFRs and no/stale audit (re-fires when requirements change). Projects that explicitly decided security does not apply are never nudged — zero friction for small/offline projects.
+- **Integration (Hub):** new additive `.aitri` field `securityAuditLastAt`; Hub composes its own security-gap signal from it + the security NFRs + the `### Security` heading (SCHEMA.md / ARTIFACTS.md / integrations CHANGELOG updated). No `status --json` change.
+- `aitri help` lists all four audit forms; `templates/AGENTS.md` instructs consumer agents on when/how to run it.
+- Tests: +15 dedicated (trace rule in briefing+persona, NFR/gates summaries, security briefing + timestamp persistence, persona posture, plan routing, 5 nudge conditions).
+
 ## [2.0.0-rc.82] — 2026-06-12 — Adversarial-review fixes (10): multi-agent review of rc.76–81 confirmed and hardened
 
 A 5-dimension adversarial multi-agent review of the whole LAYOUT-1 series (each finding challenged by reproduce + impact refuters; I arbitrated the rest when verifier capacity ran out). 1 finding fully confirmed, 9 more validated by triage and fixed; 3 refuted (rejected with the refuters' arguments); 1 behavior change documented.

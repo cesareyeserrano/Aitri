@@ -18,6 +18,13 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.83 (2026-06-12) — `aitri audit security` + `securityAuditLastAt` ([ADR-051](../DECISIONS.md)) — additive
+
+- New `.aitri` shared field `securityAuditLastAt` (ISO 8601, default absent) — timestamp of the last `aitri audit security` invocation. Optional; old readers unaffected. Documented in SCHEMA.md.
+- `AUDIT_REPORT.md` gains an optional "### Security" section (RQ-SEC remediation requirements + a proposed quality_gate verification script). Documented in ARTIFACTS.md.
+- **Security-gap signal for subproducts (Hub):** Aitri emits the raw signals only — `securityAuditLastAt` (.aitri) + security NFRs (01_REQUIREMENTS.json) + the "### Security" heading (AUDIT_REPORT.md). Composing the operator-facing nudge ("security NFRs declared but never audited / audit stale") is the subproduct's job, consistent with the passive-producer model. Aitri's own `resume` shows the equivalent nudge CLI-side.
+- No changes to `status --json`.
+
 ## v2.0.0-rc.82 (2026-06-12) — BUGS.json `files_changed` filter widened (adversarial-review hardening) — additive
 
 - The `files_changed` field of a closed bug (BUGS.json) now excludes more Aitri-owned paths: in addition to the artifacts dir and `.aitri`, it now also excludes the contained-layout container, `node_modules/`, and feature sub-pipeline artifacts (it routes through the shared `isAitriStatePath`). Consumers that read `files_changed` as "the source files a bug's fix touched" get a cleaner list; no field shape change. Documented in ARTIFACTS.md.

@@ -9,6 +9,8 @@ import {
   buildPipelineState,
   buildRequirementsSummary,
   buildIntentSources,
+  buildSecurityNfrSummary,
+  buildQualityGatesSummary,
   cmdAudit,
 } from '../../lib/commands/audit.js';
 
@@ -348,6 +350,127 @@ describe('coverage-auditor persona', () => {
     const { ROLE, CONSTRAINTS } = await import('../../lib/personas/coverage-auditor.js');
     assert.match(ROLE, /complete|drop|cover/i);          // about completeness, not code smells
     assert.match(CONSTRAINTS, /out-of-scope|out of scope/i); // bounds false positives on intentional exclusions
+  });
+});
+
+// ── audit security (ADR-051) ──────────────────────────────────────────────────
+
+describe('buildSecurityNfrSummary()', () => {
+  it('returns only the security-category NFRs', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      functional_requirements: [],
+      non_functional_requirements: [
+        { id: 'NFR-001', category: 'Performance', requirement: 'p95 < 200ms' },
+        { id: 'NFR-002', category: 'Security',    requirement: 'all endpoints require auth' },
+      ],
+    });
+    const result = buildSecurityNfrSummary(dir, { artifactsDir: 'spec' });
+    assert.match(result, /NFR-002 \[Security\] all endpoints require auth/);
+    assert.doesNotMatch(result, /NFR-001/);
+  });
+
+  it('returns null when there are no security NFRs (explicit not-applicable decision)', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      non_functional_requirements: [{ id: 'NFR-001', category: 'Performance', requirement: 'fast' }],
+    });
+    assert.equal(buildSecurityNfrSummary(dir, { artifactsDir: 'spec' }), null);
+  });
+
+  it('returns null when 01_REQUIREMENTS.json is missing or malformed', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    assert.equal(buildSecurityNfrSummary(dir, { artifactsDir: 'spec' }), null);
+    const specDir = path.join(dir, 'spec');
+    fs.mkdirSync(specDir, { recursive: true });
+    fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), 'not json {{{');
+    assert.equal(buildSecurityNfrSummary(dir, { artifactsDir: 'spec' }), null);
+  });
+});
+
+describe('buildQualityGatesSummary()', () => {
+  it('summarizes declared gates with required/advisory marking', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '04_BUILD_REPORT.json', {
+      quality_gates: [
+        { name: 'lint',     command: 'eslint .' },
+        { name: 'security', command: 'bandit -q -r src', required: false },
+      ],
+    });
+    const result = buildQualityGatesSummary(dir, { artifactsDir: 'spec' });
+    assert.match(result, /lint: `eslint \.` \(required\)/);
+    assert.match(result, /security: `bandit -q -r src` \(advisory\)/);
+  });
+
+  it('returns null when the manifest is missing or declares no gates', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    assert.equal(buildQualityGatesSummary(dir, { artifactsDir: 'spec' }), null);
+    writeArtifact(dir, '04_BUILD_REPORT.json', { files_created: ['src/a.js'] });
+    assert.equal(buildQualityGatesSummary(dir, { artifactsDir: 'spec' }), null);
+  });
+});
+
+describe('cmdAudit — security sub-command (ADR-051)', () => {
+  it('generates a security briefing fed with NFRs + declared gates, and persists securityAuditLastAt', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      functional_requirements: [{ id: 'FR-001', priority: 'MUST', title: 'login' }],
+      non_functional_requirements: [{ id: 'NFR-002', category: 'Security', requirement: 'endpoints require auth' }],
+    });
+    writeArtifact(dir, '04_BUILD_REPORT.json', {
+      quality_gates: [{ name: 'security', command: 'bandit -q -r src', required: false }],
+    });
+    const out = captureStdout(() => cmdAudit({ dir, args: ['security'], err: noErr }));
+    assert.match(out, /Security Audit/);                       // template title
+    assert.match(out, /endpoints require auth/);               // security NFRs fed in
+    assert.match(out, /bandit -q -r src/);                     // declared gates fed in
+    assert.match(out, /RQ-SEC/);                               // remediation-requirement output format
+    const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    assert.ok(cfg.securityAuditLastAt, 'securityAuditLastAt must be persisted');
+  });
+
+  it('runs without any artifacts — the static surface alone is auditable', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    const out = captureStdout(() => cmdAudit({ dir, args: ['security'], err: noErr }));
+    assert.match(out, /Security Audit/);
+  });
+});
+
+describe('security-auditor persona', () => {
+  it('exports ROLE, CONSTRAINTS, REASONING', async () => {
+    const m = await import('../../lib/personas/security-auditor.js');
+    assert.ok(typeof m.ROLE === 'string' && m.ROLE.length > 0);
+    assert.ok(typeof m.CONSTRAINTS === 'string' && m.CONSTRAINTS.length > 0);
+    assert.ok(typeof m.REASONING === 'string' && m.REASONING.length > 0);
+  });
+
+  it('posture is adversarial-defensive: attacker-first, passive/non-destructive, both surfaces', async () => {
+    const { ROLE, CONSTRAINTS } = await import('../../lib/personas/security-auditor.js');
+    assert.match(ROLE, /attacker/i);                       // adversarial posture
+    assert.match(ROLE, /non-destructive/i);                // defensive boundary
+    assert.match(CONSTRAINTS, /BOTH surfaces/);            // static + runtime
+    assert.match(CONSTRAINTS, /quality_gate/);             // leaves a permanent gate behind
+    assert.match(CONSTRAINTS, /Never attempt exploitation/i);
+  });
+});
+
+describe('cmdAudit — plan routes Security findings (ADR-051)', () => {
+  it('plan briefing routes an RQ-SEC finding by priority and proposes the permanent gate', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, 'AUDIT_REPORT.md',
+      '### Security\n**[RQ-SEC-001]** `P0` — /api/status exposes token usage publicly\n');
+    const out = captureStdout(() => cmdAudit({ dir, args: ['plan'], err: noErr }));
+    assert.match(out, /RQ-SEC/);                                  // protocol acknowledges the section
+    assert.match(out, /quality_gate/);                            // permanent gate routing present
+    assert.match(out, /exposes token usage publicly/);            // the report content is fed in
   });
 });
 
