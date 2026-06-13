@@ -5,6 +5,17 @@
 
 ---
 
+## [2.0.0-rc.84] — 2026-06-13 — Finished features stop nagging to re-verify by the calendar (STALE-VERIFY-1)
+
+Evidence: the Cesar canary — 10 features, all at 5/5, verified ~21 days ago — never reached idle. `resume`/Hub kept emitting `verify on feature:<name> last ran 21 days ago — refresh before declaring idle` for every finished feature, and they would re-fire every 14 days forever. Re-running verify produced identical results; the nudge was pure noise that trained the operator to dismiss the action ladder.
+
+- **Root cause** ([snapshot.js](../lib/snapshot.js)): `health.staleVerify` flagged any pipeline whose `verifyRanAt` was older than `STALE_VERIFY_DAYS` (14) on the calendar alone, ignoring whether anything had actually changed.
+- **Fix:** a pipeline that is **all-core-approved + verify-passed + no drift** is now excluded from `staleVerify` regardless of age — its evidence still holds, nothing it tracks changed since the run. The exclusion applies to both the `staleVerify` health array and the priority-7 `verify-run` next-action, so `resume`, `status`, and Hub stay consistent. Pipelines still in flux (incomplete, verify not passed, or drifted) are unaffected and still flagged.
+- **Drift is the real signal:** an artifact that changes after verify trips `driftPresent` (priority-2 action) — that path is untouched. Only the calendar proxy was removed for finished, undrifted work.
+- **Not a re-run:** this is a pure change to how `resume`/`status` *derive* next-actions from existing state. Upgrading and running `resume` in a consumer writes nothing to feature pipelines, re-runs no verify, and re-opens no phase — finished features are left exactly as they are; the nudge simply stops.
+- Trade-off: the calendar no longer catches code OUTSIDE a finished pipeline's tracked artifacts breaking its tests without tripping drift. Still caught by root verify (runs the whole suite) and by real drift; a dismissed calendar nag never protected against it anyway.
+- Tests: +2 dedicated (terminal+clean → not stale & reaches idle; approved-but-unverified → still stale when old). Integration contract: `docs/integrations/STATUS_JSON.md` + `docs/integrations/CHANGELOG.md` updated (additive — field shape unchanged, membership narrowed to genuinely-stale).
+
 ## [2.0.0-rc.83] — 2026-06-12 — Security layer: `aitri audit security` (SEC-AUDIT-1) + trace-shipping fix (SEC-TRACE-1) — ADR-051
 
 Evidence: an external security scan of a deployed site built with Aitri conventions (2026-05-29) returned Medium-High risk — and one finding was caused by Aitri itself (`@aitri-trace` comments leaking the internal FR/UX map through public HTML/CSS/JS, mandated by the build prompts with no shipping rule). Every other finding was deployed-surface class, invisible to static scanners, tests, and the per-phase security threading: the pipeline proved *intent*, nothing audited *exposure*.

@@ -18,6 +18,14 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.84 (2026-06-13) — `health.staleVerify` excludes terminal+clean pipelines (STALE-VERIFY-1) — additive
+
+`health.staleVerify` in `status --json` now reports a pipeline as stale only when its `verifyRanAt` is older than 14 days **AND** the pipeline is still in flux — that is, NOT (all core phases approved AND verify passed AND no drift). Previously the calendar alone decided staleness, so a finished feature (or a shipped root) re-appeared as "stale" every 14 days forever and the project never reached idle.
+
+**Field shape is unchanged** (`[ { "scope", "days" } ]`); only the membership rule narrowed — a terminal-and-clean pipeline that used to appear no longer does. This is the field doing what its name always implied (genuinely-stale evidence), so it is treated as additive: a consumer that surfaced these entries now surfaces fewer false positives; nothing previously valid breaks. Drift remains reported via `health.driftPresent` and is the real "evidence is outdated" signal. The same rule governs the priority-7 `verify-run` next-action in the snapshot ladder, so Hub-style consumers reading either surface stay consistent.
+
+Trade-off: the calendar no longer catches the narrow case where code OUTSIDE a finished pipeline's tracked artifacts changed and silently broke its tests without tripping drift. That case is still caught by the root pipeline's own verify (it runs the whole project suite) and by any actual artifact drift; a calendar nag that the operator dismisses provided no real protection against it.
+
 ## v2.0.0-rc.83 doc-audit (2026-06-12) — documentation corrections, no contract change — additive
 
 A line-by-line audit of these five documents against the code. No schema or behavior changed in this entry — these are corrections where the documents had drifted from long-shipped behavior:

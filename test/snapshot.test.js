@@ -771,6 +771,47 @@ describe('verify freshness (verifyRanAt)', () => {
       assert.ok(snap.health.staleVerify[0].days >= 29);
     } finally { cleanup(dir); }
   });
+
+  it('STALE-VERIFY-1: a terminal+clean pipeline is NOT stale regardless of age', () => {
+    const dir = tmpDir();
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * MS_PER_DAY).toISOString();
+      // All core phases approved, verify passed, no drift → evidence still holds.
+      saveConfig(dir, {
+        projectName:    'x',
+        artifactsDir:   'spec',
+        approvedPhases: [1, 2, 3, 4, 5],
+        verifyPassed:   true,
+        verifyRanAt:    thirtyDaysAgo,
+      });
+      const snap = buildProjectSnapshot(dir);
+      assert.deepEqual(snap.health.staleVerify, [],
+        'a finished, undrifted pipeline must not nag to re-verify by the calendar');
+      // And no P7 "refresh before declaring idle" action should be emitted.
+      const refreshNudge = snap.nextActions.find(a =>
+        /refresh before declaring idle/.test(a.reason || ''));
+      assert.equal(refreshNudge, undefined,
+        'terminal+clean pipeline should reach idle, not emit a verify-run nudge');
+    } finally { cleanup(dir); }
+  });
+
+  it('STALE-VERIFY-1: an approved-but-unverified pipeline IS still stale when old', () => {
+    const dir = tmpDir();
+    try {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * MS_PER_DAY).toISOString();
+      // Core approved but verify did NOT pass → still in flux → calendar applies.
+      saveConfig(dir, {
+        projectName:    'x',
+        artifactsDir:   'spec',
+        approvedPhases: [1, 2, 3, 4, 5],
+        verifyPassed:   false,
+        verifyRanAt:    thirtyDaysAgo,
+      });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.health.staleVerify.length, 1);
+      assert.equal(snap.health.staleVerify[0].scope, 'root');
+    } finally { cleanup(dir); }
+  });
 });
 
 // ── tests.totals / tests.perPipeline aggregation ─────────────────────────────
@@ -1495,11 +1536,13 @@ describe('nextActions — terminal state (F11)', () => {
     } finally { cleanup(dir); }
   });
 
-  it('emits P7 verify-run (not validate) when audit fresh and verify is stale', () => {
-    // F11 refinement (rc.3): stale verify on the root pipeline must trigger
-    // the action that resolves it (verify-run), not the legacy reflexive
-    // validate — validate does not refresh verifyRanAt, which produced a
-    // stable status→validate→status loop (Hub canary 2026-05-12).
+  it('STALE-VERIFY-1: a terminal+clean root with an OLD verify is NOT stale (no P7)', () => {
+    // Supersedes the rc.3 behavior: a deployable root whose verify ran 40 days
+    // ago used to emit a P7 verify-run nudge. STALE-VERIFY-1 (Cesar canary
+    // 2026-06-13): a root that is all-approved + verify-passed + undrifted has
+    // evidence that still holds — nothing it tracks changed — so it is NOT stale
+    // and reaches idle. Root staleness while deployable is now impossible by
+    // construction (deployable ⟹ terminal+clean ⟹ excluded).
     const dir = tmpDir();
     try {
       const stale = new Date(Date.now() - 40 * MS_PER_DAY).toISOString();
@@ -1507,20 +1550,19 @@ describe('nextActions — terminal state (F11)', () => {
       seedDeployableRoot(dir, { verifyRanAt: stale, auditLastAt: now });
       writeSpec(dir, 'AUDIT_REPORT.md', '# Audit');
       const snap = buildProjectSnapshot(dir);
-      assert.ok(snap.health.staleVerify.length > 0);
-      const p7 = snap.nextActions.filter(a => a.priority === 7);
-      assert.equal(p7.length, 1);
-      assert.equal(p7[0].command, 'aitri verify-run');
-      assert.equal(p7[0].scope, 'root');
+      assert.deepEqual(snap.health.staleVerify, []);
+      assert.equal(snap.nextActions.filter(a => a.priority === 7).length, 0);
       assert.equal(
         snap.nextActions.filter(a => a.command === 'aitri validate').length,
         0,
-        'validate must not be suggested when audit is fresh — verify-run resolves the staleness',
       );
     } finally { cleanup(dir); }
   });
 
-  it('emits per-feature verify-run when a stale feature pipeline blocks idle', () => {
+  it('emits per-feature verify-run when a stale IN-FLUX feature pipeline blocks idle', () => {
+    // The P7 verify-run path survives for pipelines that are genuinely stale:
+    // in-flux (not terminal+clean) with an old verifyRanAt. The suggested
+    // command resolves the staleness (verify-run), never the no-op validate.
     const dir = tmpDir();
     try {
       const now   = new Date().toISOString();
@@ -1530,12 +1572,13 @@ describe('nextActions — terminal state (F11)', () => {
 
       const featDir = path.join(dir, 'features', 'stale-feat');
       fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+      // In-flux: core not fully approved + verify not passed → calendar applies.
       saveConfig(featDir, {
         projectName:     'stale-feat',
         artifactsDir:    'spec',
-        approvedPhases:  [1, 2, 3, 4, 5],
-        completedPhases: [1, 2, 3, 4, 5],
-        verifyPassed:    true,
+        approvedPhases:  [1, 2, 3, 4],
+        completedPhases: [1, 2, 3, 4],
+        verifyPassed:    false,
         verifySummary:   { passed: 4, failed: 0, total: 4 },
         verifyRanAt:     stale,
       });
@@ -1552,37 +1595,38 @@ describe('nextActions — terminal state (F11)', () => {
     } finally { cleanup(dir); }
   });
 
-  it('emits one verify-run action per stale pipeline when multiple are stale', () => {
+  it('emits one verify-run action per stale IN-FLUX pipeline when multiple are stale', () => {
     const dir = tmpDir();
     try {
       const now   = new Date().toISOString();
       const stale = new Date(Date.now() - 30 * MS_PER_DAY).toISOString();
-      seedDeployableRoot(dir, { verifyRanAt: stale, auditLastAt: now });
+      // Root is terminal+clean+fresh → deployable AND not stale (STALE-VERIFY-1).
+      seedDeployableRoot(dir, { verifyRanAt: now, auditLastAt: now });
       writeSpec(dir, 'AUDIT_REPORT.md', '# Audit');
 
       for (const name of ['a', 'b']) {
         const featDir = path.join(dir, 'features', name);
         fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+        // In-flux + stale → flagged; terminal+clean would be excluded.
         saveConfig(featDir, {
           projectName:     name,
           artifactsDir:    'spec',
-          approvedPhases:  [1, 2, 3, 4, 5],
-          completedPhases: [1, 2, 3, 4, 5],
-          verifyPassed:    true,
+          approvedPhases:  [1, 2, 3, 4],
+          completedPhases: [1, 2, 3, 4],
+          verifyPassed:    false,
           verifySummary:   { passed: 2, failed: 0, total: 2 },
           verifyRanAt:     stale,
         });
       }
 
       const snap = buildProjectSnapshot(dir);
-      assert.equal(snap.health.staleVerify.length, 3); // root + 2 features
+      assert.equal(snap.health.staleVerify.length, 2); // 2 in-flux features; root is fresh+clean
       const p7 = snap.nextActions.filter(a => a.priority === 7);
-      assert.equal(p7.length, 3);
+      assert.equal(p7.length, 2);
       const cmds = p7.map(a => a.command).sort();
       assert.deepEqual(cmds, [
         'aitri feature verify-run a',
         'aitri feature verify-run b',
-        'aitri verify-run',
       ]);
       assert.equal(
         snap.nextActions.filter(a => a.command === 'aitri validate').length,

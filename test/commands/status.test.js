@@ -428,14 +428,17 @@ describe('cmdStatus --json bugs payload', () => {
   });
 });
 
-// ── Stale verify display (rc.3) ───────────────────────────────────────────
+// ── Stale verify display (rc.3, narrowed by STALE-VERIFY-1 rc.84) ──────────
 //
-// Closes the Hub canary observation (2026-05-12): when a deployable project
-// has one or more pipelines with verifyRanAt > 14 days, the next-action
-// ladder used to emit `aitri validate` (which does not refresh verifyRanAt)
-// and the status display had no equivalent of the staleAudit line — the
-// operator saw "Next: aitri validate" with no explanation. Display must now
-// surface the staleness count + oldest age + the resolving command.
+// rc.3 (Hub canary 2026-05-12): when a pipeline has verifyRanAt > 14 days the
+// status display surfaces a staleness count + oldest age + the resolving
+// command (verify-run, not the no-op validate loop).
+//
+// rc.84 (Cesar canary 2026-06-13, STALE-VERIFY-1): a terminal+clean pipeline
+// (all core approved + verify passed + no drift) is NO LONGER stale by the
+// calendar — its evidence still holds. So the stale line/nudge now applies only
+// to in-flux pipelines; a finished feature or shipped root reaches idle and
+// stays there.
 
 describe('cmdStatus — stale verify display', () => {
   const MS_PER_DAY = 86_400_000;
@@ -478,11 +481,18 @@ describe('cmdStatus — stale verify display', () => {
     fs.writeFileSync(path.join(spec, 'AUDIT_REPORT.md'), '# Audit\n');
   }
 
-  it('prints a "verify: stale" line when one or more pipelines have stale verifyRanAt', () => {
+  it('prints a "verify: stale" line for an IN-FLUX pipeline with old verifyRanAt', () => {
+    // In-flux = not terminal+clean (here: core not fully approved, verify not
+    // passed). The calendar staleness still applies while work is unfinished.
     const dir = tmpDir();
     const now   = new Date().toISOString();
     const stale = new Date(Date.now() - 25 * MS_PER_DAY).toISOString();
-    seedDeployable(dir, { verifyRanAt: stale, auditLastAt: now });
+    seedDeployable(dir, {
+      approvedPhases: [1, 2, 3, 4],
+      verifyPassed:   false,
+      verifyRanAt:    stale,
+      auditLastAt:    now,
+    });
     const out = captureStdout(() => cmdStatus({ dir, VERSION: '2.0.0-rc.3', args: [] }));
     assert.match(out, /verify:\s+stale on 1 pipeline \(oldest 25 days\) — run: aitri verify-run/);
   });
@@ -495,15 +505,15 @@ describe('cmdStatus — stale verify display', () => {
     assert.equal(/verify:\s+stale/.test(out), false);
   });
 
-  it('shows "Next: aitri verify-run" (not validate) when audit fresh and verify stale', () => {
-    // Coherence check between display warning and recommended next action:
-    // the suggested command must resolve the staleness it just announced.
+  it('STALE-VERIFY-1: a finished (terminal+clean) project with an OLD verify is NOT stale and reaches idle', () => {
+    // The user-reported regression: a deployable project whose verify ran weeks
+    // ago must not nag to re-verify by the calendar — nothing it tracks changed.
     const dir = tmpDir();
     const now   = new Date().toISOString();
     const stale = new Date(Date.now() - 30 * MS_PER_DAY).toISOString();
     seedDeployable(dir, { verifyRanAt: stale, auditLastAt: now });
     const out = captureStdout(() => cmdStatus({ dir, VERSION: '2.0.0-rc.3', args: [] }));
-    assert.match(out, /→ Next: aitri verify-run/);
-    assert.equal(/Next: aitri validate/.test(out), false);
+    assert.equal(/verify:\s+stale/.test(out), false, 'no stale line for a finished, undrifted project');
+    assert.equal(/Next: aitri verify-run/.test(out), false, 'no calendar-driven verify-run nudge');
   });
 });
