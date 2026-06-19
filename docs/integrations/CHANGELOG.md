@@ -18,6 +18,15 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.85 (2026-06-19) — `04_TEST_RESULTS.json#results[].evidence` field + TRX/JUnit-XML runner parsing (FB-MULTI-0619 T1.1) — additive
+
+Two additive changes, both unblocking stacks whose test runners write results to a **file** rather than parseable stdout (the `.NET`/`dotnet test` blocker, also Java/Maven/Gradle, pytest `--junitxml`):
+
+1. **`results[].evidence`** (optional string) — written by `aitri tc verify --evidence <path>`. Records an automated TC whose runner output Aitri could not parse, anchored to a real on-disk artifact instead of requiring it be pre-declared manual. Absent on auto-parsed results; old readers ignore it. Joins the existing `verified_manually`/`verified_at` (now documented).
+2. **`verify-run` TRX / JUnit-XML parsing** — `verify-run --results <file|dir>` (and auto-discovery of fresh `*.trx` / `TEST-*.xml` / `junit*.xml` under the project dir) reads structured per-test verdicts and merges them fill-only (live stdout parsers still win). No artifact-shape change; a stack that emits no such file is unaffected.
+
+**No field type changed, nothing removed.** A consumer reading `04_TEST_RESULTS.json` sees one new optional field on result entries and otherwise-identical output. Hub needs no change.
+
 ## v2.0.0-rc.84 (2026-06-13) — `health.staleVerify` excludes terminal+clean pipelines (STALE-VERIFY-1) — additive
 
 `health.staleVerify` in `status --json` now reports a pipeline as stale only when its `verifyRanAt` is older than 14 days **AND** the pipeline is still in flux — that is, NOT (all core phases approved AND verify passed AND no drift). Previously the calendar alone decided staleness, so a finished feature (or a shipped root) re-appeared as "stale" every 14 days forever and the project never reached idle.

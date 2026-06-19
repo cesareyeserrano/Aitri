@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, buildFRCoverage, buildACCoverage, scanTestContent, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, resolveWinBin } from '../../lib/commands/verify.js';
+import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, resolveWinBin } from '../../lib/commands/verify.js';
 import { cmdStatus } from '../../lib/commands/status.js';
 
 describe('parseRunnerOutput()', () => {
@@ -2251,5 +2251,140 @@ describe('resolveWinBin() — Windows npm-family .cmd resolution', () => {
       assert.equal(resolveWinBin('go'),      'go');
       assert.equal(resolveWinBin('npm.cmd'), 'npm.cmd');  // already has an extension
     });
+  });
+});
+
+describe('parseTrxResults() — dotnet test / MSTest / NUnit TRX files', () => {
+
+  it('detects pass/fail/skip from <UnitTestResult> rows by FQN testName', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Results>
+    <UnitTestResult testName="SuzukiCR.Tests.FormsValidatorTests.TC_006h_Email_Valid" outcome="Passed" duration="00:00:00.01" />
+    <UnitTestResult testName="SuzukiCR.Tests.FormsValidatorTests.TC_006f_Email_Invalid" outcome="Failed" duration="00:00:00.02" />
+    <UnitTestResult testName="SuzukiCR.Tests.MigrationTests.TC_010e_Skipped" outcome="NotExecuted" />
+  </Results>
+</TestRun>`;
+    const r = parseTrxResults(xml);
+    assert.equal(r.get('TC-006h')?.status, 'pass');
+    assert.equal(r.get('TC-006f')?.status, 'fail');
+    assert.equal(r.get('TC-010e')?.status, 'skip');
+  });
+
+  it('handles attribute order independence and Timeout/Aborted as fail', () => {
+    const xml =
+      `<UnitTestResult outcome="Timeout" testName="N.C.TC_001h_X" />` +
+      `<UnitTestResult duration="x" outcome="Aborted" testName="N.C.TC_002h_Y" />`;
+    const r = parseTrxResults(xml);
+    assert.equal(r.get('TC-001h')?.status, 'fail');
+    assert.equal(r.get('TC-002h')?.status, 'fail');
+  });
+
+  it('a Failed occurrence wins over a Passed one for the same TC (no false green)', () => {
+    const xml =
+      `<UnitTestResult testName="N.C.TC_003h_A" outcome="Passed" />` +
+      `<UnitTestResult testName="N.C.TC_003h_A" outcome="Failed" />`;
+    assert.equal(parseTrxResults(xml).get('TC-003h')?.status, 'fail');
+  });
+
+  it('returns empty map for non-TRX / non-string input', () => {
+    assert.equal(parseTrxResults('<nothing/>').size, 0);
+    assert.equal(parseTrxResults(null).size, 0);
+  });
+});
+
+describe('parseJUnitXmlResults() — Maven/Gradle/jest-junit/pytest junitxml', () => {
+
+  it('self-closing testcase is a pass; <failure>/<error>/<skipped> children set fail/skip', () => {
+    const xml = `<testsuite name="suite" tests="3">
+  <testcase classname="Forms" name="TC-006h: email valid" time="0.01" />
+  <testcase classname="Forms" name="TC-006f: email invalid" time="0.02">
+    <failure message="expected 200 got 500">stack…</failure>
+  </testcase>
+  <testcase classname="Mig" name="TC-010e: pending" time="0">
+    <skipped/>
+  </testcase>
+</testsuite>`;
+    const r = parseJUnitXmlResults(xml);
+    assert.equal(r.get('TC-006h')?.status, 'pass');
+    assert.equal(r.get('TC-006f')?.status, 'fail');
+    assert.equal(r.get('TC-010e')?.status, 'skip');
+  });
+
+  it('recovers the TC id from classname when name has none', () => {
+    const xml = `<testsuite><testcase classname="pkg.TC_007h_thing" name="should work" /></testsuite>`;
+    assert.equal(parseJUnitXmlResults(xml).get('TC-007h')?.status, 'pass');
+  });
+
+  it('<error> child is a fail', () => {
+    const xml = `<testcase name="TC-008h x"><error message="boom"/></testcase>`;
+    assert.equal(parseJUnitXmlResults(xml).get('TC-008h')?.status, 'fail');
+  });
+});
+
+describe('parseXmlResults() — dispatcher', () => {
+  it('routes TRX vs JUnit by root element, ignores other XML', () => {
+    assert.equal(parseXmlResults('<UnitTestResult testName="N.TC_001h" outcome="Passed"/>').get('TC-001h')?.status, 'pass');
+    assert.equal(parseXmlResults('<testcase name="TC-002h ok"/>').get('TC-002h')?.status, 'pass');
+    assert.equal(parseXmlResults('<coverage line-rate="0.9"/>').size, 0);
+  });
+});
+
+describe('resolveResultFiles() — file/dir/auto resolution + stale guard', () => {
+  function mkTmp() { return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-trx-')); }
+
+  it('explicit file path is returned as-is', () => {
+    const dir = mkTmp();
+    const f = path.join(dir, 'r.trx');
+    fs.writeFileSync(f, '<UnitTestResult testName="N.TC_001h" outcome="Passed"/>');
+    assert.deepEqual(resolveResultFiles(dir, 'r.trx', Date.now()), [f]);
+  });
+
+  it('explicit directory returns only the NEWEST result file (no stale merge)', () => {
+    const dir = mkTmp();
+    const sub = path.join(dir, 'TestResults');
+    fs.mkdirSync(sub);
+    const oldF = path.join(sub, 'old.trx');
+    const newF = path.join(sub, 'new.trx');
+    fs.writeFileSync(oldF, '<UnitTestResult testName="N.TC_001h" outcome="Failed"/>');
+    fs.writeFileSync(newF, '<UnitTestResult testName="N.TC_001h" outcome="Passed"/>');
+    const past = Date.now() - 10000;
+    fs.utimesSync(oldF, new Date(past), new Date(past));
+    const picked = resolveResultFiles(dir, 'TestResults', Date.now());
+    assert.deepEqual(picked, [newF]);
+  });
+
+  it('auto-discovery ignores files older than the run start (stale .trx guard)', () => {
+    const dir = mkTmp();
+    const sub = path.join(dir, 'TestResults');
+    fs.mkdirSync(sub);
+    const stale = path.join(sub, 'stale.trx');
+    fs.writeFileSync(stale, '<UnitTestResult testName="N.TC_001h" outcome="Passed"/>');
+    const past = Date.now() - 60000;
+    fs.utimesSync(stale, new Date(past), new Date(past));
+    // runStartMs ~ now → stale file (mtime 60s ago) is excluded
+    assert.deepEqual(resolveResultFiles(dir, null, Date.now()), []);
+  });
+
+  it('auto-discovery picks up a fresh result file written during the run', () => {
+    const dir = mkTmp();
+    const sub = path.join(dir, 'TestResults');
+    fs.mkdirSync(sub);
+    const fresh = path.join(sub, 'fresh.trx');
+    const runStart = Date.now();
+    fs.writeFileSync(fresh, '<UnitTestResult testName="N.TC_001h" outcome="Passed"/>');
+    assert.deepEqual(resolveResultFiles(dir, null, runStart), [fresh]);
+  });
+
+  it('missing explicit path resolves to empty (no throw)', () => {
+    const dir = mkTmp();
+    assert.deepEqual(resolveResultFiles(dir, 'does-not-exist.trx', Date.now()), []);
+  });
+});
+
+describe('scanAssertionDensity() — non-string test_files guard (defense-in-depth)', () => {
+  it('skips a non-string entry instead of crashing path.join', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-scan-'));
+    assert.doesNotThrow(() => scanAssertionDensity([{ path: 'tests/x.test.js' }, 'tests/missing.test.js'], dir));
   });
 });

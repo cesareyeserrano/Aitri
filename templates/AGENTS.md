@@ -62,8 +62,9 @@ If there is no `.aitri` yet, run `aitri init`. It creates `{{IDEA_FILE}}` (the s
 - Register the failure as a bug — accept the prompt that `verify-run` offers, or run `aitri bug add` manually.
 - Fix the implementation, re-run `aitri verify-run`, then `aitri verify-complete` when the run is clean.
 - Critical/high open bugs **block** `aitri verify-complete`, `aitri reconcile --resolve`, and the deploy gate. The next-action ladder will route you to bug work before anything else.
+- **All TCs `skip` with passing tests?** Your runner likely writes results to a **file**, not parseable stdout (`.NET`/`dotnet test`, Java Maven/Gradle, pytest `--junitxml`). Point Aitri at the result file: `aitri verify-run --results <file-or-dir>` reads TRX and JUnit-XML (`.trx`, `TEST-*.xml`, `junit*.xml` are also auto-discovered). Name your test functions/methods after their TC id (`TC_006h…`) so the FQN maps back.
 
-For tests that genuinely cannot be automated (manual QA, external systems): `aitri tc mark-manual <TC-ID>` sets the TC's `automation` field to `manual` so the e2e coverage gate accepts it without an automated runner.
+For tests that genuinely cannot be automated (manual QA, external systems): `aitri tc mark-manual <TC-ID>` sets the TC's `automation` field to `manual` so the e2e coverage gate accepts it without an automated runner. If an **automated** TC ran but Aitri still could not parse its result, record it against the evidence file instead of re-typing it manual: `aitri tc verify <TC-ID> --result pass|fail --notes "..." --evidence <path-to-result-file>`.
 
 - **MUST-NFR skipped at the deploy gate (advisory).** If `verify-complete` warns that a MUST NFR reached the deploy gate with no passing test (its test(s) skipped, not failed), do NOT ignore it: a skipped regression NFR is untested. Confirm it is genuinely verified elsewhere (e.g. a separate perf/security suite) or un-skip its test and re-run `verify-run`. Aitri cannot tell a forgotten `test.skip` from an externally-tested NFR, so it surfaces rather than blocks — the judgment is yours.
 

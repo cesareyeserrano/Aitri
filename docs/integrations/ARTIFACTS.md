@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.84+
+**Aitri version:** v2.0.0-rc.85+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -228,7 +228,10 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
       "tc_id": "TC-001h",
       "status": "pass | fail | skip | manual",
       "notes": "string",
-      "known_gap": true
+      "known_gap": true,
+      "verified_manually": true,
+      "verified_at": "ISO 8601 timestamp",
+      "evidence": "relative path to a runner result file / evidence log (optional)"
     }
   ],
   "fr_coverage": [
@@ -301,6 +304,7 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 - `known_gap: true` is written by `verify-complete` when a stub TC (from `adopt verify-spec`) is acknowledged as a gap
 - Manual TCs do not block `verify-complete` and do not count toward skip percentage
 - FRs with `status: "manual"` are exempt from the "zero passing tests" gate in `verify-complete`
+- **`verified_manually` / `verified_at` / `evidence`** (optional, `evidence` v2.0.0-rc.85+) — written by `aitri tc verify`. `verified_manually: true` + `verified_at` mark a result a human recorded (preserved across re-runs of `verify-run`). `evidence` is the relative path passed to `tc verify --evidence` — the escape hatch that lets an **automated** TC whose runner output Aitri could not parse be recorded against a real on-disk artifact (a TRX/JUnit-XML file or evidence log) instead of being pre-declared manual. All three are additive and absent on auto-parsed results.
 
 ---
 

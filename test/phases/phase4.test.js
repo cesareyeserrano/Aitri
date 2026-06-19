@@ -95,6 +95,61 @@ describe('Phase 4 — validate()', () => {
     assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /files_created or files_modified must be a non-empty array/);
   });
 
+  // Element-type guard (FB-MULTI-0619 T1.2): files arrays are flat string paths.
+  // Three adopters wrote them as arrays of objects, which passed the Array check
+  // then crashed path.join with a raw Node TypeError naming no field.
+  it('rejects files_created entries that are objects, naming the field and shape', () => {
+    const d = JSON.parse(validP4());
+    d.files_created = [{ path: 'src/index.js', type: 'source', key_functions: ['main'] }];
+    assert.throws(
+      () => PHASE_DEFS[4].validate(JSON.stringify(d)),
+      /files_created\[0\] must be a non-empty string path — got object[\s\S]*not objects/
+    );
+  });
+
+  it('rejects files_modified entries that are not strings', () => {
+    const d = JSON.parse(validP4());
+    d.files_modified = ['src/ok.js', 42];
+    assert.throws(
+      () => PHASE_DEFS[4].validate(JSON.stringify(d)),
+      /files_modified\[1\] must be a non-empty string path — got number/
+    );
+  });
+
+  it('rejects test_files entries that are objects (prevents the path.join crash)', () => {
+    const d = JSON.parse(validP4());
+    d.test_files = [{ path: 'tests/unit.test.js' }];
+    assert.throws(
+      () => PHASE_DEFS[4].validate(JSON.stringify(d)),
+      /test_files\[0\] must be a non-empty string path/
+    );
+  });
+
+  it('rejects empty-string path entries', () => {
+    const d = JSON.parse(validP4());
+    d.files_created = ['src/ok.js', '   '];
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /files_created\[1\] must be a non-empty string path/);
+  });
+
+  // substitution-vs-description hint (T1.2): name the misnaming, not bare "empty".
+  it('hints when technical_debt content is under "description" instead of "substitution"', () => {
+    const d = JSON.parse(validP4());
+    d.technical_debt = [{ fr_id: 'FR-003', description: 'swapped the live API for a stub', reason: 'x', effort_to_fix: 'low' }];
+    assert.throws(
+      () => PHASE_DEFS[4].validate(JSON.stringify(d)),
+      /the field is "substitution", but this entry has its content under "description"\. Rename "description" to "substitution"/
+    );
+  });
+
+  it('does NOT misfire the description hint when "reason" (a real sibling field) is present', () => {
+    const d = JSON.parse(validP4());
+    d.technical_debt = [{ fr_id: 'FR-003', substitution: '', reason: 'library conflict', effort_to_fix: 'low' }];
+    assert.throws(
+      () => PHASE_DEFS[4].validate(JSON.stringify(d)),
+      /describe exactly what was simplified/
+    );
+  });
+
   it('throws when technical_debt field is absent', () => {
     const d = JSON.parse(validP4());
     delete d.technical_debt;

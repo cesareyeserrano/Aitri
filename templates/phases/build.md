@@ -120,19 +120,23 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
 - Source code: {{DIR}}/src/
 - Tests: {{DIR}}/tests/
 - {{DIR}}/<package descriptor matching your stack> (package.json, pyproject.toml, go.mod, Cargo.toml, pom.xml, etc.) + {{DIR}}/.env.example
-- Manifest: {{ARTIFACTS_BASE}}/04_BUILD_REPORT.json
-  { files_created:[], files_modified:[], setup_commands:[], environment_variables:[{name, default}],
+- Manifest: {{ARTIFACTS_BASE}}/04_BUILD_REPORT.json — this is the EXACT required schema; match it field-for-field.
+  { files_created:["path/string", …], files_modified:["path/string", …], setup_commands:[], environment_variables:[{name, default}],
     technical_debt:[{fr_id, substitution, reason, effort_to_fix:"low|medium|high"}],
     test_runner: "<exact command matching your stack>",
     test_files: ["<test files containing @aitri-tc markers>"],
     quality_gates:[{name, command, required}] }
+  files_created / files_modified / test_files are FLAT arrays of string paths — NOT objects. Write
+    ["src/foo.ts", "tests/foo.test.ts"], never [{path:"src/foo.ts", type:…}]. The substitution text goes
+    in the field named `substitution` (not `description`).
   setup_commands and environment_variables are optional fields. When the project has none, you may either include them as empty arrays `[]` or omit the keys entirely — the validator accepts both forms (alpha.9). technical_debt is required, even if empty.
-  test_runner examples by stack:
-    JavaScript/TypeScript: "npm test" | "vitest run --reporter verbose" | "jest --verbose" | "node --test tests/"
-    Python:                "pytest -v" | "python -m pytest -v"
-    Go:                    "go test ./... -v"
-    Rust:                  "cargo test -- --nocapture"
-    Java:                  "./mvnw test" | "./gradlew test"
+  test_runner: the exact command that runs your suite (e.g. "npm test", "pytest -v",
+    "go test ./... -v", "cargo test", "dotnet test --logger trx"). Whatever the stack, two
+    things must hold so aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} can map results back to TCs:
+    1. Name each test after its TC id — the function/method name contains it (e.g. TC_006h…).
+    2. aitri reads results from the runner's stdout, OR — for runners that write results to a
+       FILE instead of stdout — via aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} --results <file-or-dir>
+       (TRX and JUnit-XML; .trx / TEST-*.xml / junit*.xml are also auto-detected).
   test_files: every file that contains @aitri-tc markers — required for aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}
   Feature sub-pipelines (aitri feature verify-run <name>): the runner executes with the FEATURE
     directory ({{FEATURES_DIR}}/<name>/) as its working directory, and test_runner / test_files are resolved
@@ -145,19 +149,19 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
     Aitri runs each `command` and judges it by exit code (0 = pass). `required: true` (the default)
     BLOCKS Phase 5 on failure; set `required: false` for advisory gates you are adopting gradually.
     Declare ONLY tools the project actually has configured — do not invent a linter the project does
-    not use. Examples by stack:
-    JavaScript/TypeScript: {name:"lint", command:"eslint ."} | {name:"typecheck", command:"tsc --noEmit"} | {name:"audit", command:"npm audit --audit-level=high", required:false}
-    Python:                {name:"lint", command:"ruff check ."} | {name:"typecheck", command:"mypy src"} | {name:"security", command:"bandit -q -r src", required:false}
-    Go:                    {name:"vet", command:"go vet ./..."} | {name:"staticcheck", command:"staticcheck ./..."} | {name:"security", command:"gosec ./...", required:false}
-    Rust:                  {name:"clippy", command:"cargo clippy -- -D warnings"} | {name:"fmt", command:"cargo fmt --check"}
+    not use. The kinds of gate that matter on any stack: a linter, a type-checker (if typed), and a
+    security scanner — declare each as the exact command your stack runs it with (e.g. {name:"lint",
+    command:"eslint ."} or {name:"typecheck", command:"mypy src"} or {name:"security",
+    command:"gosec ./...", required:false}). Whatever the language, the rule is the same: name the
+    real command, Aitri judges it by exit code.
     Coverage gate: declare {name:"coverage", threshold:80} (a numeric threshold instead of a command).
       verify-run measures line coverage (stack-aware: node/go/pytest/jest/vitest — the coverage tool
       must be in the project's deps) and the gate passes when measured ≥ threshold. required defaults true.
     If the project genuinely has no quality tooling, omit quality_gates — but prefer wiring at least a
     linter, because Aitri's promise is well-built code, not only passing tests.
     Security gate: if 01_REQUIREMENTS.json declares security NFRs, a security gate is EXPECTED — wire
-    the scanner your stack supports (examples above) or, when none exists for the stack, a project
-    script of exit-code checks (secrets grep, exposed-docs probe, headers check). Omitting it on a
+    the scanner your stack supports or, when none exists for the stack, a project script of exit-code
+    checks (secrets grep, exposed-docs probe, headers check). Omitting it on a
     project with declared security NFRs requires a one-line reason in technical_debt — security
     promises without a mechanical re-check are honor-system only.
 

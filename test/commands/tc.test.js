@@ -251,3 +251,50 @@ describe('cmdTC — tc mark-manual', () => {
   });
 
 });
+
+describe('cmdTC — tc verify --evidence (automated TC the runner could not parse)', () => {
+
+  it('rejects an automated (skip) TC without --evidence, naming the escape hatches', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-006h', status: 'skip', notes: 'Not detected.' }]);
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['verify', 'TC-006h', '--result', 'pass', '--notes', 'ran in TRX'])),
+      /not a manual TC[\s\S]*--results[\s\S]*--evidence/
+    );
+  });
+
+  it('records an automated TC as pass when --evidence points to a real file', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-006h', status: 'skip', notes: 'Not detected.' }]);
+    const ev = path.join(dir, 'results.trx');
+    fs.writeFileSync(ev, '<UnitTestResult testName="N.TC_006h" outcome="Passed"/>');
+    cmdTC(makeCtx(dir, ['verify', 'TC-006h', '--result', 'pass', '--notes', 'dotnet test trx', '--evidence', 'results.trx']));
+    const d = readResults(dir);
+    const entry = d.results.find(r => r.tc_id === 'TC-006h');
+    assert.equal(entry.status, 'pass');
+    assert.equal(entry.verified_manually, true);
+    assert.equal(entry.evidence, 'results.trx');
+    assert.equal(d.summary.passed, 1);
+  });
+
+  it('errors when --evidence path does not exist', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-006h', status: 'skip', notes: 'Not detected.' }]);
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['verify', 'TC-006h', '--result', 'pass', '--notes', 'x', '--evidence', 'nope.trx'])),
+      /--evidence file not found/
+    );
+  });
+
+  it('still records a manual TC normally and attaches evidence when given', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-002f', status: 'manual', notes: 'Manual.' }]);
+    const ev = path.join(dir, 'log.txt');
+    fs.writeFileSync(ev, 'observed parity');
+    cmdTC(makeCtx(dir, ['verify', 'TC-002f', '--result', 'pass', '--notes', 'parity ok', '--evidence', 'log.txt']));
+    const entry = readResults(dir).results.find(r => r.tc_id === 'TC-002f');
+    assert.equal(entry.status, 'pass');
+    assert.equal(entry.evidence, 'log.txt');
+  });
+
+});
