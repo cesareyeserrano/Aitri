@@ -132,7 +132,7 @@ If a behavior is genuinely hard to verify observationally → document it as `"m
 - FR type visual:      must include test at each breakpoint declared in acceptance_criteria (e.g. 375px, 768px, 1440px)
 - FR type audio:       must include test that audio fires within the ms threshold declared in acceptance_criteria
 - FR type persistence: must include test that data survives process restart — NOT in-memory/variable storage
-- FR type security:    must include ≥3 distinct attack vectors per security NFR — not just the most obvious one. Examples by control type:
+- FR type security:    must include ≥3 distinct failure modes per security NFR — not just the most obvious one. For an FR that exposes a runtime attack surface (input handling, auth, file access) these are attack vectors (examples by control type below). For a security-RELEVANT config or migration change (rewiring SSO, bumping a security package, removing a legacy auth path) they are the failure modes of THAT change — e.g. scope violation, a dangling reference after removal, a prerelease/downgraded dependency slipping through. Examples by control type:
     Filesystem/path access: (1) traversal `../../etc/passwd`, (2) direct absolute path `/etc/hosts`, (3) symlink outside allowed dir, (4) URL-encoded `%2e%2e%2f` if applicable
     API input validation:   (1) extreme value (max-length string, max integer), (2) wrong type (null, array where string expected), (3) special character (`;DROP TABLE`, `<script>`, `\x00`)
     Authentication:         (1) wrong credentials, (2) expired token, (3) valid token from a different user (horizontal authorization)

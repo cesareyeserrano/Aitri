@@ -5,6 +5,20 @@
 
 ---
 
+## [2.0.0-rc.88] — 2026-06-19 — Briefings generalize new-build vs change-to-existing-system framing (FB-MULTI-0619 T2.1)
+
+Evidence: two .NET/Umbraco brownfield-migration consumers reported, at nearly every phase, that the briefings assume a greenfield UI product (screens/KPI/JTBD, new schema/endpoints, src/ + .env.example scaffold) and "fight" a platform migration where the unit of work is invariants and change-surfaces. Verified against code first: only TWO of the seven complaints were real code walls (Three-Amigos h/f, the closed TC `type` enum); the rest were briefing prose, freely reframeable. This ships the reframe for the prose ones — **Class C, resolved in wording, not by loosening any gate**, so a greenfield/CLI/service project is structurally unaffected (it never enters the "change to an existing system" branch).
+
+Generalized the *purpose* of each section once (stack-agnostic peer framing, not a per-stack/per-case append, not a new `project_type` field):
+
+- **Phase 1 depth protocol** ([requirements.md](../templates/phases/requirements.md)): the decomposition's goal — every behavior gets an FR, nothing silently dropped — now names the alternate axis for a change to an existing system (what must change / must NOT change → regression FRs / blast-radius / build-boot-parity gates) alongside the screens/actions axis. North Star KPI gains the parity-gate reading for migrations.
+- **Phase 2** ([architecture.md](../templates/phases/architecture.md)): `Data Model` and `API Design` now state they are **preservation contracts** for a change to an existing system (what must NOT change + only the delta), not only new-schema/new-endpoint design.
+- **Phase 3** ([tests.md](../templates/phases/tests.md)): the security-FR "≥3 distinct vectors" rule now distinguishes a runtime attack surface (attack vectors) from a security-relevant config/migration change (the failure modes of THAT change — scope violation, dangling reference, prerelease dependency).
+- **Phase 4** ([build.md](../templates/phases/build.md)): the `src/` + `.env.example` DoD now says: for a change to an existing codebase, use the existing source layout (real paths in `files_modified`, do not relocate into `src/`); `.env.example` only when the project uses env config.
+
+- NOT done (the two real code walls, deferred — they need a gate change, not wording, and carry bias risk): allowing a declarative FR to declare "no meaningful failure path" (skips the synthetic `f` TC), and a `static`/`verification` TC type. Tracked in the batch doc as Class B.
+- No schema/gate/validator change; prompt wording only. test:all green (1612). No contract impact.
+
 ## [2.0.0-rc.87] — 2026-06-19 — adopt scan sees a nested project folder + goal-neutral wording (FB-MULTI-0619 T2.2)
 
 Evidence: a .NET adopter (Suzuki CR) whose app, `.gitignore`, `Dockerfile`, and lockfile all live in a `SuzukiCR/` subfolder — `adopt scan`'s Technical Health Signals only looked at the repo root and reported all four as "missing" (false negatives that sent the agent chasing non-issues). Class A — flat layouts are byte-identical.

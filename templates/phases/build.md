@@ -117,9 +117,9 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
 → Undeclared substitutions will fail compliance review in Phase 5.
 
 ## Output
-- Source code: {{DIR}}/src/
-- Tests: {{DIR}}/tests/
-- {{DIR}}/<package descriptor matching your stack> (package.json, pyproject.toml, go.mod, Cargo.toml, pom.xml, etc.) + {{DIR}}/.env.example
+- Source code: for a new project, {{DIR}}/src/; for a change to an existing codebase, its existing source layout — put the real paths in `files_modified`, do not relocate code into `src/` to match this default.
+- Tests: {{DIR}}/tests/ (or the project's existing test location)
+- {{DIR}}/<package descriptor matching your stack> (package.json, pyproject.toml, go.mod, Cargo.toml, pom.xml, etc.); a {{DIR}}/.env.example when the project uses env-based config (skip it if there is none, or if its absence is recorded in technical_debt)
 - Manifest: {{ARTIFACTS_BASE}}/04_BUILD_REPORT.json — this is the EXACT required schema; match it field-for-field.
   { files_created:["path/string", …], files_modified:["path/string", …], setup_commands:[], environment_variables:[{name, default}],
     technical_debt:[{fr_id, substitution, reason, effort_to_fix:"low|medium|high"}],

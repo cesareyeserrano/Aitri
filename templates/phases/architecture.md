@@ -35,8 +35,8 @@ Do not invent a constraint the project did not state — but do not silently des
 Required sections — use these EXACT names as `##` level-2 headers (aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 2 validates by exact match):
 1. `## Executive Summary` — tech choices with justification
 2. `## System Architecture` — ASCII/Mermaid diagram + components
-3. `## Data Model` — schema with field constraints; for frontend-only apps: localStorage/file structure
-4. `## API Design` — for backend apps: all endpoints (method, path, auth, request/response, errors); for frontend-only apps: internal module/package API (exported function and class signatures in the language's idiomatic style)
+3. `## Data Model` — schema with field constraints; for frontend-only apps: localStorage/file structure. For a change to an existing system: the **preservation contract** — the existing schema/data that must NOT change — plus only the delta this work introduces.
+4. `## API Design` — for backend apps: all endpoints (method, path, auth, request/response, errors); for frontend-only apps: internal module/package API (exported function and class signatures in the language's idiomatic style). For a change to an existing system: document the **contract being preserved** (the public surface that must stay compatible) and only the endpoints/signatures that change.
 5. `## Security Design` — auth, input validation, security headers, XSS/injection mitigations
 6. `## Performance & Scalability` — caching, query optimization, size bounds
 7. `## Deployment Architecture` — **state the deployment model explicitly** (containerized / binary or native / package or library / serverless / static host); environments; CI/CD. Phase 5 reads this to decide what to package — do NOT default to containers unless the stack and FRs call for them.

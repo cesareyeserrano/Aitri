@@ -132,7 +132,7 @@ On a re-run after Phase 1 is approved, the seed is sealed: the gate is skipped a
 FRs as usual (idea_provenance is historical at that point).
 
 ## Requirement Depth Protocol
-Before writing any FR, work through this decomposition for the product in IDEA.md:
+Before writing any FR, decompose the work in IDEA.md so every behavior gets an FR and nothing is silently dropped. For a product being **built**, work through the surfaces below. For a **change to an existing system** (migration, refactor, infra, platform upgrade), the same goal is met by decomposing along different axes: what must change, what must **NOT** change (each preserved behavior becomes a regression FR), the boundary / blast-radius of the change, and the build / boot / parity gates that prove it — then map those to FRs exactly as below. Either way, an undecomposed area of work is a gap.
 1. **Screens / surfaces** — list every distinct screen, modal, or major UI surface
 2. **User actions** — for each screen: list every action a user can perform (clicks, form submissions, navigation)
 3. **System states** — for every I/O action: loading, success, error, and empty/zero-data states
@@ -155,7 +155,7 @@ Derive the no-go zone from: (a) explicit constraints in IDEA.md, (b) what the id
 
 ## Product Analysis Vector
 Before writing FRs, identify:
-  - North Star KPI: the single metric that defines success (e.g. "user records first movement within 60s of opening app")
+  - North Star KPI: the single metric that defines success (e.g. "user records first movement within 60s of opening app"). When success is parity rather than a product outcome (a migration/refactor/upgrade), this is the acceptance gate instead — e.g. "builds + boots + zero behavioral change vs the baseline".
   - JTBD (Jobs To Be Done): what job does the user hire this product to do? (e.g. "track daily spend without opening a bank app")
   - Top guardrail metric: what must NOT get worse (e.g. "load time must stay ≤2s even with 365 days of data")
 Include these as comments in project_summary or as a separate "product_analysis" field.
