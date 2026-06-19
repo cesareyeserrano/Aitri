@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { cmdAdopt, scanCodeQuality, scanSecretSignals, scanInfrastructure, scanTestHealth } from '../../lib/commands/adopt.js';
+import { cmdAdopt, scanCodeQuality, scanSecretSignals, scanInfrastructure, scanTestHealth, scanGitignore, scanEnvFiles, detectProjectRoot } from '../../lib/commands/adopt.js';
 import { initFlatProject } from '../fixtures.js';
 import { loadConfig, saveConfig } from '../../lib/state.js';
 
@@ -196,7 +196,7 @@ describe('aitri adopt apply', () => {
     const unitIdea = path.join(dir, 'aitri', 'product', 'IDEA.md');
     assert.ok(fs.existsSync(unitIdea), 'placeholder IDEA.md must be created in the unit');
     const idea = fs.readFileSync(unitIdea, 'utf8');
-    assert.ok(idea.includes('Stabilization'), 'placeholder must mention stabilization');
+    assert.ok(/Adoption Goal/i.test(idea), 'placeholder must name the adoption goal (goal-neutral, not "stabilization")');
   });
 
   it('emits warning to stderr when IDEA.md is missing', () => {
@@ -461,6 +461,65 @@ describe('scanInfrastructure', () => {
     const dir = tmpDir();
     const result = scanInfrastructure(dir);
     assert.ok(result.includes('Lockfile: missing'), `expected lockfile missing, got: ${result}`);
+  });
+});
+
+// FB-MULTI-0619 T2.2 — health signals see a nested project folder, not just repo root.
+describe('detectProjectRoot + nested-layout health signals', () => {
+  function nestedDir() {
+    const dir = tmpDir();
+    const app = path.join(dir, 'SuzukiCR');
+    fs.mkdirSync(app);
+    fs.writeFileSync(path.join(app, 'SuzukiCR.csproj'), '<Project></Project>');
+    return { dir, app };
+  }
+
+  it('detects the single project subfolder as the project root', () => {
+    const { dir, app } = nestedDir();
+    assert.equal(detectProjectRoot(dir), app);
+  });
+
+  it('returns the repo root when a descriptor is at the root (flat layout)', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'package.json'), '{}');
+    assert.equal(detectProjectRoot(dir), dir);
+  });
+
+  it('returns the repo root when MORE THAN ONE subfolder has a descriptor (ambiguous → no guess)', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'a')); fs.writeFileSync(path.join(dir, 'a', 'go.mod'), 'module a');
+    fs.mkdirSync(path.join(dir, 'b')); fs.writeFileSync(path.join(dir, 'b', 'go.mod'), 'module b');
+    assert.equal(detectProjectRoot(dir), dir);
+  });
+
+  it('scanInfrastructure finds a Dockerfile and lockfile in the nested project folder, with location', () => {
+    const { dir, app } = nestedDir();
+    fs.writeFileSync(path.join(app, 'Dockerfile'), 'FROM mcr.microsoft.com/dotnet/sdk:8.0\n');
+    fs.writeFileSync(path.join(app, 'packages.lock.json'), '{}');
+    const result = scanInfrastructure(dir);
+    assert.ok(result.includes('Dockerfile: ✓ (SuzukiCR/Dockerfile') || result.includes('Dockerfile: ✓ (SuzukiCR'), `got: ${result}`);
+    assert.ok(result.includes('packages.lock.json'), `expected nested lockfile, got: ${result}`);
+  });
+
+  it('scanGitignore finds a .gitignore in the nested project folder', () => {
+    const { dir, app } = nestedDir();
+    fs.writeFileSync(path.join(app, '.gitignore'), 'bin/\nobj/\nnode_modules\n');
+    const result = scanGitignore(dir);
+    assert.ok(result.startsWith('Present'), `expected present, got: ${result}`);
+    assert.ok(result.includes('SuzukiCR'), `expected location reported, got: ${result}`);
+  });
+
+  it('scanEnvFiles finds a .env in the nested project folder', () => {
+    const { dir, app } = nestedDir();
+    fs.writeFileSync(path.join(app, '.env'), 'SECRET=x\n');
+    const result = scanEnvFiles(dir);
+    assert.ok(result.includes('SuzukiCR'), `expected nested .env reported, got: ${result}`);
+  });
+
+  it('flat layout with no descriptors keeps repo-root-only behavior (gitignore missing)', () => {
+    const dir = tmpDir();
+    const result = scanGitignore(dir);
+    assert.ok(result.startsWith('MISSING'), `got: ${result}`);
   });
 });
 

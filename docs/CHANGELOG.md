@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.87] — 2026-06-19 — adopt scan sees a nested project folder + goal-neutral wording (FB-MULTI-0619 T2.2)
+
+Evidence: a .NET adopter (Suzuki CR) whose app, `.gitignore`, `Dockerfile`, and lockfile all live in a `SuzukiCR/` subfolder — `adopt scan`'s Technical Health Signals only looked at the repo root and reported all four as "missing" (false negatives that sent the agent chasing non-issues). Class A — flat layouts are byte-identical.
+
+- **Project-root detection** ([adopt.js](../lib/commands/adopt.js)): `detectProjectRoot` finds the one obvious project subfolder (carrying `package.json` / `*.csproj` / `go.mod` / `pom.xml` / `Cargo.toml` / `pyproject.toml` / …) and the presence scanners (`scanInfrastructure`, `scanGitignore`, `scanEnvFiles`) now check **both** the repo root and that folder, reporting the location when found nested (`Dockerfile: ✓ (SuzukiCR/Dockerfile)`). Conservative: descends ONE level and only when EXACTLY one subfolder carries a descriptor (0 / >1 / descriptor-at-root → repo root, unchanged). Added `.NET packages.lock.json` + `composer.lock` to the recognized lockfiles.
+- **Goal-neutral wording**: the hardcoded "stabilization" in the operator-facing strings (next-step hint, placeholder IDEA title/body, the apply summary) is now "adoption" — `adopt` is used for any brownfield goal (a version migration, not only a stabilization effort), and "stabilization" was misleading for those.
+- Not done here (noted in the batch doc): an `adopt scan --focus <topic>` to scope the audit, and a `git ls-files`-based "tracked despite gitignored" secret check — both bigger than T2.2.
+- Tests: +7 dedicated (1605 → 1612 green). No artifact/`.aitri` schema change; no contract impact.
+
 ## [2.0.0-rc.86] — 2026-06-19 — Build phase inherits Phase-3 manual mode (FB-MULTI-0619 T1.3)
 
 Evidence: the same .NET/Umbraco migration consumer (Bravoauto Brunei #55) whose no_go_zone forbids an automated suite — `complete 3` accepted 45 `automation: "manual"` TCs, but `complete 4` then hard-required a `test_runner` + `test_files` with `@aitri-tc` markers, forcing the agent to invent a runner the project does not use. The two gates disagreed about the same manual decision.

@@ -686,7 +686,7 @@ describe('Aitri CLI — adopt smoke', () => {
       aitri('adopt apply', adoptDir2);
       assert.ok(fs.existsSync(path.join(adoptDir2, UNIT, 'IDEA.md')), 'placeholder IDEA.md must be created in the unit');
       const idea = fs.readFileSync(path.join(adoptDir2, UNIT, 'IDEA.md'), 'utf8');
-      assert.ok(idea.includes('Stabilization'), 'placeholder must mention stabilization');
+      assert.ok(/Adoption Goal/i.test(idea), 'placeholder must name the adoption goal (goal-neutral)');
     } finally {
       try { fs.rmSync(adoptDir2, { recursive: true, force: true }); } catch {}
     }
