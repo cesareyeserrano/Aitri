@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.86 (2026-06-19) — `04_BUILD_REPORT.json` test_runner/test_files optional in manual-verification mode (FB-MULTI-0619 T1.3) — additive
+
+When every `03_TEST_CASES.json` test case is `automation: "manual"`, the project has no automated runner by design (its no_go_zone forbids a suite). `complete 4` now waives the previously-mandatory `test_runner` and `test_files` for that case only — matching the manual decision `complete 3` already accepts. With any automated test case present, both stay required exactly as before.
+
+**Reader impact:** on a manual-mode build report, `test_runner` and `test_files` may be **absent**. A consumer that read `test_runner` as always-present must treat it as optional (guard before `.split()` etc.). No field changed type or was removed — a previously-required field became conditionally-optional, gated on an existing artifact's content. Marked additive because no automated-test project's output changes and the field semantics are unchanged when present.
+
 ## v2.0.0-rc.85 (2026-06-19) — `04_TEST_RESULTS.json#results[].evidence` field + TRX/JUnit-XML runner parsing (FB-MULTI-0619 T1.1) — additive
 
 Two additive changes, both unblocking stacks whose test runners write results to a **file** rather than parseable stdout (the `.NET`/`dotnet test` blocker, also Java/Maven/Gradle, pytest `--junitxml`):

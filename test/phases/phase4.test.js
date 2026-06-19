@@ -1,5 +1,8 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { PHASE_DEFS } from '../../lib/phases/index.js';
 
 const validP4 = () => JSON.stringify({
@@ -472,5 +475,53 @@ describe('phase4.buildTDDRecommendation()', () => {
       feedback: null, failingTests: undefined, bestPractices: '',
     });
     assert.ok(!b.includes('TDD recommended'), 'TDD section must not appear when requirements are empty');
+  });
+});
+
+// FB-MULTI-0619 T1.3 — build phase inherits Phase-3 manual mode (Class B, guarded).
+describe('Phase 4 — manual-mode waiver (test_runner/test_files optional when all TCs manual)', () => {
+  function makeDir(tcs) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p4-'));
+    fs.mkdirSync(path.join(dir, 'spec'));
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec', approvedPhases: [] }));
+    fs.writeFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), JSON.stringify({ test_cases: tcs }));
+    return dir;
+  }
+  const baseManifest = () => ({ files_created: ['SuzukiCR/Program.cs'], technical_debt: [] });
+
+  it('accepts a build report with NO test_runner/test_files when every Phase-3 TC is manual', () => {
+    const dir = makeDir([{ id: 'TC-001h', automation: 'manual' }, { id: 'TC-001f', automation: 'manual' }]);
+    assert.doesNotThrow(() => PHASE_DEFS[4].validate(JSON.stringify(baseManifest()), { dir }));
+  });
+
+  it('still REQUIRES test_runner when even one Phase-3 TC is automated', () => {
+    const dir = makeDir([{ id: 'TC-001h', automation: 'manual' }, { id: 'TC-002h', automation: 'auto' }]);
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(baseManifest()), { dir }), /test_runner is required/);
+  });
+
+  it('still REQUIRES test_runner when TCs default to automated (no automation field)', () => {
+    const dir = makeDir([{ id: 'TC-001h' }]);
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(baseManifest()), { dir }), /test_runner is required/);
+  });
+
+  it('does NOT waive when 03_TEST_CASES.json is empty (no manual decision to inherit)', () => {
+    const dir = makeDir([]);
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(baseManifest()), { dir }), /test_runner is required/);
+  });
+
+  it('keeps current behavior (runner required) when no dir is provided', () => {
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(baseManifest())), /test_runner is required/);
+  });
+
+  it('shape-checks test_files even in manual mode (object entry rejected)', () => {
+    const dir = makeDir([{ id: 'TC-001h', automation: 'manual' }]);
+    const m = { ...baseManifest(), test_files: [{ path: 'tests/x.test.cs' }] };
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(m), { dir }), /test_files\[0\] must be a non-empty string path/);
+  });
+
+  it('greenfield with a real runner + automated TCs is byte-identical (still passes)', () => {
+    const dir = makeDir([{ id: 'TC-001h', automation: 'auto' }]);
+    const m = { ...baseManifest(), test_runner: 'npm test', test_files: ['tests/x.test.js'] };
+    assert.doesNotThrow(() => PHASE_DEFS[4].validate(JSON.stringify(m), { dir }));
   });
 });

@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.85+
+**Aitri version:** v2.0.0-rc.86+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -207,8 +207,9 @@ Written by Phase 4 (Developer persona). Implementation tracking and test runner 
 - At least one of `files_created` or `files_modified` must be a non-empty array — supports both greenfield (new files only) and modification/redesign work
 - `technical_debt` field is required — use `[]` if no substitutions were made
 - Each `technical_debt` entry must have `fr_id` and a non-generic `substitution`
-- `test_runner` is required (e.g. `"npm test"`, `"node --test tests/"`)
-- `test_files` must be a non-empty array listing all files with `@aitri-tc` markers
+- `test_runner` is required (e.g. `"npm test"`, `"node --test tests/"`) — **except** in manual-verification mode (see below)
+- `test_files` must be a non-empty array listing all files with `@aitri-tc` markers — same manual-mode exception; entries are flat string paths (objects are rejected)
+- **Manual-verification mode (v2.0.0-rc.86+):** when every `03_TEST_CASES.json` test case is `automation: "manual"`, the project has no automated runner by design, so `test_runner` and `test_files` are **optional** in `04_BUILD_REPORT.json`. A reader must therefore treat both as possibly-absent on a manual-mode build (do not assume `test_runner` is always a string). With any automated test case present, both stay required as before.
 
 **Phase gate:** Approved when `"4"` is in `approvedPhases[]`.
 

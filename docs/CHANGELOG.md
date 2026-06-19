@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.86] — 2026-06-19 — Build phase inherits Phase-3 manual mode (FB-MULTI-0619 T1.3)
+
+Evidence: the same .NET/Umbraco migration consumer (Bravoauto Brunei #55) whose no_go_zone forbids an automated suite — `complete 3` accepted 45 `automation: "manual"` TCs, but `complete 4` then hard-required a `test_runner` + `test_files` with `@aitri-tc` markers, forcing the agent to invent a runner the project does not use. The two gates disagreed about the same manual decision.
+
+- **Manual-mode waiver** ([phase4.js](../lib/phases/phase4.js)): when every `03_TEST_CASES.json` test case is `automation: "manual"`, `complete 4` treats `test_runner`/`test_files` as optional (both still shape-checked when present). Derived from the validated Phase-3 artifact, not a flag.
+- **Class B guard — conservative by construction:** `allCoveredTCsManual(dir)` returns true ONLY when the artifact is readable, non-empty, and EVERY TC is manual. One automated TC, a TC with no `automation` field (defaults automated), an empty/unreadable artifact, or no `dir` → false → the runner stays required. Greenfield, mixed, and unknown projects are byte-identical to rc.85 — verified by a dedicated "greenfield still passes / one automated TC still requires runner / no-dir unchanged" test trio.
+- Trade-off: a fully-manual project can now reach `approve 4` without an automated runner; it verifies via `aitri tc verify <TC> --result …` (and `--evidence`, rc.85). It cannot accidentally skip automation it actually has — the waiver requires the all-manual decision to already be sealed in Phase 3.
+- Tests: +7 dedicated (1598 → 1605 green). Contract: [ARTIFACTS.md](../docs/integrations/ARTIFACTS.md) + integrations CHANGELOG note that `test_runner`/`test_files` may be absent on a manual-mode build (additive — readers must treat them as optional in that mode).
+
 ## [2.0.0-rc.85] — 2026-06-19 — `verify-run` reads TRX / JUnit-XML result files; `tc verify --evidence` (FB-MULTI-0619 T1.1)
 
 Evidence: two third-party .NET/Umbraco migration consumers (Suzuki CR, Bravoauto Brunei) hit the same blocker — `dotnet test` (xUnit) ran and passed, but `verify-run` marked **all** TCs `skip` ("not detected in test runner output"), so a C# stack had **no path to a green `verify-complete`**. Root cause ([verify.js](../lib/commands/verify.js)): every TC-result parser keyed on JS-glyph / Go / pytest stdout conventions; runners that write per-test verdicts to a **file** (TRX, JUnit-XML) emit nothing parseable to stdout. Class A fix — additive, stack-agnostic, no other stack changes behavior.
