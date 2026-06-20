@@ -73,6 +73,21 @@ describe('cmdTC — tc verify', () => {
     assert.equal(d.summary.manual_verified, 1);
   });
 
+  it('summary buckets partition the results: passed+failed+skipped+manual === total (FB-MULTI-0619 #3)', () => {
+    const dir = makeDir();
+    writeResults(dir, [
+      { tc_id: 'TC-001h', status: 'pass', notes: '' },
+      { tc_id: 'TC-002f', status: 'manual', notes: '' },
+    ]);
+    // Verifying a manual TC must move it into `passed`, NOT leave it double-counted
+    // in `manual` (the contract bug: a verified manual TC was counted in both).
+    cmdTC(makeCtx(dir, ['verify', 'TC-002f', '--result', 'pass', '--notes', 'ok']));
+    const s = readResults(dir).summary;
+    assert.equal(s.manual, 0, 'a verified manual TC is no longer status:"manual" — not counted in manual');
+    assert.equal(s.manual_verified, 1, 'manual_verified separately tracks it (overlaps passed)');
+    assert.equal(s.passed + s.failed + s.skipped + s.manual, 2, 'buckets must sum to total');
+  });
+
   it('recomputes fr_coverage so it does not contradict the summary (FB-MULTI-0619 #2)', () => {
     const dir = makeDir();
     // The artifacts recomputeFRCoverage needs: TC→FR map + FR ids.

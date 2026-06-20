@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.96 (2026-06-20) — `04_TEST_RESULTS.json#summary.manual` no longer double-counts verified manual TCs (FB-MULTI-0619 #3) — additive
+
+`aitri tc verify` computed `summary.manual` as "status manual OR verified_manually", double-counting a verified manual TC in both `passed` and `manual` so `passed+failed+skipped+manual` exceeded `total`. Now `manual` counts by status only (matching the value `verify-run` already wrote), so the four buckets partition the results and sum to `total`. **Reader impact:** a consumer that summed the buckets (or trusted `summary.manual` as "currently-pending manual") gets the correct value; `manual_verified` is unchanged (still the overlapping count of verified manual TCs). No field added/removed/retyped — a miscomputed value corrected.
+
 ## v2.0.0-rc.95 (2026-06-19) — All-manual `verify-run` seeds `04_TEST_RESULTS.json` (no spawn); `fr_coverage` recomputed on `tc verify` (FB-MULTI-0619 #2) — additive
 
 When every `03_TEST_CASES.json` test case is `automation:"manual"` (no automated runner, by no_go_zone) — **root scope** — `verify-run` now writes `04_TEST_RESULTS.json` with all TCs `status:"manual"` without launching a runner (previously it could ENOENT and write nothing).

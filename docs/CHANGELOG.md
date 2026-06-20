@@ -5,6 +5,13 @@
 
 ---
 
+## [2.0.0-rc.96] — 2026-06-20 — `tc verify` summary buckets sum to total again (FB-MULTI-0619 #3)
+
+`aitri tc verify`'s `recomputeSummary` counted `manual` as `status === 'manual' || verified_manually`, so a manual TC that was verified (status flips to `pass`/`fail`, `verified_manually:true`) was **double-counted** — in `passed` AND `manual`. The documented contract `passed + failed + skipped + manual === total` broke (e.g. 2 results → 2 passed + 1 manual = 3), and Hub read a self-contradicting summary. `verify.js` already had the correct version; the rc.90 guided-mode extraction preserved tc.js's wrong one.
+
+- [tc.js](../lib/commands/tc.js) `recomputeSummary` now counts `manual` by **status** (`r.status === 'manual'`), matching `verify.js`. A verified manual TC is counted in `passed`/`failed`; `manual_verified` separately (and overlappingly) tracks how many manual TCs were verified. The four status buckets now partition the results.
+- One-line behavior fix; `summary.manual` value changes for any results set with a verified manual TC. Test: +1 (sum-to-total invariant). 1636 green.
+
 ## [2.0.0-rc.95] — 2026-06-19 — All-manual project: verify-run seeds manual results instead of dead-ending, with no false-green (FB-MULTI-0619 #2)
 
 rc.86 let an all-manual project (no_go_zone forbids an automated suite) pass `complete 4` with no `test_runner`. But `verify-run` then defaulted to `npm test`, which ENOENTs on a non-Node stack (the .NET case) and exits **without** writing `04_TEST_RESULTS.json` — so `tc verify` was blocked ("run verify-run first") and the next-action ladder kept pointing at `verify-run`. The project Phase 3 honored as manual hit a wall at Phase 5. (A `--cmd "<build>"` workaround existed — Bravoauto used it — but an honest manual project shouldn't have to invent a runner.) Two adversarial review passes hardened the fix so unsticking the project does not create a *false-green*.
