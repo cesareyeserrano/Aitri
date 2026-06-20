@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.92] — 2026-06-19 — Manual TCs can state WHY they can't be automated; over-use is surfaced (FB-MULTI-0619)
+
+The honest worry: an agent can push automatable work to the human by declaring tests `automation: "manual"`. Aitri can't mechanically tell a legitimate manual test (needs real SSO creds, a physical device) from automation quietly skipped — but it can make the difference **visible**, without blocking the legitimately-manual project (its no_go_zone forbids an automated suite). Advisory, non-blocking — the integrality guard for a Class-B honor-system boundary.
+
+- **`aitri tc mark-manual <TC> --reason "..."`** ([tc.js](../lib/commands/tc.js)) stores an additive `manual_reason` on the TC. Marking manual with **no** reason prints a nudge (not an error). A reason can be added to an already-manual TC.
+- **Guided `tc verify` surfaces it**: each manual TC shows `Manual because: <reason>` or `⚠ no reason given`, and the header reports `K of N pending manual TC(s) have no stated reason` — so a reviewer spots an unjustified dump at the moment of verifying. Joins the rc.90 manual-share signal (`All N are manual — no automated tests`).
+- Deliberately **advisory, never a gate**: a hard block would break the legitimate all-manual project (the Class-C/B distinction in the batch doc). It shifts manual from "free, invisible escape" to "must justify each, in the reviewer's face" — the realistic best for an honor-system boundary; Aitri cannot certify a human's "I ran it".
+- Additive `manual_reason` field (ARTIFACTS.md + integrations CHANGELOG). Tests: +4 (1621 → 1625 green).
+
 ## [2.0.0-rc.91] — 2026-06-19 — `tc verify --evidence` mechanically confirms a parseable results file (FB-MULTI-0619)
 
 `--evidence` (rc.85) anchored a manual override to a file that must exist — stronger than a bare note, but it only checked existence, not relevance. Now, when the evidence is a **parseable results file** (TRX / JUnit-XML), Aitri reads it and confirms it actually backs the claim:

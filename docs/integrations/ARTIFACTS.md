@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.91+
+**Aitri version:** v2.0.0-rc.92+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -143,7 +143,9 @@ Written by Phase 3 (QA persona). Test cases keyed to FRs, user stories, and acce
       "test_data": {},
       "given": "string",
       "when": "string",
-      "then": "string"
+      "then": "string",
+      "automation": "auto | manual (optional, default auto)",
+      "manual_reason": "string (optional) — why this TC can't be automated"
     }
   ]
 }
@@ -164,6 +166,7 @@ Written by Phase 3 (QA persona). Test cases keyed to FRs, user stories, and acce
 - For multi-FR TCs, use `"frs": ["FR-001","FR-002"]` (string array) instead of a comma-separated `requirement_id`. `frs` is recognized by `aitri verify-run` (v0.1.90+) AND, since v2.0.0-rc.26, by `aitri complete 3` — a TC may carry `frs` instead of `requirement_id`, and `complete 3` buckets it into each targeted FR for the per-FR + FR-MUST coverage rules (it used to reject any TC without `requirement_id`, making the documented `frs` form uncompletable). When present, `frs` wins over `requirement_id` in both. Each TC must target at least one of `requirement_id` or a non-empty `frs[]`.
 - If `01_REQUIREMENTS.json` has structured AC ids: TC `ac_id` values are required and cross-checked against the ids in `user_stories[].acceptance_criteria` (the error lists the valid ids). If ACs are plain strings, `ac_id` is optional and any declared values are not validated (an informational note is emitted). All MUST requirements (FR or NFR, v2.0.0-rc.27+) must have at least one TC.
 - `verify-run` (v0.1.90+) refuses to run and refuses to write `04_TEST_RESULTS.json` if `test_cases[]` is non-empty and no entry exposes `requirement_id` or `frs` (legacy `requirement` field alone is not enough; migrate explicitly).
+- **`automation` / `manual_reason`** (optional, `manual_reason` v2.0.0-rc.92+) — `automation: "manual"` (set by `aitri tc mark-manual` or authored directly) excludes the TC from the automated runner gate. `manual_reason` is the additive, **non-blocking** justification for why it can't be automated; the guided `aitri tc verify` checklist shows it and flags manual TCs that lack one (so a reviewer can tell a justified manual test from skipped automation). Neither field is validated by `complete 3`; old readers ignore them.
 
 **TC naming convention:** suffix `h` = happy path (e.g. `TC-001h`), `f` = failure/negative (e.g. `TC-001f`), `e` = edge case (e.g. `TC-001e`).
 

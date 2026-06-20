@@ -176,6 +176,30 @@ describe('cmdTC — tc mark-manual', () => {
     assert.equal(d.test_cases.find(t => t.id === 'TC-001h').automation, 'auto');
   });
 
+  it('stores manual_reason when --reason is given', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'auto' }]);
+    cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e', '--reason', 'requires real Microsoft SSO credentials']));
+    const tc = readTestCases(dir).test_cases.find(t => t.id === 'TC-002e');
+    assert.equal(tc.automation, 'manual');
+    assert.equal(tc.manual_reason, 'requires real Microsoft SSO credentials');
+  });
+
+  it('nudges (does not block) when marking manual with no --reason', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'auto' }]);
+    const out = captureStdout(() => cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e'])));
+    assert.match(out, /No reason given/);
+    assert.equal(readTestCases(dir).test_cases.find(t => t.id === 'TC-002e').automation, 'manual');
+  });
+
+  it('can add a reason to an already-manual TC (not a no-op when --reason given)', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'manual' }]);
+    cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e', '--reason', 'needs a physical device']));
+    assert.equal(readTestCases(dir).test_cases.find(t => t.id === 'TC-002e').manual_reason, 'needs a physical device');
+  });
+
   it('adds automation: "manual" when field was absent', () => {
     const dir = makeDir();
     writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e' }]);
@@ -372,6 +396,22 @@ describe('cmdTC — tc verify (guided, no TC id)', () => {
     assert.match(out, /non-interactive/i);
     // unchanged on disk (no prompting happened)
     assert.equal(fs.readFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), 'utf8'), before);
+  });
+
+  it('shows the manual reason in the checklist, and flags TCs lacking one', () => {
+    const dir = makeDir();
+    writeResults(dir, [
+      { tc_id: 'TC-005', status: 'manual', notes: 'm' },
+      { tc_id: 'TC-006', status: 'manual', notes: 'm' },
+    ]);
+    writeTestCases(dir, [
+      { id: 'TC-005', automation: 'manual', title: 'SSO login', manual_reason: 'needs real MS credentials' },
+      { id: 'TC-006', automation: 'manual', title: 'Mobile layout' },
+    ]);
+    const out = captureStdout(() => cmdTC(makeCtx(dir, ['verify'])));
+    assert.match(out, /Manual because: needs real MS credentials/);
+    assert.match(out, /no reason given/);
+    assert.match(out, /1 of 2 pending manual TC\(s\) have no stated reason/);
   });
 
   it('warns when EVERY test case is manual (no automated tests)', () => {

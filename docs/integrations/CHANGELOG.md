@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.92 (2026-06-19) — `03_TEST_CASES.json#test_cases[].manual_reason` field (FB-MULTI-0619) — additive
+
+New optional string field on a test case: `manual_reason` — why the TC can't be automated (set by `aitri tc mark-manual --reason`). Non-blocking, never validated by `complete 3`; the guided `aitri tc verify` checklist shows it and flags manual TCs that lack one, so a reviewer can tell a justified manual test from automation an agent quietly skipped. Old readers ignore it. (`automation` is also now documented in ARTIFACTS.md — it predates this entry.)
+
 ## v2.0.0-rc.86 (2026-06-19) — `04_BUILD_REPORT.json` test_runner/test_files optional in manual-verification mode (FB-MULTI-0619 T1.3) — additive
 
 When every `03_TEST_CASES.json` test case is `automation: "manual"`, the project has no automated runner by design (its no_go_zone forbids a suite). `complete 4` now waives the previously-mandatory `test_runner` and `test_files` for that case only — matching the manual decision `complete 3` already accepts. With any automated test case present, both stay required exactly as before.
