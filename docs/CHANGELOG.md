@@ -5,6 +5,13 @@
 
 ---
 
+## [2.0.0-rc.97] — 2026-06-20 — Guided `tc verify` no longer busy-spins on closed stdin (FB-MULTI-0619 #4)
+
+The guided checklist's answer loop (`while answer not in p/f/s`) called `readStdinSync`, which returns `''` with no EAGAIN at EOF (Ctrl-D / piped/closed stdin). An empty answer re-prompted, so on a closed stdin the loop spun forever at 100% CPU, never exiting — hit by a TTY that then closes (Ctrl-D) or a CI harness that reports a TTY but feeds no input.
+
+- [tc.js](../lib/commands/tc.js): extracted `parseGuidedAnswer(raw)` — a pure, exported classifier that distinguishes a 0-byte read (`'eof'` → stop) from a blank Enter (a real `\n` byte → re-prompt) from a valid `p`/`f`/`s`. The guided loop now breaks on `'eof'` and stops cleanly, leaving the remaining TCs pending (nothing recorded for them).
+- Pure function so the EOF path is testable without a TTY. Tests: +3 (eof / valid keys / re-prompt-not-eof). 1639 green.
+
 ## [2.0.0-rc.96] — 2026-06-20 — `tc verify` summary buckets sum to total again (FB-MULTI-0619 #3)
 
 `aitri tc verify`'s `recomputeSummary` counted `manual` as `status === 'manual' || verified_manually`, so a manual TC that was verified (status flips to `pass`/`fail`, `verified_manually:true`) was **double-counted** — in `passed` AND `manual`. The documented contract `passed + failed + skipped + manual === total` broke (e.g. 2 results → 2 passed + 1 manual = 3), and Hub read a self-contradicting summary. `verify.js` already had the correct version; the rc.90 guided-mode extraction preserved tc.js's wrong one.

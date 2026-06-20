@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
-import { cmdTC } from '../../lib/commands/tc.js';
+import { cmdTC, parseGuidedAnswer } from '../../lib/commands/tc.js';
 
 function makeDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-tc-'));
@@ -37,6 +37,25 @@ function makeCtx(dir, args) {
   };
   return { dir, args, flagValue, err };
 }
+
+describe('parseGuidedAnswer() — guided checklist input, EOF-safe (FB-MULTI-0619 #4)', () => {
+  it('treats a 0-byte read (closed stdin / Ctrl-D) as eof, not a re-prompt', () => {
+    // The bug: re-prompting on '' busy-spins forever because readStdinSync returns
+    // '' with no EAGAIN at EOF. 'eof' lets the loop break instead of spinning.
+    assert.equal(parseGuidedAnswer(''), 'eof');
+  });
+  it('maps p/f/s (any case, leading char, trailing input) to the letter', () => {
+    assert.equal(parseGuidedAnswer('p\n'), 'p');
+    assert.equal(parseGuidedAnswer('F'), 'f');
+    assert.equal(parseGuidedAnswer('  s  '), 's');
+    assert.equal(parseGuidedAnswer('pass'), 'p');
+  });
+  it('returns null (re-prompt) for a blank Enter or an invalid key — NOT eof', () => {
+    assert.equal(parseGuidedAnswer('\n'), null);   // blank Enter: a real byte was read
+    assert.equal(parseGuidedAnswer('   '), null);
+    assert.equal(parseGuidedAnswer('x'), null);
+  });
+});
 
 describe('cmdTC — tc verify', () => {
 
