@@ -2330,7 +2330,7 @@ describe('parseXmlResults() — dispatcher', () => {
   });
 });
 
-describe('resolveResultFiles() — file/dir/auto resolution + stale guard', () => {
+describe('resolveResultFiles() — explicit --results only, no auto-discovery (FB-MULTI-0619 #1)', () => {
   function mkTmp() { return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-trx-')); }
 
   it('explicit file path is returned as-is', () => {
@@ -2340,40 +2340,61 @@ describe('resolveResultFiles() — file/dir/auto resolution + stale guard', () =
     assert.deepEqual(resolveResultFiles(dir, 'r.trx', Date.now()), [f]);
   });
 
-  it('explicit directory returns only the NEWEST result file (no stale merge)', () => {
+  it('explicit directory returns only the NEWEST fresh result file (no stale merge)', () => {
     const dir = mkTmp();
     const sub = path.join(dir, 'TestResults');
     fs.mkdirSync(sub);
+    const runStart = Date.now() - 1000;        // run started before both writes
     const oldF = path.join(sub, 'old.trx');
     const newF = path.join(sub, 'new.trx');
     fs.writeFileSync(oldF, '<UnitTestResult testName="N.TC_001h" outcome="Failed"/>');
     fs.writeFileSync(newF, '<UnitTestResult testName="N.TC_001h" outcome="Passed"/>');
-    const past = Date.now() - 10000;
-    fs.utimesSync(oldF, new Date(past), new Date(past));
-    const picked = resolveResultFiles(dir, 'TestResults', Date.now());
-    assert.deepEqual(picked, [newF]);
+    const newer = Date.now() + 5000;            // make newF unambiguously the newest
+    fs.utimesSync(newF, new Date(newer), new Date(newer));
+    assert.deepEqual(resolveResultFiles(dir, 'TestResults', runStart), [newF]);
   });
 
-  it('auto-discovery ignores files older than the run start (stale .trx guard)', () => {
+  it('explicit directory with ONLY stale files (older than run start) resolves to empty', () => {
     const dir = mkTmp();
     const sub = path.join(dir, 'TestResults');
     fs.mkdirSync(sub);
     const stale = path.join(sub, 'stale.trx');
     fs.writeFileSync(stale, '<UnitTestResult testName="N.TC_001h" outcome="Passed"/>');
-    const past = Date.now() - 60000;
+    const runStart = Date.now();
+    const past = runStart - 60000;              // written a minute before this run started
     fs.utimesSync(stale, new Date(past), new Date(past));
-    // runStartMs ~ now → stale file (mtime 60s ago) is excluded
-    assert.deepEqual(resolveResultFiles(dir, null, Date.now()), []);
+    assert.deepEqual(resolveResultFiles(dir, 'TestResults', runStart), []);
   });
 
-  it('auto-discovery picks up a fresh result file written during the run', () => {
+  it('NO --results flag → empty even when a fresh result file exists (no silent auto-discovery)', () => {
+    // The core false-pass guard: a fresh result file in the tree must NOT be
+    // auto-credited without an explicit --results pointer.
     const dir = mkTmp();
     const sub = path.join(dir, 'TestResults');
     fs.mkdirSync(sub);
     const fresh = path.join(sub, 'fresh.trx');
-    const runStart = Date.now();
     fs.writeFileSync(fresh, '<UnitTestResult testName="N.TC_001h" outcome="Passed"/>');
-    assert.deepEqual(resolveResultFiles(dir, null, runStart), [fresh]);
+    assert.deepEqual(resolveResultFiles(dir, null, Date.now()), []);
+  });
+
+  it('NO --results flag → empty even when a stray fixture-named file is fresh (the reported bug)', () => {
+    const dir = mkTmp();
+    const fixtures = path.join(dir, 'fixtures');
+    fs.mkdirSync(fixtures);
+    const stray = path.join(fixtures, 'TEST-sample.xml');   // a committed sample, not this run's output
+    fs.writeFileSync(stray, '<testsuite><testcase name="N.TC_001h"/></testsuite>');
+    assert.deepEqual(resolveResultFiles(dir, null, Date.now() - 5000), []);
+  });
+
+  it('explicit directory with a missing/NaN run start excludes everything (never admits stale)', () => {
+    // Guard against the falsy-runStartMs hole: an absent timestamp must NOT silently
+    // admit stale files — it excludes all (mt >= NaN is false), the safe failure mode.
+    const dir = mkTmp();
+    const sub = path.join(dir, 'TestResults');
+    fs.mkdirSync(sub);
+    fs.writeFileSync(path.join(sub, 'fresh.trx'), '<UnitTestResult testName="N.TC_001h" outcome="Passed"/>');
+    assert.deepEqual(resolveResultFiles(dir, 'TestResults', undefined), []);
+    assert.deepEqual(resolveResultFiles(dir, 'TestResults', NaN), []);
   });
 
   it('missing explicit path resolves to empty (no throw)', () => {

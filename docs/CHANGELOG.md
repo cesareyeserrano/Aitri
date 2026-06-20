@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.94] — 2026-06-19 — verify-run no longer hunts the tree for result files (false-PASS guard) (FB-MULTI-0619 #1)
+
+Post-ship adversarial review of the rc.85 TRX/JUnit adapter found a correctness hole: `verify-run` auto-discovered result files by walking the project tree for any `*.trx` / `TEST-*.xml` / `junit*.xml` whose mtime looked fresh (the `runStartMs - 1000` guard even admitted files modified just *before* the run). On a stack whose stdout the parsers can't read (.NET/Java — exactly where the file fallback matters), a committed fixture or a stale result file touched by a `git checkout`/editor-save could be credited as the run's verdict — a **false PASS** the real runner never emitted. That breaks Aitri's one promise: a reported result is real. No consumer asked for the hunt (Suzuki/Bravoauto used the explicit `--results`/`--cmd`/`--evidence` paths); it was an author-added convenience that introduced the bug.
+
+- **No silent auto-discovery.** [resolveResultFiles](../lib/commands/verify.js) returns `[]` when no `--results` is given — the runner-result path is now strictly explicit. `--results <file>` is honored as-is (the operator's attestation, like `--evidence`); `--results <dir>` picks the single **newest file written by this run** (mtime ≥ run start), so stale guid-named siblings can't mask the current verdict, and an only-stale dir resolves to `[]` (warned). The `-1000ms` slop is gone.
+- **Teaches instead of guessing.** When the runner emits nothing parseable to stdout and no `--results` was given, `verify-run` prints how to point Aitri at the file (`--results TestResults/` — dotnet prints `Results File: <path>`) or record evidence (`tc verify <TC> --evidence <path>`). Suppressed for all-manual projects. Consumed files are listed loudly so a wrong pointer is caught by eye.
+- No schema change (the `evidence` field stays). Briefings ([build.md](../templates/phases/build.md), [AGENTS.md](../templates/AGENTS.md)) corrected — they had claimed auto-detection. Stack-agnostic: a JS project that reads results from stdout never enters this path. Tests: rewrote the resolution suite + added the fresh-file/stray-fixture false-PASS regressions (+1, 1627 green).
+
 ## [2.0.0-rc.93] — 2026-06-19 — Friendly message instead of a raw stack trace outside an Aitri project (FB-MULTI-0619 T3.1)
 
 Evidence: a consumer ran `aitri resume` in a not-yet-initialized folder and got a full Node stack trace (`Error: Not an Aitri project ... at buildProjectSnapshot ... at ModuleJob.run`) that read like a crash — a first-time user couldn't tell "wrong folder / need to init" from "the tool is broken".

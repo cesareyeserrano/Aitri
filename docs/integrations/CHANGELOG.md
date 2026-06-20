@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.94 (2026-06-19) — `verify-run` reads result files only from explicit `--results` (no auto-discovery) (FB-MULTI-0619 #1) — additive
+
+Corrects the rc.85 behavior below. `verify-run` **no longer auto-discovers** TRX/JUnit-XML result files by walking the project tree — that could credit a TC PASS from a file the run never wrote (a committed fixture, or a stale result touched by `git checkout`/editor-save), a false PASS. The runner-result file path is now strictly explicit: `verify-run --results <file|dir>`. A `<dir>` resolves to the single newest file written by the run (mtime ≥ run start); stale siblings are excluded.
+
+**Reader impact: none on artifact shape.** `04_TEST_RESULTS.json` is unchanged (the `evidence` field stays). This is a CLI-behavior correction, not a schema change. Marked additive because no artifact shape changed; flagged here because the rc.85 entry advertised auto-discovery as a capability and it is now gone.
+
 ## v2.0.0-rc.92 (2026-06-19) — `03_TEST_CASES.json#test_cases[].manual_reason` field (FB-MULTI-0619) — additive
 
 New optional string field on a test case: `manual_reason` — why the TC can't be automated (set by `aitri tc mark-manual --reason`). Non-blocking, never validated by `complete 3`; the guided `aitri tc verify` checklist shows it and flags manual TCs that lack one, so a reviewer can tell a justified manual test from automation an agent quietly skipped. Old readers ignore it. (`automation` is also now documented in ARTIFACTS.md — it predates this entry.)
@@ -33,7 +39,7 @@ When every `03_TEST_CASES.json` test case is `automation: "manual"`, the project
 Two additive changes, both unblocking stacks whose test runners write results to a **file** rather than parseable stdout (the `.NET`/`dotnet test` blocker, also Java/Maven/Gradle, pytest `--junitxml`):
 
 1. **`results[].evidence`** (optional string) — written by `aitri tc verify --evidence <path>`. Records an automated TC whose runner output Aitri could not parse, anchored to a real on-disk artifact instead of requiring it be pre-declared manual. Absent on auto-parsed results; old readers ignore it. Joins the existing `verified_manually`/`verified_at` (now documented).
-2. **`verify-run` TRX / JUnit-XML parsing** — `verify-run --results <file|dir>` (and auto-discovery of fresh `*.trx` / `TEST-*.xml` / `junit*.xml` under the project dir) reads structured per-test verdicts and merges them fill-only (live stdout parsers still win). No artifact-shape change; a stack that emits no such file is unaffected.
+2. **`verify-run` TRX / JUnit-XML parsing** — `verify-run --results <file|dir>` (and auto-discovery of fresh `*.trx` / `TEST-*.xml` / `junit*.xml` under the project dir — **auto-discovery removed in rc.94, see above**) reads structured per-test verdicts and merges them fill-only (live stdout parsers still win). No artifact-shape change; a stack that emits no such file is unaffected.
 
 **No field type changed, nothing removed.** A consumer reading `04_TEST_RESULTS.json` sees one new optional field on result entries and otherwise-identical output. Hub needs no change.
 

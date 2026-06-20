@@ -138,8 +138,10 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
        TC id, e.g. function/method contains TC_006h…). Native for most JS/Go/Python runners.
     2. RESULTS FILE — the runner writes JUnit-XML or TRX; run aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}
        --results <file-or-dir>. JUnit-XML is near-universal (most runners emit it natively or via a
-       reporter); .trx / TEST-*.xml / junit*.xml are also auto-detected. This is the path for any
-       stack the stdout convention does not fit.
+       reporter); TRX is the .NET form. You MUST pass --results explicitly — aitri does not hunt the
+       tree for result files (a stray/stale file could otherwise credit a false PASS). Point it at the
+       dir (e.g. --results TestResults/) and aitri reads the newest file the run wrote. This is the
+       path for any stack the stdout convention does not fit.
     3. EVIDENCE — if neither fits, record each result against a file:
        aitri tc verify <TC> --result pass|fail --evidence <path>.
   test_files: every file that contains @aitri-tc markers — required for aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}
