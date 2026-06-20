@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.99] — 2026-06-20 — Harden the rc.98 JUnit fix (CDATA false-PASS) + correct the Manual summary line (FB-MULTI-0619 #5 follow-up)
+
+Adversarial review of rc.98 found it traded the rare false-FAIL for a **worse false-PASS**: the body bound used `xml.indexOf('<testcase')` — a raw substring with no word boundary — so a literal `<testcase`/`<failure` inside a runner's CDATA-wrapped captured output (`<system-out><![CDATA[ … ]]>`, standard in jest-junit/pytest/Surefire) truncated the body and **dropped a real `<failure>`**, reporting PASS. False-PASS is the dangerous direction.
+
+- [verify.js](../lib/commands/verify.js) `parseJUnitXmlResults` now strips CDATA and comment bodies before scanning (failure detection keys on the `<failure>`/`<error>`/`<skipped>` tag, never its CDATA content), and bounds the body with a **word-boundary** next-`<testcase` search (`/<testcase[\s/>]/`) so `<testcases>`/`<testsuite>` and bare substrings can't false-match. Well-formed XML unchanged; the rc.98 sibling-bleed fix preserved.
+- Also fixed a pre-existing display bug the rc.96 contract change surfaced: the verify-run report's `Manual:` line printed `manual_verified/manual` — two disjoint counts with different denominators (nonsense like `2/1 verified`). Now `manual_verified/(manual_verified+manual) verified (N pending)`.
+- Tests: +3 (CDATA false-PASS both directions; `<testsuites>` not a boundary). Also made the Phase-1 `buildBriefing` seed tests **hermetic** — they pointed at the shared `/tmp` and a stray real `FEATURE_IDEA.md` could shadow the test seed and fail order-dependently; they now use an isolated empty temp dir. 1643 green.
+
 ## [2.0.0-rc.98] — 2026-06-20 — JUnit-XML parser: an unclosed `<testcase>` no longer flips a PASS to FAIL (FB-MULTI-0619 #5)
 
 `parseJUnitXmlResults` read a testcase's body as "from the opening tag to the next `</testcase>`, or to EOF if none". On malformed XML with a **missing close tag**, the EOF fallback slurped the rest of the file and saw a *sibling's* `<failure>`/`<skipped>`, flipping a passing TC to FAIL — a false regression caused by the input being malformed, not by the test.

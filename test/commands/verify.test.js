@@ -2490,6 +2490,30 @@ describe('parseJUnitXmlResults() — Maven/Gradle/jest-junit/pytest junitxml', (
     const xml = `<testsuite><testcase name="TC-003f x"><failure message="boom"/></testsuite>`;
     assert.equal(parseJUnitXmlResults(xml).get('TC-003f')?.status, 'fail');
   });
+
+  it('a literal "<testcase"/"<failure" inside CDATA captured output does NOT fake a verdict (FB-MULTI-0619 #5)', () => {
+    // The dangerous direction: a passing-looking truncation that DROPS a real failure.
+    // Runners wrap captured stdout in <system-out><![CDATA[ ... ]]></system-out>, which
+    // routinely contains literal markup. The failure here is REAL — must report fail.
+    const xml = `<testsuite>
+  <testcase classname="A" name="TC-100f real failure">
+    <system-out><![CDATA[ app logged: <testcase name="x"> and <failure> in its output ]]></system-out>
+    <failure message="boom">stack</failure>
+  </testcase>
+  <testcase classname="A" name="TC-101h clean pass">
+    <system-out><![CDATA[ <testcase> <failure> noise ]]></system-out>
+  </testcase>
+</testsuite>`;
+    const r = parseJUnitXmlResults(xml);
+    assert.equal(r.get('TC-100f')?.status, 'fail', 'a real <failure> must not be dropped by CDATA noise (false PASS)');
+    assert.equal(r.get('TC-101h')?.status, 'pass', 'CDATA noise must not fake a failure either');
+  });
+
+  it('does not mistake <testcases>/<testsuite> for a testcase boundary', () => {
+    const xml = `<testsuites><testsuite><testcase name="TC-102h ok"><failure/></testcase></testsuite></testsuites>`;
+    // TC-102h genuinely fails; the wrapping <testsuites> must not bound the body early.
+    assert.equal(parseJUnitXmlResults(xml).get('TC-102h')?.status, 'fail');
+  });
 });
 
 describe('parseXmlResults() — dispatcher', () => {

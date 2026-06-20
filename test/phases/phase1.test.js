@@ -5,6 +5,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { PHASE_DEFS } from '../../lib/phases/index.js';
 
+// Hermetic empty dir for buildBriefing() seed tests. buildBriefing reads IDEA.md /
+// FEATURE_IDEA.md from `dir` and only falls back to `inputs` when the file is absent
+// — so pointing these tests at the shared `/tmp` let a stray real FEATURE_IDEA.md
+// (left by a canary run) shadow the test's seed and flip the result order-dependently.
+// An empty temp dir guarantees the inputs fallback. (Test-isolation fix.)
+const HERMETIC_SEED_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p1-seed-'));
+
 const validP1 = () => JSON.stringify({
   project_name: 'Test Project',
   project_summary: 'A test project',
@@ -365,33 +372,33 @@ describe('Phase 1 — buildBriefing() empty-section warnings (Rank 2)', () => {
   it('warns on stderr when Problem section is absent from IDEA.md', () => {
     // No ## Problem header at all → m=null → body='' → warning fires
     const idea = '## Target Users\nReal users here.\n## Business Rules\nThe system must do X.\n## Success Criteria\nGiven A when B then C.\n';
-    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: '/tmp', inputs: { 'IDEA.md': idea }, feedback: null }));
+    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: HERMETIC_SEED_DIR, inputs: { 'IDEA.md': idea }, feedback: null }));
     assert.match(stderr, /Problem/);
   });
 
   it('warns on stderr when Business Rules section has only HTML comment placeholder', () => {
     // Comment-only section → comment stripped → body='' → warning fires
     const idea = '## Problem\nReal problem here.\n## Target Users\nReal users here.\n## Business Rules\n<!-- list rules -->\n## Success Criteria\nGiven A when B then C.\n';
-    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: '/tmp', inputs: { 'IDEA.md': idea }, feedback: null }));
+    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: HERMETIC_SEED_DIR, inputs: { 'IDEA.md': idea }, feedback: null }));
     assert.match(stderr, /Business Rules/);
   });
 
   it('warns on stderr when section contains only HTML comment placeholder', () => {
     const idea = '## Problem\n<!-- What problem does this solve? -->\n\n## Target Users\nReal users\n## Business Rules\nThe system must do X.\n## Success Criteria\nGiven X when Y then Z.\n';
-    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: '/tmp', inputs: { 'IDEA.md': idea }, feedback: null }));
+    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: HERMETIC_SEED_DIR, inputs: { 'IDEA.md': idea }, feedback: null }));
     assert.match(stderr, /Problem/);
   });
 
   it('does not warn when all required sections are populated', () => {
     const idea = '## Problem\nThis is a real problem.\n## Target Users\nReal users\n## Business Rules\nThe system must do X.\n## Success Criteria\nGiven X when Y then Z.\n';
-    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: '/tmp', inputs: { 'IDEA.md': idea }, feedback: null }));
+    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: HERMETIC_SEED_DIR, inputs: { 'IDEA.md': idea }, feedback: null }));
     assert.equal(stderr, '', 'no warning when all required sections have content');
   });
 
   it('empty section warning is non-blocking — buildBriefing still returns a string', () => {
     const idea = '## Problem\n\n';
     let result;
-    captureStderr(() => { result = PHASE_DEFS[1].buildBriefing({ dir: '/tmp', inputs: { 'IDEA.md': idea }, feedback: null }); });
+    captureStderr(() => { result = PHASE_DEFS[1].buildBriefing({ dir: HERMETIC_SEED_DIR, inputs: { 'IDEA.md': idea }, feedback: null }); });
     assert.ok(typeof result === 'string' && result.length > 0, 'briefing must be returned even when sections are empty');
   });
 
@@ -400,14 +407,14 @@ describe('Phase 1 — buildBriefing() empty-section warnings (Rank 2)', () => {
   // warner must check the feature sections, not the root ones.
   it('[feature] warns about the empty FEATURE_IDEA section, referencing FEATURE_IDEA.md', () => {
     const seed = '## Feature\nAuth.\n## Problem / Why\nUsers need login.\n## Target Users\nMembers.\n## New Behavior\n\n## Success Criteria\nGiven X when Y then Z.\n';
-    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: '/tmp', inputs: { 'IDEA.md': seed }, feedback: null, featureRoot: '/parent' }));
+    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: HERMETIC_SEED_DIR, inputs: { 'IDEA.md': seed }, feedback: null, featureRoot: '/parent' }));
     assert.match(stderr, /New Behavior/);
     assert.match(stderr, /FEATURE_IDEA\.md/);
   });
 
   it('[feature] does NOT warn about root-only sections (e.g. Business Rules) absent from a feature seed', () => {
     const seed = '## Feature\nAuth.\n## Problem / Why\nUsers need login.\n## Target Users\nMembers.\n## New Behavior\nAdd a login form.\n## Success Criteria\nGiven X when Y then Z.\n';
-    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: '/tmp', inputs: { 'IDEA.md': seed }, feedback: null, featureRoot: '/parent' }));
+    const stderr = captureStderr(() => PHASE_DEFS[1].buildBriefing({ dir: HERMETIC_SEED_DIR, inputs: { 'IDEA.md': seed }, feedback: null, featureRoot: '/parent' }));
     assert.equal(stderr, '', 'a complete FEATURE_IDEA seed must not trigger root-section warnings');
   });
 });
