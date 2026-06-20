@@ -2471,6 +2471,25 @@ describe('parseJUnitXmlResults() — Maven/Gradle/jest-junit/pytest junitxml', (
     const xml = `<testcase name="TC-008h x"><error message="boom"/></testcase>`;
     assert.equal(parseJUnitXmlResults(xml).get('TC-008h')?.status, 'fail');
   });
+
+  it('an unclosed <testcase> does NOT absorb a sibling\'s <failure> (FB-MULTI-0619 #5)', () => {
+    // TC-001h is missing its </testcase>; without bounding, the body scan slurps to
+    // EOF and sees TC-002f's <failure>, flipping the PASS to a FAIL (false regression).
+    const xml = `<testsuite>
+  <testcase classname="A" name="TC-001h ok" time="0.01">
+  <testcase classname="A" name="TC-002f bad" time="0.02">
+    <failure message="boom">stack</failure>
+  </testcase>
+</testsuite>`;
+    const r = parseJUnitXmlResults(xml);
+    assert.equal(r.get('TC-001h')?.status, 'pass', 'unclosed PASS must stay pass, not inherit the sibling failure');
+    assert.equal(r.get('TC-002f')?.status, 'fail');
+  });
+
+  it('a genuinely-last unclosed <testcase> with its own <failure> still reports fail', () => {
+    const xml = `<testsuite><testcase name="TC-003f x"><failure message="boom"/></testsuite>`;
+    assert.equal(parseJUnitXmlResults(xml).get('TC-003f')?.status, 'fail');
+  });
 });
 
 describe('parseXmlResults() — dispatcher', () => {

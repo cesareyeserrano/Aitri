@@ -5,6 +5,13 @@
 
 ---
 
+## [2.0.0-rc.98] — 2026-06-20 — JUnit-XML parser: an unclosed `<testcase>` no longer flips a PASS to FAIL (FB-MULTI-0619 #5)
+
+`parseJUnitXmlResults` read a testcase's body as "from the opening tag to the next `</testcase>`, or to EOF if none". On malformed XML with a **missing close tag**, the EOF fallback slurped the rest of the file and saw a *sibling's* `<failure>`/`<skipped>`, flipping a passing TC to FAIL — a false regression caused by the input being malformed, not by the test.
+
+- [verify.js](../lib/commands/verify.js) `parseJUnitXmlResults` now bounds each testcase's body to whichever comes first: its own `</testcase>` or the next `<testcase` opening. A sibling's failure can no longer bleed into an unclosed testcase. Well-formed XML is byte-identical (its close precedes the next opening). The genuinely-last unclosed testcase still reads its own children to EOF (a real `<failure>` there still counts).
+- Tests: +2 (sibling-not-absorbed; last-unclosed-with-own-failure). 1641 green. (The lower-severity tail noted in review — a raw `>` inside an attribute value, and `extractTCId` picking the first of two TC ids in one name — are false-negatives bounded by well-formed writers and left as-is.)
+
 ## [2.0.0-rc.97] — 2026-06-20 — Guided `tc verify` no longer busy-spins on closed stdin (FB-MULTI-0619 #4)
 
 The guided checklist's answer loop (`while answer not in p/f/s`) called `readStdinSync`, which returns `''` with no EAGAIN at EOF (Ctrl-D / piped/closed stdin). An empty answer re-prompted, so on a closed stdin the loop spun forever at 100% CPU, never exiting — hit by a TTY that then closes (Ctrl-D) or a CI harness that reports a TTY but feeds no input.
