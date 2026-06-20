@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.94+
+**Aitri version:** v2.0.0-rc.95+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -279,6 +279,8 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
   ]
 }
 ```
+
+**`test_runner` / `exit_code`** — the exact command run and its exit code. **Manual-seed mode (v2.0.0-rc.95+):** when every TC is `automation: "manual"` (root scope), `verify-run` seeds the results without launching a runner, so **both are `null`** (nothing ran — they are not fabricated to `"npm test"`/`0`). A reader must accept `test_runner: null` and `exit_code: null` as well as their normal string/number forms. `fr_coverage` is recomputed when `aitri tc verify` records a result (rc.95+), so after manual verification it agrees with `summary` rather than reflecting only the verify-run snapshot.
 
 **`line_coverage`** (optional, v2.0.0-rc.9+) — measured line-coverage percentage, present only when `verify-run` was invoked with `--coverage-threshold` AND a recognized runner emitted a parseable figure. Stack-agnostic: node built-in `--coverage`, `go test -cover`, `pytest --cov`, `jest`/`vitest --coverage`. Absent when no threshold was requested or the runner's coverage output could not be parsed.
 

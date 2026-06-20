@@ -18,6 +18,17 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.95 (2026-06-19) — All-manual `verify-run` seeds `04_TEST_RESULTS.json` (no spawn); `fr_coverage` recomputed on `tc verify` (FB-MULTI-0619 #2) — additive
+
+When every `03_TEST_CASES.json` test case is `automation:"manual"` (no automated runner, by no_go_zone) — **root scope** — `verify-run` now writes `04_TEST_RESULTS.json` with all TCs `status:"manual"` without launching a runner (previously it could ENOENT and write nothing).
+
+**Reader impact (all additive, no shape change):**
+- An all-manual project's `04_TEST_RESULTS.json` now exists earlier (`summary.manual = N`, `passed/failed/skipped = 0`). For that seed, `test_runner` and `exit_code` are **`null`** (nothing ran) — readers already treating `test_runner` as optional (rc.86) handle this; `exit_code` may now be `null` as well as a number.
+- A status next-action of `aitri tc verify` may appear for such a pipeline.
+- `fr_coverage` is now **recomputed when `aitri tc verify` records a result**, not only at `verify-run` time — so after manual verification, `fr_coverage[].tests_passing`/`status` agree with `summary` (previously `summary` updated but `fr_coverage` stayed frozen at the verify-run snapshot). Readers cross-referencing the two no longer see a contradiction.
+
+Automated projects and feature-scope pipelines are unaffected.
+
 ## v2.0.0-rc.94 (2026-06-19) — `verify-run` reads result files only from explicit `--results` (no auto-discovery) (FB-MULTI-0619 #1) — additive
 
 Corrects the rc.85 behavior below. `verify-run` **no longer auto-discovers** TRX/JUnit-XML result files by walking the project tree — that could credit a TC PASS from a file the run never wrote (a committed fixture, or a stale result touched by `git checkout`/editor-save), a false PASS. The runner-result file path is now strictly explicit: `verify-run --results <file|dir>`. A `<dir>` resolves to the single newest file written by the run (mtime ≥ run start); stale siblings are excluded.

@@ -179,6 +179,28 @@ describe('buildProjectSnapshot()', () => {
     } finally { cleanup(dir); }
   });
 
+  it('all-manual seed → next action is tc verify, not a verify-run loop (FB-MULTI-0619 #2)', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, {
+        projectName: 'm', artifactsDir: 'spec',
+        approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+        verifyPassed: false,
+        // verify-run seeded manual results: all manual-pending, nothing automated.
+        lastVerifyRun: { passed: 0, failed: 0, skipped: 0, manual: 4, at: '2026-01-01T00:00:00.000Z' },
+        events: [],
+      });
+      writeJsonSpec(dir, '03_TEST_CASES.json', { test_cases: [] });
+      writeJsonSpec(dir, '04_BUILD_REPORT.json', { files_created: ['x'], technical_debt: [] });
+      const snap = buildProjectSnapshot(dir);
+      const cmds = snap.nextActions.map(a => a.command);
+      assert.ok(cmds.includes('aitri tc verify'),
+        'pending manual TCs (0 automated) must route to tc verify, not loop on verify-run');
+      assert.ok(!cmds.includes('aitri verify-run'),
+        'must NOT re-loop to verify-run when there is no automated runner to re-run');
+    } finally { cleanup(dir); }
+  });
+
   it('marks phase.drift = true when driftPhases includes the key', () => {
     const dir = tmpDir();
     try {
@@ -1059,7 +1081,7 @@ describe('nextActions ordering', () => {
       } finally { cleanup(dir); }
     });
 
-    it('still recommends verify-run when last run was all-manual (no skips)', () => {
+    it('routes to tc verify (not a verify-run loop) when last run was all-manual (FB-MULTI-0619 #2)', () => {
       const dir = tmpDir();
       try {
         seedPhase4Approved(dir, [
@@ -1068,7 +1090,9 @@ describe('nextActions ordering', () => {
         ]);
         const snap = buildProjectSnapshot(dir);
         const action = snap.nextActions.find(a => a.priority === 5);
-        assert.equal(action.command, 'aitri verify-run');
+        // All-manual (0 automated) has no runner to re-run — the next step is human
+        // verification, not looping back to verify-run.
+        assert.equal(action.command, 'aitri tc verify');
       } finally { cleanup(dir); }
     });
 

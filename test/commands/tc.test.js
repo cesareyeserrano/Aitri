@@ -73,6 +73,30 @@ describe('cmdTC — tc verify', () => {
     assert.equal(d.summary.manual_verified, 1);
   });
 
+  it('recomputes fr_coverage so it does not contradict the summary (FB-MULTI-0619 #2)', () => {
+    const dir = makeDir();
+    // The artifacts recomputeFRCoverage needs: TC→FR map + FR ids.
+    fs.writeFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-002f', requirement_id: 'FR-001', automation: 'manual', expected_result: 'r' }],
+    }));
+    // Stale fr_coverage as verify-run seeded it (manual, 0 passing).
+    writeResults(dir, [{ tc_id: 'TC-002f', status: 'manual', notes: '' }], { manual: 1 });
+    let d0 = readResults(dir);
+    d0.fr_coverage = [{ fr_id: 'FR-001', tests_passing: 0, tests_failing: 0, tests_skipped: 0, tests_manual: 1, status: 'manual' }];
+    fs.writeFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), JSON.stringify(d0));
+
+    cmdTC(makeCtx(dir, ['verify', 'TC-002f', '--result', 'pass', '--notes', 'verified by hand']));
+
+    const d = readResults(dir);
+    const fr = d.fr_coverage.find(f => f.fr_id === 'FR-001');
+    assert.equal(d.summary.passed, 1, 'summary reflects the verification');
+    assert.equal(fr.tests_passing, 1, 'fr_coverage must be recomputed, not left at 0 passing');
+    assert.equal(fr.status, 'covered', 'FR is now covered by the verified manual TC — no contradiction with the summary');
+  });
+
   it('allows re-verification of already-verified TC', () => {
     const dir = makeDir();
     writeResults(dir, [{ tc_id: 'TC-002f', status: 'pass', notes: 'first run', verified_manually: true, verified_at: '2026-01-01T00:00:00Z' }]);

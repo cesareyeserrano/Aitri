@@ -1388,6 +1388,81 @@ describe('cmdVerifyRun() — runner ENOENT does not persist degraded results', (
   });
 });
 
+describe('cmdVerifyRun() — all-manual project seeds results without spawning (FB-MULTI-0619 #2)', () => {
+  function seed(dir) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    // Manual mode: complete 4 (rc.86) waived test_runner/test_files because every TC is manual.
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases:  [1, 2, 3, 4],
+      completedPhases: [1, 2, 3, 4],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [
+        { id: 'TC-001h', title: 't1', requirement_id: 'FR-001', expected_result: 'r', automation: 'manual' },
+        { id: 'TC-001f', title: 't2', requirement_id: 'FR-001', expected_result: 'r', automation: 'manual' },
+      ],
+    }));
+    // No test_runner — the manual-mode build report (waived in rc.86).
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+      files_created: ['src/x.cs'], technical_debt: [],
+    }));
+  }
+  function silent(fn) {
+    const origLog = console.log; const origErr = process.stderr.write;
+    console.log = () => {}; process.stderr.write = () => true;
+    try { return fn(); } finally { console.log = origLog; process.stderr.write = origErr; }
+  }
+
+  it('does NOT spawn / ENOENT; writes 04_TEST_RESULTS.json with all TCs manual', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-allmanual-'));
+    try {
+      seed(dir);
+      let threw = false;
+      silent(() => {
+        // err() would be called on ENOENT (no runner). It must NOT be.
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { threw = true; throw new Error(m); } }); }
+        catch { /* only reached if err() throws — asserted below */ }
+      });
+      assert.equal(threw, false, 'all-manual verify-run must not hit the ENOENT/err path (no runner is spawned)');
+      const p = path.join(dir, 'spec/04_TEST_RESULTS.json');
+      assert.equal(fs.existsSync(p), true, '04_TEST_RESULTS.json must be seeded so tc verify is unblocked');
+      const d = JSON.parse(fs.readFileSync(p, 'utf8'));
+      assert.equal(d.results.length, 2);
+      assert.ok(d.results.every(r => r.status === 'manual'), 'every TC seeded as manual');
+      assert.equal(d.summary.manual, 2);
+      assert.equal(d.summary.passed, 0);
+      // Path-distinctive: the seed records NO runner / NO exit code. If the short-circuit
+      // were removed, the spawn path would run `npm test` and record test_runner:"npm test"
+      // + a numeric exit_code — so these two assertions fail unless the seed actually ran.
+      assert.equal(d.test_runner, null, 'seed must not fabricate a test_runner — nothing ran');
+      assert.equal(d.exit_code, null, 'seed must not fabricate an exit_code — nothing ran');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('an explicit --cmd still runs (does not seed) — operator asked for a command', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-allmanual-cmd-'));
+    try {
+      seed(dir);
+      let threw = false;
+      silent(() => {
+        // With --cmd pointing at a missing binary, the spawn path runs → ENOENT → err().
+        try {
+          cmdVerifyRun({
+            dir, args: [],
+            flagValue: (f) => f === '--cmd' ? 'definitely-not-a-real-binary-xyzzy' : null,
+            err: (m) => { threw = true; throw new Error(m); },
+          });
+        } catch { /* err() throws on ENOENT */ }
+      });
+      assert.equal(threw, true, 'with --cmd, the all-manual seed is bypassed and the command runs (ENOENT here)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── L2 (alpha.16): runtime mensajería neutral when no Playwright config ─────
 //
 // Pre-alpha.16 SKIP_NOTE always told the operator "E2E tests may also require
@@ -1881,6 +1956,82 @@ describe('cmdVerifyComplete() — feature-context emits prefixed verify-run hint
       } catch { /* expected */ }
       assert.ok(captured.includes('aitri feature verify-run foo'),
         `expected feature-prefixed verify-run hint, got: ${captured}`);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('cmdVerifyComplete() — zero-verification guard for all-manual seed (FB-MULTI-0619 #2)', () => {
+  function seed(dir, e1Status) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [
+        { id: 'TC-001h', title: 't1', requirement_id: 'FR-001', type: 'unit', expected_result: 'r', automation: 'manual' },
+        { id: 'TC-001f', title: 't2', requirement_id: 'FR-001', type: 'unit', expected_result: 'r', automation: 'manual' },
+      ],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+      files_created: ['x.cs'], technical_debt: [],
+    }));
+    // e1Status lets the test flip one TC to a verified pass.
+    const r1 = e1Status === 'pass'
+      ? { tc_id: 'TC-001h', status: 'pass', notes: 'verified by hand', verified_manually: true }
+      : { tc_id: 'TC-001h', status: 'manual', notes: 'pending' };
+    const passing = e1Status === 'pass' ? 1 : 0;
+    fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
+      executed_at: new Date().toISOString(),
+      test_runner: null, exit_code: null,
+      results: [r1, { tc_id: 'TC-001f', status: 'manual', notes: 'pending' }],
+      fr_coverage: [{ fr_id: 'FR-001', tests_passing: passing, tests_failing: 0, tests_skipped: 0, tests_manual: 2 - passing, status: passing > 0 ? 'covered' : 'manual' }],
+      summary: { total: 2, passed: passing, failed: 0, skipped: 0, manual: 2 - passing },
+    }));
+  }
+
+  it('BLOCKS when every TC is a pending manual seed (zero verification → no false green)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-zeroverify-'));
+    try {
+      seed(dir, 'manual');
+      let captured = '';
+      const err = (m) => { captured = m; throw new Error(m); };
+      try { cmdVerifyComplete({ dir, err }); } catch { /* expected */ }
+      assert.match(captured, /not yet verified|zero verification/i);
+      assert.match(captured, /tc verify/);
+      const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+      assert.notEqual(cfg.verifyPassed, true, 'must not green-light a project with nothing verified');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('PASSES once at least one manual TC is verified (status pass)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-zeroverify-ok-'));
+    try {
+      seed(dir, 'pass');
+      let captured = '';
+      const err = (m) => { captured = m; throw new Error(m); };
+      let threw = false;
+      try { cmdVerifyComplete({ dir, err }); } catch { threw = true; }
+      assert.equal(threw, false, `should not block once a manual TC is verified; got: ${captured}`);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT apply the zero-verification guard in feature scope (no feature tc verify to clear it)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-zeroverify-feat-'));
+    try {
+      seed(dir, 'manual'); // all pending manual
+      let captured = '';
+      const err = (m) => { captured = m; throw new Error(m); };
+      let threw = false;
+      // featureRoot set → feature scope. The root-only guard must not wall it (there is
+      // no `feature tc verify` to clear it); feature keeps its prior behavior.
+      try { cmdVerifyComplete({ dir, err, featureRoot: '/parent', scopeName: 'foo' }); } catch { threw = true; }
+      assert.doesNotMatch(captured, /zero verification|not yet verified/i,
+        'the zero-verification guard is root-only — must not fire for a feature pipeline');
+      void threw;
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
