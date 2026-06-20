@@ -670,7 +670,7 @@ describe('Phase 1 — discovery handoff (audit Tier-4)', () => {
 describe('Phase 1 — feature regression boundary (ADR-039 Phase 2)', () => {
   it('feature briefing (PARENT_REQUIREMENTS present) instructs converting Must Not Break → regression NFRs', () => {
     const b = PHASE_DEFS[1].buildBriefing({
-      dir: '/tmp', config: {},
+      dir: HERMETIC_SEED_DIR, config: {},
       inputs: { 'IDEA.md': '## Feature\nx\n## Must Not Break\nlogin keeps working\n',
                 'PARENT_REQUIREMENTS.json': '{"functional_requirements":[{"id":"FR-001"}]}' },
     });
@@ -680,7 +680,7 @@ describe('Phase 1 — feature regression boundary (ADR-039 Phase 2)', () => {
 
   it('non-feature briefing (no PARENT_REQUIREMENTS) omits the regression-boundary block', () => {
     const b = PHASE_DEFS[1].buildBriefing({
-      dir: '/tmp', config: {},
+      dir: HERMETIC_SEED_DIR, config: {},
       inputs: { 'IDEA.md': '## Problem\nx\n## Target Users\ny\n## Business Rules\nz\n## Success Criteria\nw\n' },
     });
     assert.ok(!b.includes('regression NFR'), 'greenfield briefing must not carry the feature-only regression block');
