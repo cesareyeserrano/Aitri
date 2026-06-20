@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.102] — 2026-06-20 — `feature checkpoint` — per-feature session note (FEAT-PARITY-0620 part 3, closes the plan)
+
+A feature can now save its own "save-my-place" handoff note, so a long feature build can be paused and resumed with its own narrative instead of only a project-level note. Asked for directly in the Ledger feedback (`aitri feature checkpoint` did not exist), and it completes the same write-side asymmetry as bug/backlog: `status`/`resume` already SHOW a per-feature session note, but there was no command to WRITE one per-feature.
+
+- **`aitri feature checkpoint <name> [--context "..."] [--name "snap"] [--list]`** ([feature.js](../lib/commands/feature.js) → `cmdCheckpoint` with the feature context) writes the feature's own `.aitri.local` session note and, with `--name`, a resume snapshot under `features/<name>/checkpoints/`. Root `checkpoint` is untouched.
+- **This closes FEAT-PARITY-0620.** Deliberately did NOT add `feature resume`/`validate`/`review` — they would be symmetry without need (the project `resume`/`status` already surface every feature; `feature verify-complete` already gates a feature's readiness; `review` already runs inside `complete`). Per the "don't add for completeness without evidence" rule, only the evidenced gap (`checkpoint`) was built. Feature pipelines now have parity on everything that acts on a feature's own data (`tc`, `bug`, `backlog`, `checkpoint`) on top of the already-identical phases + requirement gates.
+- Tests: +2 (feature checkpoint writes the feature `.aitri.local` not the root; `--name` snapshot lands under the feature). 1654 green.
+
 ## [2.0.0-rc.101] — 2026-06-20 — `bug` + `backlog` are now feature-scoped (FEAT-PARITY-0620 part 2)
 
 Two more commands that act on a feature's OWN data were root-only despite the data existing per-feature — the read-vs-write asymmetry the parity audit flagged: a feature already accrues bugs (`feature verify-run`/`verify-complete` auto-write + gate on its `BUGS.json`) and a backlog, but the operator could not triage them in feature scope.

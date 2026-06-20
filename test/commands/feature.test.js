@@ -568,3 +568,48 @@ describe('aitri feature bug / backlog', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// ── feature checkpoint (per-feature session note) ─────────────────────────────
+// FEAT-PARITY-0620 part 3: `aitri feature checkpoint <name>` saves the FEATURE's
+// own session note (.aitri.local) — paused/resumed with its own narrative.
+describe('aitri feature checkpoint', () => {
+  function seedFeatureDir(dir, name) {
+    writeFile(dir, path.join('features', name, '.aitri'), JSON.stringify({
+      projectName: name, artifactsDir: 'spec', approvedPhases: [], completedPhases: [],
+    }));
+    fs.mkdirSync(path.join(dir, 'features', name, 'spec'), { recursive: true });
+  }
+
+  it('--context writes the FEATURE .aitri.local session note, not the root', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeatureDir(dir, 'billing');
+      const { fn: err } = makeErr();
+      captureStdout(() => cmdFeature({ dir, args: ['checkpoint', 'billing', '--context', 'on billing: JWT done, error-handling pending'], err, rootDir: ROOT_DIR }));
+      const featLocal = path.join(dir, 'features', 'billing', '.aitri.local');
+      assert.ok(fs.existsSync(featLocal), 'feature .aitri.local must be written');
+      assert.match(fs.readFileSync(featLocal, 'utf8'), /error-handling pending/);
+      // The root .aitri.local must not carry the feature's note.
+      const rootLocal = path.join(dir, '.aitri.local');
+      if (fs.existsSync(rootLocal)) {
+        assert.doesNotMatch(fs.readFileSync(rootLocal, 'utf8'), /error-handling pending/);
+      }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('--name saves a snapshot under the FEATURE checkpoints/ (cmdResume on the feature dir works)', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeatureDir(dir, 'billing');
+      const { fn: err } = makeErr();
+      let threw = false;
+      try { captureStdout(() => cmdFeature({ dir, args: ['checkpoint', 'billing', '--name', 'pre-refactor'], err, rootDir: ROOT_DIR })); }
+      catch { threw = true; }
+      assert.equal(threw, false, 'feature checkpoint --name must not throw (resume snapshot on the feature dir)');
+      const cpDir = path.join(dir, 'features', 'billing', 'checkpoints');
+      assert.ok(fs.existsSync(cpDir), 'feature checkpoints/ dir must be created');
+      assert.ok(fs.readdirSync(cpDir).some(f => /pre-refactor\.md$/.test(f)), 'named snapshot must be saved under the feature');
+      assert.ok(!fs.existsSync(path.join(dir, 'checkpoints')), 'root checkpoints/ must NOT be created');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
