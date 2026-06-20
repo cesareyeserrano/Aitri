@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.101 (2026-06-20) — `aitri feature bug|backlog …` (triage a feature's own BUGS/BACKLOG) (FEAT-PARITY-0620 part 2) — additive
+
+`bug` and `backlog` are now available in feature scope, operating on `features/<name>/spec/BUGS.json` / `BACKLOG.json`. **No reader impact / no shape change:** those files already existed per-feature (a feature's `verify-run` auto-writes its `BUGS.json`); this only adds the operator commands to manage them. Root behavior unchanged.
+
 ## v2.0.0-rc.100 (2026-06-20) — `aitri feature tc …` (manual verify in feature scope) + all-manual seed/guard now apply to features (FEAT-PARITY-0620) — additive
 
 New feature sub-command `aitri feature tc <name> verify|mark-manual` operates on the feature's own `03_TEST_CASES.json` / `04_TEST_RESULTS.json` (same semantics as root `tc`). The rc.95 all-manual seed (writes `04_TEST_RESULTS.json` with `test_runner:null`/`exit_code:null` and all TCs `status:"manual"`, no runner spawned) and the zero-verification guard now apply in **feature** scope too. **Reader impact:** a feature pipeline's `04_TEST_RESULTS.json` may now appear from an all-manual seed (same shape as the root case, rc.95), and a feature's `status` next-action may be `aitri feature tc <name> verify`. No artifact shape changed; root behavior unchanged.

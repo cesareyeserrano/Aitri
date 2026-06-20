@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.101] — 2026-06-20 — `bug` + `backlog` are now feature-scoped (FEAT-PARITY-0620 part 2)
+
+Two more commands that act on a feature's OWN data were root-only despite the data existing per-feature — the read-vs-write asymmetry the parity audit flagged: a feature already accrues bugs (`feature verify-run`/`verify-complete` auto-write + gate on its `BUGS.json`) and a backlog, but the operator could not triage them in feature scope.
+
+- **`aitri feature bug <name> <add|fix|verify|close|list> …`** and **`aitri feature backlog <name> <add|list|show|done> …`** ([feature.js](../lib/commands/feature.js) dispatch → `cmdBug`/`cmdBacklog` with the feature context) operate on the feature's own `features/<name>/spec/BUGS.json` / `BACKLOG.json` (root files untouched). `feature bug` manages the **same** `BUGS.json` that `feature verify-complete` blocks on, so triage actually clears the gate.
+- New shared helper [`scopedCmd`](../lib/scope.js) builds scope-aware hint commands (`aitri bug add` at root, `aitri feature bug <name> add` in a feature — name before the sub-verb), so every next-step hint and usage string in `bug.js`/`backlog.js` self-scopes (no root-form misdirection — the issue caught in part 1's `tc.js`). [help.js](../lib/commands/help.js) + [AGENTS.md](../templates/AGENTS.md) updated.
+- Tests: +4 (feature bug/backlog write the feature files not the root; usage hints self-scope). 1652 green. Root behavior byte-identical (verified). **Still open (part 3):** the consistency calls `feature resume`/`validate`/`review`/`checkpoint`.
+
 ## [2.0.0-rc.100] — 2026-06-20 — Manual TC verification is now feature-scoped: `aitri feature tc …` (FEAT-PARITY-0620 part 1)
 
 A full 22-command parity audit confirmed feature sub-pipelines share the root's phases and requirement gates, but a few commands that act on a feature's OWN data were root-only. The clearest gap — `tc` (manual TC verify / mark-manual) — also had a concrete breakage: an **all-manual feature pipeline dead-ended** (the rc.95 seed + zero-verification guard were root-only, so `feature verify-run` spawned `npm test` → ENOENT → no results file → no way to reach Phase 5). This closes that gap.

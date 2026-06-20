@@ -510,3 +510,61 @@ describe('aitri feature tc', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// ── feature bug / backlog (per-feature data) ──────────────────────────────────
+// FEAT-PARITY-0620 part 2: `aitri feature bug|backlog <name> …` operates on the
+// FEATURE's own BUGS.json / BACKLOG.json (in features/<name>/spec/), not the root's.
+describe('aitri feature bug / backlog', () => {
+  function seedFeatureDir(dir, name) {
+    writeFile(dir, path.join('features', name, '.aitri'), JSON.stringify({
+      projectName: name, artifactsDir: 'spec', approvedPhases: [], completedPhases: [],
+    }));
+    fs.mkdirSync(path.join(dir, 'features', name, 'spec'), { recursive: true });
+  }
+
+  it('feature bug add writes the FEATURE BUGS.json, not the root', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeatureDir(dir, 'billing');
+      const { fn: err } = makeErr();
+      captureStdout(() => cmdFeature({ dir, args: ['bug', 'billing', 'add', '--title', 'login broken', '--severity', 'high'], err, rootDir: ROOT_DIR }));
+      const featBugs = path.join(dir, 'features', 'billing', 'spec', 'BUGS.json');
+      assert.ok(fs.existsSync(featBugs), 'feature BUGS.json must be created');
+      assert.equal(JSON.parse(fs.readFileSync(featBugs, 'utf8')).bugs[0].title, 'login broken');
+      assert.ok(!fs.existsSync(path.join(dir, 'spec', 'BUGS.json')), 'root BUGS.json must NOT be touched');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('feature bug usage error self-scopes to the feature form', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeatureDir(dir, 'billing');
+      const { fn: err, thrown } = makeErr();
+      try { captureStdout(() => cmdFeature({ dir, args: ['bug', 'billing', 'fix'], err, rootDir: ROOT_DIR })); } catch { /* err throws */ }
+      assert.match(thrown[0] || '', /aitri feature bug billing fix/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('feature backlog add writes the FEATURE BACKLOG.json, not the root', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeatureDir(dir, 'billing');
+      const { fn: err } = makeErr();
+      captureStdout(() => cmdFeature({ dir, args: ['backlog', 'billing', 'add', '--title', 'defer X', '--priority', 'P2', '--problem', 'Y'], err, rootDir: ROOT_DIR }));
+      const featBacklog = path.join(dir, 'features', 'billing', 'spec', 'BACKLOG.json');
+      assert.ok(fs.existsSync(featBacklog), 'feature BACKLOG.json must be created');
+      assert.equal(JSON.parse(fs.readFileSync(featBacklog, 'utf8')).items[0].title, 'defer X');
+      assert.ok(!fs.existsSync(path.join(dir, 'spec', 'BACKLOG.json')), 'root BACKLOG.json must NOT be touched');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('feature backlog unknown-subcommand usage self-scopes', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeatureDir(dir, 'billing');
+      const { fn: err, thrown } = makeErr();
+      try { captureStdout(() => cmdFeature({ dir, args: ['backlog', 'billing', 'bogus'], err, rootDir: ROOT_DIR })); } catch { /* err throws */ }
+      assert.match(thrown[0] || '', /aitri feature backlog billing/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
