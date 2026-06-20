@@ -128,6 +128,23 @@ describe('Phase 4 — validate()', () => {
     );
   });
 
+  // quality_gates.timeout_ms — per-gate timeout enablement (additive). A slow gate
+  // (mutation testing, full integration/e2e) needs to run past the 5-min default
+  // instead of being killed and mis-read as a code failure.
+  it('passes with a positive quality_gates timeout_ms', () => {
+    const d = JSON.parse(validP4());
+    d.quality_gates = [{ name: 'mutation', command: 'npx stryker run', required: true, timeout_ms: 1800000 }];
+    assert.doesNotThrow(() => PHASE_DEFS[4].validate(JSON.stringify(d)));
+  });
+
+  it('rejects a non-positive or non-numeric quality_gates timeout_ms', () => {
+    const d = JSON.parse(validP4());
+    d.quality_gates = [{ name: 'mutation', command: 'npx stryker run', timeout_ms: 0 }];
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /timeout_ms must be a positive number/);
+    d.quality_gates = [{ name: 'mutation', command: 'npx stryker run', timeout_ms: 'long' }];
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /timeout_ms must be a positive number/);
+  });
+
   it('rejects empty-string path entries', () => {
     const d = JSON.parse(validP4());
     d.files_created = ['src/ok.js', '   '];

@@ -125,7 +125,7 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
     technical_debt:[{fr_id, substitution, reason, effort_to_fix:"low|medium|high"}],
     test_runner: "<exact command matching your stack>",
     test_files: ["<test files containing @aitri-tc markers>"],
-    quality_gates:[{name, command, required}] }
+    quality_gates:[{name, command, required, timeout_ms?}] }
   files_created / files_modified / test_files are FLAT arrays of string paths — NOT objects. Write
     ["src/foo.ts", "tests/foo.test.ts"], never [{path:"src/foo.ts", type:…}]. The substitution text goes
     in the field named `substitution` (not `description`).
@@ -164,6 +164,19 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
     Coverage gate: declare {name:"coverage", threshold:80} (a numeric threshold instead of a command).
       verify-run measures line coverage (stack-aware: node/go/pytest/jest/vitest — the coverage tool
       must be in the project's deps) and the gate passes when measured ≥ threshold. required defaults true.
+    Mutation gate (fake-pass protection): a passing test can still be FAKE — mocks or weak assertions
+      let code "pass" without exercising real behavior, so a suite can be green while the feature is
+      dead. A mutation tool breaks your real code on purpose and re-runs the tests; a surviving mutant
+      means a test never actually checked that code. It is the ONLY mechanical check for this. If your
+      stack has a tool (Stryker for JS/.NET, pitest for Java, mutmut/cosmic-ray for Python, infection for
+      PHP), declare it: {name:"mutation", command:"<tool>", required, timeout_ms:1800000}. Mutation is
+      SLOW — set timeout_ms above the default (300000 = 5 min) or Aitri will kill it mid-run. Configure
+      the tool's OWN score threshold so it exits non-zero below it — Aitri gates by exit code, it does
+      not parse the score (no parser-per-tool). No mutation tool for your stack → skip it; verify-run
+      notes the absence once but never blocks on it.
+    timeout_ms (any command gate): optional per-gate timeout in ms (default 300000 = 5 min). Raise it for
+      gates that legitimately run long — mutation, full integration/e2e suites — so a slow-but-correct gate
+      is not killed and mis-reported as a failure.
     If the project genuinely has no quality tooling, omit quality_gates — but prefer wiring at least a
     linter, because Aitri's promise is well-built code, not only passing tests.
     Security gate: if 01_REQUIREMENTS.json declares security NFRs, a security gate is EXPECTED — wire

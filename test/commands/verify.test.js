@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, resolveWinBin } from '../../lib/commands/verify.js';
+import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, hasMutationGate, resolveWinBin } from '../../lib/commands/verify.js';
 import { cmdStatus } from '../../lib/commands/status.js';
 
 describe('parseRunnerOutput()', () => {
@@ -2199,6 +2199,33 @@ describe('runQualityGates() + verify-run/complete integration (ADR-037)', () => 
   it('required defaults to true when omitted', () => {
     const r = runQualityGates([{ name: 'x', command: 'true' }], '/tmp');
     assert.equal(r[0].required, true);
+  });
+
+  it('honors a per-gate timeout_ms — a slow gate is killed and reported error (not a code fail)', () => {
+    const r = runQualityGates([
+      { name: 'slow', command: 'sleep 5', timeout_ms: 100 },
+      { name: 'fast', command: 'sleep 0', timeout_ms: 5000 },
+    ], '/tmp');
+    const slow = r.find(g => g.name === 'slow');
+    const fast = r.find(g => g.name === 'fast');
+    // A gate exceeding its timeout is `error` (something went wrong / setup), not
+    // `fail` (the code failed the check) — and the note tells the operator the fix.
+    assert.equal(slow.status, 'error');
+    assert.equal(slow.exit_code, null);
+    assert.match(slow.output || '', /timeout_ms/);
+    // A gate within its timeout runs normally; the default 300000 is unchanged.
+    assert.equal(fast.status, 'pass');
+  });
+
+  it('hasMutationGate detects mutation tools by name/command, ignores other gates', () => {
+    assert.equal(hasMutationGate([{ name: 'mutation', command: 'npx stryker run' }]), true);
+    assert.equal(hasMutationGate([{ name: 'qa', command: 'pitest' }]), true);
+    assert.equal(hasMutationGate([{ command: 'mutmut run' }]), true);
+    assert.equal(hasMutationGate([{ command: 'infection --min-msi=80' }]), true);
+    // lint / type-check / coverage are NOT mutation gates → nudge would fire
+    assert.equal(hasMutationGate([{ name: 'lint', command: 'eslint .' }, { name: 'coverage', threshold: 80 }]), false);
+    assert.equal(hasMutationGate([]), false);
+    assert.equal(hasMutationGate(undefined), false);
   });
 
   it('verify-run records quality_gates and a failing required gate resets verifyPassed', () => {

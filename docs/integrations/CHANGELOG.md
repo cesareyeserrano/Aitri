@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.103 (2026-06-20) — `quality_gates[].timeout_ms` + mutation-gate nudge (fake-pass protection, ADR-053) — additive
+
+`04_BUILD_REPORT.json#quality_gates` command entries may now carry an optional `timeout_ms` (positive number, default `300000` = 5 min) — a per-gate timeout so a slow-but-correct gate (mutation testing, full integration/e2e) is not killed at the default and mis-reported. A gate killed at its timeout is recorded `04_TEST_RESULTS.json#quality_gates[].status: "error"`. **No reader impact:** the field is optional, old readers ignore it, and the recorded gate-result shape is unchanged. `verify-run` also prints a one-line advisory when a project has automated tests but declares no mutation gate (opt-in, never blocks). See ARTIFACTS.md.
+
 ## v2.0.0-rc.101 (2026-06-20) — `aitri feature bug|backlog …` (triage a feature's own BUGS/BACKLOG) (FEAT-PARITY-0620 part 2) — additive
 
 `bug` and `backlog` are now available in feature scope, operating on `features/<name>/spec/BUGS.json` / `BACKLOG.json`. **No reader impact / no shape change:** those files already existed per-feature (a feature's `verify-run` auto-writes its `BUGS.json`); this only adds the operator commands to manage them. Root behavior unchanged.

@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.103] — 2026-06-20 — mutation gate enablement: per-gate `timeout_ms` + fake-pass nudge (ADR-053, re-opens ADR-034 §C3)
+
+The fake-pass seam (a test that passes green without exercising real code — mocks, weak asserts; the "Ledger" lesson) has one mechanical catch: **mutation testing** (break the real code, re-run the tests; a surviving mutant means a test never checked that code — true even at 100% coverage). It was deferred on evidence (ADR-034 §C3) until the maintainer re-opened it. Mutation already runs as a project-declared `quality_gate` (exit-code judged like every other gate — no score parser, per ADR-052), but two things made it unusable, now fixed:
+
+- **Per-gate `timeout_ms`** ([verify.js](../lib/commands/verify.js) `runQualityGates`, validated in [phase4.js](../lib/phases/phase4.js)) — the hardcoded 5-minute timeout killed any real mutation run mid-flight and mis-reported it as a code failure. A gate may now declare `timeout_ms` (default 300000). A gate killed at its timeout is now `status: "error"` (raise it / something hung), not `"fail"` (the code failed the check). Serves any slow gate (integration, e2e), not just mutation.
+- **Fake-pass nudge (opt-in, advisory)** — when a project has automated tests but declares no mutation gate, `verify-run` prints one line explaining the gap and how to close it. It **never blocks** and never forces a tool (mutation tools don't exist for every stack — Go/embedded/Rust are thin/absent), but the omission is no longer silent. Chosen over a forced Phase-1 question (rejected: a forced answer the agent fills is honor-system; an independent-reviewer gate is too, since the same agent authors the verdict — only the mechanical mutation signal has real teeth; full reasoning in ADR-053).
+- `build.md` now teaches the mutation gate + `timeout_ms`. Tests: +4 (timeout honored → `error` with a raise-it note; `timeout_ms` validation; mutation-gate detection across Stryker/pitest/mutmut/infection). 1658 green.
+
 ## [2.0.0-rc.102] — 2026-06-20 — `feature checkpoint` — per-feature session note (FEAT-PARITY-0620 part 3, closes the plan)
 
 A feature can now save its own "save-my-place" handoff note, so a long feature build can be paused and resumed with its own narrative instead of only a project-level note. Asked for directly in the Ledger feedback (`aitri feature checkpoint` did not exist), and it completes the same write-side asymmetry as bug/backlog: `status`/`resume` already SHOW a per-feature session note, but there was no command to WRITE one per-feature.
