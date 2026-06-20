@@ -432,3 +432,81 @@ describe('feature run-phase — surfaces parent idea_context/ (TPA-4)', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// ── feature tc (manual verification in feature scope) ─────────────────────────
+// FEAT-PARITY-0620: `aitri feature tc <name> verify|mark-manual` operates on the
+// FEATURE's own 03_TEST_CASES.json / 04_TEST_RESULTS.json, not the root's.
+describe('aitri feature tc', () => {
+  function seedFeature(dir, name) {
+    writeFile(dir, path.join('features', name, '.aitri'), JSON.stringify({
+      projectName: name, artifactsDir: 'spec',
+      approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+    }));
+    writeFile(dir, path.join('features', name, 'spec', '03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [
+        { id: 'TC-001f', title: 't', requirement_id: 'FR-001', automation: 'manual', expected_result: 'r' },
+        { id: 'TC-002e', title: 't2', requirement_id: 'FR-001', automation: 'automated', expected_result: 'r' },
+      ],
+    }));
+    writeFile(dir, path.join('features', name, 'spec', '04_TEST_RESULTS.json'), JSON.stringify({
+      executed_at: new Date().toISOString(), test_runner: null, exit_code: null,
+      results: [{ tc_id: 'TC-001f', status: 'manual', notes: 'pending' }],
+      fr_coverage: [], summary: { total: 1, passed: 0, failed: 0, skipped: 0, manual: 1, manual_verified: 0 },
+    }));
+  }
+  const featResults = (dir, name) =>
+    JSON.parse(fs.readFileSync(path.join(dir, 'features', name, 'spec', '04_TEST_RESULTS.json'), 'utf8'));
+
+  it('verify records the result on the FEATURE\'s 04_TEST_RESULTS.json', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeature(dir, 'billing');
+      const { fn: err } = makeErr();
+      captureStdout(() => cmdFeature({ dir, args: ['tc', 'billing', 'verify', 'TC-001f', '--result', 'pass', '--notes', 'checked by hand'], err, rootDir: ROOT_DIR }));
+      const entry = featResults(dir, 'billing').results.find(r => r.tc_id === 'TC-001f');
+      assert.equal(entry.status, 'pass');
+      assert.equal(entry.verified_manually, true);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('writes the FEATURE artifacts, NOT the root\'s (parity, not leakage)', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeature(dir, 'billing');
+      // A distinct root results file that must stay untouched.
+      const rootResults = { executed_at: 'x', results: [{ tc_id: 'ROOT-1', status: 'manual' }], summary: { total: 1, manual: 1 } };
+      writeFile(dir, path.join('spec', '04_TEST_RESULTS.json'), JSON.stringify(rootResults));
+      const { fn: err } = makeErr();
+      captureStdout(() => cmdFeature({ dir, args: ['tc', 'billing', 'verify', 'TC-001f', '--result', 'pass', '--notes', 'ok'], err, rootDir: ROOT_DIR }));
+      const rootAfter = JSON.parse(fs.readFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), 'utf8'));
+      assert.deepEqual(rootAfter, rootResults, 'the ROOT results file must be untouched by a feature tc verify');
+      assert.equal(featResults(dir, 'billing').results.find(r => r.tc_id === 'TC-001f').status, 'pass');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('the next-step hints self-scope to the feature (not the root form)', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeature(dir, 'billing');
+      const { fn: err } = makeErr();
+      const out = captureStdout(() => cmdFeature({ dir, args: ['tc', 'billing', 'verify', 'TC-001f', '--result', 'pass', '--notes', 'ok'], err, rootDir: ROOT_DIR }));
+      // After the last manual TC is verified, the hint must point at the FEATURE gate,
+      // not `aitri verify-complete` (which from the project root targets the ROOT pipeline).
+      assert.match(out, /aitri feature verify-complete billing/);
+      assert.doesNotMatch(out, /Run: aitri verify-complete\b/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('mark-manual flips the FEATURE TC and stores manual_reason', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeature(dir, 'billing');
+      const { fn: err } = makeErr();
+      captureStdout(() => cmdFeature({ dir, args: ['tc', 'billing', 'mark-manual', 'TC-002e', '--reason', 'needs a physical device'], err, rootDir: ROOT_DIR }));
+      const tcs = JSON.parse(fs.readFileSync(path.join(dir, 'features', 'billing', 'spec', '03_TEST_CASES.json'), 'utf8'));
+      const tc = tcs.test_cases.find(t => t.id === 'TC-002e');
+      assert.equal(tc.automation, 'manual');
+      assert.equal(tc.manual_reason, 'needs a physical device');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

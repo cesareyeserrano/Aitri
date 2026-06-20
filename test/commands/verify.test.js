@@ -1461,6 +1461,24 @@ describe('cmdVerifyRun() — all-manual project seeds results without spawning (
       assert.equal(threw, true, 'with --cmd, the all-manual seed is bypassed and the command runs (ENOENT here)');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  it('FEATURE scope also seeds (no deadlock) — FEAT-PARITY-0620', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-allmanual-feat-'));
+    try {
+      seed(dir);
+      let threw = false;
+      silent(() => {
+        // featureRoot set → feature scope. Before FEAT-PARITY-0620 the seed was
+        // root-only, so a feature all-manual run spawned `npm test` → ENOENT → deadlock.
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { threw = true; throw new Error(m); }, featureRoot: '/parent', scopeName: 'foo' }); }
+        catch { /* only if err() fires */ }
+      });
+      assert.equal(threw, false, 'a feature all-manual run must seed, not spawn/ENOENT');
+      const d = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8'));
+      assert.ok(d.results.every(r => r.status === 'manual'));
+      assert.equal(d.test_runner, null, 'feature seed records no fabricated runner');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // ── L2 (alpha.16): runtime mensajería neutral when no Playwright config ─────
@@ -2019,19 +2037,20 @@ describe('cmdVerifyComplete() — zero-verification guard for all-manual seed (F
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('does NOT apply the zero-verification guard in feature scope (no feature tc verify to clear it)', () => {
+  it('DOES apply the zero-verification guard in feature scope, with the feature-scoped command (FEAT-PARITY-0620)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-zeroverify-feat-'));
     try {
       seed(dir, 'manual'); // all pending manual
       let captured = '';
       const err = (m) => { captured = m; throw new Error(m); };
       let threw = false;
-      // featureRoot set → feature scope. The root-only guard must not wall it (there is
-      // no `feature tc verify` to clear it); feature keeps its prior behavior.
+      // featureRoot set → feature scope. Now that `aitri feature tc <name> verify`
+      // exists, the guard applies equally — and the message must point at the FEATURE
+      // command (name before the tc sub-verb), not the root `aitri tc verify`.
       try { cmdVerifyComplete({ dir, err, featureRoot: '/parent', scopeName: 'foo' }); } catch { threw = true; }
-      assert.doesNotMatch(captured, /zero verification|not yet verified/i,
-        'the zero-verification guard is root-only — must not fire for a feature pipeline');
-      void threw;
+      assert.equal(threw, true, 'the guard must fire for a feature pipeline with zero verification');
+      assert.match(captured, /not yet verified|zero verification/i);
+      assert.match(captured, /aitri feature tc foo verify/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

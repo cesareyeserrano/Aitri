@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.100 (2026-06-20) — `aitri feature tc …` (manual verify in feature scope) + all-manual seed/guard now apply to features (FEAT-PARITY-0620) — additive
+
+New feature sub-command `aitri feature tc <name> verify|mark-manual` operates on the feature's own `03_TEST_CASES.json` / `04_TEST_RESULTS.json` (same semantics as root `tc`). The rc.95 all-manual seed (writes `04_TEST_RESULTS.json` with `test_runner:null`/`exit_code:null` and all TCs `status:"manual"`, no runner spawned) and the zero-verification guard now apply in **feature** scope too. **Reader impact:** a feature pipeline's `04_TEST_RESULTS.json` may now appear from an all-manual seed (same shape as the root case, rc.95), and a feature's `status` next-action may be `aitri feature tc <name> verify`. No artifact shape changed; root behavior unchanged.
+
 ## v2.0.0-rc.96 (2026-06-20) — `04_TEST_RESULTS.json#summary.manual` no longer double-counts verified manual TCs (FB-MULTI-0619 #3) — additive
 
 `aitri tc verify` computed `summary.manual` as "status manual OR verified_manually", double-counting a verified manual TC in both `passed` and `manual` so `passed+failed+skipped+manual` exceeded `total`. Now `manual` counts by status only (matching the value `verify-run` already wrote), so the four buckets partition the results and sum to `total`. **Reader impact:** a consumer that summed the buckets (or trusted `summary.manual` as "currently-pending manual") gets the correct value; `manual_verified` is unchanged (still the overlapping count of verified manual TCs). No field added/removed/retyped — a miscomputed value corrected.

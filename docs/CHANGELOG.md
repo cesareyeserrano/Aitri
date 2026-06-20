@@ -5,6 +5,16 @@
 
 ---
 
+## [2.0.0-rc.100] — 2026-06-20 — Manual TC verification is now feature-scoped: `aitri feature tc …` (FEAT-PARITY-0620 part 1)
+
+A full 22-command parity audit confirmed feature sub-pipelines share the root's phases and requirement gates, but a few commands that act on a feature's OWN data were root-only. The clearest gap — `tc` (manual TC verify / mark-manual) — also had a concrete breakage: an **all-manual feature pipeline dead-ended** (the rc.95 seed + zero-verification guard were root-only, so `feature verify-run` spawned `npm test` → ENOENT → no results file → no way to reach Phase 5). This closes that gap.
+
+- **`aitri feature tc <name> verify [<TC-ID> --result … --notes …]`** (bare = guided) and **`aitri feature tc <name> mark-manual <TC-ID> [--reason …]`** ([feature.js](../lib/commands/feature.js) dispatch → `cmdTC` with the feature context). They read/write the **feature's own** `03_TEST_CASES.json` / `04_TEST_RESULTS.json` (the root's are untouched). The name precedes the `tc` sub-verb, per the `feature <verb> <name>` grammar.
+- The rc.95 **all-manual seed** (no-spawn) and the **zero-verification guard** now apply to features too (the two `!featureRoot` carve-outs are gone — they only existed because no `feature tc verify` existed to clear them). So a feature with only manual TCs seeds, verifies by hand, and reaches Phase 5 exactly like the root — and cannot pass `verify-complete` with zero verification.
+- All next-step hints self-scope: from a feature, `tc.js`/`verify.js`/the snapshot ladder emit `aitri feature tc <name> verify` / `aitri feature verify-complete <name>`, never the root form (which from the project root would target the wrong pipeline). [help.js](../lib/commands/help.js) + [AGENTS.md](../templates/AGENTS.md) updated.
+- Tests: +6 (feature tc verify writes the feature artifacts not the root; mark-manual; hints self-scope; all-manual feature seeds; zero-verification guard fires for a feature). 1648 green.
+- **Still open (FEAT-PARITY-0620 parts 2–3):** `feature bug` / `feature backlog` (per-feature data, same asymmetry), and the consistency calls `feature resume`/`validate`/`review`/`checkpoint`. Tracked in the backlog.
+
 ## [2.0.0-rc.99] — 2026-06-20 — Harden the rc.98 JUnit fix (CDATA false-PASS) + correct the Manual summary line (FB-MULTI-0619 #5 follow-up)
 
 Adversarial review of rc.98 found it traded the rare false-FAIL for a **worse false-PASS**: the body bound used `xml.indexOf('<testcase')` — a raw substring with no word boundary — so a literal `<testcase`/`<failure` inside a runner's CDATA-wrapped captured output (`<system-out><![CDATA[ … ]]>`, standard in jest-junit/pytest/Surefire) truncated the body and **dropped a real `<failure>`**, reporting PASS. False-PASS is the dangerous direction.
