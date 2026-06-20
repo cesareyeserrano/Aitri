@@ -5,6 +5,17 @@
 
 ---
 
+## [2.0.0-rc.91] — 2026-06-19 — `tc verify --evidence` mechanically confirms a parseable results file (FB-MULTI-0619)
+
+`--evidence` (rc.85) anchored a manual override to a file that must exist — stronger than a bare note, but it only checked existence, not relevance. Now, when the evidence is a **parseable results file** (TRX / JUnit-XML), Aitri reads it and confirms it actually backs the claim:
+
+- evidence reports the TC as the **claimed** status → accepted, mechanically confirmed (no longer honor-system).
+- evidence **contradicts** the claim (you say `pass`, the file says `fail`) → **rejected**.
+- evidence is a results file that **does not report the TC** → **rejected** (it cannot substantiate a TC it does not contain).
+- evidence is a **non-parseable** file (a log, a screenshot) → unchanged "exists" floor (the honest manual case where no machine output exists).
+
+Closes the obvious hole in `--evidence` (point at any file) for the common case where the evidence IS a runner result. `parseXmlResults` is reused from verify.js (no cycle). No schema change. Tests: +4 (1617 → 1621 green).
+
 ## [2.0.0-rc.90] — 2026-06-19 — Guided manual verification: `aitri tc verify` walks the pending manual TCs (FB-MULTI-0619)
 
 Evidence: recording manual results meant typing a long command (`aitri tc verify TC-005 --result pass --notes "..."`) once per TC — painful on a manual-verification project with dozens of them. Aitri already holds what each manual TC checks (its Phase-3 title + expected_result); it just wasn't surfacing it as a guided list.

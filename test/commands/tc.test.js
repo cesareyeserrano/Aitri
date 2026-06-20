@@ -284,6 +284,42 @@ describe('cmdTC — tc verify --evidence (automated TC the runner could not pars
     );
   });
 
+  it('mechanically confirms when --evidence is a TRX that reports the TC as passed', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-006h', status: 'skip', notes: 'Not detected.' }]);
+    fs.writeFileSync(path.join(dir, 'r.trx'), '<UnitTestResult testName="N.C.TC_006h_x" outcome="Passed"/>');
+    cmdTC(makeCtx(dir, ['verify', 'TC-006h', '--result', 'pass', '--notes', 'trx', '--evidence', 'r.trx']));
+    assert.equal(readResults(dir).results.find(r => r.tc_id === 'TC-006h').status, 'pass');
+  });
+
+  it('rejects when --evidence (a results file) CONTRADICTS the claimed result', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-006h', status: 'skip', notes: 'Not detected.' }]);
+    fs.writeFileSync(path.join(dir, 'r.trx'), '<UnitTestResult testName="N.C.TC_006h_x" outcome="Failed"/>');
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['verify', 'TC-006h', '--result', 'pass', '--notes', 'x', '--evidence', 'r.trx'])),
+      /contradicts --result[\s\S]*reports "fail"/
+    );
+  });
+
+  it('rejects when --evidence is a results file that does NOT report the TC', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-006h', status: 'skip', notes: 'Not detected.' }]);
+    fs.writeFileSync(path.join(dir, 'r.trx'), '<UnitTestResult testName="N.C.TC_999z_other" outcome="Passed"/>');
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['verify', 'TC-006h', '--result', 'pass', '--notes', 'x', '--evidence', 'r.trx'])),
+      /does not report TC-006h/
+    );
+  });
+
+  it('a non-results evidence file (plain log) stays the honor-system floor — accepted', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-006h', status: 'skip', notes: 'Not detected.' }]);
+    fs.writeFileSync(path.join(dir, 'run.log'), 'I observed the migration boot with 929 docs preserved');
+    cmdTC(makeCtx(dir, ['verify', 'TC-006h', '--result', 'pass', '--notes', 'observed', '--evidence', 'run.log']));
+    assert.equal(readResults(dir).results.find(r => r.tc_id === 'TC-006h').status, 'pass');
+  });
+
   it('still records a manual TC normally and attaches evidence when given', () => {
     const dir = makeDir();
     writeResults(dir, [{ tc_id: 'TC-002f', status: 'manual', notes: 'Manual.' }]);
