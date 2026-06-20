@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.89] — 2026-06-19 — Runner-result reading is ONE universal contract, not a parser per stack (ADR-052, FB-MULTI-0619)
+
+rc.85 added TRX + JUnit-XML parsing to unblock .NET. The right follow-up question (raised consumer-style): the next stack with an unrecognized runner would hit the same wall, and adding a parser per format is the accretion smell — in code this time. This records and names the general capability so we stop the treadmill, **without adding any machinery**.
+
+- **ADR-052**: Aitri reads a TC result one of three universal ways and adds no further per-format parsers — (1) a **stdout marker** (`✓/✗ TC-XXX` / a test named after the TC id), (2) a **JUnit-XML or TRX results file** via `--results` (JUnit-XML is near-universal — most runners emit it natively or via a reporter, so it is how an otherwise-unrecognized stack is read), (3) **`tc verify --evidence`** as the manual floor. The project adapts its runner to the contract; Aitri does not adapt to each runner. This is orchestrate-don't-bundle (ADR-034/037) applied to the verification spine. TRX is grandfathered as the LAST bespoke parser; future "support runner X" is answered by routing X to one of the three, not a new parser.
+- **Wording only** (no code-behavior change — the parsers already shipped in rc.85): the per-TC skip note and the Phase-4 `test_runner` briefing now state the three-way universal contract instead of a per-stack runner list (applying "generalize, don't append" to the messages themselves). `docs/ARCHITECTURE.md` evolution paragraph + `docs/DECISIONS.md` (ADR-052) updated.
+- Explicitly NOT built (the over-engineering trap, rejected in the ADR): a plugin/registry/DSL for custom parsers — capability for stacks that do not exist yet.
+- No schema/gate change. test:all green.
+
 ## [2.0.0-rc.88] — 2026-06-19 — Briefings generalize new-build vs change-to-existing-system framing (FB-MULTI-0619 T2.1)
 
 Evidence: two .NET/Umbraco brownfield-migration consumers reported, at nearly every phase, that the briefings assume a greenfield UI product (screens/KPI/JTBD, new schema/endpoints, src/ + .env.example scaffold) and "fight" a platform migration where the unit of work is invariants and change-surfaces. Verified against code first: only TWO of the seven complaints were real code walls (Three-Amigos h/f, the closed TC `type` enum); the rest were briefing prose, freely reframeable. This ships the reframe for the prose ones — **Class C, resolved in wording, not by loosening any gate**, so a greenfield/CLI/service project is structurally unaffected (it never enters the "change to an existing system" branch).

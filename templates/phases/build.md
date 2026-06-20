@@ -131,12 +131,17 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
     in the field named `substitution` (not `description`).
   setup_commands and environment_variables are optional fields. When the project has none, you may either include them as empty arrays `[]` or omit the keys entirely — the validator accepts both forms (alpha.9). technical_debt is required, even if empty.
   test_runner: the exact command that runs your suite (e.g. "npm test", "pytest -v",
-    "go test ./... -v", "cargo test", "dotnet test --logger trx"). Whatever the stack, two
-    things must hold so aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} can map results back to TCs:
-    1. Name each test after its TC id — the function/method name contains it (e.g. TC_006h…).
-    2. aitri reads results from the runner's stdout, OR — for runners that write results to a
-       FILE instead of stdout — via aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} --results <file-or-dir>
-       (TRX and JUnit-XML; .trx / TEST-*.xml / junit*.xml are also auto-detected).
+    "go test ./... -v", "cargo test", "dotnet test --logger trx"). aitri does NOT learn a
+    parser per stack — your runner reports results one of three universal ways; pick whichever
+    it supports:
+    1. STDOUT marker — the test prints its TC id with a pass/fail glyph (name the test after the
+       TC id, e.g. function/method contains TC_006h…). Native for most JS/Go/Python runners.
+    2. RESULTS FILE — the runner writes JUnit-XML or TRX; run aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}
+       --results <file-or-dir>. JUnit-XML is near-universal (most runners emit it natively or via a
+       reporter); .trx / TEST-*.xml / junit*.xml are also auto-detected. This is the path for any
+       stack the stdout convention does not fit.
+    3. EVIDENCE — if neither fits, record each result against a file:
+       aitri tc verify <TC> --result pass|fail --evidence <path>.
   test_files: every file that contains @aitri-tc markers — required for aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}
   Feature sub-pipelines (aitri feature verify-run <name>): the runner executes with the FEATURE
     directory ({{FEATURES_DIR}}/<name>/) as its working directory, and test_runner / test_files are resolved
