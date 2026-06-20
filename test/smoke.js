@@ -107,6 +107,18 @@ describe('Aitri CLI — Smoke Test', () => {
     assert.match(out, /Artifact not found|not found/i);
   });
 
+  it('aitri resume outside a project prints a friendly message, not a raw stack trace', () => {
+    const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-notproj-'));
+    try {
+      const out = aitriShouldFail('resume', bare);
+      assert.match(out, /isn't an Aitri project yet/);
+      assert.match(out, /aitri init|adopt scan/);
+      assert.doesNotMatch(out, /at buildProjectSnapshot|at ModuleJob|\bat Object\./); // no Node stack trace
+    } finally {
+      fs.rmSync(bare, { recursive: true, force: true });
+    }
+  });
+
   it('aitri complete 1 fails when artifact has too few FRs', () => {
     fs.writeFileSync(path.join(tmpDir, SPEC, '01_REQUIREMENTS.json'), INVALID_REQUIREMENTS_FEW_FRS);
     const out = aitriShouldFail('complete 1', tmpDir);

@@ -39,7 +39,7 @@ import { cmdTC }           from '../lib/commands/tc.js';
 import { cmdRehash }       from '../lib/commands/rehash.js';
 import { homedirCaptureNote } from '../lib/state.js';
 
-const VERSION   = '2.0.0-rc.92';
+const VERSION   = '2.0.0-rc.93';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -101,6 +101,7 @@ const err = (msg) => {
 
 const ctx = { dir, args, flagValue, err, VERSION, rootDir };
 
+try {
 switch (cmd) {
   case 'init':             cmdInit(ctx);            break;
   case 'run-phase':        cmdRunPhase(ctx);        break;
@@ -132,4 +133,16 @@ switch (cmd) {
     else                                          cmdHelp(ctx);
     break;
   default:                 cmdHelp(ctx);            break;
+}
+} catch (e) {
+  // A command run outside an Aitri project (resume/status/validate call
+  // buildProjectSnapshot, which throws) used to leak a raw Node stack trace that
+  // read like a crash. Catch that one known case and print actionable guidance;
+  // every other error re-throws unchanged so real bugs still surface their stack.
+  if (/^Not an Aitri project/.test(e?.message || '')) {
+    console.error(`❌ This folder isn't an Aitri project yet.`);
+    console.error(`   Run 'aitri init' to start a new project, or 'aitri adopt scan' to adopt an existing one.`);
+    process.exit(1);
+  }
+  throw e;
 }

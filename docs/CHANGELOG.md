@@ -5,6 +5,13 @@
 
 ---
 
+## [2.0.0-rc.93] — 2026-06-19 — Friendly message instead of a raw stack trace outside an Aitri project (FB-MULTI-0619 T3.1)
+
+Evidence: a consumer ran `aitri resume` in a not-yet-initialized folder and got a full Node stack trace (`Error: Not an Aitri project ... at buildProjectSnapshot ... at ModuleJob.run`) that read like a crash — a first-time user couldn't tell "wrong folder / need to init" from "the tool is broken".
+
+- [bin/aitri.js](../bin/aitri.js) now wraps the dispatch in a try/catch that recognizes the one known `Not an Aitri project` throw (from `buildProjectSnapshot`, hit by `resume`/`status`/`validate` outside a project) and prints actionable guidance: *"This folder isn't an Aitri project yet. Run 'aitri init' … or 'aitri adopt scan' …"*. Every other error re-throws unchanged, so real bugs still surface their stack for debugging.
+- Surgical — catches exactly that message, no behavior change for any in-project command. Tests: +1 smoke (friendly text present, no stack trace). 1626 green.
+
 ## [2.0.0-rc.92] — 2026-06-19 — Manual TCs can state WHY they can't be automated; over-use is surfaced (FB-MULTI-0619)
 
 The honest worry: an agent can push automatable work to the human by declaring tests `automation: "manual"`. Aitri can't mechanically tell a legitimate manual test (needs real SSO creds, a physical device) from automation quietly skipped — but it can make the difference **visible**, without blocking the legitimately-manual project (its no_go_zone forbids an automated suite). Advisory, non-blocking — the integrality guard for a Class-B honor-system boundary.
