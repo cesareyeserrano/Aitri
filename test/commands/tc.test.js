@@ -136,13 +136,11 @@ describe('cmdTC — tc verify', () => {
     );
   });
 
-  it('errors if TC ID is missing', () => {
+  it('no TC ID enters guided mode (no longer an error) — empty results = nothing to verify', () => {
     const dir = makeDir();
     writeResults(dir, []);
-    assert.throws(
-      () => cmdTC(makeCtx(dir, ['verify'])),
-      /TC ID required/
-    );
+    const out = captureStdout(() => cmdTC(makeCtx(dir, ['verify'])));
+    assert.match(out, /No pending manual TCs/);
   });
 
   it('errors on unknown sub-command', () => {
@@ -295,6 +293,69 @@ describe('cmdTC — tc verify --evidence (automated TC the runner could not pars
     const entry = readResults(dir).results.find(r => r.tc_id === 'TC-002f');
     assert.equal(entry.status, 'pass');
     assert.equal(entry.evidence, 'log.txt');
+  });
+
+});
+
+function captureStdout(fn) {
+  let out = '';
+  const orig = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (s) => { out += s; return true; };
+  try { fn(); } finally { process.stdout.write = orig; }
+  return out;
+}
+
+describe('cmdTC — tc verify (guided, no TC id)', () => {
+
+  it('errors when 04_TEST_RESULTS.json is missing', () => {
+    const dir = makeDir();
+    assert.throws(() => cmdTC(makeCtx(dir, ['verify'])), /04_TEST_RESULTS\.json not found/);
+  });
+
+  it('says nothing-to-do when there are no pending manual TCs', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-001h', status: 'pass', notes: 'auto' }]);
+    const out = captureStdout(() => cmdTC(makeCtx(dir, ['verify'])));
+    assert.match(out, /No pending manual TCs/);
+  });
+
+  it('non-TTY: lists pending manual TCs with what to check, and does NOT modify results', () => {
+    const dir = makeDir();
+    writeResults(dir, [
+      { tc_id: 'TC-005', status: 'manual', notes: 'Manual.' },
+      { tc_id: 'TC-001h', status: 'pass', notes: 'auto' },
+    ]);
+    writeTestCases(dir, [
+      { id: 'TC-005', automation: 'manual', title: 'Login via SSO lands in backoffice', expected_result: 'redirect to MS, return, editor role' },
+    ]);
+    const before = fs.readFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), 'utf8');
+    const out = captureStdout(() => cmdTC(makeCtx(dir, ['verify'])));
+    assert.match(out, /Pending manual test cases \(1\)/);
+    assert.match(out, /TC-005 — Login via SSO lands in backoffice/);
+    assert.match(out, /Expected: redirect to MS/);
+    assert.match(out, /non-interactive/i);
+    // unchanged on disk (no prompting happened)
+    assert.equal(fs.readFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), 'utf8'), before);
+  });
+
+  it('warns when EVERY test case is manual (no automated tests)', () => {
+    const dir = makeDir();
+    writeResults(dir, [
+      { tc_id: 'TC-001', status: 'manual', notes: 'm' },
+      { tc_id: 'TC-002', status: 'manual', notes: 'm' },
+    ]);
+    const out = captureStdout(() => cmdTC(makeCtx(dir, ['verify'])));
+    assert.match(out, /All 2 test case\(s\) are manual/);
+  });
+
+  it('shows a partial-manual signal when only some TCs are manual', () => {
+    const dir = makeDir();
+    writeResults(dir, [
+      { tc_id: 'TC-001', status: 'manual', notes: 'm' },
+      { tc_id: 'TC-002', status: 'pass', notes: 'auto' },
+    ]);
+    const out = captureStdout(() => cmdTC(makeCtx(dir, ['verify'])));
+    assert.match(out, /1 of 2 test case\(s\) rely on manual verification/);
   });
 
 });

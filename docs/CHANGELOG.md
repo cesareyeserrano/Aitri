@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.90] — 2026-06-19 — Guided manual verification: `aitri tc verify` walks the pending manual TCs (FB-MULTI-0619)
+
+Evidence: recording manual results meant typing a long command (`aitri tc verify TC-005 --result pass --notes "..."`) once per TC — painful on a manual-verification project with dozens of them. Aitri already holds what each manual TC checks (its Phase-3 title + expected_result); it just wasn't surfacing it as a guided list.
+
+- **Bare `aitri tc verify`** (no TC id) now enters a guided checklist ([tc.js](../lib/commands/tc.js)): it lists each pending manual TC with WHAT to check (title + expected result) and, when a human is at the terminal (TTY), walks them one at a time — answer `(p)ass / (f)ail / (s)kip`, optional note — recording each. Non-TTY prints the checklist + the explicit command and never prompts, so agents/scripts are unaffected (the explicit `tc verify <TC> --result …` form is unchanged).
+- **Manual-share signal (read-only)**: the guided header surfaces how much of the suite leans on a human — `ℹ N of M …` , or a louder `⚠ All N test case(s) are manual — there are no automated tests` — so an over-use of manual verification (an agent pushing automatable work to the human) is visible at the moment of verifying. This is a preview of the hardening direction; it never blocks.
+- Recording logic factored into one shared helper used by both the explicit and guided paths (identical behavior). No artifact/schema change; `04_TEST_RESULTS.json` shape unchanged.
+- Tests: +6 (1612 → 1617 green). `templates/AGENTS.md` notes the guided option.
+
 ## [2.0.0-rc.89] — 2026-06-19 — Runner-result reading is ONE universal contract, not a parser per stack (ADR-052, FB-MULTI-0619)
 
 rc.85 added TRX + JUnit-XML parsing to unblock .NET. The right follow-up question (raised consumer-style): the next stack with an unrecognized runner would hit the same wall, and adding a parser per format is the accretion smell — in code this time. This records and names the general capability so we stop the treadmill, **without adding any machinery**.
