@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.104 (2026-06-21) — `category: "Regression"` NFR is a hard MUST regardless of priority (REG-GATE-0621) — additive
+
+A non-functional requirement with `category: "Regression"` is now treated as a MUST by every gate that enforces MUST coverage — the Phase-3 forced-TC gate, the Phase-5 traceability-compliance gate, and the deploy-time MUST-NFR advisory — **even when its `priority` field is absent**. Before rc.104, `category` was display-only and the only MUST signal was `priority: "MUST"`; the canonical NFR schema omitted `priority`, so a regression NFR written per that schema got `priority: undefined` and silently escaped all three gates while still appearing documented (REG-GATE-0621). **No reader impact / no shape change:** `category` was always a free string and `"Regression"` an allowed value; no field was added, removed, or retyped. The artifacts consumers read (`requirement_compliance`, `fr_coverage`) only gain rows they already iterate. The new semantic is internal to Aitri's gates — a consumer that *independently replicates* the MUST predicate should mirror it as `priority === "MUST" || category === "Regression"`. See ARTIFACTS.md.
+
 ## v2.0.0-rc.103 (2026-06-20) — `quality_gates[].timeout_ms` + mutation-gate nudge (fake-pass protection, ADR-053) — additive
 
 `04_BUILD_REPORT.json#quality_gates` command entries may now carry an optional `timeout_ms` (positive number, default `300000` = 5 min) — a per-gate timeout so a slow-but-correct gate (mutation testing, full integration/e2e) is not killed at the default and mis-reported. A gate killed at its timeout is recorded `04_TEST_RESULTS.json#quality_gates[].status: "error"`. **No reader impact:** the field is optional, old readers ignore it, and the recorded gate-result shape is unchanged. `verify-run` also prints a one-line advisory when a project has automated tests but declares no mutation gate (opt-in, never blocks). See ARTIFACTS.md.

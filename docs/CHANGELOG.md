@@ -5,6 +5,16 @@
 
 ---
 
+## [2.0.0-rc.104] — 2026-06-21 — `category: "Regression"` NFR is a hard MUST regardless of priority (REG-GATE-0621, ADR-054)
+
+A Must-Not-Break commitment was protected by a chain that hung entirely on `priority: "MUST"` — and the canonical NFR schema in [requirements.md](../templates/phases/requirements.md) **omitted `priority`**, while `category` (the field an author naturally sets to `"Regression"`) was read by **no gate** (display-only). So a regression NFR written per the base schema got `priority: undefined` and silently escaped every MUST gate — the Phase-3 forced-TC gate, the Phase-5 traceability-compliance gate, and the deploy-time MUST-NFR advisory — while still looking documented and rigorous. The protection was honor-system on the agent emitting an exact field the schema didn't even show it, and for non-feature (`adopt`) scope the regression-block prose never rendered at all.
+
+- **`category: "Regression"` is now mechanically load-bearing.** A single source — [lib/requirements.js](../lib/requirements.js) `isMustRequirement(r)` = `priority === "MUST" || category === "Regression"` — replaces the bare `priority === "MUST"` predicate in all three NFR-MUST gates ([phase3.js](../lib/phases/phase3.js), [phase5.js](../lib/phases/phase5.js), [verify.js](../lib/commands/verify.js)). A regression NFR is now caught even with no priority; FRs are unaffected (they have no `category`).
+- **Schema + prompts made truthful.** `"Regression"` is added to the canonical NFR category enum, and the Phase-1/Phase-3 prompts ([requirements.md](../templates/phases/requirements.md), [tests.md](../templates/phases/tests.md)) now state that a regression NFR is a hard MUST needing the full happy/edge/negative test set — closing the schema/prose contradiction. [templates/AGENTS.md](../templates/AGENTS.md) teaches consumer agents the same.
+- **Why not validate `priority` on NFRs instead?** Rejected — it would newly-fail greenfield + existing artifacts (the base schema told agents to omit it) and be asymmetric with FRs, which are not required to declare priority either. Making `category` load-bearing only ever *adds* protection to an NFR that named `"Regression"`. Decision + trade-off in ADR-054.
+
+Additive for consumers: no artifact field added/removed/retyped; `requirement_compliance`/`fr_coverage` only gain rows readers already iterate. A consumer that independently replicates the MUST predicate should mirror `priority === "MUST" || category === "Regression"`. See `docs/integrations/`.
+
 ## [2.0.0-rc.103] — 2026-06-20 — mutation gate enablement: per-gate `timeout_ms` + fake-pass nudge (ADR-053, re-opens ADR-034 §C3)
 
 The fake-pass seam (a test that passes green without exercising real code — mocks, weak asserts; the "Ledger" lesson) has one mechanical catch: **mutation testing** (break the real code, re-run the tests; a surviving mutant means a test never checked that code — true even at 100% coverage). It was deferred on evidence (ADR-034 §C3) until the maintainer re-opened it. Mutation already runs as a project-declared `quality_gate` (exit-code judged like every other gate — no score parser, per ADR-052), but two things made it unusable, now fixed:

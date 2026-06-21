@@ -107,7 +107,7 @@ Schema: { project_name, project_summary,
     id:"US-001", requirement_id:"FR-001", as_a:"...", i_want:"...", so_that:"...",
     acceptance_criteria:[{id:"AC-001", given:"concrete system state", when:"exact action or input", then:"verifiable assertion with specific value"}]
   }],
-  non_functional_requirements: [{id:"NFR-001", category:"Performance|Security|Reliability|Scalability|Usability", requirement, acceptance_criteria}],
+  non_functional_requirements: [{id:"NFR-001", category:"Performance|Security|Reliability|Scalability|Usability|Regression", requirement, acceptance_criteria}],
   no_go_zone: ["item — what is explicitly out of scope and why"],
   constraints:[], technology_preferences:[],
   idea_provenance: { problem:"confirmed|assumed", users:"confirmed|assumed", baseline:"confirmed|assumed", success_metric:"confirmed|assumed", no_go_zone:"confirmed|assumed" },
@@ -204,7 +204,7 @@ reuse IDs from the list below.
 ```
 
 ### Regression boundary (feature-specific — the one axis a greenfield project lacks)
-A feature MODIFIES a live system. If the seed has a **Must Not Break** section, turn EACH item into a **regression NFR**: `{ id: "NFR-…", category: "Regression", priority: "MUST", requirement: "<the existing behavior to protect>", acceptance_criteria: "<observable: how a test confirms it still works>" }`. Because it is `priority: "MUST"`, `aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3` requires a test case to reference it (a `priority:"MUST"` NFR with zero TCs is blocked), and a failing regression test blocks `verify-complete` — so the breakage is caught **as long as you author the regression NFR and its test**. Aitri cannot detect a Must-Not-Break item you never translated into an NFR; that translation is on you. Also use the **Touch Points** to scope which existing FRs you are extending vs leaving alone — do not silently re-implement what already works.
+A feature MODIFIES a live system. If the seed has a **Must Not Break** section, turn EACH item into a **regression NFR**: `{ id: "NFR-…", category: "Regression", priority: "MUST", requirement: "<the existing behavior to protect>", acceptance_criteria: "<observable: how a test confirms it still works>" }`. `category: "Regression"` is what makes it a Must-Not-Break commitment with teeth, and it is treated as a hard MUST **whether or not you also set `priority: "MUST"`**. Like any MUST requirement it needs the full Three-Amigos test set at Phase 3: zero TCs is blocked, and once it has any, the gate requires **≥3 test cases — happy_path + edge_case + negative, with TC ids ending `h` and `f`**. It must also carry a compliance entry at Phase 5, and a failing regression test blocks `verify-complete` — so the breakage is caught **as long as you author the regression NFR and its tests**. Aitri cannot detect a Must-Not-Break item you never translated into an NFR; that translation is on you. Also use the **Touch Points** to scope which existing FRs you are extending vs leaving alone — do not silently re-implement what already works.
 {{/IF_PARENT_REQUIREMENTS}}
 
 ## Instructions

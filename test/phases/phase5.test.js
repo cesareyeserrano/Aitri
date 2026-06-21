@@ -123,6 +123,25 @@ describe('Phase 5 — validate()', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  // REG-GATE-0621: a regression NFR (category:"Regression") counts as MUST even with
+  // no priority, so it must carry a compliance entry — consistent with the Phase-3
+  // forced-TC gate. Without this it could be forced to have a TC yet vanish from
+  // traceability.
+  it('[cross-artifact] throws when a category:Regression NFR (no priority) is missing from requirement_compliance', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p5-reg-'));
+    try {
+      const reqs = {
+        functional_requirements: [{ id: 'FR-001', priority: 'MUST' }, { id: 'FR-002', priority: 'MUST' }],
+        non_functional_requirements: [{ id: 'NFR-001', category: 'Regression', requirement: 'login keeps working' }],
+      };
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
+      assert.throws(
+        () => PHASE_DEFS[5].validate(validP5(), { dir, config: {} }),
+        /MUST requirement.*NFR-001/s
+      );
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('[cross-artifact] passes when all FR-MUSTs have compliance entries', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p5-'));
     try {

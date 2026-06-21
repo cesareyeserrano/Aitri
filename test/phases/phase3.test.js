@@ -411,6 +411,62 @@ describe('Phase 3 — validate()', () => {
     }
   });
 
+  // REG-GATE-0621: a regression NFR (category:"Regression") is a Must-Not-Break
+  // commitment and counts as MUST even with NO priority field. The base NFR schema
+  // historically omitted priority, so such an NFR got priority:undefined and silently
+  // escaped this forced-TC gate while looking documented. It must now be caught.
+  it('[regression NFR, no priority] throws when a category:Regression NFR has no test cases', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-reg-'));
+    try {
+      const reqs = {
+        functional_requirements: [
+          { id: 'FR-001', priority: 'MUST' },
+          { id: 'FR-002', priority: 'MUST' },
+        ],
+        non_functional_requirements: [
+          { id: 'NFR-001', category: 'Regression', requirement: 'login keeps working' }, // no priority, no TC
+        ],
+        user_stories: [],
+      };
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
+      assert.throws(
+        () => PHASE_DEFS[3].validate(validP3(), { dir, config: {} }),
+        /MUST requirement.*NFR-001/s
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // Converse: a regression NFR that is fully covered passes (priority still absent).
+  // As a MUST it gets the same Three-Amigos treatment as any MUST requirement, so it
+  // needs the happy/edge/negative set — proving the gate does not false-positive.
+  it('[regression NFR, no priority] passes when the category:Regression NFR is fully covered', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-reg-ok-'));
+    try {
+      const reqs = {
+        functional_requirements: [
+          { id: 'FR-001', priority: 'MUST' },
+          { id: 'FR-002', priority: 'MUST' },
+        ],
+        non_functional_requirements: [
+          { id: 'NFR-001', category: 'Regression', requirement: 'login keeps working' },
+        ],
+        user_stories: [],
+      };
+      const p3 = JSON.parse(validP3());
+      p3.test_cases.push(
+        makeTC('TC-003h', 'NFR-001', 'unit',        'happy_path'),
+        makeTC('TC-003e', 'NFR-001', 'integration', 'edge_case'),
+        makeTC('TC-003f', 'NFR-001', 'e2e',         'negative'),
+      );
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), JSON.stringify(reqs), 'utf8');
+      assert.doesNotThrow(() => PHASE_DEFS[3].validate(JSON.stringify(p3), { dir, config: {} }));
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('[FR-MUST gap] passes when all FR-MUSTs have at least one TC', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p3-'));
     try {
