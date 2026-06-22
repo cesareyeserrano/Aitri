@@ -39,7 +39,7 @@ import { cmdTC }           from '../lib/commands/tc.js';
 import { cmdRehash }       from '../lib/commands/rehash.js';
 import { homedirCaptureNote } from '../lib/state.js';
 
-const VERSION   = '2.0.0-rc.107';
+const VERSION   = '2.0.0-rc.108';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -73,11 +73,12 @@ function findProjectDir(startDir) {
 }
 
 // init: uses explicit path arg if given, otherwise cwd
-// adopt scan/apply: always use cwd — these target a directory that may not have .aitri yet
+// adopt (bare guided start / scan / apply): always use cwd — these target a directory that
+//   has no .aitri yet, so an upward search must NOT walk up to a stray parent ~/.aitri
 // all other commands: search upward for .aitri (cwd-invariant)
 const adoptSub = args[0];
 const dir = cmd === 'init'   ? resolveInitDir()
-          : cmd === 'adopt' && (adoptSub === 'scan' || adoptSub === 'apply') ? cwd
+          : cmd === 'adopt' && (adoptSub === 'scan' || adoptSub === 'apply' || !adoptSub) ? cwd
           : findProjectDir(cwd);
 
 // C2: signal when the upward search captured a stray ~/.aitri instead of a

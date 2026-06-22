@@ -115,10 +115,13 @@ This section comes first so the human sees the most important issues immediately
 This is the input to Phase 1 (Requirements). The PM agent will read this and produce
 `01_REQUIREMENTS.json` defining exactly what adoption work needs to happen.
 
-**First, establish the adoption objective.** If the operator has stated a specific objective for
-this project (a migration, a feature, a refactor, a security fix), frame the brief around achieving
-THAT, grounded in the audit above. If there is no specific objective, default to whole-project
-stabilization (the Priority Actions become the goals). Say which one it is in the title.
+**First, establish the adoption objective.** If `IDEA.md` ALREADY EXISTS, the operator created it
+(via `aitri adopt`) to state their objective — treat it as their PURE intent: read it, audit the
+code focused on it, and do NOT overwrite or rewrite it (the only file you author here is
+ADOPTION_AUDIT.md). If `IDEA.md` does NOT exist: when the operator has stated a specific objective
+(a migration, a feature, a refactor, a security fix), frame the brief around achieving THAT, grounded
+in the audit above; when there is no specific objective, default to whole-project stabilization (the
+Priority Actions become the goals). Say which one it is in the title.
 
 Write it as a concrete, specific brief — not a summary of problems, but a description
 of the work to be done:
@@ -164,12 +167,12 @@ Only include criteria that are directly verifiable from the scan findings.]
 - ADOPTION_AUDIT.md: based on actual signals and code you read — no generic boilerplate
 - IDEA.md: adoption goals must be specific and backed by scan findings
 - Save ADOPTION_AUDIT.md to: `{{PROJECT_DIR}}/ADOPTION_AUDIT.md`
-- Save IDEA.md to: `{{PROJECT_DIR}}/IDEA.md`
+- Save IDEA.md to `{{PROJECT_DIR}}/IDEA.md` ONLY if it does not already exist — never overwrite the operator's objective
 - Do NOT create any other files
 
 ## Instructions
 1. Read the key files in the File Structure above (entry points, routes, models, tests, config)
 2. Analyze the pre-scanned Technical Health Signals
 3. Produce ADOPTION_AUDIT.md (complete diagnostic with Priority Actions first)
-4. Produce IDEA.md (specific adoption brief for Phase 1)
+4. Produce IDEA.md (specific adoption brief for Phase 1) — unless it already exists, then leave it as-is (it is the operator's objective)
 5. Tell the user: "Scan complete. Review ADOPTION_AUDIT.md — when ready: aitri adopt apply"

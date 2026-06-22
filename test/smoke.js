@@ -677,6 +677,21 @@ describe('Aitri CLI — adopt smoke', () => {
     assert.match(out, /package\.json|src|README/i, 'file tree must appear in briefing');
   });
 
+  it('aitri adopt (bare) scaffolds in the CWD, not a stray parent .aitri (dispatcher dir resolution)', () => {
+    // Regression guard: bare adopt must target cwd like scan/apply — an upward search
+    // would walk up to a stray parent .aitri and scaffold the seed in the wrong place.
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-adopt-parent-'));
+    try {
+      fs.writeFileSync(path.join(parent, '.aitri'), '{}');   // stray parent "project"
+      const child = path.join(parent, 'child');
+      fs.mkdirSync(child);
+      fs.writeFileSync(path.join(child, 'index.js'), 'console.log(1)');
+      aitri('adopt', child);
+      assert.ok(fs.existsSync(path.join(child, 'IDEA.md')), 'bare adopt scaffolds in the child (cwd)');
+      assert.ok(!fs.existsSync(path.join(parent, 'idea_context')), 'must NOT walk up and scaffold into the stray parent');
+    } finally { try { fs.rmSync(parent, { recursive: true, force: true }); } catch {} }
+  });
+
   it('aitri adopt apply initializes project from IDEA.md (from scan)', () => {
     fs.writeFileSync(
       path.join(adoptDir, 'IDEA.md'),

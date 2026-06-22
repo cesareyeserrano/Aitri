@@ -184,6 +184,7 @@ Bring an existing project into the Aitri pipeline — either to stabilize/instit
 
 | Command | Description |
 | :--- | :--- |
+| `aitri adopt` | Guided start: scaffold the objective seed (`IDEA.md`) + the doc home (`idea_context/`) and point you to scan. State your objective, drop supporting docs, then scan. |
 | `aitri adopt scan` | Scan the codebase → `ADOPTION_AUDIT.md` (technical diagnostic, consumed by Phases 1-3) + `IDEA.md` (adoption brief — a specific objective if you have one, else whole-project stabilization). |
 | `aitri adopt apply` | Initialize `.aitri` state from `IDEA.md`. Then run the pipeline from Phase 1. |
 | `aitri adopt apply --from <N>` | Enter the pipeline at Phase N. Use when prior artifacts already exist. |

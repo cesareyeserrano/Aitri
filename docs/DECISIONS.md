@@ -1471,7 +1471,7 @@ The project adapts its runner to one of these three; Aitri does not adapt to the
 
 ## ADR-056 — 2026-06-21 — The adopt FLOW: an objective-focused audit that the phases consume (the flow deferred by ADR-055)
 
-**Status:** ACCEPTED — Stage 1 shipped rc.107 (audit becomes a consumed artifact + rename + ordering fix). Stage 2 (the guided `aitri adopt` entry + pure-IDEA capture) is the next stage.
+**Status:** ACCEPTED — Stage 1 shipped rc.107 (audit becomes a consumed artifact + rename), Stage 2 shipped rc.108 (guided bare `aitri adopt` entry + pure-IDEA + `apply` relocates a root `idea_context/`). The adopt-initiation thread (ADR-055 model + ADR-056 flow) is closed. Note on capture: the objective is a structured seed the operator fills (+ rich docs in `idea_context/`), NOT a wizard Q&A — an adoption objective carries rules/docs/annexes a one-line interview cannot hold; the wizard's dual-mode machinery was therefore not reused.
 
 **Context.** ADR-055 fixed the adopt MODEL (bivalent: stabilize OR a specific objective) and deferred the FLOW. The flow question: for an objective-driven adoption — how does the operator's objective + its supporting docs get in, how is the audit focused on the objective, where does the objective live, and how do the audit findings reach the plan WITHOUT polluting the operator's intent. An adversarial pass over the first flow draft surfaced these code-verified constraints:
 - `IDEA.md` is the operator's PURE intent (ADR-050: the seed is absorbed verbatim into `01_REQUIREMENTS.json#original_brief` and archived, never mutated). The audit must NOT be crammed into it.

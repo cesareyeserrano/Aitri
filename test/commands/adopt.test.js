@@ -166,6 +166,28 @@ describe('aitri adopt scan', () => {
   });
 });
 
+// ── adopt (bare — guided entry) ─────────────────────────────────────────────────
+
+describe('aitri adopt (bare — guided entry, ADR-056 stage 2)', () => {
+  it('scaffolds the objective seed + idea_context/ and points at the next step', () => {
+    const dir = tmpDir();
+    const out = captureLog(() =>
+      cmdAdopt({ dir, args: [], VERSION: '0.1.55', rootDir: ROOT_DIR, err: makeErr().fn })
+    );
+    assert.ok(fs.existsSync(path.join(dir, 'IDEA.md')), 'creates a root IDEA.md objective seed');
+    assert.match(fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8'), /Adoption Objective|Must Not Break/, 'IDEA.md is the objective template');
+    assert.ok(fs.existsSync(path.join(dir, 'idea_context')), 'creates idea_context/ for supporting docs');
+    assert.match(out, /adopt scan/, 'guidance points to the next step');
+  });
+
+  it('never overwrites an existing IDEA.md (pure operator intent)', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'IDEA.md'), '# My objective\nMigrate auth.');
+    captureLog(() => cmdAdopt({ dir, args: [], VERSION: '0.1.55', rootDir: ROOT_DIR, err: makeErr().fn }));
+    assert.match(fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8'), /Migrate auth/, 'existing IDEA.md left untouched');
+  });
+});
+
 // ── adopt apply ───────────────────────────────────────────────────────────────
 
 describe('aitri adopt apply', () => {
@@ -213,6 +235,18 @@ describe('aitri adopt apply', () => {
     const unitAudit = path.join(dir, 'aitri', 'product', 'idea_context', 'ADOPTION_AUDIT.md');
     assert.ok(fs.existsSync(unitAudit), 'audit must land in the unit idea_context/ (where Phases 1-3 read it)');
     assert.ok(fs.readFileSync(unitAudit, 'utf8').includes('blast radius'), 'audit content must be kept verbatim');
+  });
+
+  it('relocates a root idea_context/ (operator docs) into the unit, not orphaned (ADR-056)', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
+    fs.mkdirSync(path.join(dir, 'idea_context'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'idea_context', 'migration-guide.md'), '# Migration guide\nsteps...');
+    run(dir);
+    assert.ok(!fs.existsSync(path.join(dir, 'idea_context', 'migration-guide.md')), 'root doc is moved, not orphaned');
+    const unitDoc = path.join(dir, 'aitri', 'product', 'idea_context', 'migration-guide.md');
+    assert.ok(fs.existsSync(unitDoc), 'operator doc must land in the unit idea_context/ (where phases read it)');
+    assert.match(fs.readFileSync(unitDoc, 'utf8'), /Migration guide/, 'content kept');
   });
 
   it('creates placeholder IDEA.md (at the unit path) when scan was not run', () => {

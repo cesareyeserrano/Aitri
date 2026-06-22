@@ -5,6 +5,17 @@
 
 ---
 
+## [2.0.0-rc.108] — 2026-06-21 — adopt FLOW stage 2: the guided `aitri adopt` entry + pure-IDEA (ADR-056)
+
+Stage 2 of the adopt flow — the operator-facing entry. A dev with an existing project and a specific objective had no clear way to start (`init` is greenfield; `adopt scan` jumped straight to auditing) and nowhere obvious to put the objective + its docs. Bare `aitri adopt` errored. Now it is the guided front door.
+
+- **`aitri adopt` (bare) is the guided start** ([adopt.js](../lib/commands/adopt.js) `adoptInit`) — scaffolds the objective seed (`IDEA.md`, a structured **Adoption Objective** template: Objective / Must Not Break / Constraints / Supporting docs) and the doc home (`idea_context/`), then prints the next steps (fill the objective, drop docs, `adopt scan`, `adopt apply`). Never overwrites an existing `IDEA.md` — it is the operator's pure intent (ADR-050/055).
+- **`IDEA.md` stays pure; the scan respects it** ([scan.md](../templates/adopt/scan.md)) — if `IDEA.md` already exists (the operator stated the objective), the scan audits focused on it and does NOT overwrite it; the only file the scan authors then is `ADOPTION_AUDIT.md`. It writes `IDEA.md` only when none exists (no stated objective → stabilization).
+- **`adopt apply` relocates a root `idea_context/` into the unit** ([adopt.js](../lib/commands/adopt.js)) — fixes the orphan an adversarial pass caught: the operator's docs dropped at the root (pre-`apply`) are moved into `aitri/product/idea_context/` (with the audit), never left behind, never clobbering an existing unit file.
+- **Guard tests** ([adopt.test.js](../test/commands/adopt.test.js)) — bare `adopt` scaffolds + does not clobber an existing IDEA.md; `apply` relocates a root `idea_context/` doc into the unit.
+
+The objective is captured as a structured seed the operator fills (+ rich supporting docs in `idea_context/`), not a one-line Q&A — an adoption objective carries rules/docs/annexes that a prompt question cannot hold. Closes the adopt-initiation thread (ADR-055 model + ADR-056 flow, both stages). No artifact-chain or `.aitri` schema change; bare `adopt` previously errored, so no behavior is removed.
+
 ## [2.0.0-rc.107] — 2026-06-21 — adopt FLOW stage 1: the audit becomes an artifact the phases consume (ADR-056)
 
 ADR-055 fixed the adopt *model* (bivalent). This is stage 1 of the *flow*: making the adoption audit a CONSUMED artifact instead of a human-only doc. Today the audit (`ADOPTION_SCAN.md`) is read by nothing — its findings reach the pipeline only because the scan agent distills them into `IDEA.md`, which Phase 1 reads. For an objective-driven adoption, `IDEA.md` should stay the operator's pure intent (ADR-050), so the audit needs its own path to the phases.
