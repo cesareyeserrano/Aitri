@@ -1450,3 +1450,50 @@ The project adapts its runner to one of these three; Aitri does not adapt to the
 **Trade-off.** `category: "Regression"`, previously decorative, becomes load-bearing — a project that used it loosely as a label on a non-MUST NFR would now be gated. Accepted: zero such usage exists in the canary/adopter base (grep), and the new posture matches what any author assumes when they write `category: "Regression"`. Exact-string match (`"Regression"`, not `"regression"`) is consistent with the rest of the un-normalized category convention.
 
 **Consumer contract.** Additive shape, semantic broadening. No artifact field added/removed/retyped; consumers read Aitri-*computed* `requirement_compliance`/`fr_coverage` (which only gain rows), not the predicate, so the actual consumer (Hub) does not diverge. A future consumer that independently replicates "is this NFR a MUST" must mirror `priority === "MUST" || category === "Regression"` — documented in `docs/integrations/{ARTIFACTS,CHANGELOG}.md`.
+
+## ADR-055 — 2026-06-21 — `adopt` is bivalent: bring an existing project under Aitri to stabilize it OR to pursue a specific objective
+
+**Status:** ACCEPTED — definition + framing shipped rc.106. The guided-initiation FLOW (how the operator's objective and its supporting docs are captured before the audit) is deliberately DEFERRED to a follow-up; this ADR fixes the MODEL so that flow is not designed from the narrow one.
+
+**Context.** Aitri has two entry models: `init` (greenfield — no code yet, created under Aitri) and `adopt` (a project that already exists). `wizard` is not an entry — it is a seed-capture helper used inside `init`/`feature`. The defect: across the whole project, `adopt` was defined as *stabilization* of an existing codebase, not as adoption-for-any-objective. Verified in four places, including the two operator-facing ones: the help line (`help.js` — "diagnostic + stabilization plan"), the README command table (`IDEA.md` "stabilization brief"), the `adopter` persona (`adopter.js` — "produce a specific stabilization brief … You are not designing anything new"), and the scan template (`scan.md` — "Adoption Stabilization", "No new product features — stabilization only"). The bivalent reality — an operator adopts an existing project to do ONE bounded thing in it (a migration, a feature, a refactor, a security fix), not only to clean it up — existed only in a local, unfinished design note, committed nowhere. A real present consumer (an Umbraco 10→17 migration) is exactly the objective-driven case. The narrowness was self-reinforcing: every reader of the code (human or agent) was told "adopt = stabilize", so the model kept being re-derived narrow — this thread stalled three times on it.
+
+**Decision.** Adopt is **bivalent** by definition: *adoption brings an existing project under Aitri to either (a) stabilize/institutionalize it — no specific objective, the objective emerges from the audit — or (b) achieve a specific objective the operator brings, with the audit serving that objective.* Stabilization is the DEFAULT when no objective is stated, not the only mode. The definition is recorded here and the four framing sites are corrected to state it. Persona and template are corrected at framing level only (bivalent + default-stabilization); the false absolute "You are not designing anything new" is removed, since an objective-driven adoption legitimately designs new behavior.
+
+**Deferred (explicitly NOT in this step).** The guided-initiation FLOW — how the operator's objective and its supporting documentation/annexes are captured *before* the audit, where they live (the `idea_context/` home and its creation ordering relative to `scan`), and the objective-focused adversarial restructure of the scan prompt — is a separate design. For a passive prompt generator the prompt IS the mechanism, so that work is done deliberately, not rushed into a framing pass.
+
+**Rejected.**
+- **`adopt --goal` flag / a one-line CLI argument for the objective** — an objective can carry rules, documentation, instructions, and annexes; it is an INPUT artifact, not a scalar parameter. Mechanism belongs to the deferred flow, not the definition.
+- **Treating the bivalence as a special case bolted onto a stabilization-first model** — that inversion is what produced the defect. Bivalence is the baseline; stabilization is one branch (the default).
+
+**Trade-off.** Correcting the persona/template framing before the full flow exists leaves an interim where the agent gets the objective from chat context (Aitri's existing honor-system level) rather than from a guaranteed capture step. Accepted: it is strictly better than today — the template no longer FIGHTS a stated objective — and the capture mechanism is the very next step.
+
+**Consumer contract.** No artifact schema, `.aitri` field, or command surface changes — `adopt scan`/`adopt apply` keep their signatures and `IDEA.md` keeps its shape (only its framing generalizes). Pure model + prompt/doc correction. No Hub impact.
+
+## ADR-056 — 2026-06-21 — The adopt FLOW: an objective-focused audit that the phases consume (the flow deferred by ADR-055)
+
+**Status:** ACCEPTED — Stage 1 shipped rc.107 (audit becomes a consumed artifact + rename + ordering fix). Stage 2 (the guided `aitri adopt` entry + pure-IDEA capture) is the next stage.
+
+**Context.** ADR-055 fixed the adopt MODEL (bivalent: stabilize OR a specific objective) and deferred the FLOW. The flow question: for an objective-driven adoption — how does the operator's objective + its supporting docs get in, how is the audit focused on the objective, where does the objective live, and how do the audit findings reach the plan WITHOUT polluting the operator's intent. An adversarial pass over the first flow draft surfaced these code-verified constraints:
+- `IDEA.md` is the operator's PURE intent (ADR-050: the seed is absorbed verbatim into `01_REQUIREMENTS.json#original_brief` and archived, never mutated). The audit must NOT be crammed into it.
+- `ADOPTION_SCAN.md` is read by NOTHING today — not a Hub contract (absent from `docs/integrations/`), no `lib/` reader (human-only). Its findings reach the pipeline only because the scan agent distills them into `IDEA.md`, which Phase 1 reads. If `IDEA.md` becomes pure, that indirect path breaks → the audit must reach the phases directly.
+- `apply` creates `aitri/product/idea_context/` fresh and does NOT relocate a root `idea_context/` (it only moves root `IDEA.md`, `adopt.js`). So scaffolding the doc home at the project root before `apply` orphans the operator's docs — they never reach a briefing (BLOCKER in the first draft).
+- Phases 1, 2, 3 ALREADY receive `idea_context/` in their briefings (`run-phase.js` CONTEXT_PHASES = {discovery,1,ux,2,3}). Phase 2 has NO other optional-input hook (`phase2.js` inputs = `01_REQUIREMENTS.json` + optional `01_UX_SPEC.md`; `architecture.md` has only FEEDBACK/UX_SPEC/BEST_PRACTICES conditional blocks). So the cheapest, no-new-plumbing channel for the audit is `idea_context/` itself.
+
+**Decision (the flow).**
+- Rename `ADOPTION_SCAN.md → ADOPTION_AUDIT.md` (names the result, not the `scan` verb; not a contract — no machine consumer, so direct rename is safe).
+- The audit becomes a CONSUMED artifact by living in `idea_context/` (which Phases 1/2/3 already list) + a one-line nudge in the Phase-1/2 prompts to read it and ground requirements/design in its findings. No new injection plumbing — the channel exists.
+- `apply` relocates a root `idea_context/` into the unit (symmetric with how it already moves root `IDEA.md`) — fixes the orphan and unblocks "provide docs before apply".
+- `IDEA.md` stays the operator's pure objective; the audit (findings) is the separate consumed input.
+- The guided entry `aitri adopt` (bare) — captures the objective (wizard dual-mode machinery + adopt-specific questions) and scaffolds the doc home — is Stage 2.
+
+**Staged delivery.** Stage 1 (rc.107): rename + audit-in-`idea_context` + Phase-1/2 nudge + `apply` relocates root `idea_context`. This alone makes the audit a consumed artifact (the core tier-1 value: requirements + plan grounded in real findings) with no new command and no ordering bug. Stage 2: the guided `aitri adopt` entry + pure-IDEA capture (where scan stops distilling the audit into IDEA).
+
+**Rejected.**
+- **`{{#IF_ADOPTION_AUDIT}}` content-injection into Phase 1 + a new Phase-2 hook** (first draft): more plumbing than the value warrants — `idea_context/` already carries files into Phases 1/2/3. Reserve explicit injection for if the listing proves too weak (no evidence yet).
+- **Phase-2-specific audit plumbing**: Phase 2 already receives `idea_context/` and builds on audit-grounded Phase-1 requirements. New hook = most plumbing, least marginal value.
+- **Scaffolding the doc home at the project root before `apply`** (first draft): orphans the docs. Fixed by making `apply` relocate root `idea_context/`.
+- **Dropping the rename and the guided entry** (the adversarial's leanest): the rename is a low-risk clarity win the maintainer asked for; the guided entry addresses a real operator-friction concern (a dev with a project + objective does not know how to start or where docs go) that is a product judgment, not refutable from code. Kept; the BLOCKER is fixed cleanly, not a reason to cut the entry.
+
+**Trade-off.** The audit reaches the phases as a LISTED context file + a prompt nudge (honor-system, like all of Aitri's passive layer), not a hard-injected input. Accepted: it matches Aitri's enforcement floor and avoids new plumbing; tighten to explicit injection only if a consumer shows the agent skipping it.
+
+**Consumer contract.** `ADOPTION_AUDIT.md` is not a Hub contract (the old name was not either). No `.aitri` field or artifact-chain change. `idea_context/` gains one more file (already a free-form folder). No schema impact.

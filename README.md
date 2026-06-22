@@ -180,11 +180,11 @@ Add new functionality to a completed project without reopening approved phases.
 
 ### Adoption
 
-Bring an existing project into the Aitri pipeline.
+Bring an existing project into the Aitri pipeline — either to stabilize/institutionalize it, or to pursue a specific objective in it (a migration, a feature, a refactor, a security fix).
 
 | Command | Description |
 | :--- | :--- |
-| `aitri adopt scan` | Scan the codebase → `ADOPTION_SCAN.md` (technical diagnostic) + `IDEA.md` (stabilization brief). |
+| `aitri adopt scan` | Scan the codebase → `ADOPTION_AUDIT.md` (technical diagnostic, consumed by Phases 1-3) + `IDEA.md` (adoption brief — a specific objective if you have one, else whole-project stabilization). |
 | `aitri adopt apply` | Initialize `.aitri` state from `IDEA.md`. Then run the pipeline from Phase 1. |
 | `aitri adopt apply --from <N>` | Enter the pipeline at Phase N. Use when prior artifacts already exist. |
 | `aitri adopt --upgrade` | Sync an existing Aitri project to the current CLI version. Non-destructive. |

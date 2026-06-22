@@ -26,6 +26,8 @@ The architecture is shaped by constraints that are **expensive to change after t
 
 Do not invent a constraint the project did not state — but do not silently design past a missing one either. Just-in-time: confirm the gap now, here, where it bites.
 
+**Adoption audit (if present).** If an `ADOPTION_AUDIT.md` is among the context files (`idea_context/`), this is a change to an existing system: factor its findings — blast radius, risks, what must not break — into the design, and make the preservation contract (Data Model / API Design sections) concrete against them.
+
 {{#IF_UX_SPEC}}
 ## UX/UI Specification (01_UX_SPEC.md — read-only context)
 {{UX_SPEC}}

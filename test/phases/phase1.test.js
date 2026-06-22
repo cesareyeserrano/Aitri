@@ -678,11 +678,18 @@ describe('Phase 1 — feature regression boundary (ADR-039 Phase 2)', () => {
     assert.ok(/Touch Points/.test(b), 'feature briefing must reference Touch Points');
   });
 
-  it('non-feature briefing (no PARENT_REQUIREMENTS) omits the regression-boundary block', () => {
+  it('non-feature briefing (no PARENT_REQUIREMENTS) omits the feature-only block but still routes existing-system changes to a regression NFR', () => {
     const b = PHASE_DEFS[1].buildBriefing({
       dir: HERMETIC_SEED_DIR, config: {},
       inputs: { 'IDEA.md': '## Problem\nx\n## Target Users\ny\n## Business Rules\nz\n## Success Criteria\nw\n' },
     });
-    assert.ok(!b.includes('regression NFR'), 'greenfield briefing must not carry the feature-only regression block');
+    // The feature-only block (PARENT_REQUIREMENTS / Touch Points / "do NOT duplicate") stays gated.
+    assert.ok(!/Touch Points/.test(b), 'greenfield/adopt briefing must not carry the feature-only regression block');
+    assert.ok(!b.includes('Existing Requirements — do NOT duplicate'), 'feature-only "do NOT duplicate" block must be gated');
+    // REG-GATE-0621 follow-up: the always-on Depth Protocol IS the only regression instruction
+    // an adopt/migration briefing (no PARENT_REQUIREMENTS) sees, so it must route a preserved
+    // behavior to the ENFORCED shape — a regression NFR (category:"Regression"), not an escapable FR.
+    assert.ok(b.includes('regression NFR'), 'Depth Protocol must route a preserved behavior to the armed regression NFR shape');
+    assert.ok(!/regression FR/.test(b), 'must not point at the escapable "regression FR" shape');
   });
 });

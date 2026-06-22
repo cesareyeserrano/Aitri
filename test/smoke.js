@@ -667,7 +667,7 @@ describe('Aitri CLI — adopt smoke', () => {
 
   it('aitri adopt scan outputs briefing with project structure', () => {
     const out = aitri('adopt scan', adoptDir);
-    assert.match(out, /ADOPTION_SCAN\.md/, 'briefing must mention ADOPTION_SCAN.md output');
+    assert.match(out, /ADOPTION_AUDIT\.md/, 'briefing must mention ADOPTION_AUDIT.md output');
     assert.match(out, /IDEA\.md/, 'briefing must mention IDEA.md output');
     assert.match(out, /stabilization|Technical Health/i, 'briefing must mention stabilization context');
   });
@@ -759,7 +759,7 @@ describe('Aitri CLI — adopt smoke', () => {
     const minDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-adopt-min-'));
     try {
       const out = aitri('adopt scan', minDir);
-      assert.match(out, /ADOPTION_SCAN\.md/);
+      assert.match(out, /ADOPTION_AUDIT\.md/);
     } finally {
       try { fs.rmSync(minDir, { recursive: true, force: true }); } catch {}
     }

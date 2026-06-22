@@ -132,7 +132,7 @@ On a re-run after Phase 1 is approved, the seed is sealed: the gate is skipped a
 FRs as usual (idea_provenance is historical at that point).
 
 ## Requirement Depth Protocol
-Before writing any FR, decompose the work in IDEA.md so every behavior gets an FR and nothing is silently dropped. For a product being **built**, work through the surfaces below. For a **change to an existing system** (migration, refactor, infra, platform upgrade), the same goal is met by decomposing along different axes: what must change, what must **NOT** change (each preserved behavior becomes a regression FR), the boundary / blast-radius of the change, and the build / boot / parity gates that prove it — then map those to FRs exactly as below. Either way, an undecomposed area of work is a gap.
+Before writing any FR, decompose the work in IDEA.md so every behavior gets an FR and nothing is silently dropped. For a product being **built**, work through the surfaces below. For a **change to an existing system** (migration, refactor, infra, platform upgrade), the same goal is met by decomposing along different axes: what must change → FRs; what must **NOT** change → a **regression NFR** per preserved behavior (`category: "Regression"`, which Aitri enforces as a hard MUST even when you omit `priority`: it needs the full happy/edge/negative test set at Phase 3 and a failing regression test blocks `verify-complete`); plus the boundary / blast-radius of the change and the build / boot / parity gates that prove it — map each to the matching requirement type as below. Either way, an undecomposed area of work is a gap.
 1. **Screens / surfaces** — list every distinct screen, modal, or major UI surface
 2. **User actions** — for each screen: list every action a user can perform (clicks, form submissions, navigation)
 3. **System states** — for every I/O action: loading, success, error, and empty/zero-data states
@@ -141,6 +141,8 @@ Before writing any FR, decompose the work in IDEA.md so every behavior gets an F
 6. **Edge cases** — empty inputs, max-length inputs, duplicate submissions, concurrent operations
 
 Each item above that is not in no_go_zone is a candidate FR. If you don't write an FR for it, put it in no_go_zone with a reason. A screen with no FR is a gap. A user action with no FR is a gap.
+
+**Adoption audit (if present).** If an `ADOPTION_AUDIT.md` is among the context files (`idea_context/`), this is a change to an existing system — read it first. Its findings (blast radius, missing tests, security gaps, what must not break) are the evidence base for the requirements: ground the FRs in them, and turn each must-not-break item into a regression NFR (`category: "Regression"`, as above).
 
 ## No-go zone (mandatory)
 Before listing any FR, declare ≥3 items that are explicitly OUT OF SCOPE for this delivery.

@@ -60,6 +60,20 @@ function makeIdea(content = 'An invoicing tool for freelancers. Helps track paym
 // ── adopt scan ────────────────────────────────────────────────────────────────
 
 describe('aitri adopt scan', () => {
+  it('presents adoption as bivalent (objective OR stabilization), not stabilization-only (ADR-055)', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'index.js'), 'console.log("hello");');
+    const out = captureStdout(() =>
+      cmdAdopt({ dir, args: ['scan'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn })
+    );
+    assert.match(out, /specific objective/i, 'briefing must surface the specific-objective path');
+    assert.match(out, /stabilization/i, 'briefing must keep stabilization as the default');
+    assert.ok(!/You are not designing anything new/i.test(out),
+      'persona must drop the stabilization-only absolute (false for objective-driven adoption)');
+    assert.match(out, /For stabilization: no new product features/,
+      'the "no new features" rule must be conditional on the stabilization branch');
+  });
+
   it('outputs a briefing to stdout', () => {
     const dir = tmpDir();
     fs.writeFileSync(path.join(dir, 'index.js'), 'console.log("hello");');
@@ -68,7 +82,7 @@ describe('aitri adopt scan', () => {
       cmdAdopt({ dir, args: ['scan'], VERSION: '0.1.35', rootDir: ROOT_DIR, err: makeErr().fn })
     );
     assert.ok(out.length > 100, 'briefing must be non-trivial');
-    assert.ok(out.includes('ADOPTION_SCAN.md'), 'briefing must reference ADOPTION_SCAN.md output');
+    assert.ok(out.includes('ADOPTION_AUDIT.md'), 'briefing must reference ADOPTION_AUDIT.md output');
     assert.ok(out.includes('IDEA.md'), 'briefing must reference IDEA.md output');
   });
 
@@ -188,6 +202,17 @@ describe('aitri adopt apply', () => {
     assert.ok(!fs.existsSync(path.join(dir, 'IDEA.md')), 'root brief is MOVED, not duplicated');
     const idea = fs.readFileSync(path.join(dir, 'aitri', 'product', 'IDEA.md'), 'utf8');
     assert.ok(idea.includes('Existing Idea'), 'content must be kept verbatim');
+  });
+
+  it('moves a root ADOPTION_AUDIT.md into the unit idea_context/ so phases consume it (ADR-056)', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'IDEA.md'), makeIdea());
+    fs.writeFileSync(path.join(dir, 'ADOPTION_AUDIT.md'), '# Audit\nblast radius: src/auth.js; no auth tests.');
+    run(dir);
+    assert.ok(!fs.existsSync(path.join(dir, 'ADOPTION_AUDIT.md')), 'root audit is MOVED, not left to orphan');
+    const unitAudit = path.join(dir, 'aitri', 'product', 'idea_context', 'ADOPTION_AUDIT.md');
+    assert.ok(fs.existsSync(unitAudit), 'audit must land in the unit idea_context/ (where Phases 1-3 read it)');
+    assert.ok(fs.readFileSync(unitAudit, 'utf8').includes('blast radius'), 'audit content must be kept verbatim');
   });
 
   it('creates placeholder IDEA.md (at the unit path) when scan was not run', () => {
