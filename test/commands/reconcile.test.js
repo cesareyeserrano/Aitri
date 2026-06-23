@@ -741,3 +741,26 @@ describe('cascadeInvalidate() — clears reconcileState when build is downstream
     assert.ok(!config.reconcileState, 'reconcileState must be cleared because 5 is downstream and 4-or-5 check triggers');
   });
 });
+
+// ── R3-15: git baseRef must never be shell-interpreted ───────────────────────────
+describe('cmdReconcile() — git baseRef is never shell-interpreted (R3-15 RCE guard)', () => {
+  it('does NOT execute a shell payload smuggled in reconcileState.baseRef', () => {
+    const dir = tmpDir();
+    const run = (c) => execSync(c, { cwd: dir, stdio: 'ignore' });
+    run('git init -q'); run('git config user.email a@b'); run('git config user.name A');
+    writeFile(dir, 'README', 'x'); run('git add -A'); run('git commit -q -m init');
+    const pwned = path.join(dir, 'PWNED');
+    // A committed `.aitri` whose git baseRef carries a command-substitution payload. Pre-fix,
+    // `git diff ${baseRef}..HEAD` ran via a shell on a plain `aitri reconcile` (and the same
+    // shape on `aitri resume`/`status` drift checks) → zero-interaction RCE.
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      aitriVersion: '2.0.0', projectName: 'p', artifactsDir: 'spec',
+      approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+      reconcileState: { baseRef: `$(touch ${pwned})`, method: 'git', status: 'resolved' },
+    }));
+    // git errors on the bogus revision (no shell ran) — swallow it; the assertion is the payload.
+    try { captureLog(() => cmdReconcile({ dir, args: [], err: noopErr })); } catch { /* expected */ }
+    assert.equal(fs.existsSync(pwned), false, 'baseRef must never reach a shell');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});

@@ -357,6 +357,18 @@ describe('cmdBug lifecycle — git audit trail', () => {
     const bug = readBugs(dir).bugs[0];
     assert.deepEqual(bug.files_changed, ['src.js']);
   });
+
+  it('does NOT execute a shell payload smuggled in fix_commit_sha on close (R3-4 RCE guard)', () => {
+    const dir = gitSetup();
+    const pwned = path.join(dir, 'PWNED');
+    // Hostile committed BUGS.json: fix_commit_sha carries a shell command-substitution payload.
+    // Pre-fix, `git diff --name-only ${fix_commit_sha}..${closeSha}` ran via a shell → RCE.
+    writeBugs(dir, [{ id: 'BG-001', title: 't', status: 'fixed',
+      fix_commit_sha: `$(touch ${pwned})`, fix_at: new Date().toISOString(), fr: null, tc_reference: null }]);
+    cmdBug({ dir, args: ['close', 'BG-001'], err });
+    assert.equal(fs.existsSync(pwned), false, 'fix_commit_sha must never reach a shell');
+    assert.equal(readBugs(dir).bugs[0].status, 'closed', 'close still succeeds (invalid SHA → diff skipped)');
+  });
 });
 
 describe('cmdBug lifecycle — non-git project (graceful)', () => {

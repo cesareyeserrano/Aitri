@@ -131,6 +131,31 @@ describe('cmdTC — tc verify', () => {
     assert.equal(fr.status, 'covered', 'FR is now covered by the verified manual TC — no contradiction with the summary');
   });
 
+  it('recomputes ac_coverage on tc verify — a verified FAIL flips the AC to uncovered (R3-8)', () => {
+    const dir = makeDir();
+    fs.writeFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'MUST' }],
+      user_stories: [{ requirement_id: 'FR-001', acceptance_criteria: [{ id: 'AC-001-1', text: 'login works' }] }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-001m', requirement_id: 'FR-001', ac_id: 'AC-001-1', automation: 'manual', expected_result: 'r' }],
+    }));
+    // Pending manual result + ac_coverage present (as verify-run seeds it for structured ACs).
+    writeResults(dir, [{ tc_id: 'TC-001m', status: 'manual', notes: '' }], { manual: 1 });
+    const d0 = readResults(dir);
+    d0.ac_coverage = [{ ac_id: 'AC-001-1', fr_id: 'FR-001', tests_passing: 0, tests_failing: 0, tests_skipped: 0, tests_manual: 1, status: 'manual' }];
+    fs.writeFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), JSON.stringify(d0));
+
+    // The human verifies the AC's only test as FAIL. Before R3-8, ac_coverage stayed "manual"
+    // (treated as covered) and the build shipped; tc verify now recomputes it to "uncovered".
+    cmdTC(makeCtx(dir, ['verify', 'TC-001m', '--result', 'fail', '--notes', 'login broken']));
+
+    const d = readResults(dir);
+    const ac = d.ac_coverage.find(a => a.ac_id === 'AC-001-1');
+    assert.equal(ac.status, 'uncovered', 'ac_coverage must be recomputed to reflect the verified FAIL');
+    assert.equal(ac.tests_failing, 1);
+  });
+
   it('allows re-verification of already-verified TC', () => {
     const dir = makeDir();
     writeResults(dir, [{ tc_id: 'TC-002f', status: 'pass', notes: 'first run', verified_manually: true, verified_at: '2026-01-01T00:00:00Z' }]);
@@ -275,16 +300,17 @@ describe('cmdTC — tc mark-manual', () => {
     assert.equal(before, after);
   });
 
-  it('re-stamps artifactHashes[3] when a stored hash exists', () => {
+  it('does NOT re-stamp artifactHashes[3] — the automation downgrade must surface as drift (R3-24)', () => {
     const dir = makeDir();
     writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'auto' }]);
     const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
-    cfg.artifactHashes = { '3': 'stale-hash-from-before-edit' };
+    cfg.artifactHashes = { '3': 'hash-of-the-approved-test-cases' };
     fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify(cfg));
     cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e']));
     const after = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
-    assert.notEqual(after.artifactHashes['3'], 'stale-hash-from-before-edit');
-    assert.match(after.artifactHashes['3'], /^[a-f0-9]+$/);
+    // The stored hash must stay as approved, so the edited 03_TEST_CASES.json now mismatches it
+    // → Phase-3 drift → TTY-gated re-approval, instead of silently absorbing the downgrade.
+    assert.equal(after.artifactHashes['3'], 'hash-of-the-approved-test-cases');
   });
 
   it('does NOT add artifactHashes[3] when none was stored', () => {

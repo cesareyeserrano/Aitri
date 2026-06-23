@@ -103,6 +103,21 @@ describe('Phase review — buildBriefing()', () => {
     assert.ok(briefing.includes('src/auth.js'), 'must list files from manifest');
   });
 
+  it('lists files from a MODIFIED-only (brownfield) build, not just files_created (R3-18)', () => {
+    const b = PHASE_DEFS['review'].buildBriefing({
+      dir: '/tmp/test',
+      inputs: {
+        '01_REQUIREMENTS.json': '{"functional_requirements":[]}',
+        '03_TEST_CASES.json': '{"test_cases":[]}',
+        '04_BUILD_REPORT.json': JSON.stringify({ files_modified: ['src/legacy.js', 'src/api.js'] }),
+      },
+      feedback: null,
+    });
+    assert.ok(b.includes('src/legacy.js'), 'must list modified files');
+    assert.ok(b.includes('src/api.js'), 'must list modified files');
+    assert.ok(!b.includes('(no files listed in manifest)'), 'file list must not be empty for a modified-only build');
+  });
+
   it('briefing lists declared technical debt', () => {
     assert.ok(briefing.includes('FR-003'), 'must show declared technical debt');
     assert.ok(briefing.includes('HTML table'), 'must show substitution description');

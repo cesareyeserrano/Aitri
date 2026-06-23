@@ -275,14 +275,29 @@ describe('Phase 5 — validate() D1 claim-vs-evidence gate (rc.13)', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('passes when HIGH levels are backed by covered (or manual) coverage', () => {
+  it('passes when HIGH levels are backed by "covered" coverage', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-d1-'));
     try {
       seed(dir, [
         { fr_id: 'FR-001', status: 'covered' },
-        { fr_id: 'FR-002', status: 'manual' },
+        { fr_id: 'FR-002', status: 'covered' },
       ]);
       assert.doesNotThrow(() => PHASE_DEFS[5].validate(proof(), { dir, config: { artifactsDir: 'spec' } }));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('blocks a HIGH level backed only by pending "manual" coverage (ADV-0622-01)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-d1-'));
+    try {
+      // A pending status:"manual" FR (seeded by verify-run, never verified by a human) is NOT
+      // acceptable evidence for complete/production_ready — a verified manual TC is recorded
+      // status:"pass" → "covered". Spine false-pass fix.
+      seed(dir, [
+        { fr_id: 'FR-001', status: 'covered' },
+        { fr_id: 'FR-002', status: 'manual' },
+      ]);
+      assert.throws(() => PHASE_DEFS[5].validate(proof(), { dir, config: { artifactsDir: 'spec' } }),
+        /claim a level above their test evidence[\s\S]*FR-002/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

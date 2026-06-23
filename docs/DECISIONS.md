@@ -1497,3 +1497,23 @@ The project adapts its runner to one of these three; Aitri does not adapt to the
 **Trade-off.** The audit reaches the phases as a LISTED context file + a prompt nudge (honor-system, like all of Aitri's passive layer), not a hard-injected input. Accepted: it matches Aitri's enforcement floor and avoids new plumbing; tighten to explicit injection only if a consumer shows the agent skipping it.
 
 **Consumer contract.** `ADOPTION_AUDIT.md` is not a Hub contract (the old name was not either). No `.aitri` field or artifact-chain change. `idea_context/` gains one more file (already a free-form folder). No schema impact.
+
+## ADR-057 — 2026-06-23 — A pending (unverified) manual TC does not satisfy a coverage gate (ADV-0622-01)
+
+**Context:** A `status:"manual"` result in `04_TEST_RESULTS.json` is *pending* — seeded by `verify-run`, not yet verified by a human (`aitri tc verify` records a verified manual TC as `status:"pass"`). Four gates exempted `status:"manual"` from counting as coverage: `verify.js` `isUncovered` (MUST FR), the e2e gate, `buildACCoverage`, and `phase5.js` `OK_EVIDENCE`. The all-manual zero-verification guard only fires when *no* test passes, so the moment any unrelated test passed, a MUST FR/AC/e2e whose only test was a pending manual TC reached `verifyPassed:true` and shipped unverified — a verification-spine false-pass (found in the 2026-06-22 adversarial review, reproduced by running the real CLI in round 3).
+
+**Decision:** Remove the four manual exemptions. A MUST FR needs ≥1 *passing* test; a verified manual TC is `status:"pass"` and counts, a pending one does not. `ac_coverage` no longer emits `"manual"` (a pending-manual criterion is `untested`/`uncovered` and blocks). `fr_coverage[].status:"manual"` is kept as a display value (pending, 0 passing) but no longer exempts the gate. `aitri tc verify` recomputes `ac_coverage` too (R3-8), so a verified-FAIL criterion is reflected at once.
+
+**Trade-off:** Breaking on the *semantics* of an existing field value — a consumer that treated `manual` as covered/safe must update; the `ac_coverage` status enum loses `"manual"` (recorded `breaking` in integrations/CHANGELOG.md). A project that genuinely cannot automate a test must now `tc verify` it (one extra step) rather than marking it manual and shipping — which is the intent: an unverified test is not evidence.
+
+**Objections:** None at the gate-design level — the prior behavior was an unintended false-pass, not a deliberate exemption. The round-3 adversarial verifier confirmed the legitimate verified-manual flow is unaffected (verified manual → `status:"pass"` → covered).
+
+## ADR-058 — 2026-06-23 — Git is never invoked through a shell with interpolated values (R3-15 / R3-4)
+
+**Context:** Several `git` calls used `execSync(\`git … ${value}\`)`, which runs via `/bin/sh -c`. Some interpolated values originate in committed, attacker-controllable state: `artifactsDir` (→ the drift-check path exercised on `aitri resume`/`status`), the reconcile `baseRef`, and `BUGS.json` `fix_commit_sha` (→ `aitri bug close`). A hostile clone could thus achieve zero-interaction RCE on routine commands. `JSON.stringify`-quoting the value did **not** help — shell command-substitution (`$()`, backticks) is active inside double quotes (R3-15 critical, R3-4 high; both found in the round-3 workflow, which the prior two review rounds had missed).
+
+**Decision:** Every git invocation that includes a non-constant value uses `execFileSync('git', [argv…])` (no shell). The revision range (`${baseRef}..HEAD`) and paths pass as literal argv tokens, so a payload reaches git as a bogus revision/pathspec (error), never the shell. `fix_commit_sha` is additionally shape-validated (`/^[0-9a-f]{7,40}$/i`). Fixed-string git calls (`git rev-parse HEAD`, `git status --porcelain`) carry no interpolation and stay `execSync`. Standing invariant: a new git call with interpolated input MUST use `execFileSync`.
+
+**Trade-off:** Slightly more verbose call sites; no shell features were in use, so nothing is lost. Guard tests assert a `$(...)` payload smuggled in committed state does not execute.
+
+**Objections:** None — pure security hardening with no happy-path behavior change (the existing git-repo tests pass unchanged).

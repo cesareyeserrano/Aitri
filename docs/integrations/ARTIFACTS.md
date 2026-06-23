@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.108+
+**Aitri version:** v2.0.0-rc.109+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -257,7 +257,7 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
       "tests_failing": 0,
       "tests_skipped": 0,
       "tests_manual": 0,
-      "status": "covered | partial | uncovered | manual | untested"
+      "status": "covered | partial | uncovered | untested"
     }
   ],
   "summary": {
@@ -305,12 +305,12 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 - `covered` — ≥1 passing automated test
 - `partial` — mix of pass/fail, or only skipped TCs
 - `uncovered` — only failing tests, no passing
-- `manual` — all TCs for this FR have `automation: "manual"`; not blocked by verify-complete
+- `manual` — the FR's results are all *pending* manual TCs (seeded by verify-run, not yet verified; 0 passing). A *verified* manual TC carries `status: "pass"` → the FR becomes `covered`. A pending-manual MUST FR **is** blocked by verify-complete (see Notes).
 
 **Notes:**
 - `known_gap: true` is written by `verify-complete` when a stub TC (from `adopt verify-spec`) is acknowledged as a gap
-- Manual TCs do not block `verify-complete` and do not count toward skip percentage
-- FRs with `status: "manual"` are exempt from the "zero passing tests" gate in `verify-complete`
+- A *verified* manual TC counts as a pass; a *pending* manual TC (status `manual`) does not, and does not count toward skip percentage
+- A MUST FR is **not** exempt from the "zero passing tests" gate because its TCs are manual — a *pending* manual TC has 0 passing and blocks. Verify it with `aitri tc verify` (→ `status: "pass"` → `covered`). The `ac_coverage` gate behaves the same: a pending-manual acceptance criterion is reported `untested`/`uncovered`, not satisfied. (Fixed in v2.0.0-rc.109; previously a pending manual TC was wrongly treated as covered — a verification-spine false-pass.)
 - **`verified_manually` / `verified_at` / `evidence`** (optional, `evidence` v2.0.0-rc.85+) — written by `aitri tc verify`. `verified_manually: true` + `verified_at` mark a result a human recorded (preserved across re-runs of `verify-run`). `evidence` is the relative path passed to `tc verify --evidence` — the escape hatch that lets an **automated** TC whose runner output Aitri could not parse be recorded against a real on-disk artifact (a TRX/JUnit-XML file or evidence log) instead of being pre-declared manual. All three are additive and absent on auto-parsed results.
 
 ---

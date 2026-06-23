@@ -1775,6 +1775,28 @@ describe('cmdVerifyComplete() — FR coverage gate is MUST-only (#2)', () => {
       assert.match(msg, /FR-001/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  it('hard-blocks a MUST FR covered ONLY by a pending status:"manual" TC, even when another test passes (ADV-0622-01 spine false-pass)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-must-manual-'));
+    try {
+      seed(dir);
+      // FR-001's only TC is a seeded-but-unverified manual result; TC-002 passes elsewhere so
+      // the all-manual zero-verification guard is bypassed. Before the fix this shipped FR-001
+      // "covered" with zero verification (the spine false-pass). It must now hard-block. A
+      // *verified* manual TC would be status:"pass" → covered, so the legit flow is unaffected.
+      const res = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8'));
+      res.results = [{ tc_id: 'TC-001', status: 'manual' }, { tc_id: 'TC-002', status: 'pass' }];
+      res.fr_coverage[0] = { fr_id: 'FR-001', tests_passing: 0, tests_failing: 0, tests_skipped: 0, tests_manual: 1, status: 'manual' };
+      res.fr_coverage[1] = { fr_id: 'FR-002', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' };
+      res.summary = { total: 2, passed: 1, failed: 0, skipped: 0, manual: 1 };
+      fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify(res));
+      let msg = '';
+      try { capture(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); }
+      catch (e) { msg = e.message; }
+      assert.match(msg, /MUST FRs have zero passing tests/);
+      assert.match(msg, /FR-001/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // NFR-regression (rc.73): a MUST NFR whose test SKIPPED (not failed) reaches the deploy
@@ -1803,12 +1825,14 @@ describe('cmdVerifyComplete() — MUST-NFR skipped-test visibility (NFR-regressi
     }));
     const nfrResult = nfrTcStatus === 'skip'
       ? { tc_id: 'TC-002', status: 'skip', notes: 'runs in the separate perf suite' } // notes: skipped-with-notes gate
+      : nfrTcStatus === 'manual'
+      ? { tc_id: 'TC-002', status: 'manual' }   // seeded but unverified — must not count as verified
       : { tc_id: 'TC-002', status: 'pass' };
     fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
       executed_at: new Date().toISOString(), test_runner: 'node --test', exit_code: 0,
       results: [{ tc_id: 'TC-001', status: 'pass' }, nfrResult],
       fr_coverage: [{ fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' }],
-      summary: { total: 2, passed: nfrTcStatus === 'skip' ? 1 : 2, failed: 0, skipped: nfrTcStatus === 'skip' ? 1 : 0 },
+      summary: { total: 2, passed: nfrTcStatus === 'pass' ? 2 : 1, failed: 0, skipped: nfrTcStatus === 'skip' ? 1 : 0, manual: nfrTcStatus === 'manual' ? 1 : 0 },
       low_confidence_tcs: [],
     }));
   }
@@ -1838,6 +1862,20 @@ describe('cmdVerifyComplete() — MUST-NFR skipped-test visibility (NFR-regressi
       seed(dir, 'pass');
       const stderr = capture(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } }));
       assert.doesNotMatch(stderr, /MUST NFR\(s\) reached the deploy gate/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('surfaces a MUST NFR whose only test is a PENDING manual TC — WITHOUT blocking (ADV-0622-01, 5th exemption)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-nfr-manual-'));
+    try {
+      // A seeded-but-unverified manual TC must NOT count as verified — else the regression-NFR
+      // advisory is suppressed and an untested MUST regression NFR ships with zero signal.
+      seed(dir, 'manual');
+      let stderr = '';
+      assert.doesNotThrow(() => { stderr = capture(() =>
+        cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); });
+      assert.match(stderr, /MUST NFR\(s\) reached the deploy gate without a passing test/);
+      assert.match(stderr, /NFR-001/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
@@ -2129,14 +2167,17 @@ describe('cmdVerifyComplete() — e2e gate honours automation: "manual" and runn
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('passes the e2e gate when the TC has status:"manual" (automation: "manual")', () => {
+  it('BLOCKS the e2e gate when the only e2e TC is a PENDING status:"manual" (must be verified first — ADV-0622-01)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-e2e-manual-'));
     try {
+      // A seeded-but-unverified manual e2e TC is NOT covered — it must be verified via
+      // `aitri tc verify` (→ status:"pass") to count. Previously a pending manual e2e
+      // silently satisfied the gate (spine false-pass).
       seedE2EProject(dir, { e2eResultStatus: 'manual', hasPlaywright: false });
       let captured = '';
       const err = (m) => { captured = m; throw new Error(m); };
-      try { cmdVerifyComplete({ dir, err }); } catch { /* may fail later checks; only assert e2e gate not hit */ }
-      assert.doesNotMatch(captured, /E2E tests required but none covered/);
+      try { cmdVerifyComplete({ dir, err }); } catch { /* expected */ }
+      assert.match(captured, /E2E tests required but none covered/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

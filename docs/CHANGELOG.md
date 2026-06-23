@@ -5,6 +5,18 @@
 
 ---
 
+## [2.0.0-rc.109] — 2026-06-23 — security + verification-spine hardening (P0 from the adversarial review: 2 RCE + spine false-pass)
+
+The P0 batch from the 2026-06-22 full adversarial review (ADV-0622 / R3). Two remote-code-execution chains and a verification-spine false-pass, plus three coverage/audit-integrity fixes. All findings adversarially verified; detail in `docs/Aitri_Design_Notes/_adversarial-review-2026-06-22.md` §12. ADR-057 (spine), ADR-058 (git/shell).
+
+- **Spine false-pass (ADV-0622-01):** a *pending* `status:"manual"` TC no longer counts as covering a MUST FR / acceptance criterion / e2e — only a `tc verify`'d manual TC (recorded `status:"pass"`) does. Removed the four manual exemptions (`verify.js` `isUncovered` + e2e filter + `buildACCoverage`; `phase5.js` `OK_EVIDENCE`). **Contract change — integrations/CHANGELOG.md marked breaking.**
+- **RCE — shell injection (R3-15, critical):** every interpolated `git` call now runs via `execFileSync('git', […])` (no shell), so a hostile committed `.aitri` (artifactsDir → drift-check path, reconcile baseRef) can no longer execute a payload on `aitri resume`/`status`/`reconcile`. `JSON.stringify`-quoted paths were NOT safe (shell `$()`/backticks survive double-quotes). Sites: snapshot.js, reconcile.js, rehash.js, approve.js.
+- **RCE — `fix_commit_sha` (R3-4, high):** `aitri bug close` validates the SHA (`/^[0-9a-f]{7,40}$/i`) and runs git without a shell — a committed `BUGS.json` can no longer inject a command.
+- **`tc mark-manual` (R3-24):** no longer re-stamps the Phase-3 hash, so an automation downgrade surfaces as drift → TTY-gated re-approval (closes the trace-hiding half of the mark-manual → tc-verify laundering path).
+- **`tc verify` (R3-8):** recomputes `ac_coverage` as well as `fr_coverage`, so a verified-FAIL acceptance criterion no longer ships deployable.
+- **Code review / Phase 5 (R3-18):** `extractManifest` keeps `files_modified`, and the reviewer's file list concatenates created + modified — a modified-only (brownfield) build no longer hands the reviewer an empty list.
+- `templates/AGENTS.md` updated (mark-manual now requires `tc verify` to count). +7 dedicated tests incl. injection guards (assert a `$(...)` payload does not execute). 1683 passing.
+
 ## [2.0.0-rc.108] — 2026-06-21 — adopt FLOW stage 2: the guided `aitri adopt` entry + pure-IDEA (ADR-056)
 
 Stage 2 of the adopt flow — the operator-facing entry. A dev with an existing project and a specific objective had no clear way to start (`init` is greenfield; `adopt scan` jumped straight to auditing) and nowhere obvious to put the objective + its docs. Bare `aitri adopt` errored. Now it is the guided front door.

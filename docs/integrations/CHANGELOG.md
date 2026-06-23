@@ -18,6 +18,15 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.109 (2026-06-23) — a *pending* manual TC no longer counts as covered (verification-spine false-pass fix, ADV-0622-01) — breaking
+
+A seeded-but-unverified manual test case (`status: "manual"` in `04_TEST_RESULTS.json`) is no longer treated as covering its FR / acceptance-criterion / e2e — only a *verified* manual TC (which `aitri tc verify` records as `status: "pass"`) counts. Before rc.109 a MUST FR whose only test was a pending manual TC reached `verifyPassed: true` (deployable) the moment any unrelated test passed — a verification-spine false-pass that shipped a MUST requirement unverified.
+
+- **`fr_coverage[].status: "manual"`** now means "results are all *pending* manual" (0 passing); a MUST FR in this state is **blocked** by `verify-complete` (previously exempt). A reader that treated `manual` as covered/safe must update.
+- **`ac_coverage[].status`** no longer emits `"manual"` — a pending-manual acceptance criterion is reported `untested`/`uncovered` and blocks. **Enum value removed.**
+- `aitri tc verify` now recomputes `ac_coverage` (not only `fr_coverage`), so a verified-FAIL criterion is reflected immediately (R3-8).
+- No field added/removed/retyped; this is a semantic change + one removed enum value on existing coverage fields. See ARTIFACTS.md.
+
 ## v2.0.0-rc.104 (2026-06-21) — `category: "Regression"` NFR is a hard MUST regardless of priority (REG-GATE-0621) — additive
 
 A non-functional requirement with `category: "Regression"` is now treated as a MUST by every gate that enforces MUST coverage — the Phase-3 forced-TC gate, the Phase-5 traceability-compliance gate, and the deploy-time MUST-NFR advisory — **even when its `priority` field is absent**. Before rc.104, `category` was display-only and the only MUST signal was `priority: "MUST"`; the canonical NFR schema omitted `priority`, so a regression NFR written per that schema got `priority: undefined` and silently escaped all three gates while still appearing documented (REG-GATE-0621). **No reader impact / no shape change:** `category` was always a free string and `"Regression"` an allowed value; no field was added, removed, or retyped. The artifacts consumers read (`requirement_compliance`, `fr_coverage`) only gain rows they already iterate. The new semantic is internal to Aitri's gates — a consumer that *independently replicates* the MUST predicate should mirror it as `priority === "MUST" || category === "Regression"`. See ARTIFACTS.md.

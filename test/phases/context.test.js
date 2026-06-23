@@ -251,6 +251,7 @@ describe('extractTestResults()', () => {
 
 const fullManifest = () => JSON.stringify({
   files_created: ['src/index.js', 'src/db.js'],
+  files_modified: ['src/legacy.js'],
   setup_commands: ['npm install', 'npm run migrate'],
   environment_variables: [{ name: 'DB_URL', type: 'string', required: true, example: 'postgres://localhost/mydb' }],
   technical_debt: [{ fr_id: 'FR-001', substitution: 'static token', reason: 'time constraint', effort_to_fix: '2 days' }],
@@ -268,6 +269,11 @@ describe('extractManifest()', () => {
     assert.deepEqual(out.setup_commands, ['npm install', 'npm run migrate']);
     assert.ok(Array.isArray(out.environment_variables));
     assert.ok(Array.isArray(out.technical_debt));
+  });
+
+  it('keeps files_modified — dropping it gave the reviewer + Phase 5 an empty file list on modified-only builds (R3-18)', () => {
+    const out = JSON.parse(extractManifest(fullManifest()));
+    assert.deepEqual(out.files_modified, ['src/legacy.js']);
   });
 
   it('returns raw content on malformed JSON', () => {

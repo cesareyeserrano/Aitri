@@ -1753,3 +1753,44 @@ describe('nextActions — reconcile suppression on blocking bugs (P1 2026-05-12)
     } finally { cleanup(dir); }
   });
 });
+
+// ── R3-15: snapshot git values are never shell-interpreted (the `aitri resume`/`status` RCE) ──
+describe('buildProjectSnapshot() — git values never reach a shell (R3-15 RCE guard)', () => {
+  function initGitRepo(dir) {
+    execSync('git init -q', { cwd: dir });
+    execSync('git config user.email "t@t"', { cwd: dir });
+    execSync('git config user.name "t"', { cwd: dir });
+    execSync('git add -A && git commit -q -m init', { cwd: dir });
+  }
+
+  it('a malicious reconcile baseRef in committed .aitri does not execute on snapshot', () => {
+    const dir = tmpDir();
+    try {
+      writeSpec(dir, '02_SYSTEM_DESIGN.md', '# d\n');
+      const pwned = path.join(dir, 'PWNED');
+      saveConfig(dir, {
+        projectName: 'rce', artifactsDir: 'spec',
+        approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+        reconcileState: { baseRef: `$(touch ${pwned})`, method: 'git', status: 'resolved' },
+      });
+      initGitRepo(dir);
+      buildProjectSnapshot(dir);   // == aitri resume/status → detectUncountedChanges(baseRef)
+      assert.equal(fs.existsSync(pwned), false, 'reconcile baseRef must never reach a shell');
+    } finally { cleanup(dir); }
+  });
+
+  it('a malicious artifactsDir does not execute via the artifact git-clean drift check', () => {
+    const dir = tmpDir();
+    try {
+      const pwned = path.join(dir, 'PWNED2');
+      // driftPhases forces the per-phase git-clean check → artifactGitClean(rel from artifactsDir).
+      saveConfig(dir, {
+        projectName: 'rce', artifactsDir: `$(touch ${pwned})`,
+        approvedPhases: [1, 2], driftPhases: ['2'],
+      });
+      initGitRepo(dir);
+      buildProjectSnapshot(dir);   // == aitri resume/status → artifactGitClean(`-- <rel>`)
+      assert.equal(fs.existsSync(pwned), false, 'artifactsDir must never reach a shell');
+    } finally { cleanup(dir); }
+  });
+});
