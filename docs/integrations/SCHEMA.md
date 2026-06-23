@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.113+
+**Aitri version:** v2.0.0-rc.114+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -105,13 +105,16 @@ Written automatically by `complete`, `approve`, `verify-run`, `verify-complete`,
 }
 ```
 
-Valid `event` values: `"started"`, `"completed"`, `"approved"`, `"rejected"`, `"upgrade_migration"` (v2.0.0+), `"rehash"` (v2.0.0-alpha.3+), `"approve_preflight_autofix"` (v2.0.0-alpha.27+), `"layout_migrated"` (v2.0.0-rc.78+ — emitted once by `adopt --upgrade --layout`)
+Valid `event` values: `"started"`, `"completed"`, `"approved"`, `"rejected"`, `"upgrade_migration"` (v2.0.0+), `"rehash"` (v2.0.0-alpha.3+), `"approve_preflight_autofix"` (v2.0.0-alpha.27+), `"layout_migrated"` (v2.0.0-rc.78+ — emitted once by `adopt --upgrade --layout`), `"verify-run"`, `"verify-complete"` (both carry `phase: "verify"`), `"verify-spec-complete"` (carries `phase: "adopt"`), `"reconcile-resolved"` (carries `phase: null`)
+
+**`phase` field:** usually the numeric phase key, but it may also be a phase ALIAS string (e.g. `"discovery"`, `"ux"`, `"review"`, `"verify"`, `"adopt"`, `"upgrade"`) or **`null`** for a global/non-phase event (e.g. `reconcile-resolved`). The string set is not exhaustive — readers must accept number | string | null.
 
 Optional fields by type:
 - `"rejected"` → includes `"feedback": "text"`
-- `"approved"` → includes `"afterDrift": true` when approved after detected drift (v0.1.60+)
+- `"approved"` → includes `"afterDrift": true` when approved after detected drift (v0.1.60+), or `"ideaArchived": true` when approving Phase 1 archived the project's IDEA.md seed
 - `"upgrade_migration"` → see schema below (v2.0.0+)
 - `"rehash"` → includes `artifact`, `before_hash`, `after_hash` (v2.0.0-alpha.3+). Emitted by `aitri rehash <phase>` when an operator updates the stored hash for a phase whose artifact content has not changed from its committed state. No content drift — bookkeeping only.
+- `"verify-run"` / `"verify-complete"` → include `{ passed, failed }` counts (v2.0.0+)
 
 **Reader guidance:** unknown event types MUST be tolerated. New types are added without warning; a reader that filters the event log should use an allow-list of types it understands, not a deny-list.
 

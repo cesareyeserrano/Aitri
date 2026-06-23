@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.114 (2026-06-23) — event-type documentation (P3 review batch, ADV-0622-15) — additive
+
+- **`events[].event`** now documents four previously-undocumented types: `verify-run`, `verify-complete` (both carry `phase: "verify"` + `{ passed, failed }`), `verify-spec-complete` (`phase: "adopt"`), and `reconcile-resolved` (`phase: null`). All were already emitted; documentation only.
+- **`events[].phase`** is documented as number | string-alias | `null` (the alias set — `discovery`/`ux`/`review`/`verify`/`adopt`/`upgrade` — is not exhaustive). The `ideaArchived` flag on `approved` events is documented.
+- No field added, removed, or retyped. Reader guidance (tolerate unknown event types) unchanged. See SCHEMA.md.
+
 ## v2.0.0-rc.113 (2026-06-23) — `verifySummary` writer/authority clarification (P2 review batch, R3-23) — additive
 
 - **`verifySummary` (.aitri)** is now documented as written by `verify-complete` **and** `tc verify` (the code already did the latter). Consumers must treat **`verifyPassed`** as the authoritative deploy-gate flag — the *presence* of `verifySummary` does NOT prove `verify-complete` passed. No field added, removed, or retyped; documentation of existing behavior only.

@@ -5,6 +5,21 @@
 
 ---
 
+## [2.0.0-rc.114] — 2026-06-23 — P3: coherence / dead-code / guardrail cleanup sweep
+
+P3 batch from the 2026-06-22 review (§12) — tier-3 coherence, dead-code, and one latent guardrail. Adversarially diff-reviewed before commit (ship-clean; one doc-completeness nit fixed). Deferred (with rationale): the latent concurrency/atomicity hardening, the CRLF/BOM hash re-baseline (carries a migration ripple to own separately), the verifier-ceiling residuals, and the speculative stack-agnostic prompt nudges (ADR-046 — leave the web case untouched absent a concrete non-web consumer).
+
+- **Template well-formedness guardrail (ADV-0622-17):** `render()` now validates the RAW template for balanced, non-nested `{{#IF_KEY}}…{{/IF_KEY}}` blocks and throws at generation time — a nested/mismatched/orphan/unclosed IF can no longer silently leak raw template syntax into a tier-1 prompt. Validates the template skeleton (not the rendered output), so a data value containing `{{` never trips it. Latent today (no template nests); the guard ships before the first one can.
+- **Build manifest field (ADV-0622-41):** `build.md` instructs the agent to list `.github/workflows/ci.yml` in `files_created` (the real manifest field), not the non-existent `implementation_files`. Grep guard added.
+- **Phase-3 coverage error string (ADV-0622-04):** the <3-TC error no longer claims `edge_case` is enforced — the gate enforces `happy_path` + `negative` (+ the `h`/`f` id suffixes); the edge case is recommended as the third, not gated. Text-only (per the FIX_FLAWED note: do NOT add edge_case enforcement — it would break the contract).
+- **CLAUDE.md invariant correction (ADV-0622-20):** the isTTY-gate invariant now correctly names the state-committing ops (`approve`, `reconcile --resolve`, `rehash`); `reject` is advisory (records feedback only) and deliberately ungated to stay scriptable.
+- **`adopt scan` next-steps message (ADV-0622-22):** conditional on whether a pure `IDEA.md` already exists — it no longer claims to create IDEA.md when the template preserves an existing one.
+- **`aitri help` (ADV-0622-21):** lists the bare `aitri adopt` guided front door above `adopt scan`.
+- **Comment/doc accuracy:** `verify.js` blocking-bugs comment now says getBlockingBugs filters by status+severity, not FR linkage (ADV-0622-37); `phase5.js` documents why `03_TEST_CASES.json` is intentionally not in `inputs` (ADV-0622-24).
+- **Dead-code sweep (ADV-0622-18):** removed the zero-caller `findProjectRoot` (state.js) and the unused `PATTERN` export (idea-ref-classifier.js).
+- **SCHEMA.md events (ADV-0622-15):** documents the `verify-run`/`verify-complete`/`verify-spec-complete`/`reconcile-resolved` event types, their `phase` values (string alias or `null`), and the `ideaArchived` flag.
+- +8 tests (new `test/prompts/render.test.js`). 1725 passing. No artifact/`.aitri` schema change; SCHEMA.md doc additions only.
+
 ## [2.0.0-rc.113] — 2026-06-23 — P2 (part 3): robustness/contract fixes + UX-before-architecture ladder
 
 P2 batch from the 2026-06-22 review (§12), part 3 — block D (robustness/contract) + block E (UX ladder). All fixes adversarially diff-reviewed before commit; that review caught two real defects in this work (an ADV-29 re-run loop and an incomplete BOM fix), both fixed below.

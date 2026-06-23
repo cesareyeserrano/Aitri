@@ -86,7 +86,7 @@ Tests not matching TC-XXX: naming are auto-classified as skip — verify-complet
 If `01_REQUIREMENTS.json` contains an NFR for CI/CD (category: "CI/CD" or keyword "pipeline" or "continuous integration"):
 - Create `.github/workflows/ci.yml` (GitHub Actions) or equivalent for the declared CI platform
 - The workflow MUST: (1) trigger on push and pull_request to the main branch, (2) install dependencies, (3) run the exact `test_runner` command from this manifest, (4) run the project's declared e2e runner as a separate step if one is configured (otherwise omit the e2e step — do not invent a runner the project does not use)
-- Include `.github/workflows/ci.yml` in `implementation_files` in the manifest
+- Include `.github/workflows/ci.yml` in `files_created` in the manifest
 - If CI/CD NFR is MUST priority and you cannot create the workflow → declare it as technical debt with reason
 
 ## Technical Definition of Done
@@ -232,5 +232,5 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4   →   aitri {{SCOPE_VERB}}ap
   [ ] Tech stack matches 02_SYSTEM_DESIGN.md exactly — no unrequested substitutions
   [ ] Open each file in test_files[]: verify every TC assertion tests REAL behavior — not assert.ok(true), assert.equal(1,1), or constant expressions
   [ ] aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} assertion density warnings reviewed — investigate any TC with ≤1 assertion
-  [ ] If CI/CD NFR exists: .github/workflows/ci.yml created and listed in implementation_files
+  [ ] If CI/CD NFR exists: .github/workflows/ci.yml created and listed in files_created
   [ ] No test fixture uses hardcoded absolute paths — all paths relative or os.tmpdir()

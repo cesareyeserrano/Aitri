@@ -44,7 +44,7 @@ A change that only satisfies (3) without touching (1) or (2) must be justified a
 4. **Stack-agnostic outputs** — generated prompts, validators, and gates must not assume target stack (web, CLI, service, library, embedded). Examples may name tools but only as conditional ("if Playwright is declared as runner, …"); imperative "MUST use X" bound to a specific stack is a defect. Same applies to manifest schemas, e2e gate behavior, NFR examples, and CI checklists.
 5. Personas: one persona per phase; they live in `lib/personas/` exporting `ROLE / CONSTRAINTS / REASONING`, never inline in a command. **No fixed cap** (the "max 8" ceiling was lifted 2026-05-31) — add one when a phase or surface genuinely needs a distinct role, justified by value (tier 1/2), not against a count. Meta-personas for transversal commands (adopter, auditor) are normal.
 6. Artifacts as SSoT: the file chain is the handoff protocol between agents
-7. isTTY-gating on destructive operations (approve, reject)
+7. isTTY-gating on state-committing operations (`approve`, `reconcile --resolve`, `rehash`). `reject` is advisory — it records feedback only (writes `rejections[phase]`, never mutates `approvedPhases`) — and is deliberately NOT gated, so it stays scriptable.
 8. **The verification spine enforces well-built code, not only passing tests.** `verify-run`/`verify-complete` gate the pipeline on BOTH: (a) functional behavior — every MUST FR traced to a passing test (`fr_coverage`), and (b) code quality — the project-declared `quality_gates` (lint, type-check, security; coverage and assertion-density as opt-ins). All are orchestrated from project-declared commands and judged by exit code (principle 1), never bundled. A gate that is honor-system-only (the agent attests) is weaker than one Aitri executes; prefer mechanical enforcement where the tool exists (ADR-037).
 
 ## Decision matrix
@@ -89,7 +89,7 @@ These invariants are not negotiable. If a proposal violates them, Claude must sa
 - `state.js` is the single point of read/write for `.aitri/` — nothing else touches those files directly
 - Artifact names are public contracts — renaming them breaks existing projects
 - `OPTIONAL_PHASES` in `lib/phases/index.js` is the single source of truth for optional phases
-- isTTY-gate on `approve`/`reject` is not optional — it protects against non-interactive execution
+- isTTY-gate on the state-committing ops (`approve`, `reconcile --resolve`, `rehash`) is not optional — it protects against non-interactive execution. `reject` is advisory (writes `rejections[phase]` only, never mutates `approvedPhases`) and is deliberately NOT gated, to keep it scriptable — do not add a gate to it.
 - One phase = one persona, and persona logic lives in `lib/personas/`, never inline in a command. (No cap on the total number of personas — see principle 5.)
 - `bin/aitri.js` contains no business logic — dispatching only
 
