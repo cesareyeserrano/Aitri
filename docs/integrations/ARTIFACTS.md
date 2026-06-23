@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.109+
+**Aitri version:** v2.0.0-rc.110+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -75,7 +75,7 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
 - Minimum 5 `functional_requirements`; minimum 3 `non_functional_requirements` — **root pipelines only.** Feature sub-pipelines are increments and have a lower floor: minimum 2 FRs / 1 NFR (a real 4-FR feature was being blocked by the greenfield floor). Consumers validating feature artifacts must use the feature floor
 - Every FR and NFR must have a non-empty string `id`, unique within each list (v2.0.0-rc.26+). The id is the join key — phase 3 ties each TC to one via `requirement_id`/`frs`, phase 5 demands a compliance entry per MUST id. A missing id collapsed to an `undefined` key downstream; a duplicate silently masked one requirement's coverage. Format (`FR-xxx`/`NFR-xxx`) stays a convention; downstream keys on membership, not the prefix.
 - All MUST FRs must have a `type` field and at least one `acceptance_criteria` entry
-- An NFR with `category: "Regression"` is treated as a hard MUST regardless of its `priority` (v2.0.0-rc.104+, REG-GATE-0621). A regression NFR is a Must-Not-Break commitment, so it must have a test case (Phase 3) and a compliance entry (Phase 5) even when `priority` is absent. Before rc.104 `category` was display-only and such an NFR silently escaped both gates. Consumers that surface MUST requirements should apply the same rule: `priority === "MUST" || category === "Regression"`
+- An NFR with `category: "Regression"` is treated as a hard MUST regardless of its `priority` (v2.0.0-rc.104+, REG-GATE-0621). A regression NFR is a Must-Not-Break commitment, so it must have a test case (Phase 3) and a compliance entry (Phase 5) even when `priority` is absent. Before rc.104 `category` was display-only and such an NFR silently escaped both gates. Consumers that surface MUST requirements should apply the same rule, matching `category` case- and whitespace-insensitively (v2.0.0-rc.110+): `priority === "MUST" || category?.trim().toLowerCase() === "regression"`
 - **Structured AC ids** (v2.0.0-rc.48+, [ADR-041](../DECISIONS.md) option A) — when `user_stories[].acceptance_criteria` entries are structured objects (`{ id, text }`), every such `id` must be a non-empty string and **unique across all user stories**. It is the finer join key that `03_TEST_CASES.json#test_cases[].ac_id` traces to and that `04_TEST_RESULTS.json#ac_coverage` rolls up on; a duplicate masks one criterion's AC-level coverage. Enforced **only** when structured ACs are present — plain-string ACs and projects with none are unaffected (additive).
 - MUST FRs of type `ux`, `visual`, or `audio` must include at least one criterion with a measurable metric (e.g. pixels, ms, %, contrast ratio)
 - All MUST FRs where every AC is purely vague (e.g. "works properly", "runs smoothly") will fail validation
@@ -167,7 +167,7 @@ Written by Phase 3 (QA persona). Test cases keyed to FRs, user stories, and acce
 - For multi-FR TCs, use `"frs": ["FR-001","FR-002"]` (string array) instead of a comma-separated `requirement_id`. `frs` is recognized by `aitri verify-run` (v0.1.90+) AND, since v2.0.0-rc.26, by `aitri complete 3` — a TC may carry `frs` instead of `requirement_id`, and `complete 3` buckets it into each targeted FR for the per-FR + FR-MUST coverage rules (it used to reject any TC without `requirement_id`, making the documented `frs` form uncompletable). When present, `frs` wins over `requirement_id` in both. Each TC must target at least one of `requirement_id` or a non-empty `frs[]`.
 - If `01_REQUIREMENTS.json` has structured AC ids: TC `ac_id` values are required and cross-checked against the ids in `user_stories[].acceptance_criteria` (the error lists the valid ids). If ACs are plain strings, `ac_id` is optional and any declared values are not validated (an informational note is emitted). All MUST requirements (FR or NFR, v2.0.0-rc.27+) must have at least one TC — where "MUST" also covers any NFR with `category: "Regression"` regardless of priority (v2.0.0-rc.104+).
 - `verify-run` (v0.1.90+) refuses to run and refuses to write `04_TEST_RESULTS.json` if `test_cases[]` is non-empty and no entry exposes `requirement_id` or `frs` (legacy `requirement` field alone is not enough; migrate explicitly).
-- **`automation` / `manual_reason`** (optional, `manual_reason` v2.0.0-rc.92+) — `automation: "manual"` (set by `aitri tc mark-manual` or authored directly) excludes the TC from the automated runner gate. `manual_reason` is the additive, **non-blocking** justification for why it can't be automated; the guided `aitri tc verify` checklist shows it and flags manual TCs that lack one (so a reviewer can tell a justified manual test from skipped automation). Neither field is validated by `complete 3`; old readers ignore them.
+- **`automation` / `manual_reason`** (optional, `manual_reason` v2.0.0-rc.92+) — `automation: "manual"` (set by `aitri tc mark-manual` or authored directly) excludes the TC from the automated runner gate. `manual_reason` is the additive, **non-blocking** justification for why it can't be automated; the guided `aitri tc verify` checklist shows it and flags manual TCs that lack one (so a reviewer can tell a justified manual test from skipped automation). Neither field is validated by `complete 3`; old readers ignore them. **`downgraded_from`** (optional, v2.0.0-rc.110+) — set by `mark-manual` when it converts a TC the runner already reported as `fail`/`skip`; it records the prior verdict so a reviewer (and the guided `tc verify` checklist) can see an automation downgrade. `mark-manual` requires `--reason` for such a conversion (ADV-0622-05).
 
 **TC naming convention:** suffix `h` = happy path (e.g. `TC-001h`), `f` = failure/negative (e.g. `TC-001f`), `e` = edge case (e.g. `TC-001e`).
 
@@ -355,7 +355,7 @@ Written by Phase 5 (DevOps persona). FR coverage proof linking requirements to t
 **Location:** `<artifactsDir>/BUGS.json` — same directory as other artifacts.
 **Optional:** absent until the first bug is registered.
 
-First-class QA artifact. Follows standard bug report format: reproduction steps, expected/actual results, environment, evidence. Integrates with the verify pipeline: `verify-run` auto-promotes `fixed → verified` when the linked TC passes. Critical/high open bugs block `verify-complete`.
+First-class QA artifact. Follows standard bug report format: reproduction steps, expected/actual results, environment, evidence. Integrates with the verify pipeline: `verify-run` auto-promotes `fixed → verified` when the linked TC passes. Critical/high bugs that are still active (status `open` or `in_progress`) block `verify-complete`, `reconcile --resolve`, and the deploy gate (aligned v2.0.0-rc.110+; before that `verify-complete`/`reconcile` checked `open` only, diverging from the deploy gate).
 
 ```json
 {
@@ -369,7 +369,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
       "actual_result": "string",
       "environment": "string (e.g. 'local / chromium / Phase 4')",
       "severity": "critical | high | medium | low",
-      "status": "open | fixed | verified | closed",
+      "status": "open | in_progress | fixed | verified | closed",
       "fr": "FR-XXX | null",
       "tc_reference": "TC-XXX | null",
       "phase_detected": "number | null",
@@ -396,7 +396,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
 
 **Audit trail (v0.1.90+):** the fix/close SHA pair plus `files_changed` provides a non-honor-system record of which commit range resolved each bug. Missing if the project has no git repo or HEAD is unreadable — behaviour degrades silently, lifecycle still works.
 
-**Blocking rule:** bugs with `status: "open"` and `severity: "critical"` or `"high"` block `verify-complete`.
+**Blocking rule:** bugs that are active (`status: "open"` or `"in_progress"`) with `severity: "critical"` or `"high"` block `verify-complete`, `reconcile --resolve`, and the deploy gate (aligned v2.0.0-rc.110+).
 **Playwright integration:** when Playwright runs in `verify-run` and a TC fails, `evidence` is auto-populated from `test-results/<folder>/screenshot.png` if the folder exists.
 
 ---

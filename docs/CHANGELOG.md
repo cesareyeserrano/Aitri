@@ -5,6 +5,18 @@
 
 ---
 
+## [2.0.0-rc.110] — 2026-06-23 — P1 from the adversarial review: coverage-gate + flow integrity (6 fixes)
+
+The P1 batch from the 2026-06-22 review (§12) — six tier-1/2 correctness fixes across the coverage gates, bug-blocking semantics, and the adopt/review prompts.
+
+- **Regression-NFR typo (ADV-0622-06):** `isMustRequirement` matches `category` case/whitespace-insensitively (`"regression"`, `"Regression "`, `"REGRESSION"` all count) — a typo can no longer let a Must-Not-Break NFR escape the MUST gates.
+- **mark-manual laundering (ADV-0622-05):** converting a TC the runner already reported `fail`/`skip` to manual now requires `--reason` and stamps `downgraded_from` on the TC (surfaced in the guided checklist + to the reviewer). Pairs with the rc.109 no-restamp fix.
+- **in_progress bug semantics (R3-12/22):** `getBlockingBugs` blocks on `open` OR `in_progress` critical/high bugs, matching the deploy gate + AGENTS.md (before, an in-progress critical bug passed verify-complete/reconcile while the deploy gate blocked it). `in_progress` documented in the BUGS.json status enum.
+- **adopt verify-spec inert status (R3-10):** the prompt routes an already-covered AC to a honored result (name the test after the TC id, or manual + `tc verify --evidence`) instead of the inert `status:"verified"` that verify-run ignored → `skip` → brownfield dead-end.
+- **review verdict menu (R3-9):** `extractReviewVerdict` strips the newline-separated placeholder menu, not just the pipe form — an unfilled menu is no longer read as a phantom FAIL that dead-ends Phase 5.
+- **system-design truncation (ADV-0622-02):** removed phase 2's `extractContext: head(160)` — the developer (phase 4) and phase 5 receive the FULL design; a long design no longer loses its late sections (Deployment Architecture, Risk Analysis). End-to-end guard test via `cmdRunPhase`.
+- +9 tests. 1693 passing.
+
 ## [2.0.0-rc.109] — 2026-06-23 — security + verification-spine hardening (P0 from the adversarial review: 2 RCE + spine false-pass)
 
 The P0 batch from the 2026-06-22 full adversarial review (ADV-0622 / R3). Two remote-code-execution chains and a verification-spine false-pass, plus three coverage/audit-integrity fixes. All findings adversarially verified; detail in `docs/Aitri_Design_Notes/_adversarial-review-2026-06-22.md` §12. ADR-057 (spine), ADR-058 (git/shell).

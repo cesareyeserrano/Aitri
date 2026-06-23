@@ -18,6 +18,13 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.110 (2026-06-23) — coverage/bug schema clarifications (P1 review batch) — additive
+
+- **`03_TEST_CASES.json` — `downgraded_from`** (new optional TC field): set by `mark-manual` when it converts a TC the runner already reported `fail`/`skip`; records the prior verdict for the reviewer + guided checklist. Additive; absent on normal TCs.
+- **`BUGS.json` status enum** now documents `in_progress` (the code already produced/handled it; `bySeverity`/`blocking` already counted it). Critical/high bugs that are `open` OR `in_progress` block `verify-complete`/`reconcile --resolve`/deploy — `verify-complete`/`reconcile` previously checked `open` only; now aligned to the deploy gate. No field added/removed/retyped.
+- **Regression-NFR MUST rule** is matched case/whitespace-insensitively on `category` — consumers replicating it should normalize: `priority === "MUST" || category?.trim().toLowerCase() === "regression"`.
+- No artifact field removed or retyped. See ARTIFACTS.md.
+
 ## v2.0.0-rc.109 (2026-06-23) — a *pending* manual TC no longer counts as covered (verification-spine false-pass fix, ADV-0622-01) — breaking
 
 A seeded-but-unverified manual test case (`status: "manual"` in `04_TEST_RESULTS.json`) is no longer treated as covering its FR / acceptance-criterion / e2e — only a *verified* manual TC (which `aitri tc verify` records as `status: "pass"`) counts. Before rc.109 a MUST FR whose only test was a pending manual TC reached `verifyPassed: true` (deployable) the moment any unrelated test passed — a verification-spine false-pass that shipped a MUST requirement unverified.

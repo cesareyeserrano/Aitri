@@ -144,6 +144,18 @@ describe('getBlockingBugs()', () => {
     assert.equal(blocking.length, 1);
   });
 
+  it('blocks on in_progress critical/high bugs — aligned with the deploy gate (R3-12/22)', () => {
+    const dir = tmpDir();
+    writeBugs(dir, [
+      { id: 'BG-001', status: 'in_progress', severity: 'critical' },
+      { id: 'BG-002', status: 'in_progress', severity: 'high' },
+      { id: 'BG-003', status: 'in_progress', severity: 'medium' },  // not blocking (severity gate)
+    ]);
+    const blocking = getBlockingBugs(dir, baseConfig());
+    assert.deepEqual(blocking.map(b => b.id).sort(), ['BG-001', 'BG-002'],
+      'in_progress critical/high must block verify-complete/reconcile, matching the deploy gate');
+  });
+
   it('does not block on open medium bugs', () => {
     const dir = tmpDir();
     writeBugs(dir, [{ id: 'BG-001', status: 'open', severity: 'medium' }]);

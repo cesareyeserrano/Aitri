@@ -26,6 +26,22 @@ describe('isMustRequirement() (REG-GATE-0621)', () => {
     assert.equal(isMustRequirement({ id: 'NFR-001', category: 'Regression', priority: 'MUST' }), true);
   });
 
+  it('is true for a regression NFR despite case/whitespace typos in category (ADV-0622-06)', () => {
+    // An agent typo must not let a Must-Not-Break NFR silently escape the MUST gates.
+    assert.equal(isMustRequirement({ id: 'NFR-003', category: 'regression' }), true);
+    assert.equal(isMustRequirement({ id: 'NFR-004', category: 'Regression ' }), true);
+    assert.equal(isMustRequirement({ id: 'NFR-005', category: 'REGRESSION' }), true);
+    assert.equal(isMustRequirement({ id: 'NFR-006', category: '  regression' }), true);
+  });
+
+  it('does NOT crash on a non-string category — degrades to not-MUST (ADV-0622-06)', () => {
+    // A hand-authored array/number/object category must not throw (verify-complete has no
+    // try/catch around this filter); the strict-equality original never crashed.
+    assert.equal(isMustRequirement({ id: 'NFR-007', category: ['Regression'] }), false);
+    assert.equal(isMustRequirement({ id: 'NFR-008', category: 123 }), false);
+    assert.equal(isMustRequirement({ id: 'NFR-009', category: { v: 'Regression' } }), false);
+  });
+
   it('is false for a SHOULD requirement with no regression category', () => {
     assert.equal(isMustRequirement({ id: 'FR-002', priority: 'SHOULD' }), false);
   });

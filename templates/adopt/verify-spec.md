@@ -39,7 +39,7 @@ For each AC item above, write the **smallest test that clearly fails if the code
 - Use the project's existing test framework and conventions ({{TEST_FRAMEWORK}})
 - Name each test starting with the TC id: `TestTC021_...` / `test_TC021_...` / `it('TC-021: ...')`
 - Do not write implementation tests — write spec verification stubs
-- If an existing test already covers an AC item, note it as covered (mark `"status": "verified"` in the stub entry)
+- If an existing test already covers an AC item, make that coverage land as a PASSING result — not just a note. Either (a) **rename the existing test to start with the TC id** (`TestTC021_…` / `test_TC021_…` / `it('TC-021: …')`) so `verify-run` maps its pass to this TC, OR (b) mark the stub `"automation": "manual"` and, after `verify-run`, record it with `aitri tc verify <TC-ID> --result pass --evidence <path-to-the-existing-test-or-its-output>`. Marking `"status": "verified"` on the entry alone is a note the runner ignores — without (a) or (b) the result is `skip` and the AC reads as uncovered (it blocks the pipeline).
 - Add `// @aitri-tc TC-XXX` marker above each test for assertion density tracking
 
 ### 2. Update `{{ARTIFACTS_PATH}}/03_TEST_CASES.json`
@@ -60,7 +60,7 @@ Append stub TC entries to the `test_cases` array. Use this schema for each stub:
 }
 ```
 
-Use `"status": "verified"` (not `"open"`) if an existing test already covers the AC.
+Set `"status": "verified"` (not `"open"`) for an AC an existing test already covers — AND make it land as a pass via (a) or (b) above, otherwise `verify-run` records it `skip` (uncovered).
 Use `"stub": true` for all entries created by this command.
 
 IDs: continue from the highest existing TC-NNN in the file.

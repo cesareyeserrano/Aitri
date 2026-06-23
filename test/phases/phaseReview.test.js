@@ -47,6 +47,33 @@ describe('Phase review — validate()', () => {
     assert.throws(() => PHASE_DEFS['review'].validate(content), /no clear verdict/);
   });
 
+  it('rejects the unfilled NEWLINE-separated placeholder menu (no phantom FAIL — R3-9)', () => {
+    // An agent that leaves the menu one-per-line must not have the LAST line read as a
+    // phantom FAIL that complete-review accepts and the reviewGate then dead-ends on.
+    const content = validReview().replace(
+      'PASS — all MUST FRs implemented correctly, no undeclared technical debt.',
+      'PASS\nCONDITIONAL_PASS\nFAIL');
+    assert.throws(() => PHASE_DEFS['review'].validate(content), /no clear verdict/);
+    assert.equal(PHASE_DEFS['review'].extractVerdict(content), null);
+  });
+
+  it('rejects the unfilled menu even with blank lines between the verdicts (R3-9)', () => {
+    const content = validReview().replace(
+      'PASS — all MUST FRs implemented correctly, no undeclared technical debt.',
+      'PASS\n\nCONDITIONAL_PASS\n\nFAIL');
+    assert.equal(PHASE_DEFS['review'].extractVerdict(content), null);
+  });
+
+  it('KEEPS a real verdict beside an adjacent bare verdict line — only the full 3-verdict menu is suppressed (R3-9)', () => {
+    // The earlier multi-line {2,} regex collapsed ANY two adjacent verdict lines, dropping a
+    // real "FAIL\nPASS" to null → reviewGate would let a real FAIL through. Only a run covering
+    // all three distinct verdicts is the unfilled menu; a 1–2-verdict run is a real choice.
+    assert.equal(PHASE_DEFS['review'].extractVerdict('## Verdict\nFAIL\nPASS'), 'FAIL');
+    assert.equal(PHASE_DEFS['review'].extractVerdict('## Verdict\nFAIL\nFAIL'), 'FAIL');
+    assert.equal(PHASE_DEFS['review'].extractVerdict('## Verdict\nPASS\nCONDITIONAL_PASS'), 'CONDITIONAL_PASS');
+    assert.equal(PHASE_DEFS['review'].extractVerdict('## Verdict\nFAIL'), 'FAIL');
+  });
+
   it('accepts a lowercase verdict (extractor is case-insensitive)', () => {
     const content = validReview().replace('PASS', 'fail');
     assert.doesNotThrow(() => PHASE_DEFS['review'].validate(content));

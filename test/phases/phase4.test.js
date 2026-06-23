@@ -250,9 +250,10 @@ describe('Phase 4 — buildBriefing() (BL-004)', () => {
     assert.ok(briefing.includes('given/when/then'), 'briefing must reference given/when/then as implementation contract');
   });
 
-  // The full design must reach the developer — head(…,200) used to drop late
-  // sections (Deployment Architecture / Risk Analysis) on a long design (Tier-4).
-  it('includes a design section that appears past line 200 (no truncation)', () => {
+  // buildBriefing itself never truncates; the real truncation point is run-phase applying
+  // the producer's extractContext, guarded end-to-end in run-phase.test.js (ADV-0622-02).
+  // This stays as a buildBriefing-level check that a long design renders intact.
+  it('buildBriefing renders a long design intact (end-to-end truncation guard is in run-phase.test.js)', () => {
     const design = [
       '## Executive Summary', 'x',
       ...Array(220).fill('filler design line'),

@@ -179,6 +179,27 @@ describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () =>
     assert.ok(!stdout.includes('Additional context'), 'build must not inject the context block');
     fs.rmSync(dir, { recursive: true, force: true });
   });
+
+  it('passes the FULL system design to the build briefing — no head(160) truncation (ADV-0622-02)', () => {
+    // End-to-end guard: run-phase applies the PRODUCER's extractContext to each consumed input,
+    // so this is where a head(…,160) cap on 02_SYSTEM_DESIGN.md would truncate the developer's
+    // design. A direct buildBriefing test bypasses this layer and cannot catch the regression.
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    const design = ['# System Design', '',
+      ...Array(220).fill('filler architecture line'),
+      '## Deployment Architecture', 'Deploy as a single Go binary behind nginx.'].join('\n');
+    writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', design);
+    writeFile(dir, 'spec/03_TEST_CASES.json', '{"test_plan":{},"test_cases":[]}');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(stdout.includes('single Go binary behind nginx'),
+      'a design section past line 160 must reach the developer briefing (no truncation)');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });
 
 // Phase 5b — `--guided` discovery is no longer dead in agent mode (used to hard-error).

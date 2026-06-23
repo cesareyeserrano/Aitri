@@ -321,6 +321,28 @@ describe('cmdTC — tc mark-manual', () => {
     assert.equal((after.artifactHashes || {})['3'], undefined);
   });
 
+  it('BLOCKS downgrading a TC the runner reported as fail/skip without --reason (ADV-0622-05)', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [{ id: 'TC-003h', type: 'unit', automation: 'auto' }]);
+    writeResults(dir, [{ tc_id: 'TC-003h', status: 'fail', notes: 'assertion failed' }]);
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['mark-manual', 'TC-003h'])),
+      /has a recorded "fail" result/,
+      'converting a failing automated test to manual must require --reason (anti-laundering)'
+    );
+  });
+
+  it('stamps downgraded_from when converting a prior-fail TC with --reason (ADV-0622-05)', () => {
+    const dir = makeDir();
+    writeTestCases(dir, [{ id: 'TC-003h', type: 'unit', automation: 'auto' }]);
+    writeResults(dir, [{ tc_id: 'TC-003h', status: 'fail', notes: 'assertion failed' }]);
+    cmdTC(makeCtx(dir, ['mark-manual', 'TC-003h', '--reason', 'needs a real payment gateway']));
+    const tcs = JSON.parse(fs.readFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), 'utf8'));
+    const tc = tcs.test_cases.find(t => t.id === 'TC-003h');
+    assert.equal(tc.automation, 'manual');
+    assert.equal(tc.downgraded_from, 'fail', 'the prior verdict is recorded as an audit trail');
+  });
+
   it('errors if TC ID is missing', () => {
     const dir = makeDir();
     writeTestCases(dir, []);

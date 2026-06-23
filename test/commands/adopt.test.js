@@ -788,6 +788,26 @@ describe('cmdAdopt verify-spec', () => {
     assert.ok(out.includes('User can log in'));
   });
 
+  it('briefing makes an already-covered AC land as a PASS, not the inert status:verified (R3-10)', () => {
+    const dir = tmpDir();
+    setupWithReqs(dir, [
+      { id: 'FR-001', priority: 'MUST', title: 'Login', acceptance_criteria: ['User can log in'] },
+    ]);
+    let out = '';
+    const orig = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (s) => { out += s; return true; };
+    try {
+      cmdAdopt({ dir, args: ['verify-spec'], VERSION: '0.1.65', rootDir: ROOT_DIR, err: (m) => { throw new Error(m); } });
+    } finally { process.stdout.write = orig; }
+    // status:"verified" on the TC entry is ignored by verify-run (→ skip → uncovered → brownfield
+    // dead-end). The briefing must route "already covered" to a honored RESULT: name the test after
+    // the TC id, or mark manual + `tc verify --result pass --evidence`.
+    assert.ok(/rename the existing test to start with the TC id/i.test(out),
+      'must instruct naming the existing test after the TC id so verify-run maps its pass');
+    assert.ok(/tc verify <TC-ID> --result pass --evidence/.test(out),
+      'must offer the manual+evidence fallback for an already-covered AC');
+  });
+
   it('prints "no stubs needed" when all MUST FRs are covered', () => {
     const dir = tmpDir();
     setupWithReqs(dir,
