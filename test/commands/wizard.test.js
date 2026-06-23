@@ -301,6 +301,20 @@ describe('cmdWizard()', () => {
     assert.ok(!idea.includes('Old content'), 'must not contain old content');
   });
 
+  it('accepts "yes" (full word), not just "y", to confirm overwrite (R3-21)', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Old content');
+    const rl = makeMockReadLine([
+      'yes',                   // full word — was rejected before R3-21
+      'Invoice problem', 'Freelancers', 'Manual work',
+      'Rule A', '', 'Criterion A', '', 'No payroll',
+    ]);
+    cmdWizard({ dir, args: [], flagValue: () => null, err: makeErr().fn, _readLine: rl });
+    const idea = fs.readFileSync(path.join(dir, 'IDEA.md'), 'utf8');
+    assert.ok(idea.includes('Invoice problem'), '"yes" must confirm the overwrite');
+    assert.ok(!idea.includes('Old content'), 'old content must be gone');
+  });
+
   it('errors on invalid --depth value', () => {
     const dir = tmpDir();
     const e = makeErr();

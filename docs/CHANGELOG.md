@@ -5,6 +5,18 @@
 
 ---
 
+## [2.0.0-rc.111] — 2026-06-23 — P2 (part 1): flow fixes + adopt --from no longer dead-ends
+
+P2 batch from the 2026-06-22 review (§12), part 1 — small flow fixes and the adopt `--from` deadlock.
+
+- **adopt apply --from (ADV-0622-26):** prior phases whose artifacts exist are now marked APPROVED (with stamped hashes), not just completed — so the approve-N ordering gate passes and the project can reach deployable instead of dead-ending. A prior phase with no artifact stays completed-not-approved (no false approval), with a clear next-step hint.
+- **adopt apply --from (ADV-0622-07):** now relocates a root `ADOPTION_AUDIT.md` + `idea_context/` into the unit (shared with plain apply via one helper) — the audit is no longer orphaned where no phase briefing lists it.
+- **feature init (R3-14):** writes `FEATURE_IDEA.md` before the `.aitri` marker, so a crash mid-init leaves an ignorable orphan dir, not a registered-but-broken feature.
+- **checkpoint --name (R3-26):** threads `VERSION` into the snapshot so the version-mismatch banner isn't dropped.
+- **wizard (R3-21):** accepts "yes" (not only "y") to confirm overwrite.
+- **discovery prompt (R3-19):** points at `idea_context/` (was the legacy `idea/`).
+- +7 tests. 1701 passing.
+
 ## [2.0.0-rc.110] — 2026-06-23 — P1 from the adversarial review: coverage-gate + flow integrity (6 fixes)
 
 The P1 batch from the 2026-06-22 review (§12) — six tier-1/2 correctness fixes across the coverage gates, bug-blocking semantics, and the adopt/review prompts.

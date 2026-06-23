@@ -154,6 +154,25 @@ describe('cmdCheckpoint() — --context persists across transitions (TPA-5)', ()
   });
 });
 
+describe('cmdCheckpoint() — --name threads VERSION into the snapshot (R3-26)', () => {
+  it('the named snapshot surfaces the version-mismatch nudge when the CLI version differs', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ aitriVersion: '0.0.1' }));
+    captureStdout(() =>
+      cmdCheckpoint({
+        dir, args: ['--name', 'vtest'],
+        flagValue: makeFlagValue({ '--name': 'vtest' }),
+        err: noopErr, VERSION: '9.9.9',
+      })
+    );
+    const files = fs.readdirSync(path.join(dir, 'checkpoints'));
+    const snap = fs.readFileSync(path.join(dir, 'checkpoints', files[0]), 'utf8');
+    // Without VERSION threaded to cmdResume the snapshot has cliVersion=undefined → no nudge.
+    assert.match(snap, /adopt --upgrade/, 'the named snapshot must surface the version-mismatch nudge');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
 describe('cmdCheckpoint() — --name creates snapshot', () => {
   let dir;
   let fname;

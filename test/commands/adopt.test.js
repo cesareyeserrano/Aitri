@@ -443,6 +443,46 @@ describe('aitri adopt apply --from', () => {
       assert.equal(idea, 'Existing content.', 'existing brief must not be overwritten');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  it('marks prior phases APPROVED (with hashes) when their artifacts exist — no never-deployable dead-end (ADV-0622-26)', () => {
+    const dir = tmpDir();
+    try {
+      // The documented "--from 4: phases 1-3 exist" case — operator brings the artifacts.
+      const spec = path.join(dir, 'aitri', 'product', 'spec');
+      fs.mkdirSync(spec, { recursive: true });
+      fs.writeFileSync(path.join(spec, '01_REQUIREMENTS.json'), '{}', 'utf8');
+      fs.writeFileSync(path.join(spec, '02_SYSTEM_DESIGN.md'), '# design', 'utf8');
+      fs.writeFileSync(path.join(spec, '03_TEST_CASES.json'), '{}', 'utf8');
+      run(dir, 4);
+      const cfg = loadConfig(dir);
+      assert.ok([1, 2, 3].every(p => cfg.approvedPhases.includes(p)),
+        'phases 1-3 must be APPROVED so the approve-4 ordering gate passes and the project can reach deployable');
+      assert.ok([1, 2, 3].every(p => cfg.artifactHashes?.[String(p)]),
+        'each approved phase must have its artifact hash stamped');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('leaves a prior phase completed-not-approved when its artifact is absent — no false approval (ADV-0622-26)', () => {
+    const dir = tmpDir();
+    try {
+      run(dir, 4);   // no artifacts present
+      const cfg = loadConfig(dir);
+      assert.ok([1, 2, 3].every(p => cfg.completedPhases.includes(p)), 'still marked completed');
+      assert.ok([1, 2, 3].every(p => !cfg.approvedPhases.includes(p)),
+        'NOT approved without an artifact (marking approved would just move the dead-end to run-phase)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('relocates a root ADOPTION_AUDIT.md into the unit on --from (no longer orphaned — ADV-0622-07)', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, 'ADOPTION_AUDIT.md'), '# audit findings', 'utf8');
+      run(dir, 1);
+      assert.ok(!fs.existsSync(path.join(dir, 'ADOPTION_AUDIT.md')), 'root audit must be moved out of the root');
+      assert.ok(fs.existsSync(path.join(dir, 'aitri', 'product', 'idea_context', 'ADOPTION_AUDIT.md')),
+        'audit must land in the unit idea_context where Phases 1-3 list it');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // ── scanner unit tests ────────────────────────────────────────────────────────
