@@ -5,6 +5,19 @@
 
 ---
 
+## [2.0.0-rc.113] — 2026-06-23 — P2 (part 3): robustness/contract fixes + UX-before-architecture ladder
+
+P2 batch from the 2026-06-22 review (§12), part 3 — block D (robustness/contract) + block E (UX ladder). All fixes adversarially diff-reviewed before commit; that review caught two real defects in this work (an ADV-29 re-run loop and an incomplete BOM fix), both fixed below.
+
+- **BOM-tolerant artifact reads (R3-16):** a leading byte-order mark (BOM) on a JSON artifact no longer causes a misleading "markdown fences / trailing commas" diagnostic — and, more importantly, no longer makes a cross-artifact gate that wraps its read in `try { JSON.parse } catch { skip }` **silently skip**. New single-source `readArtifactFile` (strips BOM) now backs `readArtifact` and every spine/gate/mirror artifact read: the phase 3 & 5 cross-artifact MUST-coverage gates, `verify-complete`, the `approve`-side UX detection, the per-TC `tc verify` reads, and the 0.1.65 migration. `complete` strips the BOM on the content it validates; phase 1/3 parse-error messages now name a leading BOM.
+- **`complete --check` runs the cross-artifact review (R3-6):** the `--check` dry run now runs the phase 1/3/5 cross-artifact review (and exits non-zero on errors) instead of reporting green on errors the real `complete` would block. No state is recorded; the TTY warning-acknowledge prompt is suppressed in a dry run.
+- **verify-complete rejects a non-object `summary` (R3-7):** a malformed `summary` (e.g. a string) is now blocked before it is written to `.aitri.verifySummary` (Hub contract) or printed as "undefined/undefined".
+- **`.aitri` malformed-array-field coercion (R3-17):** a hand-edited but valid-JSON `.aitri` whose `approvedPhases`/`completedPhases`/`driftPhases`/`cascadedPhases`/`events` is the wrong type is coerced to `[]` with a warning instead of crashing the snapshot SSoT (resume/status/validate) with a raw stack. Object fields (rejections/frSnapshots/artifactHashes) are untouched.
+- **AUDIT_REPORT.md path aligned (R3-11):** `audit` and the snapshot audit-freshness check now resolve `AUDIT_REPORT.md` the same way as the rest of the artifact chain (project root when `artifactsDir` is unset), instead of defaulting to `spec/` — so legacy root-artifact projects read and write the report where their other artifacts live.
+- **UX-before-architecture ladder (ADV-0622-29):** when UX/visual/audio FRs are present, the `status`/`resume` next-action ladder now agrees with the `approve requirements` message — it steers through the UX phase (run → complete → approve) before Architecture instead of pointing straight at `run-phase architecture`. Routes to the correct lifecycle step rather than looping on `run-phase ux`.
+- **SCHEMA.md (R3-23):** documents that `tc verify` also writes `verifySummary`, and that `verifyPassed` (not the presence of `verifySummary`) is the authoritative deploy-gate flag.
+- +13 tests. 1717 passing. No artifact-schema or `.aitri`-schema change; SCHEMA.md doc clarification only.
+
 ## [2.0.0-rc.112] — 2026-06-23 — P2 (part 2): upgrade hardening — no silent downgrade, venv migrator is layout-aware
 
 - **No silent version downgrade (ADV-0622-13):** `adopt --upgrade` (runUpgrade) now refuses to run when the installed CLI is OLDER than the project's recorded version — it warns and leaves the version untouched instead of rewriting it down and flip-flopping a committed `.aitri` between teammates. Adds a small `compareVersions` for the `X.Y.Z-(alpha|rc).N` grammar (stable > rc > alpha); the adopt-apply version writes are likewise guarded.

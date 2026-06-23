@@ -135,6 +135,94 @@ describe('buildProjectSnapshot()', () => {
     } finally { cleanup(dir); }
   });
 
+  it('ADV-29: requirements approved + UX FRs present → next action is run-phase ux, not architecture', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'uxproj', artifactsDir: 'spec', approvedPhases: [1], completedPhases: [1] });
+      writeJsonSpec(dir, '01_REQUIREMENTS.json', {
+        project_name: 'uxproj',
+        functional_requirements: [
+          { id: 'FR-001', title: 'Screen', priority: 'MUST', type: 'ux', acceptance_criteria: ['x'] },
+        ],
+        non_functional_requirements: [],
+      });
+      const snap = buildProjectSnapshot(dir);
+      const cmds = snap.nextActions.map(a => a.command);
+      assert.ok(cmds.includes('aitri run-phase ux'),
+        'ladder must agree with the approve-1 message and steer to the UX phase');
+      assert.ok(!cmds.includes('aitri run-phase architecture'),
+        'must NOT point straight at architecture when UX is required');
+    } finally { cleanup(dir); }
+  });
+
+  it('ADV-29: UX in progress → next action is complete ux, not a run-phase loop', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'uxip', artifactsDir: 'spec', approvedPhases: [1], completedPhases: [1] });
+      writeJsonSpec(dir, '01_REQUIREMENTS.json', {
+        project_name: 'uxip',
+        functional_requirements: [{ id: 'FR-001', title: 'Screen', priority: 'MUST', type: 'ux', acceptance_criteria: ['x'] }],
+        non_functional_requirements: [],
+      });
+      writeSpec(dir, '01_UX_SPEC.md', '# UX\n');   // artifact on disk → ux in_progress
+      const snap = buildProjectSnapshot(dir);
+      const cmds = snap.nextActions.map(a => a.command);
+      assert.ok(cmds.includes('aitri complete ux'), 'an in-progress UX phase must route to complete ux');
+      assert.ok(!cmds.includes('aitri run-phase ux'), 'must NOT loop back to run-phase ux once UX has started');
+    } finally { cleanup(dir); }
+  });
+
+  it('ADV-29: UX completed → next action is approve ux', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'uxdone', artifactsDir: 'spec', approvedPhases: [1], completedPhases: [1, 'ux'] });
+      writeJsonSpec(dir, '01_REQUIREMENTS.json', {
+        project_name: 'uxdone',
+        functional_requirements: [{ id: 'FR-001', title: 'Screen', priority: 'MUST', type: 'ux', acceptance_criteria: ['x'] }],
+        non_functional_requirements: [],
+      });
+      writeSpec(dir, '01_UX_SPEC.md', '# UX\n');
+      const snap = buildProjectSnapshot(dir);
+      const cmds = snap.nextActions.map(a => a.command);
+      assert.ok(cmds.includes('aitri approve ux'), 'a completed UX phase must route to approve ux');
+      assert.ok(!cmds.includes('aitri run-phase ux'), 'must NOT loop back to run-phase ux');
+    } finally { cleanup(dir); }
+  });
+
+  it('ADV-29: UX approved → ladder proceeds to architecture', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'uxok', artifactsDir: 'spec', approvedPhases: [1, 'ux'], completedPhases: [1, 'ux'] });
+      writeJsonSpec(dir, '01_REQUIREMENTS.json', {
+        project_name: 'uxok',
+        functional_requirements: [{ id: 'FR-001', title: 'Screen', priority: 'MUST', type: 'ux', acceptance_criteria: ['x'] }],
+        non_functional_requirements: [],
+      });
+      writeSpec(dir, '01_UX_SPEC.md', '# UX\n');
+      const snap = buildProjectSnapshot(dir);
+      const cmds = snap.nextActions.map(a => a.command);
+      assert.ok(cmds.includes('aitri run-phase architecture'), 'once UX is approved, architecture is next');
+      assert.ok(!cmds.includes('aitri run-phase ux') && !cmds.includes('aitri complete ux'),
+        'must not re-steer to the UX phase once it is approved');
+    } finally { cleanup(dir); }
+  });
+
+  it('ADV-29: no UX FRs → ladder steers to architecture as before', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'noux', artifactsDir: 'spec', approvedPhases: [1], completedPhases: [1] });
+      writeJsonSpec(dir, '01_REQUIREMENTS.json', {
+        project_name: 'noux',
+        functional_requirements: [{ id: 'FR-001', title: 'Logic', priority: 'MUST', type: 'core', acceptance_criteria: ['x'] }],
+        non_functional_requirements: [],
+      });
+      const snap = buildProjectSnapshot(dir);
+      const cmds = snap.nextActions.map(a => a.command);
+      assert.ok(cmds.includes('aitri run-phase architecture'), 'no UX FRs → architecture is next');
+      assert.ok(!cmds.includes('aitri run-phase ux'), 'must not steer to UX when no UX FRs exist');
+    } finally { cleanup(dir); }
+  });
+
   it('reflects approved/completed/in_progress/not_started per phase', () => {
     const dir = tmpDir();
     try {
@@ -714,6 +802,16 @@ describe('audit freshness', () => {
       writeSpec(dir, 'AUDIT_REPORT.md', '# Audit');
       const snap = buildProjectSnapshot(dir);
       assert.equal(snap.health.staleAudit, false);
+    } finally { cleanup(dir); }
+  });
+
+  it('R3-11: finds AUDIT_REPORT.md in the project root when artifactsDir is unset (legacy layout)', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'x' });   // no artifactsDir → root-artifact project
+      fs.writeFileSync(path.join(dir, 'AUDIT_REPORT.md'), '# Audit');
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.audit.exists, true, 'audit in root must be detected, not looked for under spec/');
     } finally { cleanup(dir); }
   });
 

@@ -106,6 +106,28 @@ describe('Phase 5 — validate()', () => {
     }
   });
 
+  // R3-16: a BOM-prefixed 01_REQUIREMENTS.json must NOT make the MUST-coverage
+  // gate silently skip (the read is wrapped in try/catch — a parse throw would
+  // pass the gate). readArtifactFile strips the BOM so the gate still fires.
+  it('[cross-artifact] BOM-prefixed requirements still triggers the MUST-coverage gate', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p5-bom-'));
+    try {
+      const reqs = { functional_requirements: [
+        { id: 'FR-001', priority: 'MUST' },
+        { id: 'FR-002', priority: 'MUST' },
+        { id: 'FR-005', priority: 'MUST' }, // missing from validP5 compliance
+      ]};
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), '\uFEFF' + JSON.stringify(reqs), 'utf8');
+      assert.throws(
+        () => PHASE_DEFS[5].validate(validP5(), { dir, config: {} }),
+        /MUST requirement.*not found in requirement_compliance/,
+        'a leading BOM must not let an uncovered MUST FR slip past the gate'
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   // NFRs are first-class; a MUST NFR omitted from requirement_compliance must
   // also block (audit Tier-2 — the check only scanned functional_requirements).
   it('[cross-artifact] throws when a MUST NFR is missing from requirement_compliance', () => {

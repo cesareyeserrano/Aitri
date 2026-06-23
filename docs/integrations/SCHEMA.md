@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.112+
+**Aitri version:** v2.0.0-rc.113+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -53,7 +53,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `frSnapshots` | `object<string, array<string>>` | absent until first downstream approval | Per-phase snapshot of the `functional_requirements[].id` set the phase was approved against (key = phase as string). Written on `approve` of a downstream phase (not phase 1/discovery). When a cascade later resets that phase, `run-phase` diffs the current FR ids against this snapshot to show the agent which FRs were added/removed since — so the re-derivation is directed, not blind. Advisory only (the `fr_coverage` deploy gate is the hard enforcement). (v2.0.0-rc.64+) |
 | `events` | `array<Event>` | `[]` | Pipeline activity log (max 20, most recent last) |
 | `verifyPassed` | `boolean` | `false` | `true` if `aitri verify-complete` passed. Required to unlock Phase 5. Reset to `false` by `aitri verify-run` when latest results would not pass `verify-complete` — i.e. `passed === 0` with skips, OR any failures (v2.0.0-alpha.13+). Healthy results (passed > 0, failed === 0) leave the flag alone |
-| `verifySummary` | `object` | `null` | Last test run summary — the `04_TEST_RESULTS.json#summary` object persisted verbatim (canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Set by `verify-complete` on success; cleared by `verify-run` when `verifyPassed` resets (v2.0.0-alpha.13+) |
+| `verifySummary` | `object` | `null` | Last test run summary — the `04_TEST_RESULTS.json#summary` object persisted verbatim (canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Written by `verify-complete` on success **and** by `tc verify` (which re-syncs it so `aitri resume` shows updated numbers after a per-TC verification); cleared by `verify-run` when `verifyPassed` resets (v2.0.0-alpha.13+). **Presence is NOT proof that `verify-complete` passed** — `verifyPassed` is the authoritative deploy-gate flag; consumers must read `verifyPassed`, not the presence of `verifySummary` |
 | `verifyRanAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri verify-run` execution (set on every run, regardless of pass/fail). Drives test-staleness signals (v0.1.79+) |
 | `lastVerifyRun` | `object\|null` | `null` | Last `verify-run`'s counts, written on EVERY run regardless of pass/fail: `{ passed, failed, skipped, manual, at }`. Unlike `verifySummary` (only on verify-complete success), this persists the raw run result so the no-op-loop guard survives event-log eviction. Read this for "what did the last run produce" (v2.0.0-rc.25+) |
 | `auditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit` invocation. Persisted because `AUDIT_REPORT.md` mtime resets on git clone (v0.1.79+) |

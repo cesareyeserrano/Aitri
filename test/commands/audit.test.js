@@ -56,9 +56,10 @@ describe('auditReportPath()', () => {
     assert.ok(p.endsWith(path.join('spec', 'AUDIT_REPORT.md')));
   });
 
-  it('defaults to spec/ when artifactsDir is absent', () => {
+  it('falls back to the project root when artifactsDir is absent (R3-11: matches artifact readers)', () => {
     const p = auditReportPath('/project', {});
-    assert.ok(p.endsWith(path.join('spec', 'AUDIT_REPORT.md')));
+    assert.strictEqual(p, path.join('/project', 'AUDIT_REPORT.md'));
+    assert.ok(!p.includes(`${path.sep}spec${path.sep}`));
   });
 
   it('respects custom artifactsDir', () => {

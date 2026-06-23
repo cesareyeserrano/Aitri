@@ -165,8 +165,58 @@ describe('cmdComplete() — --check dry run', () => {
     assert.deepEqual(config.completedPhases, []);
   });
 
-  it('prints validation passed', () => {
-    assert.ok(output.includes('validation passed'), 'should say validation passed');
+  it('prints validation + cross-artifact review passed', () => {
+    assert.ok(output.includes('validation + cross-artifact review passed'), 'should say validation + cross-artifact review passed');
+  });
+});
+
+// R3-6: --check used to skip the cross-artifact review (phases 1/3/5), so a dry run
+// printed green on errors the real `complete` blocks. The phase-5 TC→Results review
+// catches a result referencing a non-existent TC — an error phase5.validate (which
+// only inspects 05_TRACEABILITY.json) cannot see, so it is the true divergence.
+describe('cmdComplete() — --check runs the cross-artifact review (R3-6)', () => {
+  let dir;
+
+  before(() => {
+    dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1, 2, 3, 4], approvedPhases: [1, 2, 3, 4] }));
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', JSON.stringify({
+      project_name: 'T',
+      functional_requirements: [{ id: 'FR-001', title: 'L', priority: 'MUST', acceptance_criteria: ['x'] }],
+      non_functional_requirements: [],
+    }));
+    // Valid 05 artifact (passes phase5.validate) — FR-001 covered, no over-claim.
+    writeFile(dir, 'spec/05_TRACEABILITY.json', JSON.stringify({
+      project: 'T', version: '1', phases_completed: [1, 2, 3, 4, 5],
+      requirement_compliance: [{ id: 'FR-001', level: 'functionally_present' }],
+      overall_status: 'compliant',
+    }));
+    writeFile(dir, 'spec/03_TEST_CASES.json', JSON.stringify({
+      test_plan: 'Plan',
+      test_cases: [{ id: 'TC-001', requirement_id: 'FR-001', title: 't', type: 'unit', scenario: 'happy_path', expected_result: 'x' }],
+    }));
+    // Result references TC-999, which is NOT in 03_TEST_CASES.json → review error.
+    writeFile(dir, 'spec/04_TEST_RESULTS.json', JSON.stringify({
+      executed_at: new Date().toISOString(),
+      results: [{ tc_id: 'TC-999', status: 'pass' }],
+      fr_coverage: [{ fr_id: 'FR-001', status: 'covered' }],
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+    }));
+  });
+
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('exits non-zero (err thrown) on a cross-artifact error, not a green dry run', () => {
+    let msg = '';
+    try {
+      captureStdout(() => cmdComplete({ dir, args: ['deploy', '--check'], err: noopErr }));
+    } catch (e) { msg = e.message; }
+    assert.match(msg, /Cross-artifact errors found/, 'review errors must surface under --check');
+  });
+
+  it('does not record state on a failed --check', () => {
+    const config = loadConfig(dir);
+    assert.ok(!config.completedPhases.includes(5), 'phase 5 must not be recorded by a dry run');
   });
 });
 

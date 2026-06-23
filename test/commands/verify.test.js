@@ -1693,6 +1693,30 @@ describe('cmdVerifyComplete() — AC-level coverage gate (ADR-041 option A, rc.4
         cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  // R3-7: a non-object `summary` (e.g. a string the agent wrote) must be rejected
+  // before it is written to .aitri.verifySummary (Hub contract) and before the
+  // destructure at the print step prints "undefined/undefined".
+  it('blocks when summary is not an object', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-summary-bad-'));
+    try {
+      seed(dir, [
+        { ac_id: 'AC-001', fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' },
+      ]);
+      const rp = path.join(dir, 'spec/04_TEST_RESULTS.json');
+      const d = JSON.parse(fs.readFileSync(rp, 'utf8'));
+      d.summary = 'all good';   // non-object
+      fs.writeFileSync(rp, JSON.stringify(d));
+      let msg = '';
+      try { runQuiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); }
+      catch (e) { msg = e.message; }
+      assert.match(msg, /summary must be an object/);
+      // verifySummary must NOT have been persisted
+      const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+      assert.ok(!('verifySummary' in cfg) || typeof cfg.verifySummary === 'object',
+        'a non-object summary must never be written to .aitri.verifySummary');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // #2 (finance-dashboard canary 2026-06-05): verify-complete must hard-block only

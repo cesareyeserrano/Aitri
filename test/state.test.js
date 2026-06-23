@@ -63,6 +63,30 @@ describe('loadConfig()', () => {
     assert.deepEqual(cfg.approvedPhases, [1, 2], 'BOM must be stripped before parsing');
     fs.rmSync(dir, { recursive: true });
   });
+
+  it('R3-17: coerces a malformed array field (wrong type) to [] instead of crashing the snapshot', () => {
+    const dir = tmpDir();
+    // Valid JSON, but approvedPhases was hand-edited to an object \u2014 would crash
+    // downstream .map/.has in the snapshot SSoT (resume/status/validate).
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ approvedPhases: {}, completedPhases: 'oops', currentPhase: 1 }));
+    const cfg = loadConfig(dir);
+    assert.deepEqual(cfg.approvedPhases, [], 'object array-field must coerce to []');
+    assert.deepEqual(cfg.completedPhases, [], 'string array-field must coerce to []');
+    assert.equal(cfg.currentPhase, 1, 'non-array fields are untouched');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('R3-17: leaves genuine object fields (rejections/frSnapshots/artifactHashes) untouched', () => {
+    const dir = tmpDir();
+    const rejections = { '1': 'redo' };
+    const frSnapshots = { '1': ['FR-1'] };
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ rejections, frSnapshots, approvedPhases: [1] }));
+    const cfg = loadConfig(dir);
+    assert.deepEqual(cfg.rejections, rejections, 'object field must not be coerced to []');
+    assert.deepEqual(cfg.frSnapshots, frSnapshots, 'object field must not be coerced to []');
+    assert.deepEqual(cfg.approvedPhases, [1]);
+    fs.rmSync(dir, { recursive: true });
+  });
 });
 
 describe('saveConfig()', () => {
@@ -364,6 +388,15 @@ describe('readArtifact()', () => {
     fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'), '{"root":true}');
     const content = readArtifact(dir, '01_REQUIREMENTS.json', 'spec');
     assert.equal(content, null);
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('R3-16: strips a leading BOM so artifact JSON parses', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, '03_TEST_CASES.json'), '\uFEFF{"ok":true}');
+    const content = readArtifact(dir, '03_TEST_CASES.json');
+    assert.equal(content, '{"ok":true}', 'BOM must be stripped from artifact content');
+    assert.doesNotThrow(() => JSON.parse(content), 'stripped content must be valid JSON');
     fs.rmSync(dir, { recursive: true });
   });
 });

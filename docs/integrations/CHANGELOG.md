@@ -18,6 +18,11 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.113 (2026-06-23) — `verifySummary` writer/authority clarification (P2 review batch, R3-23) — additive
+
+- **`verifySummary` (.aitri)** is now documented as written by `verify-complete` **and** `tc verify` (the code already did the latter). Consumers must treat **`verifyPassed`** as the authoritative deploy-gate flag — the *presence* of `verifySummary` does NOT prove `verify-complete` passed. No field added, removed, or retyped; documentation of existing behavior only.
+- No artifact-schema or `.aitri`-schema change in this release. See SCHEMA.md.
+
 ## v2.0.0-rc.110 (2026-06-23) — coverage/bug schema clarifications (P1 review batch) — additive
 
 - **`03_TEST_CASES.json` — `downgraded_from`** (new optional TC field): set by `mark-manual` when it converts a TC the runner already reported `fail`/`skip`; records the prior verdict for the reviewer + guided checklist. Additive; absent on normal TCs.
