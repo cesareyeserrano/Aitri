@@ -5,6 +5,12 @@
 
 ---
 
+## [2.0.0-rc.112] — 2026-06-23 — P2 (part 2): upgrade hardening — no silent downgrade, venv migrator is layout-aware
+
+- **No silent version downgrade (ADV-0622-13):** `adopt --upgrade` (runUpgrade) now refuses to run when the installed CLI is OLDER than the project's recorded version — it warns and leaves the version untouched instead of rewriting it down and flip-flopping a committed `.aitri` between teammates. Adds a small `compareVersions` for the `X.Y.Z-(alpha|rc).N` grammar (stable > rc > alpha); the adopt-apply version writes are likewise guarded.
+- **venv migrator is layout-aware (ADV-0622-14):** the legacy venv-relative-runner check now scans `<layoutRoot>/features` (via the `featuresDir` SSoT), so a contained-layout project's broken feature runners are flagged on upgrade instead of silently skipped; the finding's display path carries the layoutRoot too.
+- +3 tests. 1704 passing. No schema/contract change.
+
 ## [2.0.0-rc.111] — 2026-06-23 — P2 (part 1): flow fixes + adopt --from no longer dead-ends
 
 P2 batch from the 2026-06-22 review (§12), part 1 — small flow fixes and the adopt `--from` deadlock.

@@ -22,7 +22,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { runUpgrade } from '../lib/upgrade/index.js';
+import { runUpgrade, compareVersions } from '../lib/upgrade/index.js';
 import { diagnose, migrateAll } from '../lib/upgrade/diagnose.js';
 import * as from065 from '../lib/upgrade/migrations/from-0.1.65.js';
 import { initFlatProject } from './fixtures.js';
@@ -1160,6 +1160,30 @@ describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy test resu
 // undoes the alpha.9 scoping fix). Operator edits the manifest to use an
 // absolute path or a PATH-resolved binary.
 
+describe('lib/upgrade — compareVersions + downgrade refusal (ADV-0622-13)', () => {
+  it('orders X.Y.Z / rc / alpha / stable correctly', () => {
+    assert.equal(compareVersions('2.0.0-rc.84', '2.0.0-rc.108'), -1);
+    assert.equal(compareVersions('2.0.0-rc.108', '2.0.0-rc.84'), 1);
+    assert.equal(compareVersions('2.0.0-rc.108', '2.0.0-rc.108'), 0);
+    assert.equal(compareVersions('2.0.0-alpha.5', '2.0.0-rc.1'), -1);  // alpha < rc
+    assert.equal(compareVersions('2.0.0-rc.1', '2.0.0'), -1);          // rc < stable
+    assert.equal(compareVersions('2.0.1', '2.0.0'), 1);
+    assert.equal(compareVersions('garbage', '2.0.0'), 0);             // unparseable → no-op
+  });
+
+  it('runUpgrade refuses to downgrade — keeps the recorded version when the CLI is older', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+        aitriVersion: '2.0.0-rc.108', artifactsDir: 'spec', approvedPhases: [1], completedPhases: [1],
+      }));
+      silence(() => runUpgrade({ dir, VERSION: '2.0.0-rc.84', rootDir: ROOT_DIR }));
+      assert.equal(loadConfig(dir).aitriVersion, '2.0.0-rc.108',
+        'an older CLI must not downgrade the project\'s recorded version');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy venv-relative manifest runner (N1)', () => {
   function writeRootManifest(dir, runner) {
     fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
@@ -1193,6 +1217,25 @@ describe('lib/upgrade/migrations/from-0.1.65 — VALIDATOR-GAP: legacy venv-rela
       assert.equal(f.autoMigratable, false);
       assert.equal(f.target, '04_BUILD_REPORT.json');
       assert.match(f.reason, /alpha\.9|cwd/i);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('flags a feature manifest under the CONTAINED layout (aitri/features), not just flat (ADV-0622-14)', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+        aitriVersion: '0.1.65', projectName: 'p', layoutRoot: 'aitri', artifactsDir: 'aitri/product/spec',
+      }));
+      const featSpec = path.join(dir, 'aitri', 'features', 'auth', 'spec');
+      fs.mkdirSync(featSpec, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'aitri', 'features', 'auth', '.aitri'),
+        JSON.stringify({ projectName: 'auth', artifactsDir: 'spec' }));
+      fs.writeFileSync(path.join(featSpec, '04_BUILD_REPORT.json'),
+        JSON.stringify({ files_created: [{ path: 'src/x.py' }], test_runner: '.venv/bin/pytest tests/ -v' }));
+      const findings = from065.diagnose(dir, JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')));
+      const f = findings.find(x => /legacy venv-relative/.test(x.transform) && /auth/.test(x.target));
+      assert.ok(f, 'a venv-relative feature runner under aitri/features must be flagged (was silently skipped pre-ADV-14)');
+      assert.match(f.target, /aitri\/features\/auth/, 'the display path must carry the contained layoutRoot');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
