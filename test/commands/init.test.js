@@ -50,6 +50,17 @@ describe('aitri init — version tracking', () => {
     assert.equal(config.aitriVersion, '0.1.34');
   });
 
+  // ADV-0622-13 (gap found in the rc.111/rc.112 diff-review): re-init with an OLDER
+  // CLI must NOT downgrade the recorded version — the committed .aitri would otherwise
+  // flip-flop between teammates on different CLI versions. Mirrors runUpgrade + adopt.
+  it('does NOT downgrade aitriVersion when re-init with an older version', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.112' });
+    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.110' });
+    assert.equal(loadConfig(dir).aitriVersion, '2.0.0-rc.112',
+      'an older re-init must leave the newer recorded version untouched');
+  });
+
   it('does not overwrite createdAt on re-init', () => {
     const dir = tmpDir();
     cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.34' });

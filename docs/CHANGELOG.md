@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.115] — 2026-06-23 — close the no-downgrade gap `aitri init` missed (rc.111/rc.112 diff-review)
+
+The 2-agent adversarial diff-review of rc.111 + rc.112 (never independently reviewed before) found ADV-0622-13 (no silent version downgrade) was applied to `runUpgrade` and both `adopt apply` sites but **missed `aitri init`** — which is re-runnable on an existing project. `compareVersions` itself verified fully correct (truth table), and the dangerous flow modes (feature-init ordering, `adopt --from` false-approval) were confirmed provably blocked.
+
+- **`init` no longer downgrades the recorded version (ADV-0622-13):** re-running `aitri init` with an older CLI on a project whose committed `.aitri` records a newer version now KEEPS the newer version (same `compareVersions` guard as `runUpgrade`/`adopt apply`), instead of silently rewriting it down and flip-flopping the committed `.aitri` between teammates.
+- **`adopt apply` message honesty:** the "aitriVersion will be updated to X" note is now computed from the same downgrade guard — on a downgrade it says the version stays at the newer recorded value, instead of falsely claiming an update.
+- +1 test (init re-init with an older version leaves the recorded version untouched). 1726 passing.
+- **Deferred (latent, documented):** `compareVersions` returns 0 on an unparseable version (e.g. a hypothetical `2.0.0-beta.1` or build-metadata form), so the guard fails OPEN there — but no such version grammar has ever shipped; the fail-open is deliberate and tested. Revisit only if the version grammar widens.
+
 ## [2.0.0-rc.114] — 2026-06-23 — P3: coherence / dead-code / guardrail cleanup sweep
 
 P3 batch from the 2026-06-22 review (§12) — tier-3 coherence, dead-code, and one latent guardrail. Adversarially diff-reviewed before commit (ship-clean; one doc-completeness nit fixed). Deferred (with rationale): the latent concurrency/atomicity hardening, the CRLF/BOM hash re-baseline (carries a migration ripple to own separately), the verifier-ceiling residuals, and the speculative stack-agnostic prompt nudges (ADR-046 — leave the web case untouched absent a concrete non-web consumer).
