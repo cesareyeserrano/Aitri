@@ -82,7 +82,7 @@ For every significant tech choice, write an ADR using this format:
   Decision: <chosen option> — <reason>
   Consequences: <what this enables, what it constrains>
 
-Minimum ADRs required: database choice, frontend framework/approach, state management, deployment target.
+Minimum ADRs: one per significant technology choice the stack ACTUALLY involves — e.g. data storage, UI/frontend approach, state management, deployment target — including ONLY those that apply. (A CLI, library, or embedded project has no frontend ADR; an in-memory tool has no database ADR. Do not invent a decision for a layer the project does not have.)
 Rule: each ADR must evaluate ≥2 options — a single-option ADR is not a real decision. (ADR content is human-reviewed at approve; `complete 2` does not parse ADRs, so this is a discipline the reviewer enforces, not the gate. Write them honestly.)
 
 ## Failure Blast Radius

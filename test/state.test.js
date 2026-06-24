@@ -145,6 +145,31 @@ describe('split layout — .aitri (shared) + .aitri.local (per-machine) (ADR-045
     assert.equal(c.reconcileState.baseRef, 'abc');
   });
 
+  // ADV-0622-25: when the same key exists in BOTH files, the merge `{...raw, ...local}`
+  // makes the per-machine local file win. This was undefined+untested; pin it so a future
+  // merge-order change is caught (a per-machine override silently shadowing shared state).
+  it('loadConfig: .aitri.local takes precedence over .aitri on a key collision', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(cp(dir), JSON.stringify({ aitriVersion: 'shared', currentPhase: 1 }));
+    fs.writeFileSync(lp(dir), JSON.stringify({ aitriVersion: 'local' }));
+    const c = loadConfig(dir);
+    assert.equal(c.aitriVersion, 'local', 'a colliding key resolves to the per-machine local value');
+    assert.equal(c.currentPhase, 1, 'non-colliding shared keys are preserved');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  // ADV-0622-25: a malformed per-machine local file is non-fatal (it is re-establishable)
+  // — loadConfig must degrade to the shared config, not throw.
+  it('loadConfig: a malformed .aitri.local degrades gracefully to the shared config', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(cp(dir), JSON.stringify({ aitriVersion: 'x', approvedPhases: [1, 2] }));
+    fs.writeFileSync(lp(dir), '{ not valid json');
+    let c;
+    assert.doesNotThrow(() => { c = loadConfig(dir); }, 'a malformed .aitri.local must not throw');
+    assert.deepEqual(c.approvedPhases, [1, 2], 'shared config still loads when local is garbage');
+    fs.rmSync(dir, { recursive: true });
+  });
+
   it('saveConfig partitions: shared → .aitri, per-machine → .aitri.local', () => {
     const dir = tmpDir();
     saveConfig(dir, { approvedPhases: [1, 2], aitriVersion: 'x', lastSession: { agent: 'codex' }, reconcileState: { baseRef: 'def' } });

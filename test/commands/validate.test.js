@@ -624,3 +624,52 @@ describe('cmdValidate() — IDEA.md gate accepts original_brief absorption (alph
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// ADV-0622-27: validate is a reporting command (exits 0 by default), so a CI step running
+// it silently passes even when the project is not deployable. --ci turns the deploy-gate
+// verdict into the exit code (opt-in; output unchanged).
+describe('cmdValidate() — --ci exit code (ADV-0622-27)', () => {
+  function withExit(fn) {
+    const saved = process.exitCode;
+    process.exitCode = 0;
+    try { fn(); return process.exitCode; } finally { process.exitCode = saved; }
+  }
+
+  it('--ci exits non-zero when the project is NOT deployable', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1] }));  // nowhere near deployable
+    try {
+      const code = withExit(() => captureLog(() => cmdValidate({ dir, args: ['--ci'] })));
+      assert.equal(code, 1, 'not-deployable + --ci must exit non-zero');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('--ci leaves exit code 0 when the project IS deployable', () => {
+    const dir = tmpDir();
+    seedDeployableRoot(dir);
+    try {
+      const code = withExit(() => captureLog(() => cmdValidate({ dir, args: ['--ci'] })));
+      assert.equal(code, 0, 'deployable + --ci stays 0');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('without --ci, a not-deployable project still exits 0 (reporting command, unchanged)', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1] }));
+    try {
+      const code = withExit(() => captureLog(() => cmdValidate({ dir, args: [] })));
+      assert.equal(code, 0, 'default validate never changes the exit code');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('--json --ci keeps stdout pure JSON (the notice goes to stderr)', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1] }));
+    try {
+      let out, code;
+      withExit(() => { out = captureStdout(() => cmdValidate({ dir, args: ['--json', '--ci'] })); code = process.exitCode; });
+      assert.equal(code, 1, '--json --ci still exits non-zero when not deployable');
+      assert.doesNotThrow(() => JSON.parse(out), 'stdout must remain parseable JSON under --json --ci');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

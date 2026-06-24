@@ -22,6 +22,7 @@
 
 > user_stories above include acceptance_criteria with Given/When/Then per AC id — use these to populate user_story_id, ac_id, and to write SPEC-SEALED test cases.
 > no_go_zone above lists what is explicitly out of scope — do NOT write test cases for these items.
+> **Adoption audit (brownfield):** if `idea_context/ADOPTION_AUDIT.md` is present, read it before designing tests — its findings name the existing behavior, integration seams, and regression risks the change must not break. Turn each Must-Not-Break / regression risk it records into a concrete negative or edge test case (a `category: "Regression"` NFR is a hard MUST and needs the full happy/edge/negative set).
 
 ## System Design (architecture + API)
 {{SYSTEM_DESIGN}}
@@ -39,7 +40,7 @@
 
 ## Output: `{{ARTIFACTS_BASE}}/03_TEST_CASES.json`
 Schema:
-{ test_plan: { strategy, coverage_goal: "80%", test_types: ["unit","integration","e2e"] },
+{ test_plan: { strategy, coverage_goal: "<the project's own target, e.g. 80% — your call, nothing keys off this value>", test_types: ["unit","integration","e2e"] },
   test_cases: [{
     id: "TC-001h",
     requirement_id: "FR-001",

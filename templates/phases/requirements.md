@@ -163,7 +163,7 @@ Before writing FRs, identify:
 Include these as comments in project_summary or as a separate "product_analysis" field.
 
 ## Rules
-- Min 5 FRs — non-trivial products have 8-15 MUST FRs. If you have fewer than 8 MUSTs, revisit the Depth Protocol above
+- Min 5 FRs (root pipeline). Capture every MUST the scope genuinely needs — and no more. Do NOT pad to hit a number: an MVP correctly defined by 5 real MUSTs is complete, and inflating the count contradicts the MVP-proportionality and anti-scope-creep rules above. If the Depth Protocol surfaces genuinely missing requirements, add them; if it doesn't, 5 is fine
 - Every MUST FR must have ≥1 linked user story. For projects with multiple personas, write one story per persona that interacts with that FR
 - **Shape acceptance_criteria for the Three-Amigos test gate (enforced later at Phase 3).** At Phase 3, every MUST FR needs ≥3 test cases covering a **happy path**, an **edge case**, and a **negative/failure** scenario (the gate requires a TC id ending `h` AND one ending `f`). So write each MUST FR's acceptance_criteria to support all three — at minimum one positive (expected behaviour) AND one negative/boundary (rejection, error, limit, empty/duplicate input). An FR whose ACs are **all positive** (e.g. a plain list/create) or **all negative** (e.g. a permission check) cannot satisfy the Phase-3 gate and forces a Phase-1 re-open + cascade — shape it correctly now. MUST FRs of type security, persistence, logic, or reporting especially need an explicit failure AC.
 - Every user story linked to a MUST FR must have ≥1 acceptance_criteria entry in Given/When/Then format

@@ -5,6 +5,18 @@
 
 ---
 
+## [2.0.0-rc.117] — 2026-06-23 — CI gate flag + audit-grounding/stack-agnostic prompt fixes + dead-code dedup
+
+The remaining §12 P3 items that, on closer inspection, are real defect-fixes rather than speculative prose — plus an opt-in CI gate and an internal dedup. (Items still deliberately deferred: CRLF/BOM hash re-baseline, cross-process locking, and a broad stack-agnostic prose rewrite — those remain speculative or carry an unowned migration ripple.)
+
+- **`aitri validate --ci` (ADV-0622-27):** validate is a reporting command and exits 0 by default, so a CI step running it silently passes even when the project is not deployable. The opt-in `--ci` flag turns the deploy-gate verdict into the exit code (non-zero when not deployable); output is unchanged. (`verify-complete` already exits non-zero for the test gate; this closes the holistic-readiness footgun.)
+- **Audit-grounding prompts (ADV-0622-08):** the `idea_context/` briefing note is now phase-aware — at Phase 1 / discovery it says the material is PRIMARY input (nothing upstream is approved yet) instead of the misleading "approved artifacts are the source of truth — reference only." `ADOPTION_AUDIT.md` is singled out by name as the existing-code reality to ground the phase in, and Phase 3 (`tests.md`) now nudges the agent to turn the audit's Must-Not-Break/regression risks into concrete negative/edge test cases.
+- **Stack-agnostic prompt fixes (ADV-0622-12, principle 4):** web-specific imperatives that reached CLI/library/embedded projects as commands are now conditional — the ADR list ("database choice, frontend framework…") generalizes to "one ADR per significant tech choice the stack actually involves"; the `/health` endpoint + API-surface bullet applies "for a networked service"; the injection-prevention bullet is cased ("IF it runs DB queries… IF it renders HTML…"). An imperative bound to a specific stack was a defect against principle 4.
+- **Scope-creep pump removed (ADV-0622-40):** `requirements.md` no longer says "if you have fewer than 8 MUSTs, revisit" — that contradicted the file's own MVP-proportionality/anti-scope-creep rules. It now says: capture every MUST the scope genuinely needs and no more; don't pad to a number.
+- **`coverage_goal` placeholder (ADV-0622-43):** the hardcoded `"80%"` in the `tests.md` schema example is now a placeholder ("your call, nothing keys off this value"), so it stops propagating a box-checking metric.
+- **Dead-code dedup (ADV-0622-39):** `snapshot.js` no longer carries a duplicate `.aitri` path resolver — it uses state.js's `configFilePath`/`configExists`, so the layout logic is single-source (the header invariant is now true, not aspirational).
+- +7 tests (validate --ci x4 incl. `--json --ci` purity, audit-seam end-to-end, loadConfig key-collision + malformed-local). 1741 passing. No artifact/`.aitri` schema change. Adversarially diff-reviewed (clean; one LOW `--json --ci` stdout-purity wart caught and fixed).
+
 ## [2.0.0-rc.116] — 2026-06-23 — verifier-floor + latent-robustness hardening (selected §12 P3 cluster items)
 
 The defensible subset of the deferred §12 P3 clusters — items with real, verifiable value and low risk. **Explicitly NOT done** (and why): the CRLF/BOM hash normalization (ADV-0622-34 — carries a one-time re-baseline ripple that must be owned as a migration, not batched), `--ci` exit codes for validate/verify-run (ADV-0622-27 — no consumer asking; a flag nobody uses is speculative), the stack-agnostic prompt nudges (cluster 34 — ADR-046: leave the web case untouched absent a concrete non-web consumer), and the cross-process locking (R3-1/2/13 — low value against Aitri's sequential single-agent model).

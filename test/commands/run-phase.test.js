@@ -139,6 +139,29 @@ describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () =>
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
+  // ADV-0622-16 / H-3 — the rc.107 audit-consumption seam, end-to-end. `adopt apply`
+  // relocates ADOPTION_AUDIT.md into idea_context/ (tested in adopt.test.js); the OTHER
+  // half is that a CONTEXT phase then actually surfaces it to the agent. This pins the
+  // AUDIT artifact by name (not a generic asset), so a context-folder filter that dropped
+  // `.md` files — which the mockup.png test would not catch — is caught here.
+  it('surfaces a relocated ADOPTION_AUDIT.md to the Phase 1 briefing (audit-consumption seam)', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    // post-`adopt apply` state: the audit lives in the unit's idea_context/
+    writeFile(dir, 'idea_context/ADOPTION_AUDIT.md', '# Adoption Audit\nFindings the agent must ground Phase 1 in.\n');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(stdout.includes('idea_context/ADOPTION_AUDIT.md'),
+      'the Phase 1 briefing must list the relocated audit so the agent grounds requirements in it');
+    // ADV-0622-08: the audit is singled out by name with grounding language, and Phase 1
+    // is framed as PRIMARY input (no upstream artifact is approved yet).
+    assert.match(stdout, /ADOPTION_AUDIT\.md is the adoption audit/, 'audit must be called out by name');
+    assert.match(stdout, /PRIMARY input/, 'Phase 1 context must be framed as primary input, not "reference only"');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   it('emits a loud migration note when legacy idea/ still has assets', () => {
     const dir = tmpDir();
     writeFile(dir, '.aitri', minimalConfig());
