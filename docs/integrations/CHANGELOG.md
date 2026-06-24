@@ -18,6 +18,11 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.116 (2026-06-23) — `04_TEST_RESULTS.json#runner_override` (P3 hardening, ADV-0622-36) — additive
+
+- **`04_TEST_RESULTS.json`** gains an optional **`runner_override`** field — present ONLY when `verify-run --cmd "<command>"` substituted the whole runner AND that command differs from `04_BUILD_REPORT.json#test_runner`. Shape: `{ used: string, manifest_runner: string|null }`. Surfaces that the deploy-gate evidence ran an operator-supplied command rather than the committed manifest. Informational, never a gate. Absent on a normal run — old readers are unaffected.
+- No field removed or retyped. See ARTIFACTS.md.
+
 ## v2.0.0-rc.114 (2026-06-23) — event-type documentation (P3 review batch, ADV-0622-15) — additive
 
 - **`events[].event`** now documents four previously-undocumented types: `verify-run`, `verify-complete` (both carry `phase: "verify"` + `{ passed, failed }`), `verify-spec-complete` (`phase: "adopt"`), and `reconcile-resolved` (`phase: null`). All were already emitted; documentation only.

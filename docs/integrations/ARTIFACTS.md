@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.115+
+**Aitri version:** v2.0.0-rc.116+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -227,6 +227,7 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 {
   "executed_at": "ISO 8601 timestamp",
   "test_runner": "string — exact command run (e.g. 'pytest tests/ -v')",
+  "runner_override": { "used": "string — the --cmd value actually run", "manifest_runner": "string|null — what 04_BUILD_REPORT.json declared" },
   "exit_code": 0,
   "results": [
     {
@@ -282,6 +283,8 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 ```
 
 **`test_runner` / `exit_code`** — the exact command run and its exit code. **Manual-seed mode (v2.0.0-rc.95+):** when every TC is `automation: "manual"` (root scope), `verify-run` seeds the results without launching a runner, so **both are `null`** (nothing ran — they are not fabricated to `"npm test"`/`0`). A reader must accept `test_runner: null` and `exit_code: null` as well as their normal string/number forms. `fr_coverage` is recomputed when `aitri tc verify` records a result (rc.95+), so after manual verification it agrees with `summary` rather than reflecting only the verify-run snapshot.
+
+**`runner_override`** (optional, v2.0.0-rc.116+, ADV-0622-36) — present **only** when `verify-run --cmd "<command>"` substituted the whole runner AND that command differs from `04_BUILD_REPORT.json#test_runner`. Shape `{ used, manifest_runner }`: the command actually run vs the manifest's declared runner. Surfaces that the deploy-gate evidence came from an operator-supplied command, not the committed manifest — informational, never a gate (`--cmd` is a legitimate escape hatch for venv/env-specific runners). Absent on a normal run.
 
 **`line_coverage`** (optional, v2.0.0-rc.9+) — measured line-coverage percentage, present only when `verify-run` was invoked with `--coverage-threshold` AND a recognized runner emitted a parseable figure. Stack-agnostic: node built-in `--coverage`, `go test -cover`, `pytest --cov`, `jest`/`vitest --coverage`. Absent when no threshold was requested or the runner's coverage output could not be parsed.
 

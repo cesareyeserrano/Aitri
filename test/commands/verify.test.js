@@ -663,6 +663,21 @@ describe('parseCoverageOutput()', () => {
     assert.equal(parseCoverageOutput('no coverage here'), null);
   });
 
+  // ADV-0622-10: a mid-line log line must not spoof the coverage figure — the matchers
+  // are anchored to the start of a line, so only a real coverage row counts.
+  it('does NOT match an "all files" phrase mid-line (anti-spoof)', () => {
+    assert.equal(parseCoverageOutput('Copying All files | 100 done\nBuild complete\n'), null);
+  });
+
+  it('does NOT match a "coverage:" phrase mid-line (anti-spoof)', () => {
+    assert.equal(parseCoverageOutput('See the coverage: 100% claim in the README\n'), null);
+  });
+
+  it('still matches a real anchored coverage row after noise lines', () => {
+    const output = `Running tests...\nSome log: all files are great\nAll files      |  73.10 |   60.00 |\n`;
+    assert.equal(parseCoverageOutput(output), 73.10);
+  });
+
   it('handles 100% coverage', () => {
     const output = `all files | 100.00 | 100.00 | 100.00 |`;
     assert.equal(parseCoverageOutput(output), 100);
@@ -678,10 +693,19 @@ describe('parseCoverageOutput()', () => {
     assert.equal(parseCoverageOutput(output), 80.00);
   });
 
-  // C1 (rc.9) — stack-agnostic coverage parsing
-  it('extracts go test -cover coverage', () => {
-    const output = `ok  \texample/pkg\t0.012s\ncoverage: 87.5% of statements\n`;
+  // C1 (rc.9) — stack-agnostic coverage parsing. NOTE: real `go test -cover` prints the
+  // figure INLINE on the `ok` line (tab-separated), NOT on its own line — the fixture must
+  // match reality or it masks a regression (ADV-0622-10 follow-up: a line anchor broke this).
+  it('extracts go test -cover coverage (inline on the ok line, as go really prints it)', () => {
+    const output = `ok  \texample/pkg\t0.012s\tcoverage: 87.5% of statements\n`;
     assert.equal(parseCoverageOutput(output), 87.5);
+  });
+
+  it('extracts go coverage from the first package line of a multi-package run', () => {
+    const output =
+      `ok  \texample/a\t0.011s\tcoverage: 73.0% of statements\n` +
+      `ok  \texample/b\t0.022s\tcoverage: 91.0% of statements\n`;
+    assert.equal(parseCoverageOutput(output), 73.0);
   });
 
   it('extracts pytest-cov TOTAL row coverage', () => {

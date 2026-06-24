@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execSync } from 'node:child_process';
-import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate, configExists, homedirCaptureNote, clearCascadePending } from '../lib/state.js';
+import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate, configExists, homedirCaptureNote, clearCascadePending, atomicWrite } from '../lib/state.js';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-state-test-'));
@@ -167,6 +167,17 @@ describe('split layout — .aitri (shared) + .aitri.local (per-machine) (ADR-045
     assert.equal(readJSON(lp(dir)).lastSession.agent, 'b', '.aitri.local must update');
   });
 
+  it('does NOT re-churn .aitri when a shared field is set to undefined (ADV-23)', () => {
+    const dir = tmpDir();
+    // A shared field explicitly set to undefined is dropped by JSON.stringify on write,
+    // so it never reaches disk — and must not make the no-churn compare think the shape changed.
+    saveConfig(dir, { approvedPhases: [1], aitriVersion: 'x', someField: undefined });
+    const firstStamp = readJSON(cp(dir)).updatedAt;
+    saveConfig(dir, { approvedPhases: [1], aitriVersion: 'x', someField: undefined });
+    assert.equal(readJSON(cp(dir)).updatedAt, firstStamp,
+      'an undefined shared field must not re-dirty .aitri (no updatedAt churn) every save');
+  });
+
   it('DOES rewrite .aitri when a shared field changes', () => {
     const dir = tmpDir();
     saveConfig(dir, { approvedPhases: [1], aitriVersion: 'x', lastSession: { agent: 'a' } });
@@ -210,6 +221,29 @@ describe('split layout — .aitri (shared) + .aitri.local (per-machine) (ADR-045
     assert.equal(configExists(collision), true, 'directory-collision config.json must be detected');
 
     assert.equal(configExists(tmpDir()), false, 'a fresh dir has no config');
+  });
+});
+
+// ADV-0622-33: atomicWrite is now exported so artifact/data writers (04_TEST_RESULTS.json,
+// BUGS.json, BACKLOG.json) avoid mid-write truncation on a kill.
+describe('atomicWrite()', () => {
+  it('writes content and leaves no .tmp file behind', () => {
+    const dir = tmpDir();
+    const dest = path.join(dir, 'out.json');
+    atomicWrite(dest, JSON.stringify({ ok: true }));
+    assert.equal(JSON.parse(fs.readFileSync(dest, 'utf8')).ok, true);
+    const leftovers = fs.readdirSync(dir).filter(f => f.startsWith('.tmp-'));
+    assert.equal(leftovers.length, 0, 'no temp file should remain after an atomic write');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('overwrites an existing file atomically (via rename)', () => {
+    const dir = tmpDir();
+    const dest = path.join(dir, 'out.json');
+    fs.writeFileSync(dest, 'old');
+    atomicWrite(dest, 'new');
+    assert.equal(fs.readFileSync(dest, 'utf8'), 'new');
+    fs.rmSync(dir, { recursive: true });
   });
 });
 
@@ -604,6 +638,23 @@ describe('cascadeInvalidate()', () => {
     cascadeInvalidate(config, 1); // cascade includes 4 and 5
     assert.equal(config.verifyPassed, false);
     assert.ok(!config.verifySummary, 'verifySummary must be cleared');
+  });
+
+  // ADV-0622-28: the stale last-run snapshot must also be cleared, or the next-action
+  // ladder reads a pre-cascade run and misroutes to verify-complete (which then errors).
+  it('clears lastVerifyRun + verifyRanAt when build/deploy is in the cascade (ADV-28)', () => {
+    const config = {
+      approvedPhases:  [1, 2, 3],
+      completedPhases: [1, 2, 3],
+      artifactHashes:  {},
+      verifyPassed:    true,
+      verifySummary:   { passed: 5 },
+      lastVerifyRun:   { passed: 5, failed: 0, skipped: 0, manual: 0, at: '2026-01-01T00:00:00.000Z' },
+      verifyRanAt:     '2026-01-01T00:00:00.000Z',
+    };
+    cascadeInvalidate(config, 1); // cascade includes 4 and 5
+    assert.ok(!config.lastVerifyRun, 'lastVerifyRun must be cleared so the ladder does not misroute');
+    assert.ok(!config.verifyRanAt, 'verifyRanAt must be cleared');
   });
 
   it('does not reset verifyPassed when cascade does not reach build', () => {
