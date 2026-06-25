@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.118+
+**Aitri version:** v2.0.0-rc.119+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -61,6 +61,7 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
       "acceptance_criteria": "string"
     }
   ],
+  "no_go_zone": "string[] — items explicitly OUT of scope. Phase 2 (architecture), Phase 3 (tests), and Phase 4 (build) all read this to NOT design, test, or build those items. Gated since v2.0.0-rc.119: minimum 3 items for root pipelines, minimum 1 for feature sub-pipelines.",
   "constraints": ["string"],
   "technology_preferences": ["string"],
   "idea_provenance": "object (optional, v2.0.0-rc.4+) — provenance of the five Tier-A seed inputs. Keys: problem, users, baseline, success_metric, no_go_zone. Each value is \"confirmed\" (the human stated/approved it) or \"assumed\" (the agent inferred it). Required by the gate on a fresh seed; historical once Phase 1 is approved.",
@@ -73,6 +74,7 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
 **Validation rules (enforced by `aitri complete 1`):**
 - Required fields: `project_name`, `functional_requirements`, `user_stories`, `non_functional_requirements`
 - Minimum 5 `functional_requirements`; minimum 3 `non_functional_requirements` — **root pipelines only.** Feature sub-pipelines are increments and have a lower floor: minimum 2 FRs / 1 NFR (a real 4-FR feature was being blocked by the greenfield floor). Consumers validating feature artifacts must use the feature floor
+- `no_go_zone` must be a non-empty array — minimum 3 items for root pipelines, minimum 1 for feature sub-pipelines (v2.0.0-rc.119+). The PM persona declared an explicit out-of-scope list mandatory ("ambiguous scope is a defect") and the templates teach ≥3, but before rc.119 nothing enforced it — an empty/missing `no_go_zone` passed `complete 1`, leaving Phases 2/3/4 with no scope boundary to honor. The same feature-floor logic as the FR/NFR minimums applies so small increments aren't forced to invent filler
 - Every FR and NFR must have a non-empty string `id`, unique within each list (v2.0.0-rc.26+). The id is the join key — phase 3 ties each TC to one via `requirement_id`/`frs`, phase 5 demands a compliance entry per MUST id. A missing id collapsed to an `undefined` key downstream; a duplicate silently masked one requirement's coverage. Format (`FR-xxx`/`NFR-xxx`) stays a convention; downstream keys on membership, not the prefix.
 - All MUST FRs must have a `type` field and at least one `acceptance_criteria` entry
 - An NFR with `category: "Regression"` is treated as a hard MUST regardless of its `priority` (v2.0.0-rc.104+, REG-GATE-0621). A regression NFR is a Must-Not-Break commitment, so it must have a test case (Phase 3) and a compliance entry (Phase 5) even when `priority` is absent. Before rc.104 `category` was display-only and such an NFR silently escaped both gates. Consumers that surface MUST requirements should apply the same rule, matching `category` case- and whitespace-insensitively (v2.0.0-rc.110+): `priority === "MUST" || category?.trim().toLowerCase() === "regression"`

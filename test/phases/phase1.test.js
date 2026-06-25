@@ -30,6 +30,11 @@ const validP1 = () => JSON.stringify({
     { id: 'NFR-002', category: 'Security',    requirement: 'TLS 1.3' },
     { id: 'NFR-003', category: 'Reliability', requirement: '99.9% uptime' },
   ],
+  no_go_zone: [
+    'no offline mode in v1',
+    'no third-party SSO',
+    'no multi-tenant isolation',
+  ],
   constraints: [],
   technology_preferences: [],
 });
@@ -66,6 +71,40 @@ describe('Phase 1 — validate()', () => {
     const d = JSON.parse(validP1());
     d.non_functional_requirements = d.non_functional_requirements.slice(0, 2);
     assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /Min 3 non_functional_requirements/);
+  });
+
+  // no_go_zone is persona-mandatory (≥3 out-of-scope items) but was never gated:
+  // an empty/missing no_go_zone passed `complete 1`, leaving Phase 2/3/4 with no
+  // scope boundary to honor. Gate the content (mirrors the FR/NFR feature floor).
+  it('throws when no_go_zone is missing', () => {
+    const d = JSON.parse(validP1());
+    delete d.no_go_zone;
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /Min 3 no_go_zone item\(s\) required/);
+  });
+
+  it('throws when no_go_zone is empty', () => {
+    const d = JSON.parse(validP1());
+    d.no_go_zone = [];
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /Min 3 no_go_zone item\(s\) required/);
+  });
+
+  it('throws when fewer than 3 no_go_zone items (root scope)', () => {
+    const d = JSON.parse(validP1());
+    d.no_go_zone = d.no_go_zone.slice(0, 2);
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)), /Min 3 no_go_zone item\(s\) required/);
+  });
+
+  it('[feature] relaxes the no_go_zone floor to 1 item', () => {
+    const d = JSON.parse(validP1());
+    d.no_go_zone = ['no caching in this increment'];
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d), { featureRoot: '/parent' }));
+  });
+
+  it('[feature] still blocks an empty no_go_zone below the feature floor', () => {
+    const d = JSON.parse(validP1());
+    d.no_go_zone = [];
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d), { featureRoot: '/parent' }),
+      /Min 1 no_go_zone item\(s\) required \(feature scope\)/);
   });
 
   // #5 (finance-dashboard canary 2026-06-05): a feature sub-pipeline is an increment;

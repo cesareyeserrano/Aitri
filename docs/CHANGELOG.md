@@ -5,6 +5,11 @@
 
 ---
 
+## [2.0.0-rc.119] — 2026-06-25 — `no_go_zone` content gate in Phase 1 (REQ-RICHNESS-0624)
+
+- **Phase 1 now enforces `no_go_zone`.** `aitri complete 1` / `approve 1` requires a non-empty `no_go_zone` array — **≥3 items for root pipelines, ≥1 for feature sub-pipelines** (same feature-floor logic as the FR/NFR minimums). The PM persona always declared an explicit out-of-scope list mandatory ("ambiguous scope is a defect") and the templates teach ≥3, but nothing enforced it: an empty or missing `no_go_zone` passed validation, leaving Phases 2/3/4 — which all read `no_go_zone` to NOT design, test, or build out-of-scope items — without a scope boundary.
+- Closes a persona↔gate inconsistency surfaced in the REQ-RICHNESS-0624 study (the cleanest mechanically-checkable item). Contract documented in `docs/integrations/ARTIFACTS.md` + CHANGELOG (marked breaking — an in-flight project re-approving Phase 1 with an empty `no_go_zone` is now blocked until it declares the items).
+
 ## [2.0.0-rc.118] — 2026-06-24 — optional independent-subagent suggestions in review/test/audit prompts
 
 Capability-conditional **suggestions** (never gates) that nudge the agent toward an independent adversarial subagent pass where it has the most evidence-backed value — the failure mode this prevents is self-review excusing the blind spot that produced the work. Aitri is a passive prompt generator: it cannot run a subagent, cannot verify one ran, and cannot assume the harness supports one, so these are explicitly framed as optional, token-costing, and the operator's call. No mandate ("MUST use a subagent" would be theater) and no schema/gate change.

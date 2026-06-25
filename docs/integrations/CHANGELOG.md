@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.119 (2026-06-25) — `01_REQUIREMENTS.json#no_go_zone` content gate (REQ-RICHNESS-0624) — breaking
+
+- **`01_REQUIREMENTS.json#no_go_zone`** is now gated by `aitri complete 1` / `approve 1`: it must be a non-empty array — **minimum 3 items for root pipelines, minimum 1 for feature sub-pipelines** (mirrors the existing FR/NFR feature-floor logic). Before rc.119 the field was unchecked — an empty or missing `no_go_zone` passed validation, even though the PM persona and the templates always declared an explicit out-of-scope list mandatory ("ambiguous scope is a defect"). Phases 2 (architecture), 3 (tests), and 4 (build) all read `no_go_zone` to NOT design, test, or build out-of-scope items, so an empty one left them without a scope boundary.
+- **Reader impact:** consumers that READ `no_go_zone` are unaffected (still a `string[]`, now guaranteed non-empty). Marked **breaking** because the field acquired a new required semantic (per the "any doubt → breaking" rule): a producer or an in-flight project that re-approves Phase 1 with an empty `no_go_zone` will now be blocked until it declares ≥3 (≥1 feature) items. Allowed within the 2.0.0 pre-release-major window.
+- No field added, removed, or retyped. See ARTIFACTS.md.
+
 ## v2.0.0-rc.116 (2026-06-23) — `04_TEST_RESULTS.json#runner_override` (P3 hardening, ADV-0622-36) — additive
 
 - **`04_TEST_RESULTS.json`** gains an optional **`runner_override`** field — present ONLY when `verify-run --cmd "<command>"` substituted the whole runner AND that command differs from `04_BUILD_REPORT.json#test_runner`. Shape: `{ used: string, manifest_runner: string|null }`. Surfaces that the deploy-gate evidence ran an operator-supplied command rather than the committed manifest. Informational, never a gate. Absent on a normal run — old readers are unaffected.

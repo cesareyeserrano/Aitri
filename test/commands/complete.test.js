@@ -51,6 +51,7 @@ const VALID_REQUIREMENTS = JSON.stringify({
     { id: 'NFR-002', category: 'Security',    requirement: 'TLS 1.3',      acceptance_criteria: 'SSL Labs' },
     { id: 'NFR-003', category: 'Reliability', requirement: '99.9% uptime', acceptance_criteria: 'SLA report' },
   ],
+  no_go_zone: ['no offline mode', 'no third-party SSO', 'no multi-tenant'],
   constraints: [],
   technology_preferences: ['Node.js'],
   idea_provenance: { problem: 'confirmed', users: 'confirmed', baseline: 'confirmed', success_metric: 'confirmed', no_go_zone: 'confirmed' },
