@@ -71,6 +71,9 @@ Required sections:
   ## FR Coverage        — table with FR-ID, implementation status, TC-ID
   ## Verdict            — the chosen verdict alone on its first line (PASS / CONDITIONAL_PASS / FAIL), justification below
 
+## Optional — independent adversarial pass
+If your environment supports independent subagents (e.g. a separate agent/session told to *break* this code, not validate it), consider one before approving. Prompt it to refute: find the untested path, the false-passing assertion, the edge that crashes. Self-review shares the blind spot that wrote the code; an independent pass does not. This costs extra tokens and is the operator's call — skip it for trivial changes.
+
 ## Human Review — Before approving code review
   [ ] Reviewer read every file in files_created — not just spot-checked
   [ ] Every MUST FR has a coverage row

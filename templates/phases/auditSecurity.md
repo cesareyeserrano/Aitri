@@ -76,6 +76,9 @@ Then the permanent gate proposal:
 
   _(If zero findings: write "No findings — surfaces probed:" and list every check performed, so the clean result is evidenced, not assumed.)_
 
+## Optional — multi-lens fan-out
+If subagents are available, consider running several over this code with *distinct* security lenses (authz/authn, injection, data exposure) instead of one general pass — each is blind to what the others surface. Optional, consumes tokens, operator's call.
+
 ## Human Review — before acting on the findings
   [ ] The coverage statement is honest — surfaces not audited are named, not silently skipped
   [ ] Every finding has evidence an outsider could reproduce (file/line, endpoint, header)

@@ -82,6 +82,9 @@ Each entry:
 
   _(If no observations: write "None.")_
 
+## Optional — multi-lens fan-out
+If subagents are available, consider running several over this code with *distinct* lenses (correctness, security, performance) instead of one general pass — each is blind to what the others surface. Optional, consumes tokens, operator's call.
+
 ## Human Review — Before running audit plan
   [ ] Every Bug entry has a specific file and line reference
   [ ] Every Backlog item has a specific problem description (not generic advice)

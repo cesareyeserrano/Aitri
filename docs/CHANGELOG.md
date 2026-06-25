@@ -5,6 +5,16 @@
 
 ---
 
+## [2.0.0-rc.118] — 2026-06-24 — optional independent-subagent suggestions in review/test/audit prompts
+
+Capability-conditional **suggestions** (never gates) that nudge the agent toward an independent adversarial subagent pass where it has the most evidence-backed value — the failure mode this prevents is self-review excusing the blind spot that produced the work. Aitri is a passive prompt generator: it cannot run a subagent, cannot verify one ran, and cannot assume the harness supports one, so these are explicitly framed as optional, token-costing, and the operator's call. No mandate ("MUST use a subagent" would be theater) and no schema/gate change.
+
+- **Code review (`phaseReview.md`):** an "Optional — independent adversarial pass" block suggesting a subagent told to *refute* the code (untested path, false-passing assertion, crashing edge) before approving.
+- **Test design (`tests.md`):** an "Optional — independent edge-case sweep" block suggesting a subagent tasked only with the cases not written (negative input, boundary, security-NFR attack vector).
+- **Audit / security (`audit.md`, `auditSecurity.md`):** an "Optional — multi-lens fan-out" block suggesting several subagents with *distinct* lenses over the existing code — general lenses (correctness, security, performance) for the broad audit, security-specific lenses (authz/authn, injection, data exposure) for the security audit.
+- **`templates/AGENTS.md`:** an umbrella bullet framing these as suggestions the operator decides on given token cost — so the nudges are understood as opt-in, not gates.
+- +8 tests (rendered-output presence + optional/token-cost framing + no-mandate assertion across the four prompts). 1749 passing. Stack-agnostic (principle 4): the suggestion degrades to a no-op on a harness without subagents. No artifact/`.aitri` schema change.
+
 ## [2.0.0-rc.117] — 2026-06-23 — CI gate flag + audit-grounding/stack-agnostic prompt fixes + dead-code dedup
 
 The remaining §12 P3 items that, on closer inspection, are real defect-fixes rather than speculative prose — plus an opt-in CI gate and an internal dedup. (Items still deliberately deferred: CRLF/BOM hash re-baseline, cross-process locking, and a broad stack-agnostic prose rewrite — those remain speculative or carry an unowned migration ripple.)

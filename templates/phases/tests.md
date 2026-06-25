@@ -237,6 +237,9 @@ FRs with gaps (< 3 TCs): [list or "none"]
 Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 3
 ```
 
+## Optional — independent edge-case sweep
+If subagents are available, consider one tasked only with finding the cases you *didn't* write: the negative input, the boundary, the attack vector behind a security NFR. It reports gaps; you decide which become TCs. Optional and token-costing — the operator decides.
+
 ## Human Review — Before approving phase 3
   [ ] Every MUST FR has ≥3 test cases (happy path, edge case, negative)
   [ ] At least 2 e2e tests targeting critical user flows
