@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { cmdFeature } from '../../lib/commands/feature.js';
+import { cmdFeature, featureDiscard, collectBuiltFiles } from '../../lib/commands/feature.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -212,6 +212,170 @@ describe('aitri feature list', () => {
     } finally {
       fs.rmSync(standalone, { recursive: true, force: true });
     }
+  });
+});
+
+// ── feature discard (FEAT-DISCARD-0624) ────────────────────────────────────────
+
+function withTTY(value, fn) {
+  const orig = process.stdin.isTTY;
+  Object.defineProperty(process.stdin, 'isTTY', { value, configurable: true });
+  try { return fn(); } finally {
+    Object.defineProperty(process.stdin, 'isTTY', { value: orig, configurable: true });
+  }
+}
+
+function withExit(fn) {
+  const orig = process.exit;
+  let code = null;
+  process.exit = (c) => { code = c; throw new Error('__exit__'); };
+  try { fn(); } catch (e) { if (e.message !== '__exit__') throw e; } finally { process.exit = orig; }
+  return code;
+}
+
+describe('aitri feature discard — collectBuiltFiles (the surface)', () => {
+  it('returns null when no build report exists (Phase <4)', () => {
+    const dir = makeProjectDir();
+    try {
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'feat'], err: makeErr().fn, rootDir: ROOT_DIR }));
+      assert.equal(collectBuiltFiles(path.join(dir, 'features', 'feat'), 'spec'), null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('returns null when the build report names no files', () => {
+    const dir = makeProjectDir();
+    try {
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'feat'], err: makeErr().fn, rootDir: ROOT_DIR }));
+      writeFile(dir, 'features/feat/spec/04_BUILD_REPORT.json',
+        JSON.stringify({ files_created: [], files_modified: [], test_files: [] }));
+      assert.equal(collectBuiltFiles(path.join(dir, 'features', 'feat'), 'spec'), null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('returns the created/modified/test files when the report lists them', () => {
+    const dir = makeProjectDir();
+    try {
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'feat'], err: makeErr().fn, rootDir: ROOT_DIR }));
+      writeFile(dir, 'features/feat/spec/04_BUILD_REPORT.json', JSON.stringify({
+        files_created:  ['lib/new.js'],
+        files_modified: ['lib/existing.js'],
+        test_files:     ['test/new.test.js'],
+      }));
+      const built = collectBuiltFiles(path.join(dir, 'features', 'feat'), 'spec');
+      assert.deepEqual(built, {
+        created:  ['lib/new.js'],
+        modified: ['lib/existing.js'],
+        tests:    ['test/new.test.js'],
+      });
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('returns null (never crashes) on a malformed build report', () => {
+    const dir = makeProjectDir();
+    try {
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'feat'], err: makeErr().fn, rootDir: ROOT_DIR }));
+      writeFile(dir, 'features/feat/spec/04_BUILD_REPORT.json', '{not valid json');
+      assert.equal(collectBuiltFiles(path.join(dir, 'features', 'feat'), 'spec'), null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('aitri feature discard — behavior', () => {
+  it('[gate] refuses non-interactively and leaves the feature dir intact', () => {
+    const dir = makeProjectDir();
+    try {
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'feat'], err: makeErr().fn, rootDir: ROOT_DIR }));
+      const featurePath = path.join(dir, 'features', 'feat');
+      const code = withTTY(false, () => withExit(() =>
+        cmdFeature({ dir, args: ['discard', 'feat'], err: makeErr().fn, rootDir: ROOT_DIR })));
+      assert.equal(code, 1, 'non-interactive discard must exit 1');
+      assert.ok(fs.existsSync(featurePath), 'feature dir must survive a blocked discard');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('discard of a non-existent feature errors with the standard not-found message', () => {
+    const dir = makeProjectDir();
+    try {
+      assert.throws(
+        () => cmdFeature({ dir, args: ['discard', 'ghost'], err: makeErr().fn, rootDir: ROOT_DIR }),
+        /not found/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('confirmed discard deletes the dir and it disappears from feature list', () => {
+    const dir = makeProjectDir();
+    try {
+      // Name chosen NOT to be a substring of "features"/"feature" so the list
+      // assertion below can't false-match the "No features yet" message.
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'zexport'], err: makeErr().fn, rootDir: ROOT_DIR }));
+      const featurePath = path.join(dir, 'features', 'zexport');
+      assert.ok(fs.existsSync(featurePath));
+      withTTY(true, () => captureStdout(() =>
+        featureDiscard(featurePath, 'zexport', dir, makeErr().fn, () => 'y')));
+      assert.ok(!fs.existsSync(featurePath), 'feature dir must be deleted');
+      const list = captureStdout(() => cmdFeature({ dir, args: ['list'], err: makeErr().fn, rootDir: ROOT_DIR }));
+      assert.ok(!list.includes('zexport'), 'discarded feature must not appear in list');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('surfaces the shared files it built and does NOT delete those paths', () => {
+    const dir = makeProjectDir();
+    try {
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'feat'], err: makeErr().fn, rootDir: ROOT_DIR }));
+      const featurePath = path.join(dir, 'features', 'feat');
+      // A shared file the feature contributed, living OUTSIDE the feature dir.
+      writeFile(dir, 'lib/shared.js', 'export const x = 1;');
+      writeFile(dir, 'features/feat/spec/04_BUILD_REPORT.json',
+        JSON.stringify({ files_created: ['lib/shared.js'], files_modified: [], test_files: [] }));
+      const out = withTTY(true, () => captureStdout(() =>
+        featureDiscard(featurePath, 'feat', dir, makeErr().fn, () => 'y')));
+      assert.ok(out.includes('lib/shared.js'), 'output must name the shared file the feature built');
+      assert.ok(out.includes('NOT removed'), 'output must warn the shared files are not removed');
+      assert.ok(fs.existsSync(path.join(dir, 'lib', 'shared.js')), 'shared file must NOT be deleted by discard');
+      assert.ok(!fs.existsSync(featurePath), 'feature dir is still deleted');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('[security] refuses a path-traversal name and deletes nothing outside the features dir', () => {
+    const dir = makeProjectDir();
+    try {
+      // name ".." resolves featureDir to the project root itself. The guard must
+      // refuse BEFORE rmSync, even with TTY + a "y" confirmation.
+      const projectRoot = path.join(dir, 'features', '..'); // === dir
+      assert.ok(fs.existsSync(dir));
+      assert.throws(() => withTTY(true, () =>
+        featureDiscard(projectRoot, '..', dir, makeErr().fn, () => 'y')),
+        /Invalid feature name/);
+      assert.ok(fs.existsSync(dir), 'project dir must survive a traversal attempt');
+      assert.ok(fs.existsSync(path.join(dir, '.aitri')), 'project state must survive');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('[security] dispatch path: cmdFeature discard ".." is refused before any delete', () => {
+    // Locks the guard/gate PLACEMENT inside cmdFeature's dispatch (the other
+    // destructive tests call featureDiscard directly and would miss a regression
+    // where the guard is moved or a pre-switch deletion is added). name ".."
+    // resolves featureDir to the project root and passes the existsSync check, so
+    // the dispatch reaches the discard case — the guard must still refuse.
+    const dir = makeProjectDir();
+    try {
+      assert.throws(() => withTTY(true, () =>
+        cmdFeature({ dir, args: ['discard', '..'], err: makeErr().fn, rootDir: ROOT_DIR })),
+        /Invalid feature name/);
+      assert.ok(fs.existsSync(path.join(dir, '.aitri')), 'project must survive a dispatch-level traversal attempt');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('cancelling at the prompt deletes nothing and exits 1', () => {
+    const dir = makeProjectDir();
+    try {
+      captureStdout(() => cmdFeature({ dir, args: ['init', 'feat'], err: makeErr().fn, rootDir: ROOT_DIR }));
+      const featurePath = path.join(dir, 'features', 'feat');
+      const code = withTTY(true, () => withExit(() =>
+        captureStdout(() => featureDiscard(featurePath, 'feat', dir, makeErr().fn, () => 'n'))));
+      assert.equal(code, 1, 'cancelled discard exits 1');
+      assert.ok(fs.existsSync(featurePath), 'feature dir must survive a cancelled discard');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
 

@@ -143,6 +143,7 @@ Features are independent sub-pipelines under `{{FEATURES_DIR}}/<name>/`. Each ha
   - Manual TCs: `aitri feature tc <name> verify [<TC-ID> --result pass|fail --notes "..."]` (bare = guided checklist) and `aitri feature tc <name> mark-manual <TC-ID> [--reason "..."]`. An all-manual feature seeds + verifies exactly like the root (it will not pass `verify-complete` with zero verification).
   - Bugs: `aitri feature bug <name> <add|fix|verify|close|list> ...` — triages the feature's own `BUGS.json` (the same file `feature verify-complete` gates on).
   - Backlog: `aitri feature backlog <name> <add|list|show|done> ...` — the feature's own `BACKLOG.json`.
+  - Cancelling a feature: `aitri feature discard <name>` (TTY-gated — a human confirms). Prefer it over `rm -rf features/<name>/`: if the feature reached the build phase it contributed code to the SHARED codebase (`lib/`, `tests/` outside the feature dir), and discard SURFACES those files so you can revert them via git. Deleting the dir alone leaves that code orphaned and live. Aitri never auto-reverts the code — that is git's job.
 - Always follow the PIPELINE INSTRUCTION at the end of each feature command — it emits the correctly scoped next-action with the right prefix.
 - Approving feature Phase 4 advances both the feature's reconcile baseline AND the root project's baseline (rc.1+). You should not need to manually `aitri reconcile` on the root after a clean feature completion.
 

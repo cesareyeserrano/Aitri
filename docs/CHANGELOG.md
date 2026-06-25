@@ -5,6 +5,12 @@
 
 ---
 
+## [2.0.0-rc.120] — 2026-06-25 — `aitri feature discard <name>` (FEAT-DISCARD-0624)
+
+- **New command: `aitri feature discard <name>`** — safe retirement of a cancelled/descoped feature. Deletes the feature sub-pipeline directory (feature discovery is purely directory-based, so it cleanly disappears from `list`/`status`/`resume`/`validate`). **isTTY-gated** with a confirmation prompt — destructive + state-committing, like `approve`/`rehash`/`reconcile --resolve` (invariant 7); an agent cannot run it.
+- **The core value (why it's not just `rm -rf`):** if the feature reached Phase 4 it contributed code to the SHARED codebase (`lib/`, `tests/` outside the feature dir), and deleting the feature dir does NOT revert that code. Discard reads `04_BUILD_REPORT.json` and **surfaces** the `files_created`/`files_modified`/`test_files` it touched, warning they are NOT removed — review/revert via git. Aitri never auto-reverts shared code (that is git's job — principle 1). The surface step is guarded so a feature below Phase 4 (no build report) or a malformed report never crashes discard. A path-traversal guard rejects names that aren't a single path segment (a `..` name would otherwise resolve to the project root).
+- No artifact-chain or `.aitri` schema change (discard only reads the build report). `templates/AGENTS.md` updated to point agents at `discard` over `rm -rf` when cancelling a feature.
+
 ## [2.0.0-rc.119] — 2026-06-25 — `no_go_zone` content gate in Phase 1 (REQ-RICHNESS-0624)
 
 - **Phase 1 now enforces `no_go_zone`.** `aitri complete 1` / `approve 1` requires a non-empty `no_go_zone` array — **≥3 items for root pipelines, ≥1 for feature sub-pipelines** (same feature-floor logic as the FR/NFR minimums). The PM persona always declared an explicit out-of-scope list mandatory ("ambiguous scope is a defect") and the templates teach ≥3, but nothing enforced it: an empty or missing `no_go_zone` passed validation, leaving Phases 2/3/4 — which all read `no_go_zone` to NOT design, test, or build out-of-scope items — without a scope boundary.
