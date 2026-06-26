@@ -38,11 +38,22 @@
 
 ## Coverage Audit Protocol
 1. Read the FULL artifacts, not just the summaries above: `{{ARTIFACTS_BASE}}/00_DISCOVERY.md` (if present), `{{ARTIFACTS_BASE}}/01_REQUIREMENTS.json` (its `original_brief` and `functional_requirements`), and any seed brief still on disk (`{{IDEA_FILE}}`). The summaries are orientation, not proof.
-2. Extract every client-expressed need + the explicit out-of-scope boundaries (Step 1).
-3. Trace each need to an FR — COVERED / PARTIAL / UNCOVERED (Step 2).
-4. Run the skeptical pass — drop out-of-scope and renamed-but-covered needs (Step 3).
-5. Append surviving gaps to the "Requirements Coverage" section of AUDIT_REPORT.md.
-6. Present the Coverage Summary below.
+2. **Re-derive the needs YOURSELF, first — before looking at the agent's map.** Extract every client-expressed need + the explicit out-of-scope boundaries straight from the seed/discovery/brief. Do this independently so your list is not anchored to what the agent already wrote.
+3. Trace each need to an FR — COVERED / PARTIAL / UNCOVERED.
+4. **Diff your list against the agent-declared coverage map (shown after this protocol, if present).** Only now look at the agent's map — your step-2 derivation must already be done, so it is not anchored to the agent's. This is the highest-value step:
+   - **(a) Dropped need** — a need YOU derived that is absent from the coverage map (and from the FRs / no_go_zone). This is the silent scope loss the map exists to surface: report it UNCOVERED.
+   - **(b) Wrongly excluded** — a map entry disposed `out_of_scope` that the seed actually requires. Report it as a mis-disposition.
+   - **(c) Hollow coverage** — a map entry whose FR id does not actually cover the stated need (the FR is about something else). Report it PARTIAL/UNCOVERED.
+   A need the map omits AND you also miss is the residual the map cannot catch — which is why your independent re-derivation in step 2 comes first.
+5. Run the skeptical pass — drop genuinely out-of-scope and renamed-but-covered needs.
+6. Append surviving gaps to the "Requirements Coverage" section of AUDIT_REPORT.md.
+7. Present the Coverage Summary below.
+
+{{#IF_COVERAGE_MAP}}
+## Agent-declared coverage map (`disposition ← need`) — for step 4 ONLY
+The Phase-1 agent's OWN claim of "every need → where it went". Do NOT read this until your step-2 re-derivation is complete — it is the thing you are auditing, not a source. Diff your independent list against it (step 4).
+{{COVERAGE_MAP}}
+{{/IF_COVERAGE_MAP}}
 
 ## Coverage Summary
 After writing AUDIT_REPORT.md, present this to the user:

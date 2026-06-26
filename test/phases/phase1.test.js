@@ -35,6 +35,14 @@ const validP1 = () => JSON.stringify({
     'no third-party SSO',
     'no multi-tenant isolation',
   ],
+  coverage_map: [
+    { need: 'log in', disposition: 'FR-001' },
+    { need: 'see a dashboard', disposition: 'FR-002' },
+    { need: 'export data', disposition: 'FR-003' },
+    { need: 'save data', disposition: 'FR-004' },
+    { need: 'calculate totals', disposition: 'FR-005' },
+    { need: 'offline mode', disposition: 'out_of_scope' },
+  ],
   constraints: [],
   technology_preferences: [],
 });
@@ -680,6 +688,59 @@ describe('Phase 1 — Tier-A provenance gate (D2)', () => {
     d.functional_requirements = d.functional_requirements.slice(0, 3); // < 5 FRs
     assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d), FRESH),
       /Min 5 functional_requirements/);
+  });
+});
+
+// Intent coverage map gate (ADR-060). Fresh-seed only (same lifecycle as the
+// provenance gate); light structural check — the teeth are the audit comparison.
+describe('Phase 1 — intent coverage map gate (ADR-060)', () => {
+  const FRESH  = { config: {} };
+  const SEALED = { config: { approvedPhases: [1] } };
+  // Fresh-seed validation runs the provenance gate BEFORE the coverage-map gate, so
+  // these fixtures carry all-confirmed provenance to reach the coverage-map check.
+  const PROV = { problem: 'confirmed', users: 'confirmed', baseline: 'confirmed', success_metric: 'confirmed', no_go_zone: 'confirmed' };
+  const validFresh = () => { const d = JSON.parse(validP1()); d.idea_provenance = PROV; return JSON.stringify(d); };
+  const noMap   = () => { const d = JSON.parse(validP1()); d.idea_provenance = PROV; delete d.coverage_map; return JSON.stringify(d); };
+  const withMap = (map) => { const d = JSON.parse(validP1()); d.idea_provenance = PROV; d.coverage_map = map; return JSON.stringify(d); };
+
+  it('bare validate(content) without ctx skips the gate (back-compat)', () => {
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(noMap()));
+  });
+
+  it('sealed seed (Phase 1 approved) skips the gate even with no coverage_map', () => {
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(noMap(), SEALED));
+  });
+
+  it('fresh seed without coverage_map throws', () => {
+    assert.throws(() => PHASE_DEFS[1].validate(noMap(), FRESH),
+      /Missing required field: coverage_map/);
+  });
+
+  it('fresh seed with a valid coverage_map passes', () => {
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(validFresh(), FRESH));
+  });
+
+  it('fresh seed with an empty coverage_map throws', () => {
+    assert.throws(() => PHASE_DEFS[1].validate(withMap([]), FRESH),
+      /Missing required field: coverage_map/);
+  });
+
+  it('throws when an entry has an empty need', () => {
+    assert.throws(() => PHASE_DEFS[1].validate(withMap([{ need: '', disposition: 'FR-001' }]), FRESH),
+      /empty "need"/);
+  });
+
+  it('throws when a disposition references a non-existent requirement id', () => {
+    assert.throws(() => PHASE_DEFS[1].validate(withMap([{ need: 'log in', disposition: 'FR-999' }]), FRESH),
+      /neither "out_of_scope" nor an existing/);
+  });
+
+  it('accepts a disposition of "out_of_scope"', () => {
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(withMap([{ need: 'offline mode', disposition: 'out_of_scope' }]), FRESH));
+  });
+
+  it('accepts a disposition that is a valid NFR id (a need can map to a non-functional requirement)', () => {
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(withMap([{ need: 'be fast', disposition: 'NFR-001' }]), FRESH));
   });
 });
 

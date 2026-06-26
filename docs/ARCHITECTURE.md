@@ -27,6 +27,7 @@ Each row is an era, not an exhaustive list — the authoritative dated record st
 | rc.119 | **Phase-1 `no_go_zone` content gate** — `complete 1`/`approve 1` require a non-empty `no_go_zone` (≥3 root / ≥1 feature; same feature-floor as FR/NFR minimums) | REQ-RICHNESS-0624 |
 | rc.120 | **`aitri feature discard <name>`** — isTTY-gated retirement of a cancelled feature: deletes the feature dir + SURFACES the shared code it built (git reverts it, not Aitri); single-path-segment guard against `discard ..` traversal | FEAT-DISCARD-0624 |
 | rc.122 | **`aitri feature <name> audit requirements`** — feature-scoped idea→FR completeness audit (`FEATURE_IDEA.md`/absorbed `original_brief` vs the feature's FRs; preserves ADR-048 independence). Root `audit coverage` renamed → `audit requirements` (deprecated alias kept, non-breaking) | AUDIT-COV-FEAT-0625 |
+| rc.124 | **Intent coverage map** — `01_REQUIREMENTS.json#coverage_map` (`[{need, disposition}]`): the idea→requirement decomposition externalised. Light fresh-seed Phase-1 gate (structural validity); the teeth are `audit requirements`, which diffs its independent re-derivation against the map to surface a silently-dropped need. Mitigation, not guarantee (ceiling stated) | ADR-060 |
 
 ---
 

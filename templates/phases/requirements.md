@@ -112,7 +112,8 @@ Schema: { project_name, project_summary,
   constraints:[], technology_preferences:[],
   idea_provenance: { problem:"confirmed|assumed", users:"confirmed|assumed", baseline:"confirmed|assumed", success_metric:"confirmed|assumed", no_go_zone:"confirmed|assumed" },
   idea_provenance_sources: { problem:"<where it came from>", users:"...", baseline:"...", success_metric:"...", no_go_zone:"..." },
-  idea_gaps: ["<field>: why it was assumed and what to confirm with the owner"] }
+  idea_gaps: ["<field>: why it was assumed and what to confirm with the owner"],
+  coverage_map: [{need:"<a distinct need from the seed>", disposition:"FR-001 | NFR-001 | out_of_scope"}] }
 
 ## Seed-Input Provenance Contract (D2 — enforced on a fresh Phase 1)
 
@@ -141,6 +142,8 @@ Before writing any FR, decompose the work in IDEA.md so every behavior gets an F
 6. **Edge cases** — empty inputs, max-length inputs, duplicate submissions, concurrent operations
 
 Each item above that is not in no_go_zone is a candidate FR. If you don't write an FR for it, put it in no_go_zone with a reason. A screen with no FR is a gap. A user action with no FR is a gap.
+
+**Write the decomposition down as `coverage_map` (required on a fresh seed).** For every distinct need you find in the seed, add one entry `{need, disposition}` where `disposition` is the FR/NFR id that covers it OR `"out_of_scope"` (with the reason in no_go_zone). Granularity = one entry per distinct need or behavior (the same level as the decomposition above — a UI surface, a user action, a capability, an operation, whatever the target exposes) — not every clause, not the whole product. This is not busywork: it is the *visible* record of "what I found vs where it went", so a dropped need is caught by **comparison** — by the human at `approve`, and by the independent `aitri audit requirements` pass that re-derives the needs from the seed and diffs them against this map. `aitri complete 1` blocks if it is missing/empty or an entry points at a non-existent requirement id. Honest limit: the gate cannot tell whether you *omitted* a need from the map (only that what you listed is consistent) — that is exactly what the independent comparison catches, so do the decomposition honestly.
 
 **Adoption audit (if present).** If an `ADOPTION_AUDIT.md` is among the context files (`idea_context/`), this is a change to an existing system — read it first. Its findings (blast radius, missing tests, security gaps, what must not break) are the evidence base for the requirements: ground the FRs in them, and turn each must-not-break item into a regression NFR (`category: "Regression"`, as above).
 

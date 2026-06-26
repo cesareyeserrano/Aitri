@@ -8,6 +8,7 @@ import {
   auditReportPath,
   buildPipelineState,
   buildRequirementsSummary,
+  buildCoverageMapSummary,
   buildIntentSources,
   buildSecurityNfrSummary,
   buildQualityGatesSummary,
@@ -112,6 +113,33 @@ describe('buildPipelineState()', () => {
 });
 
 // ── buildRequirementsSummary() ────────────────────────────────────────────────
+
+// ADR-060: the coverage map fed to the audit so it can diff its re-derivation against it.
+describe('buildCoverageMapSummary()', () => {
+  it('returns null when coverage_map is absent (old projects degrade to from-scratch)', () => {
+    const dir = tmpDir();
+    writeArtifact(dir, '01_REQUIREMENTS.json', { functional_requirements: [{ id: 'FR-001' }] });
+    assert.equal(buildCoverageMapSummary(dir, { artifactsDir: 'spec' }), null);
+  });
+
+  it('returns null when 01_REQUIREMENTS.json is missing', () => {
+    assert.equal(buildCoverageMapSummary(tmpDir(), { artifactsDir: 'spec' }), null);
+  });
+
+  it('formats each entry as "disposition ← need"', () => {
+    const dir = tmpDir();
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      functional_requirements: [{ id: 'FR-001' }],
+      coverage_map: [
+        { need: 'log in', disposition: 'FR-001' },
+        { need: 'offline mode', disposition: 'out_of_scope' },
+      ],
+    });
+    const out = buildCoverageMapSummary(dir, { artifactsDir: 'spec' });
+    assert.match(out, /FR-001 ← log in/);
+    assert.match(out, /out_of_scope ← offline mode/);
+  });
+});
 
 describe('buildRequirementsSummary()', () => {
   it('returns null when 01_REQUIREMENTS.json is missing', () => {
@@ -347,6 +375,36 @@ describe('cmdAudit — coverage sub-command', () => {
     assert.match(out, /Invoicing app/);                         // original_brief fed in
     const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
     assert.ok(cfg.coverageAuditLastAt, 'coverageAuditLastAt must be persisted');
+  });
+
+  // ADR-060: when a coverage_map is present, feed it + instruct the auditor to DIFF its
+  // own re-derivation against it (the teeth — catches a silently dropped need by comparison).
+  it('feeds the agent-declared coverage map and instructs the diff', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '00_DISCOVERY.md', '# Discovery\nClient wants invoice export and column reorder.');
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      original_brief: 'Invoicing app',
+      functional_requirements: [{ id: 'FR-001', priority: 'MUST', title: 'create invoice' }],
+      coverage_map: [{ need: 'create invoice', disposition: 'FR-001' }],
+    });
+    const out = captureStdout(() => cmdAudit({ dir, args: ['coverage'], err: noErr }));
+    // Load-bearing: both assertions are gated on coverage_map being present (the block is
+    // inside {{#IF_COVERAGE_MAP}}). The diff-protocol prose is static and asserted by the
+    // absent-case test below (it must still render there), so it is not re-checked here.
+    assert.match(out, /Agent-declared coverage map/);       // the conditional block rendered
+    assert.match(out, /FR-001 ← create invoice/);           // the map content fed in
+  });
+
+  it('omits the coverage-map block when no coverage_map is declared (older projects)', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '00_DISCOVERY.md', '# Discovery\nSuccess: export.');
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      original_brief: 'app', functional_requirements: [{ id: 'FR-001', priority: 'MUST', title: 'export' }],
+    });
+    const out = captureStdout(() => cmdAudit({ dir, args: ['coverage'], err: noErr }));
+    assert.doesNotMatch(out, /Agent-declared coverage map/);
   });
 
   // AUDIT-COV-FEAT-0625 fork 2: feature-scoped coverage audit frames the auditor on the

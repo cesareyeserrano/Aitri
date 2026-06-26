@@ -55,6 +55,14 @@ const VALID_REQUIREMENTS = JSON.stringify({
   constraints: [],
   technology_preferences: ['Node.js'],
   idea_provenance: { problem: 'confirmed', users: 'confirmed', baseline: 'confirmed', success_metric: 'confirmed', no_go_zone: 'confirmed' },
+  coverage_map: [
+    { need: 'log in', disposition: 'FR-001' },
+    { need: 'see a dashboard', disposition: 'FR-002' },
+    { need: 'export data', disposition: 'FR-003' },
+    { need: 'save data', disposition: 'FR-004' },
+    { need: 'see totals', disposition: 'FR-005' },
+    { need: 'offline mode', disposition: 'out_of_scope' },
+  ],
 }, null, 2);
 
 const minimalConfig = (overrides = {}) => JSON.stringify({

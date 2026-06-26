@@ -18,6 +18,11 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.124 (2026-06-25) — `01_REQUIREMENTS.json#coverage_map` (intent coverage map, ADR-060) — additive
+
+- **New field `01_REQUIREMENTS.json#coverage_map`** — `array<{need, disposition}>`. The agent's idea→requirement decomposition made explicit: one entry per distinct need in the seed, `disposition` = an FR/NFR id or `"out_of_scope"`. **Required by the Phase-1 gate on a fresh seed** (skipped once Phase 1 is approved — historical thereafter, so existing approved projects never trip it; no migration). Light structural gate (checks every entry disposes to a real requirement id or out_of_scope) — NOT a completeness guarantee; the teeth are the independent `audit requirements` pass, which now diffs its own re-derivation of the seed's needs against this map to surface a silently-dropped need.
+- **Reader impact:** additive — a brand-new optional field. Old readers ignore it and are unaffected; it never changes an existing field's shape or semantics. A reader that WANTS to surface coverage (e.g. Hub showing "N needs, M out-of-scope") can read it where present and treat absence as "pre-rc.124 project".
+
 ## v2.0.0-rc.122 (2026-06-25) — feature-scoped requirements audit + `audit coverage`→`audit requirements` rename — additive
 
 - **New command `aitri feature <name> audit requirements`** (AUDIT-COV-FEAT-0625 fork 2) — the idea→FR completeness audit at feature scope (compares a feature's own `FEATURE_IDEA.md`/absorbed `original_brief` against the feature's FRs). Off-pipeline/advisory like the root audit; appends the same "Requirements Coverage" section shape to the feature's `AUDIT_REPORT.md`. No new artifact, no schema change.

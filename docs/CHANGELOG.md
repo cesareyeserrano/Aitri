@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.124] — 2026-06-25 — intent coverage map: make idea→requirement decomposition visible & comparable (ADR-060)
+
+- **New `01_REQUIREMENTS.json#coverage_map`** — `[{need, disposition}]`, the agent's idea→requirement decomposition externalised: every distinct need in the seed → an FR/NFR id or `"out_of_scope"`. Attacks the recurring **silent scope loss** (a need decided in ideation but never built and never declared out-of-scope — Ledger `budget`/D-7). Continues the rc.119 `no_go_zone` gate: from "the out-of-scope list exists" to "every need is accounted for, visibly".
+- **Two layers, by design:**
+  - **Phase-1 gate (light, `phase1.js`):** fresh-seed only (same lifecycle as the provenance gate — skipped once Phase 1 is approved, so existing projects never trip it, no migration). Checks structural validity: `coverage_map` present + non-empty, each entry has a `need` and a `disposition` that is `"out_of_scope"` or a real FR/NFR id. This is **not** the teeth — it cannot verify the list is complete (the agent fills it; a never-surfaced need is absent here too).
+  - **The teeth — independent comparison (`audit requirements`):** the audit now receives the declared `coverage_map` and is instructed to **re-derive the needs itself first**, then **diff**: (a) a need it found that is absent from the map = the silent drop; (b) a map entry wrongly `out_of_scope`; (c) a map entry whose FR doesn't cover the need. This turns "is anything missing?" (open-ended re-derivation) into a concrete set comparison — and makes the same catch cheap for the human reviewing at `approve`.
+- **Honest ceiling (stated in ADR-060):** the map raises the odds of catching a dropped need (a second party can now compare two lists instead of re-deriving from scratch); it does not guarantee it (two independent passes can miss the same need). It is the strongest available mitigation in a passive prompt generator, not a solve.
+- `templates/phases/requirements.md` + `lib/personas/pm.js` instruct the map (granularity = one entry per user-facing need, the same decomposition already taught). `lib/commands/audit.js` (`buildCoverageMapSummary`) + `templates/phases/auditCoverage.md` + the protocol wire the diff. Contract: `docs/integrations/ARTIFACTS.md` + CHANGELOG (additive — new optional field). +14 tests (gate: present/non-empty/valid-refs/skip-when-sealed/NFR-id/back-compat; audit: map fed + diff instruction + absent-degrades). ADR-060. Adversarially reviewed.
+
 ## [2.0.0-rc.123] — 2026-06-25 — two operator-facing reminders (TC-DRIFT-0625 + REQ-RICHNESS-0624 feedback-channel)
 
 Two cosmetic output nudges from the backlog hygiene batch — both turn a designed-but-surprising behavior into an understood one. No behavior change, no gate, no contract.
