@@ -6,7 +6,7 @@
 
 ### Architectural evolution (rc.45 → present)
 
-Each row is an era, not an exhaustive list — the authoritative dated record stays in `DECISIONS.md` + `CHANGELOG.md`. No content was dropped in the rc.117 paragraph→table reshape; rows past rc.117 bring the anchor current.
+Each row is an era, not an exhaustive list — the authoritative dated record stays in `DECISIONS.md` + `CHANGELOG.md`. The rc.117 paragraph→table reshape preserved every ADR and architectural claim; a few call-site symbol enumerations were compressed (full detail lives in the ADRs/CHANGELOG). Rows past rc.117 bring the anchor current.
 
 | Release | What shipped (structural) | ADR / ref |
 |:---|:---|:---|

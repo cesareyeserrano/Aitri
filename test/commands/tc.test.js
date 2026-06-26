@@ -313,9 +313,10 @@ describe('cmdTC — tc mark-manual', () => {
     assert.match(out, /aitri rehash 3/);
   });
 
-  // approvedPhases is array<number|string> — a project storing "3" (string) must still fire
-  // the advisory (the canonical String(x)===String(phase) compare, not a strict number match).
-  it('explains the drift when Phase 3 is approved as a string "3"', () => {
+  // A hand-edited `.aitri` storing approvedPhases as the string "3" still fires the advisory.
+  // (loadConfig canonicalises phase arrays "3"→3 before the advisory's compare ever runs, so
+  // both the number and string forms reach it as 3 — this asserts that end-to-end path holds.)
+  it('explains the drift when Phase 3 is approved as a string "3" (loadConfig canonicalises it)', () => {
     const dir = makeDir();
     const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
     cfg.approvedPhases = ['3'];
