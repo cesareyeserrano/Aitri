@@ -1,6 +1,6 @@
 # Aitri — Integration Model
 
-**Version:** v2.0.0-rc.120+
+**Version:** v2.0.0-rc.122+
 **Owner:** This document is the authoritative description of how the Aitri ecosystem is structured.
 
 ---
@@ -45,7 +45,7 @@ Subproducts (Hub, future tools)
 | Optional: Code Review | `<project>/<artifactsDir>/04_CODE_REVIEW.md` | Phase 4 review output |
 | Optional: Bugs | `<project>/<artifactsDir>/BUGS.json` | Bug registry — open, fixed, verified, closed |
 | Optional: Backlog | `<project>/<artifactsDir>/BACKLOG.json` | Tech-debt / deferred-work registry (priority-ordered) |
-| Optional: Audit | `<project>/<artifactsDir>/AUDIT_REPORT.md` | On-demand audit findings: code audit (bugs, backlog, observations), plus optional "Requirements Coverage" (`audit coverage`) and "Security" (`audit security`) sections |
+| Optional: Audit | `<project>/<artifactsDir>/AUDIT_REPORT.md` | On-demand audit findings: code audit (bugs, backlog, observations), plus optional "Requirements Coverage" (`audit requirements`, alias `audit coverage`) and "Security" (`audit security`) sections |
 | Feature pipelines | `<project>/<layoutRoot>/features/<name>/` | Sub-pipelines with same structure — `aitri/features/` for contained projects (rc.76+), `features/` for legacy flat ones (see `layoutRoot` in [SCHEMA.md](./SCHEMA.md)) |
 | Derived snapshot (CLI-only) | `aitri status --json` | Aggregated pipeline + features + health + priority-ordered next actions. See [STATUS_JSON.md](./STATUS_JSON.md). Requires the `aitri` binary on PATH — remote consumers must read `.aitri` + `<artifactsDir>/` directly. |
 

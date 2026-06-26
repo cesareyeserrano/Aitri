@@ -777,3 +777,66 @@ describe('aitri feature checkpoint', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// AUDIT-COV-FEAT-0625 fork 2 — `aitri feature <name> audit coverage`
+describe('aitri feature audit', () => {
+  function tmpDir() { return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-feature-')); }
+  function makeProjectDir() {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', JSON.stringify({
+      projectName: 'TestProject', artifactsDir: 'spec',
+      approvedPhases: [], completedPhases: [], currentPhase: 0,
+    }));
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    return dir;
+  }
+  // Seed a feature with a live FEATURE_IDEA.md (pre-approve intent) and feature FRs.
+  function seedFeature(dir, name) {
+    writeFile(dir, path.join('features', name, '.aitri'), JSON.stringify({
+      projectName: name, artifactsDir: 'spec', approvedPhases: [], completedPhases: [],
+    }));
+    writeFile(dir, path.join('features', name, 'FEATURE_IDEA.md'), 'batch export with a progress bar');
+    writeFile(dir, path.join('features', name, 'spec', '01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-009', priority: 'MUST', title: 'export invoices' }],
+    }));
+  }
+
+  it('`feature audit <name> requirements` produces a feature-scoped coverage briefing', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeature(dir, 'bulk-export');
+      const { fn: err } = makeErr();
+      const out = captureStdout(() => cmdFeature({ dir, args: ['audit', 'bulk-export', 'requirements'], err, rootDir: ROOT_DIR }));
+      assert.match(out, /Requirements Coverage Audit/);        // coverage template
+      assert.match(out, /batch export with a progress bar/);    // FEATURE_IDEA.md intent fed in
+      assert.match(out, /bulk-export/);                         // SCOPE_NOTE names the feature
+      assert.match(out, /FEATURE sub-pipeline/i);               // feature framing, not root
+      assert.match(out, /FR-009/);                              // feature FRs fed in
+      // coverageAuditLastAt persisted to the FEATURE .aitri, not the root
+      const featCfg = JSON.parse(fs.readFileSync(path.join(dir, 'features', 'bulk-export', '.aitri'), 'utf8'));
+      assert.ok(featCfg.coverageAuditLastAt, 'feature .aitri must record coverageAuditLastAt');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('`feature audit <name> coverage` still works as a deprecated alias', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeature(dir, 'bulk-export');
+      const { fn: err } = makeErr();
+      const out = captureStdout(() => cmdFeature({ dir, args: ['audit', 'bulk-export', 'coverage'], err, rootDir: ROOT_DIR }));
+      assert.match(out, /Requirements Coverage Audit/);         // alias routes to the same audit
+      assert.match(out, /FR-009/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('rejects non-requirements audit sub-commands at feature scope', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeature(dir, 'bulk-export');
+      const { fn: err, thrown } = makeErr();
+      try { captureStdout(() => cmdFeature({ dir, args: ['audit', 'bulk-export', 'security'], err, rootDir: ROOT_DIR })); }
+      catch { /* err throws */ }
+      assert.match(thrown[0] || '', /only `audit requirements` is supported/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

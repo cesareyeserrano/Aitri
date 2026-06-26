@@ -299,6 +299,35 @@ describe('Phase 4 — buildBriefing() (BL-004)', () => {
     assert.match(REASONING, /Bad trace placement/);
   });
 
+  // SMOKE-RUN-0625: a green suite can still ship an app that 500s on first boot —
+  // nothing in the test run starts the running product. The build briefing must
+  // instruct the agent to declare a smoke quality_gate, stack-agnostically (only when
+  // the target serves requests — a library/CLI/batch has nothing to boot, principle 4).
+  it('briefing instructs a smoke/boot gate for serving targets (SMOKE-RUN-0625)', () => {
+    assert.ok(/smoke gate/i.test(briefing), 'briefing must describe a smoke gate');
+    assert.ok(briefing.includes('boots the product') || briefing.includes('start the app'),
+      'briefing must tie the smoke gate to actually booting the running app');
+  });
+
+  it('smoke-gate instruction is stack-agnostic — conditional on a serving target, not imperative (SMOKE-RUN-0625)', () => {
+    // Conditional guard present: applies only when the target serves requests.
+    assert.ok(/serves requests/i.test(briefing),
+      'smoke instruction must be guarded on a serving target');
+    // Explicit opt-out for non-serving targets so it is not read as a universal MUST
+    // (phrase is unique to the smoke block).
+    assert.ok(/library, CLI, or batch/i.test(briefing),
+      'smoke instruction must tell library/CLI/batch targets to skip it (no invented server)');
+  });
+
+  it('developer persona reinforces the smoke gate, conditionally (SMOKE-RUN-0625)', async () => {
+    const { REASONING, CONSTRAINTS } = await import('../../lib/personas/developer.js');
+    assert.match(REASONING, /smoke quality_gate/);
+    assert.match(REASONING, /serves requests/);
+    // Must NOT be an absolute "Never …" constraint — a library has nothing to boot.
+    assert.ok(!/Never[^.\n]*smoke/i.test(CONSTRAINTS),
+      'smoke must be conditional reasoning, not an absolute constraint');
+  });
+
   it('briefing contains US-ID in @aitri-trace example (BL-006)', () => {
     assert.ok(briefing.includes('US-ID'), 'briefing @aitri-trace must include US-ID for full traceability');
   });

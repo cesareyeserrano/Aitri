@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.122 (2026-06-25) — feature-scoped requirements audit + `audit coverage`→`audit requirements` rename — additive
+
+- **New command `aitri feature <name> audit requirements`** (AUDIT-COV-FEAT-0625 fork 2) — the idea→FR completeness audit at feature scope (compares a feature's own `FEATURE_IDEA.md`/absorbed `original_brief` against the feature's FRs). Off-pipeline/advisory like the root audit; appends the same "Requirements Coverage" section shape to the feature's `AUDIT_REPORT.md`. No new artifact, no schema change.
+- **`audit coverage` renamed to `audit requirements`** ("coverage" collided with test coverage). **Non-breaking:** `audit coverage` is kept as a deprecated alias that routes to the same audit and prints a one-line rename note. The artifact section heading (`### Requirements Coverage`) and the `.aitri` field name (`coverageAuditLastAt`) are UNCHANGED — readers (Hub) that consume the artifact/state are unaffected. Reference docs (ARTIFACTS.md, README.md, SCHEMA.md) updated to the canonical name.
+- **Reader impact:** none. The artifact contract and `.aitri` field are byte-identical; only the producing command's canonical name changed, with the old name still working. Additive.
+
 ## v2.0.0-rc.119 (2026-06-25) — `01_REQUIREMENTS.json#no_go_zone` content gate (REQ-RICHNESS-0624) — breaking
 
 - **`01_REQUIREMENTS.json#no_go_zone`** is now gated by `aitri complete 1` / `approve 1`: it must be a non-empty array — **minimum 3 items for root pipelines, minimum 1 for feature sub-pipelines** (mirrors the existing FR/NFR feature-floor logic). Before rc.119 the field was unchecked — an empty or missing `no_go_zone` passed validation, even though the PM persona and the templates always declared an explicit out-of-scope list mandatory ("ambiguous scope is a defect"). Phases 2 (architecture), 3 (tests), and 4 (build) all read `no_go_zone` to NOT design, test, or build out-of-scope items, so an empty one left them without a scope boundary.

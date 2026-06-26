@@ -16,7 +16,7 @@
 {{AUDIT_REPORT}}
 
 ## Planning Protocol
-1. Read the full Audit Report above — it may contain findings from the code audit (`aitri audit`), a requirements-coverage audit (`aitri audit coverage`), AND/OR a security audit (`aitri audit security`). Route each section to the right action.
+1. Read the full Audit Report above — it may contain findings from the code audit (`aitri audit`), a requirements-coverage audit (`aitri audit requirements`), AND/OR a security audit (`aitri audit security`). Route each section to the right action.
 2. For each **Findings → Bugs** entry: propose the exact `aitri bug add` command to run
 3. For each **Findings → Backlog** entry: propose the exact `aitri backlog add` command to run
 4. For each **Observations** entry: decide whether to defer, monitor, or promote to Backlog — give a one-line reason
@@ -45,7 +45,7 @@ QUEUED — Add to backlog:
 MONITORED — Observations deferred:
   [OBS-N] [title] — [one sentence: why deferred and when to revisit]
 
-SCOPE — Client needs missing from the requirements (from `audit coverage`):
+SCOPE — Client needs missing from the requirements (from `audit requirements`):
   [GAP-N] [the client need] — add the FR OR record out-of-scope
   $ aitri run-phase 1     # if adding the FR — re-derives Phase 1, cascades downstream
   [... or: "out-of-scope — <one-line reason>" if the need is intentionally excluded]

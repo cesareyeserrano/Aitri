@@ -12,6 +12,10 @@
 - **Directory:** `{{PROJECT_DIR}}`
 - **Pipeline state:** {{PIPELINE_STATE}}
 
+{{#IF_SCOPE_NOTE}}
+> **Scope:** {{SCOPE_NOTE}}
+{{/IF_SCOPE_NOTE}}
+
 {{#IF_DISCOVERY}}
 ## Approved discovery — the client's intent (primary source)
 {{DISCOVERY}}

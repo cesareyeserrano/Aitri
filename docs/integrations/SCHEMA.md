@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.120+
+**Aitri version:** v2.0.0-rc.122+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -57,7 +57,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `verifyRanAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri verify-run` execution (set on every run, regardless of pass/fail). Drives test-staleness signals (v0.1.79+) |
 | `lastVerifyRun` | `object\|null` | `null` | Last `verify-run`'s counts, written on EVERY run regardless of pass/fail: `{ passed, failed, skipped, manual, at }`. Unlike `verifySummary` (only on verify-complete success), this persists the raw run result so the no-op-loop guard survives event-log eviction. Read this for "what did the last run produce" (v2.0.0-rc.25+) |
 | `auditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit` invocation. Persisted because `AUDIT_REPORT.md` mtime resets on git clone (v0.1.79+) |
-| `coverageAuditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit coverage` invocation (the idea→FR completeness audit). Persisted so the `resume` coverage nudge stops once run and re-fires when requirements change (v2.0.0-rc.75+, [ADR-048](../DECISIONS.md)) |
+| `coverageAuditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit requirements` invocation (formerly `audit coverage`; the field name is retained for back-compat). The idea→FR completeness audit. Persisted so the `resume` coverage nudge stops once run and re-fires when requirements change (v2.0.0-rc.75+, [ADR-048](../DECISIONS.md)) |
 | `securityAuditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit security` invocation (the adversarial security audit). Subproducts can compose a security-gap signal from this field: security NFRs declared in `01_REQUIREMENTS.json` + this field absent/stale ⇒ surface "security audit suggested" to the operator (v2.0.0-rc.83+, [ADR-051](../DECISIONS.md)) |
 | `rejections` | `object<string, Rejection>` | `{}` | Map of phase key → last rejection. Key is phase as string (`"1"`, `"2"`, etc.) |
 | `lastSession` | `object\|null` | `null` | Session checkpoint — see schema below. Written automatically by state-mutating commands. Its `.context` is ephemeral (overwritten by the next action); the durable narrative lives in `sessionContext` |

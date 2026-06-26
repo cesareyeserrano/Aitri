@@ -500,13 +500,13 @@ describe('cmdResume() — narrative session context (TPA-5)', () => {
 // ── Requirements Coverage nudge (ADR-048) ─────────────────────────────────────
 
 describe('cmdResume() — Requirements Coverage nudge (ADR-048)', () => {
-  it('suggests `aitri audit coverage` when Phase 1 is approved and never audited', () => {
+  it('suggests `aitri audit requirements` when Phase 1 is approved and never audited', () => {
     const dir = tmpDir();
     writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1], completedPhases: [1] }));
     writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
     const out = captureStdout(() => cmdResume({ dir }));
     assert.match(out, /Requirements Coverage — Independent Check Suggested/);
-    assert.match(out, /aitri audit coverage/);
+    assert.match(out, /aitri audit requirements/);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -515,7 +515,7 @@ describe('cmdResume() — Requirements Coverage nudge (ADR-048)', () => {
     writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1], completedPhases: [1], coverageAuditLastAt: '2999-01-01T00:00:00.000Z' }));
     writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
     const out = captureStdout(() => cmdResume({ dir }));
-    assert.doesNotMatch(out, /aitri audit coverage/);
+    assert.doesNotMatch(out, /aitri audit requirements/);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
@@ -533,7 +533,7 @@ describe('cmdResume() — Requirements Coverage nudge (ADR-048)', () => {
     writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [], completedPhases: [] }));
     writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
     const out = captureStdout(() => cmdResume({ dir }));
-    assert.doesNotMatch(out, /aitri audit coverage/);
+    assert.doesNotMatch(out, /aitri audit requirements/);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });

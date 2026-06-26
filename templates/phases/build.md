@@ -184,6 +184,18 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
     checks (secrets grep, exposed-docs probe, headers check). Omitting it on a
     project with declared security NFRs requires a one-line reason in technical_debt — security
     promises without a mechanical re-check are honor-system only.
+    Smoke gate (the app actually runs): tests passing green proves the units behave — it does NOT
+    prove the assembled product boots and serves. A suite can be fully green while the running app
+    returns an error on every entry point on first launch (a bad config, a broken bootstrap, an
+    incompatible runtime) — nothing in the test run ever started the real product. If your target is
+    a long-running process that serves requests (web app, HTTP API, backend service), declare a smoke
+    gate: {name:"smoke", command:"<start the app, hit its key entry points, fail on a server error>",
+    timeout_ms:120000}. The command boots the product and asserts its key entry points respond
+    without server errors — use whatever your stack runs it with (e.g. a script that starts the
+    server and curls the main routes asserting no 5xx, or the project's e2e/health-check runner).
+    This is the one gate that catches "green tests, dead app". A library, CLI, or batch job has
+    nothing to boot — skip it for those (do NOT invent a server where there is none). Set timeout_ms
+    high enough for the app to come up.
 
 {{#IF_BEST_PRACTICES}}
 {{BEST_PRACTICES}}

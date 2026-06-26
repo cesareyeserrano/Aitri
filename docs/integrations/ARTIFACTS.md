@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.120+
+**Aitri version:** v2.0.0-rc.122+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -415,7 +415,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
 | `04_CODE_REVIEW.md` | `aitri review` | Present if code review was run |
 | `BUGS.json` | `aitri bug add` / `aitri verify-run` | Present if any bug has been registered |
 | `BACKLOG.json` | `aitri backlog add` | Present if any backlog item has been registered |
-| `AUDIT_REPORT.md` | `aitri audit` / `aitri audit coverage` / `aitri audit security` | Present if an on-demand audit has been run. `audit coverage` appends a "Requirements Coverage" section (idea→FR completeness); `audit security` appends a "Security" section (RQ-SEC remediation requirements) |
+| `AUDIT_REPORT.md` | `aitri audit` / `aitri audit requirements` / `aitri audit security` | Present if an on-demand audit has been run. `audit requirements` (formerly `audit coverage`, still a working alias) appends a "Requirements Coverage" section (idea→FR completeness); `audit security` appends a "Security" section (RQ-SEC remediation requirements) |
 
 Check `approvedPhases[]` and `completedPhases[]` in `.aitri` to determine which optional artifacts exist before attempting to read them.
 
@@ -497,7 +497,7 @@ Findings that map to bugs should be promoted to `BUGS.json` via `aitri bug add`.
 Optional sections appended by the audit sub-commands (v2.0.0-rc.83+):
 
 ```markdown
-### Requirements Coverage   ← appended by `aitri audit coverage` (ADR-048)
+### Requirements Coverage   ← appended by `aitri audit requirements` (alias: `audit coverage`) (ADR-048)
 Each gap: **[GAP-N]** `[UNCOVERED|PARTIAL]` — the client need, its source, and the suggested scope action.
 
 ### Security                ← appended by `aitri audit security` (ADR-051)

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, hasMutationGate, resolveWinBin } from '../../lib/commands/verify.js';
+import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, hasMutationGate, hasUISurfaceFRs, hasAppExecutingGate, resolveWinBin } from '../../lib/commands/verify.js';
 import { cmdStatus } from '../../lib/commands/status.js';
 
 describe('parseRunnerOutput()', () => {
@@ -2317,6 +2317,36 @@ describe('runQualityGates() + verify-run/complete integration (ADR-037)', () => 
     assert.equal(hasMutationGate(undefined), false);
   });
 
+  // SMOKE-RUN-0625: the smoke-gap nudge needs two mechanical reads —
+  // (1) does the target have a UI surface, (2) does any gate already boot the app.
+  it('hasUISurfaceFRs detects ux/visual FRs, ignores non-UI targets', () => {
+    assert.equal(hasUISurfaceFRs({ functional_requirements: [{ id: 'FR-1', type: 'ux' }] }), true);
+    assert.equal(hasUISurfaceFRs({ functional_requirements: [{ id: 'FR-1', type: 'Visual' }] }), true);
+    // audio is part of the canonical UI-surface set — an audio web app serves screens too
+    assert.equal(hasUISurfaceFRs({ functional_requirements: [{ id: 'FR-1', type: 'audio' }] }), true);
+    // headless / logic-only target → no UI surface → nudge stays silent
+    assert.equal(hasUISurfaceFRs({ functional_requirements: [{ id: 'FR-1', type: 'persistence' }, { id: 'FR-2', type: 'logic' }] }), false);
+    assert.equal(hasUISurfaceFRs({ functional_requirements: [] }), false);
+    assert.equal(hasUISurfaceFRs({}), false);
+    assert.equal(hasUISurfaceFRs(undefined), false);
+  });
+
+  it('hasAppExecutingGate detects smoke/e2e/health gates, ignores unit-level gates', () => {
+    assert.equal(hasAppExecutingGate([{ name: 'smoke', command: './smoke.sh' }]), true);
+    assert.equal(hasAppExecutingGate([{ name: 'e2e', command: 'playwright test' }]), true);
+    assert.equal(hasAppExecutingGate([{ command: 'cypress run' }]), true);
+    assert.equal(hasAppExecutingGate([{ name: 'boot-check', command: 'curl -f localhost:3000/health' }]), true);
+    assert.equal(hasAppExecutingGate([{ name: 'health-check', command: 'node check.js' }]), true);
+    // lint / typecheck / coverage / mutation do NOT execute the running app → nudge fires
+    assert.equal(hasAppExecutingGate([{ name: 'lint', command: 'eslint .' }, { name: 'mutation', command: 'stryker run' }]), false);
+    // a lint/coverage gate whose path merely contains "e2e" must NOT falsely suppress (word-bounded)
+    assert.equal(hasAppExecutingGate([{ name: 'lint', command: 'eslint src/e2e/**' }]), false);
+    // supertest runs in-process (no real boot) — deliberately NOT treated as app-executing
+    assert.equal(hasAppExecutingGate([{ name: 'integration', command: 'jest --config supertest.config.js' }]), false);
+    assert.equal(hasAppExecutingGate([]), false);
+    assert.equal(hasAppExecutingGate(undefined), false);
+  });
+
   it('verify-run records quality_gates and a failing required gate resets verifyPassed', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-qa-fail-'));
     try {
@@ -2736,5 +2766,65 @@ describe('scanAssertionDensity() — non-string test_files guard (defense-in-dep
   it('skips a non-string entry instead of crashing path.join', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-scan-'));
     assert.doesNotThrow(() => scanAssertionDensity([{ path: 'tests/x.test.js' }, 'tests/missing.test.js'], dir));
+  });
+});
+
+// SMOKE-RUN-0625: verify-run surfaces a one-line advisory when a UI target's suite is
+// green but no quality_gate boots the running app. Read-only nudge (never blocks);
+// mirrors the mutation-gap nudge. Fires only for UI FRs + no app-executing gate.
+describe('cmdVerifyRun() — smoke-gap nudge (SMOKE-RUN-0625)', () => {
+  function seedSmoke(dir, { frType, gates }) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have', type: frType }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+      files_created: ['runner.js'], test_runner: 'node runner.js',
+      ...(gates ? { quality_gates: gates } : {}),
+    }));
+    fs.writeFileSync(path.join(dir, 'runner.js'), '');
+  }
+
+  function captureStderr(dir) {
+    let stderr = '';
+    const origErr = process.stderr.write; const origLog = console.log;
+    process.stderr.write = (c) => { stderr += c; return true; }; console.log = () => {};
+    try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: () => {} }); }
+    catch { /* downstream may err on all-skip; the nudge already fired */ }
+    finally { process.stderr.write = origErr; console.log = origLog; }
+    return stderr;
+  }
+
+  const NUDGE = /No app-executing gate declared, but this target has UI requirements/;
+
+  it('fires for a UI target with no app-executing gate', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-smoke-ui-'));
+    try {
+      seedSmoke(dir, { frType: 'ux' });
+      assert.match(captureStderr(dir), NUDGE);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('stays silent when the UI target already declares a smoke gate', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-smoke-has-'));
+    try {
+      seedSmoke(dir, { frType: 'visual', gates: [{ name: 'smoke', command: 'curl -f localhost:3000/' }] });
+      assert.doesNotMatch(captureStderr(dir), NUDGE);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('stays silent for a non-UI target (library/service with no ux/visual FR)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-smoke-nonui-'));
+    try {
+      seedSmoke(dir, { frType: 'logic' });
+      assert.doesNotMatch(captureStderr(dir), NUDGE);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

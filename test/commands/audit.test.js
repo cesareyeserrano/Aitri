@@ -300,6 +300,17 @@ describe('buildIntentSources()', () => {
     assert.equal(originalBrief, '');
     assert.equal(idea, '');
   });
+
+  // AUDIT-COV-FEAT-0625 fork 2: a feature's intent lives in FEATURE_IDEA.md, not IDEA.md.
+  it('feature scope (truthy featureRoot) reads FEATURE_IDEA.md as the seed, not IDEA.md', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    fs.writeFileSync(path.join(dir, 'FEATURE_IDEA.md'), 'feature wants batch export with a progress bar');
+    fs.writeFileSync(path.join(dir, 'IDEA.md'), 'ROOT idea — must NOT leak into a feature audit');
+    const { idea } = buildIntentSources(dir, { artifactsDir: 'spec' }, '/parent-project');
+    assert.match(idea, /batch export with a progress bar/);
+    assert.doesNotMatch(idea, /ROOT idea/);
+  });
 });
 
 describe('cmdAudit — coverage sub-command', () => {
@@ -336,6 +347,42 @@ describe('cmdAudit — coverage sub-command', () => {
     assert.match(out, /Invoicing app/);                         // original_brief fed in
     const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
     assert.ok(cfg.coverageAuditLastAt, 'coverageAuditLastAt must be persisted');
+  });
+
+  // AUDIT-COV-FEAT-0625 fork 2: feature-scoped coverage audit frames the auditor on the
+  // FEATURE's intent vs the FEATURE's FRs (not the parent project) and reads FEATURE_IDEA.md.
+  it('feature scope frames the briefing on the feature and feeds FEATURE_IDEA.md', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    fs.writeFileSync(path.join(dir, 'FEATURE_IDEA.md'), 'batch export with a progress bar');
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      functional_requirements: [{ id: 'FR-009', priority: 'MUST', title: 'export invoices' }],
+    });
+    const out = captureStdout(() => cmdAudit({
+      dir, args: ['coverage'], err: noErr, featureRoot: '/parent-project', scopeName: 'bulk-export',
+    }));
+    assert.match(out, /batch export with a progress bar/);  // feature intent fed in
+    assert.match(out, /bulk-export/);                        // SCOPE_NOTE names the feature
+    assert.match(out, /FEATURE sub-pipeline/i);              // feature framing present
+    assert.match(out, /FR-009/);                             // feature FR summary fed in
+  });
+
+  // Post-approve window: the live FEATURE_IDEA.md has MOVED to archive/ (not read as
+  // current intent), so the feature audit must rely on the absorbed original_brief.
+  it('feature scope post-approve (no live seed) feeds the absorbed original_brief', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    // No FEATURE_IDEA.md on disk (archived at approve 1); original_brief carries intent.
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      original_brief: 'batch export with a progress bar',
+      functional_requirements: [{ id: 'FR-009', priority: 'MUST', title: 'export invoices' }],
+    });
+    const out = captureStdout(() => cmdAudit({
+      dir, args: ['coverage'], err: noErr, featureRoot: '/parent-project', scopeName: 'bulk-export',
+    }));
+    assert.match(out, /batch export with a progress bar/);  // original_brief fed in
+    assert.match(out, /FEATURE sub-pipeline/i);             // still feature-framed
+    assert.match(out, /FR-009/);
   });
 });
 
@@ -485,5 +532,44 @@ describe('cmdAudit — plan routes Requirements Coverage gaps (ADR-048)', () => 
     assert.match(out, /Requirements Coverage/);        // protocol acknowledges the section
     assert.match(out, /run-phase 1|out-of-scope/i);    // routed to a scope decision
     assert.match(out, /monthly PDF export for clients/); // the report content is fed in
+  });
+});
+
+// AUDIT-COV-FEAT-0625 — `audit coverage` renamed to `audit requirements` (the word
+// "coverage" collided with test coverage). `coverage` kept as a deprecated alias.
+describe('cmdAudit — requirements (canonical) / coverage (deprecated alias)', () => {
+  function seedReqs(dir) {
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '00_DISCOVERY.md', '# Discovery\nSuccess: monthly PDF export.');
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      original_brief: 'Invoicing app',
+      functional_requirements: [{ id: 'FR-001', priority: 'MUST', title: 'create invoice' }],
+    });
+  }
+  function captureBoth(fn) {
+    let out = '', errOut = '';
+    const oO = process.stdout.write.bind(process.stdout);
+    const oE = process.stderr.write.bind(process.stderr);
+    process.stdout.write = (c) => { out += c; return true; };
+    process.stderr.write = (c) => { errOut += c; return true; };
+    try { fn(); } finally { process.stdout.write = oO; process.stderr.write = oE; }
+    return { out, errOut };
+  }
+
+  it('`audit requirements` (canonical) generates the briefing with NO deprecation note', () => {
+    const dir = tmpDir();
+    seedReqs(dir);
+    const { out, errOut } = captureBoth(() => cmdAudit({ dir, args: ['requirements'], err: noErr }));
+    assert.match(out, /Requirements Coverage Audit/);
+    assert.match(out, /FR-001/);
+    assert.doesNotMatch(errOut, /renamed/i);
+  });
+
+  it('`audit coverage` (alias) still routes to the same audit AND prints a deprecation note', () => {
+    const dir = tmpDir();
+    seedReqs(dir);
+    const { out, errOut } = captureBoth(() => cmdAudit({ dir, args: ['coverage'], err: noErr }));
+    assert.match(out, /Requirements Coverage Audit/);   // same audit
+    assert.match(errOut, /audit coverage.*renamed.*audit requirements/i);
   });
 });
