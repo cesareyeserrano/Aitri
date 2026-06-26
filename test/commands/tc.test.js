@@ -300,6 +300,38 @@ describe('cmdTC — tc mark-manual', () => {
     assert.equal(before, after);
   });
 
+  // TC-DRIFT-0625: explain the by-design Phase-3 drift at the call site, but ONLY when
+  // Phase 3 is approved (otherwise no hash is stored → no drift to explain).
+  it('explains the by-design Phase-3 drift when Phase 3 is approved', () => {
+    const dir = makeDir();
+    const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    cfg.approvedPhases = [3];
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify(cfg));
+    writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'auto' }]);
+    const out = captureStdout(() => cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e'])));
+    assert.match(out, /Phase 3 will now show drift — by design/);
+    assert.match(out, /aitri rehash 3/);
+  });
+
+  // approvedPhases is array<number|string> — a project storing "3" (string) must still fire
+  // the advisory (the canonical String(x)===String(phase) compare, not a strict number match).
+  it('explains the drift when Phase 3 is approved as a string "3"', () => {
+    const dir = makeDir();
+    const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    cfg.approvedPhases = ['3'];
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify(cfg));
+    writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'auto' }]);
+    const out = captureStdout(() => cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e'])));
+    assert.match(out, /show drift — by design/);
+  });
+
+  it('does NOT print the drift explanation when Phase 3 is not approved (no drift to explain)', () => {
+    const dir = makeDir(); // approvedPhases: []
+    writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'auto' }]);
+    const out = captureStdout(() => cmdTC(makeCtx(dir, ['mark-manual', 'TC-002e'])));
+    assert.doesNotMatch(out, /show drift — by design/);
+  });
+
   it('does NOT re-stamp artifactHashes[3] — the automation downgrade must surface as drift (R3-24)', () => {
     const dir = makeDir();
     writeTestCases(dir, [{ id: 'TC-002e', type: 'e2e', automation: 'auto' }]);

@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.123] — 2026-06-25 — two operator-facing reminders (TC-DRIFT-0625 + REQ-RICHNESS-0624 feedback-channel)
+
+Two cosmetic output nudges from the backlog hygiene batch — both turn a designed-but-surprising behavior into an understood one. No behavior change, no gate, no contract.
+
+- **`tc mark-manual` now explains the Phase-3 drift it causes (TC-DRIFT-0625).** `mark-manual` mutates `03_TEST_CASES.json` without re-stamping the hash (deliberate, R3-24 anti-laundering: a relabel must leave a trace). When Phase 3 is already approved that surfaces as drift and forces a re-approval, which surprised operators using the intended tool. It now prints a one-line explanation at the call site (review the change, then `rehash 3` / re-`approve 3` to re-seal) — **only when Phase 3 is approved** (otherwise no hash is stored, no drift to explain). Scope-aware (root vs `feature`). The drift behavior is byte-identical — this only explains it.
+- **`complete` reminds that changes go through `--feedback`, not free chat (REQ-RICHNESS-0624).** After `complete <phase>`, a tip points the operator at `run-phase <phase> --feedback "..."` (which re-runs with the phase persona) for adjustments, warning that ad-hoc free-chat edits drift from the role the phase is meant to hold. Aitri can't enforce persona fidelity (passive prompt generator), but it can point at the channel that re-anchors it.
+- +3 tests. No `.aitri`/artifact schema change; `templates/AGENTS.md` audited — unchanged (these are output reminders, not new rules).
+
 ## [2.0.0-rc.122] — 2026-06-25 — feature-scoped coverage audit (AUDIT-COV-FEAT-0625 fork 2)
 
 - **New: `aitri feature <name> audit coverage`** — the idea→FR completeness check, now at feature scope. Compares the FEATURE's own intent (live `FEATURE_IDEA.md` pre-approve, or the absorbed `01_REQUIREMENTS.json#original_brief` post-approve) against the FEATURE's functional_requirements, so a need the feature decided to implement but silently dropped is caught — the exact gap behind Ledger `budget`/D-7, where the operator had to trace `FEATURE_IDEA.md → feature FRs` by hand because no feature-scoped coverage audit existed (`feature.js` had no `audit` case).

@@ -115,6 +115,13 @@ describe('cmdComplete() — successful complete (requirements)', () => {
     assert.ok(output.includes('requirements'), 'output should include phase alias');
     assert.ok(output.includes('✅'), 'output should include success icon');
   });
+
+  // REQ-RICHNESS-0624: remind the operator to route changes through --feedback (which
+  // re-anchors the phase persona), not free chat (which drifts from the role).
+  it('reminds that changes go through --feedback, not free chat', () => {
+    assert.match(output, /run-phase requirements --feedback/);
+    assert.match(output, /not free chat/);
+  });
 });
 
 describe('cmdComplete() — accepts numeric phase', () => {
