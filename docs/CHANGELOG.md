@@ -5,6 +5,13 @@
 
 ---
 
+## [2.0.0-rc.126] — 2026-06-28 — smoke/quality gate: single-executable contract + shell-operator advisory (SMOKE-GATE-0628)
+
+- **Closes a silent mis-run in smoke gates.** quality_gate commands run WITHOUT a shell (`runQualityGates` → `spawnSync`, `shell:false`), so an inline chain like `npm start && curl ...` passes `&&`/`curl` as literal arguments and only the first program runs — a boot-and-probe smoke gate written that way silently does nothing while still reporting a result. The contract (`ARTIFACTS.md`) and the three smoke-instruction sites (`build.md`, `AGENTS.md`, `developer.js`) now state the command must be a single executable/script (e.g. `./smoke.sh`), never an inline `&&`/`;`/`|` chain.
+- **Mechanical advisory (not docs alone):** `verify-run` now flags a quality_gate command carrying a standalone shell operator (read-only, never blocks) so the author moves multi-step logic into a script. New exported helper `gatesWithShellOperators`; +1 test; `npm run test:all` green.
+- **Scope decision (5-reviewer go/no-go):** rejected both a blocking "require a smoke gate" (presence-theater — a hollow `true` passes; would not have caught the documented SMOKE-RUN loss) and an Aitri-owned boot-and-probe runner (process-lifecycle + CI false-fails + crosses the passive-producer line). The real, code-verified defect was the silent shell-chain; the Aitri-owned probe is recorded as a deferred opt-in pending a real signal.
+- Contract: `docs/integrations/ARTIFACTS.md` + integrations CHANGELOG (clarification, additive). No `.aitri`/artifact schema change. `templates/AGENTS.md` updated (consumer-facing).
+
 ## [2.0.0-rc.125] — 2026-06-28 — adoption builds are grounded in the existing code (ADOPT-BUILD-0628)
 
 - **Phase 4 (build) now surfaces `ADOPTION_AUDIT.md` to the agent on an adopted project**, with an explicit instruction to read the audit AND the actual current source of every file it will touch *before* modifying. Closes a real gap: the build phase is otherwise context-excluded (`CONTEXT_PHASES`, `run-phase.js`) and `context.js` reads no source — so on an adoption (an existing codebase, e.g. a major-version migration) the agent built against an upfront, code-unaware design and could modify/replace code it had never read.

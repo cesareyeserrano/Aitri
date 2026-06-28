@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, hasMutationGate, hasUISurfaceFRs, hasAppExecutingGate, resolveWinBin } from '../../lib/commands/verify.js';
+import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, hasMutationGate, hasUISurfaceFRs, hasAppExecutingGate, gatesWithShellOperators, resolveWinBin } from '../../lib/commands/verify.js';
 import { cmdStatus } from '../../lib/commands/status.js';
 
 describe('parseRunnerOutput()', () => {
@@ -2345,6 +2345,20 @@ describe('runQualityGates() + verify-run/complete integration (ADR-037)', () => 
     assert.equal(hasAppExecutingGate([{ name: 'integration', command: 'jest --config supertest.config.js' }]), false);
     assert.equal(hasAppExecutingGate([]), false);
     assert.equal(hasAppExecutingGate(undefined), false);
+  });
+
+  // SMOKE-GATE-0628: gates run shell:false, so an inline chain silently mis-runs (only the first
+  // program runs). The advisory flags it so multi-step (boot-and-probe) logic moves into a script.
+  it('gatesWithShellOperators flags command gates that carry a shell operator (run shell:false)', () => {
+    assert.deepEqual(gatesWithShellOperators([{ name: 'smoke', command: 'npm start && curl localhost:3000' }]), ['smoke']);
+    assert.deepEqual(gatesWithShellOperators([{ command: 'node server.js ; curl /' }]), ['node']);
+    assert.deepEqual(gatesWithShellOperators([{ name: 'pipe', command: 'cat x | grep y' }]), ['pipe']);
+    assert.deepEqual(gatesWithShellOperators([{ name: 'or', command: 'a || b' }]), ['or']);
+    // single-executable gates (the correct form) are not flagged
+    assert.deepEqual(gatesWithShellOperators([{ name: 'smoke', command: './smoke.sh' }]), []);
+    assert.deepEqual(gatesWithShellOperators([{ name: 'lint', command: 'eslint .' }]), []);
+    assert.deepEqual(gatesWithShellOperators([]), []);
+    assert.deepEqual(gatesWithShellOperators(undefined), []);
   });
 
   it('verify-run records quality_gates and a failing required gate resets verifyPassed', () => {

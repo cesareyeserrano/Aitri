@@ -193,6 +193,10 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
     timeout_ms:120000}. The command boots the product and asserts its key entry points respond
     without server errors — use whatever your stack runs it with (e.g. a script that starts the
     server and curls the main routes asserting no 5xx, or the project's e2e/health-check runner).
+    The command must be a SINGLE executable or script file (e.g. ./smoke.sh) — gates run WITHOUT a
+    shell, so an inline chain like "npm start && curl ..." will NOT work: the && is passed as a
+    literal argument and only the first program runs. Put the boot-and-probe steps in a script and
+    point the gate's command at it.
     This is the one gate that catches "green tests, dead app". A library, CLI, or batch job has
     nothing to boot — skip it for those (do NOT invent a server where there is none). Set timeout_ms
     high enough for the app to come up.

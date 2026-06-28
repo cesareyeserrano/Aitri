@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.126 (2026-06-28) — quality_gate `command` documented as shell:false / single-executable — additive
+
+- **Clarification, no schema change, no reader impact.** Documents existing behavior: a `04_BUILD_REPORT.json#quality_gates` command gate runs WITHOUT a shell (`spawnSync`, `shell:false`), so `command` must be a single executable plus arguments — shell operators (`&&`/`||`/`;`/`|`, redirects, globs) are NOT interpreted (only the first program runs). Multi-step gates (e.g. a smoke gate that boots the app then probes it) must live in a script file the gate invokes. No field added or changed; existing readers are unaffected.
+
 ## v2.0.0-rc.124 (2026-06-25) — `01_REQUIREMENTS.json#coverage_map` (intent coverage map, ADR-060) — additive
 
 - **New field `01_REQUIREMENTS.json#coverage_map`** — `array<{need, disposition}>`. The agent's idea→requirement decomposition made explicit: one entry per distinct need in the seed, `disposition` = an FR/NFR id or `"out_of_scope"`. **Required by the Phase-1 gate on a fresh seed** (skipped once Phase 1 is approved — historical thereafter, so existing approved projects never trip it; no migration). Light structural gate (checks every entry disposes to a real requirement id or out_of_scope) — NOT a completeness guarantee; the teeth are the independent `audit requirements` pass, which now diffs its own re-derivation of the seed's needs against this map to surface a silently-dropped need.
