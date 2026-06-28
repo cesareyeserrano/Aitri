@@ -2270,6 +2270,46 @@ describe('runQualityGates() + verify-run/complete integration (ADR-037)', () => 
     try { return fn(); } finally { console.log = ol; process.stderr.write = oe; }
   };
 
+  // FALLBACK-DEFAULT-0628: in a stack-agnostic tool, an undeclared test command must not silently
+  // assume Node. With automated tests + no test_runner + no package.json, refuse with guidance.
+  it('verify-run refuses an undeclared test command on a non-Node project (FALLBACK-DEFAULT-0628)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-fallback-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+        projectName: 'p', artifactsDir: 'spec', approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+      }));
+      fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({ functional_requirements: [{ id: 'FR-001' }] }));
+      // automated TC (NOT manual) → a runner is actually needed; build report has NO test_runner; NO package.json
+      fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({ test_cases: [{ id: 'TC-001', requirement_id: 'FR-001', automation: 'automated' }] }));
+      fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({ files_created: [{ path: 'x' }] }));
+      assert.throws(
+        () => silent(() => cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } })),
+        /no "test_runner"|stack-agnostic/,
+        'a non-Node project with no test_runner must get stack-neutral guidance, not a silent npm test'
+      );
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('verify-run does NOT refuse an all-manual non-Node project (it seeds results, no spawn)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-fallback-manual-'));
+    try {
+      fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+        projectName: 'p', artifactsDir: 'spec', approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+      }));
+      fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({ functional_requirements: [{ id: 'FR-001' }] }));
+      // every TC manual → all-manual mode seeds without a runner; no test_runner, no package.json
+      fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({ test_cases: [{ id: 'TC-001', requirement_id: 'FR-001', automation: 'manual' }] }));
+      fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({ files_created: [{ path: 'x' }] }));
+      assert.doesNotThrow(
+        () => silent(() => cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } })),
+        'an all-manual project legitimately has no runner — it must seed, not demand a test command'
+      );
+      assert.ok(fs.existsSync(path.join(dir, 'spec/04_TEST_RESULTS.json')), 'manual mode seeds the results file');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('runQualityGates classifies pass/fail/advisory/missing-binary', () => {
     const r = runQualityGates([
       { name: 'ok',   command: 'true',  required: true },

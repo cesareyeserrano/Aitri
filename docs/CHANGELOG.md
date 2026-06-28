@@ -5,6 +5,12 @@
 
 ---
 
+## [2.0.0-rc.127] — 2026-06-28 — verify-run: stack-neutral fallback when no test command is declared (FALLBACK-DEFAULT-0628)
+
+- **Removes the last Node bias in the verification spine.** When neither `--cmd` nor `04_BUILD_REPORT.json#test_runner` is declared, `verify-run` no longer blindly runs `npm test` — which silently ENOENTs / mis-runs on a Python/Go/.NET project (a stack-agnostic-tool violation, principle 4). It now falls back to `npm test` **only if a `package.json` is present** (Node projects relying on the implicit default are unchanged); otherwise it refuses with stack-neutral guidance (declare `test_runner` — e.g. `pytest tests/ -v`, `go test ./...`, `dotnet test`, `npm test` — or pass `--cmd`).
+- **Regression-safe:** declared `--cmd`/`test_runner` unchanged; **all-manual** projects still seed results without a runner (no false demand for a command). +2 tests; `npm run test:all` green.
+- No artifact/`.aitri` schema change (a verify-run behavior change); integration headers bumped. This is the FALLBACK-DEFAULT-0624 backlog item, graduated under the recalibrated go/no-go (code-verified invariant violation → build it, no external-consumer wait).
+
 ## [2.0.0-rc.126] — 2026-06-28 — smoke/quality gate: single-executable contract + shell-operator advisory (SMOKE-GATE-0628)
 
 - **Closes a silent mis-run in smoke gates.** quality_gate commands run WITHOUT a shell (`runQualityGates` → `spawnSync`, `shell:false`), so an inline chain like `npm start && curl ...` passes `&&`/`curl` as literal arguments and only the first program runs — a boot-and-probe smoke gate written that way silently does nothing while still reporting a result. The contract (`ARTIFACTS.md`) and the three smoke-instruction sites (`build.md`, `AGENTS.md`, `developer.js`) now state the command must be a single executable/script (e.g. `./smoke.sh`), never an inline `&&`/`;`/`|` chain.
