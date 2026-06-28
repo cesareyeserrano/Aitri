@@ -1,8 +1,14 @@
 # Aitri — Architecture Reference
 
 > **Anchor document.** Any architectural proposal must be validated against this doc first — AND this doc must be UPDATED when an architectural change ships (new command, invariant, artifact-chain, or `.aitri`/artifact contract change — the same trigger as an ADR). A stale anchor inverts the relationship: the code ends up defining the doc instead of the doc defining Aitri.
-> Last updated: 2026-06-25 (v2.0.0-rc.124).
+> Last updated: 2026-06-28 (v2.0.0-rc.125).
 > This is the stable mental map; the detailed dated record is `DECISIONS.md` (ADRs) + `CHANGELOG.md` (both committed at `docs/`). The per-era evolution record below is the same content, reshaped as a scannable table (was one run-on paragraph through rc.117).
+
+## What Aitri is
+
+Aitri is a **Spec-Driven Development orchestrator that runs the full SDLC** — idea → requirements → design → tests → build → verify → deploy, each phase gated and human-validated, with the artifact chain as the single source of truth. It **generates briefings + gates for an AI agent** (it does not write code itself) and orchestrates the project's own tools (test runner, linter, type-checker, security scanner) by exit code — zero external dependencies. **It is for project and development teams in companies of any size and any industry:** it scales down to a solo/small project (the N=1 linear pipeline, no ceremony) and is designed to scale up to multi-role teams (PM/PO/architect/developer/QA/devops personas). Documentation is a first-class output — the artifact chain carries value to product and QA, not only the coder. Aitri is a *passive producer*; subproducts (Hub) consume its artifacts autonomously, with no runtime coupling.
+
+> **Target vs evidence:** the above is the *target* (who Aitri is for — design for it, including the team/at-scale case). The *evidence base* (who has validated Aitri end-to-end) is separate and narrow (author canaries + one third-party adopter); design for the target, but do not treat the target's value as confirmed until a real consumer validates it.
 
 ### Architectural evolution (rc.45 → present)
 
