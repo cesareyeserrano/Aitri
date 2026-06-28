@@ -225,6 +225,48 @@ describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () =>
   });
 });
 
+// ADOPT-BUILD-0628: the build phase is otherwise context-excluded, but an adoption build must be
+// grounded in the existing code or it modifies the system blind. The adoption audit (relocated into
+// idea_context/ by `adopt apply`) is surfaced to Phase 4 with an instruction to read current source.
+describe('cmdRunPhase() — adoption build grounded in existing-code reality (ADOPT-BUILD-0628)', () => {
+  const buildSpec = (dir) => {
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '# System Design\n\nArchitecture details.\n');
+    writeFile(dir, 'spec/03_TEST_CASES.json', '{"test_plan":{},"test_cases":[]}');
+  };
+
+  it('surfaces ADOPTION_AUDIT.md + a read-the-code instruction to the build briefing', () => {
+    const dir = tmpDir();
+    buildSpec(dir);
+    writeFile(dir, 'idea_context/ADOPTION_AUDIT.md', '# Adoption Audit\nExisting code reality.\n');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(stdout.includes('idea_context/ADOPTION_AUDIT.md'),
+      'the build briefing must point at the adoption audit (existing-code reality)');
+    assert.match(stdout, /adoption build/i, 'the build must be framed as building on an existing codebase');
+    assert.match(stdout, /current source of every file you will touch/i,
+      'the build must be told to read the actual current code before modifying');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT add the adoption block for a greenfield build (no ADOPTION_AUDIT.md)', () => {
+    const dir = tmpDir();
+    buildSpec(dir);
+    writeFile(dir, 'idea_context/mockup.png', 'x'); // assets present, but no audit
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(!/Existing-code reality/.test(stdout),
+      'a greenfield build must not get the adoption grounding block');
+    assert.ok(!stdout.includes('idea_context/mockup.png'),
+      'and it must still not inject the asset folder into the build (unchanged)');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
 // Phase 5b — `--guided` discovery is no longer dead in agent mode (used to hard-error).
 describe('cmdRunPhase() — discovery --guided in agent mode (Phase 5b)', () => {
   it('prints an agent interview briefing instead of erroring when stdin is not a TTY', () => {

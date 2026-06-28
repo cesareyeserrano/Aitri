@@ -5,6 +5,12 @@
 
 ---
 
+## [2.0.0-rc.125] — 2026-06-28 — adoption builds are grounded in the existing code (ADOPT-BUILD-0628)
+
+- **Phase 4 (build) now surfaces `ADOPTION_AUDIT.md` to the agent on an adopted project**, with an explicit instruction to read the audit AND the actual current source of every file it will touch *before* modifying. Closes a real gap: the build phase is otherwise context-excluded (`CONTEXT_PHASES`, `run-phase.js`) and `context.js` reads no source — so on an adoption (an existing codebase, e.g. a major-version migration) the agent built against an upfront, code-unaware design and could modify/replace code it had never read.
+- **Narrow by design:** only the adoption-audit pointer (NOT the asset folder — mockups/assets stay spec-definition input; the original execution-phase exclusion is preserved), only the build phase, only when an `ADOPTION_AUDIT.md` exists. **Greenfield is byte-identical** (no audit → no block). Works at root (audit in `idea_context/`) and for a feature sub-pipeline built inside an adopted project (parent's `idea_context/`).
+- Scope: `lib/commands/run-phase.js` only (one assembly point). No artifact/`.aitri` schema change (surfaces an existing artifact to one more phase's briefing); integration headers bumped for release-sync. `templates/AGENTS.md` audited — unchanged (the briefing carries the instruction). +2 tests (adoption build gets the block; greenfield build does not). Validate next against the Umbraco 10→17 pilot.
+
 ## [2.0.0-rc.124] — 2026-06-25 — intent coverage map: make idea→requirement decomposition visible & comparable (ADR-060)
 
 - **New `01_REQUIREMENTS.json#coverage_map`** — `[{need, disposition}]`, the agent's idea→requirement decomposition externalised: every distinct need in the seed → an FR/NFR id or `"out_of_scope"`. Attacks the recurring **silent scope loss** (a need decided in ideation but never built and never declared out-of-scope — Ledger `budget`/D-7). Continues the rc.119 `no_go_zone` gate: from "the out-of-scope list exists" to "every need is accounted for, visibly".
