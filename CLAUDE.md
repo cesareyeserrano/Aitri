@@ -20,7 +20,7 @@ Evaluation criterion for any change in Aitri, in this order:
 
 A change that only satisfies (3) without touching (1) or (2) must be justified as **prevention** of a future loss at tier 1 or tier 2 (e.g. an invariant that, if broken, degrades produced software cumulatively). If there is no thread back to (1) or (2), it is noise. Say so before implementing.
 
-**Target vs evidence — do not conflate them.** Aitri's *target* is project + development teams in companies of any size and any industry; design for that, including the team and at-scale cases, and do **not** bias designs toward a solo individual (that bias mis-scored a reviewer in the SPRINT-IMPL go/no-go, which assumed "the median user is solo → N=1 is the default"). Separately, the *evidence base* (who has actually validated Aitri end-to-end) is narrow, and it matters in exactly one case. Today's consumers validating Aitri are Hub, author canaries (Ultron, Zombite, Go-on-RPi, Cesar, finance-dashboard), and **one third-party adopter (DSB-AT-POC) that has validated end-to-end across two rounds** — so the v2.0.0-stable third-party gate is **met** (promotion is held by author choice, not an unmet gate). The base is still small — a single external adopter — so the narrowness still bites for **a proposal whose value depends on a user or project that does not yet exist** (speculative abstractions, "what if someone needs X", axes added "for completeness"): acknowledge the speculation and seek external signal before treating tier 1 as confirmed. It does **not** apply to a bug verifiable from the code today, a real project currently blocked or degraded, or the removal of an incorrect assumption — there the evidence is the code plus the present case, and "wait for more consumers" confuses caution with paralysis. A filter against design-by-imagination, not a brake on fixing what is demonstrably broken.
+**Target vs evidence — do not conflate them.** Aitri's *target* is project + development teams in companies of any size and any industry; design for that, including the team and at-scale cases, and do **not** bias designs toward a solo individual (that bias mis-scored a reviewer in the SPRINT-IMPL go/no-go, which assumed "the median user is solo → N=1 is the default"). Separately, the *evidence base* (who has actually validated Aitri end-to-end) is narrow, and it matters in exactly one case. Today's consumers validating Aitri are Hub, author canaries (Ultron, Zombite, Go-on-RPi, Cesar, finance-dashboard), and **one third-party adopter (DSB-AT-POC) that has validated end-to-end across two rounds** — so the v2.0.0-stable third-party gate is **met** (promotion is held by author choice, not an unmet gate). The base is still small, but **that narrowness is NOT a brake on building.** The go/no-go bar for building or shipping is **internal — two questions, both answerable from code + logic, neither needing an external validator: (1) is the problem real?** (reproducible from the code, a documented/observed case, or a logical necessity — not "someone might want X") **and (2) is the solution sound?** (correct, no theater/false-pass, tested). Both yes → build the smallest version. The filter the narrowness justifies is **against design-by-imagination** — a value that depends on a user/case that cannot be established from code/logic/a concrete case; establish the problem internally, or do not build it. **Third-party/external validation is scoped to exactly ONE decision: promoting a breaking major to stable** (the v2.0.0-stable gate — met by DSB-AT-POC across two rounds; promotion held by author choice). It is **never** a brake on building or shipping an rc improvement — "wait for more consumers" there confuses caution with paralysis. A filter against design-by-imagination, not a brake on fixing what is demonstrably broken or building what is demonstrably real.
 
 ## Project state
 
@@ -64,6 +64,21 @@ Use **only** for architectural decisions with cross-cutting impact (new command,
 | **Trade-off** | Text | What is sacrificed |
 
 **Threshold:** if **Value to produced software ≤ 4** AND **Severity is not Critical**, do not implement. The matrix is a brake, not a checklist — a low score means the change is noise even if internally elegant. If the matrix is being filled to justify a decision already made, that is the warning sign — re-read the Feedback evaluation protocol.
+
+## Go/no-go calibration
+
+The decision matrix + an adversarial panel are for STRUCTURAL bets, not every change. **Route first, then size the response** — most over-framing is a small fix wearing a subsystem's shape:
+
+- **Verified defect** (reproducible from the code, or a real project degraded today) → the evidence is already in. Find the leanest fix + a test. **Just do it — no panel.**
+- **Clarification / doc / cosmetic** → just do it.
+- **Structural** (new command, artifact field, schema, invariant, persona, phase, blocking gate) → decision matrix + a full adversarial panel (kill + GO + bar). These are what the schema-evolution + matrix rules exist for.
+- **Imagined** (the value cannot be established from code/logic/a concrete case) → do not build; name the speculation. A panel here only confirms it is speculative.
+
+Two guards:
+- **Smallest thing first.** Before designing, ask "what is the smallest change that resolves the *verified* problem?" Start there; escalate to a subsystem only when the small thing demonstrably can't.
+- **Scale the adversarial to blast-radius + reversibility.** Reversible + small (doc, advisory, a flag default) → own judgment + a test, maybe one skeptic. Structural + hard-to-reverse → full panel. Don't run a 5-agent panel on a doc fix; don't ship a schema change on a hunch.
+
+**Meta-guard:** a run of NO-GOs is a signal to **re-frame smaller**, not "everything is bad." A go/no-go that almost always says NO is as miscalibrated as a yes-man — reflexive NO is the same defect as reflexive yes.
 
 ## Operational modes
 
