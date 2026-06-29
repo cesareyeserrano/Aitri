@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { cmdTC, parseGuidedAnswer } from '../../lib/commands/tc.js';
+import { hashArtifact } from '../../lib/state.js';
 
 function makeDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-tc-'));
@@ -200,6 +201,16 @@ describe('cmdTC — tc verify', () => {
       'invariant holds even with no 03_TEST_CASES (was broken: stale skipped_e2e=2 kept on the catch)');
     assert.equal(s.skipped_e2e, 0, 'no type map → no e2e classification');
     assert.equal(s.skipped_no_marker, 1, 'the remaining skip falls to no_marker');
+  });
+
+  it('Finding 1: tc verify re-stamps verifyResultsHash so verify-complete still accepts the file', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-002f', status: 'manual', notes: 'Manual execution required.' }]);
+    cmdTC(makeCtx(dir, ['verify', 'TC-002f', '--result', 'pass', '--notes', 'verified ok']));
+    const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    const fileContent = fs.readFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), 'utf8');
+    assert.equal(cfg.verifyResultsHash, hashArtifact(fileContent),
+      'tc verify must re-stamp the run-binding hash to match the file it just wrote');
   });
 
   it('allows re-verification of already-verified TC', () => {

@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.129] — 2026-06-28 — spine hardening from the purpose review: deploy-gate run-binding + Phase-2 design↔FR advisory
+
+A 4-agent adversarial review of whether Aitri fulfills its purpose surfaced two fixable spine holes. Both fixed here; the broader gaps (verification depth, structured-docs consumability, team-scale) are captured in a roadmap (`docs/Aitri_Design_Notes/_purpose-fulfilment-plan-0628.md`).
+
+- **Deploy-gate run-binding (Finding 1).** `verify-complete` trusted `04_TEST_RESULTS.json`'s content without binding it to a real execution — a hand-written/edited results file (all-pass) reached "deployable." Now `verify-run` (and `tc verify`) stamp `.aitri#verifyResultsHash` = SHA-256 of the results file they write, and `verify-complete` **blocks on a mismatch** ("results-hash mismatch — re-run verify-run"). Closes the realistic "ran verify-run, saw failures, edited the results to pass" shortcut. **Honest ceiling (not theatre, not a total fix):** an absent hash (pre-rc.129 / externally-produced file) is not blocked (backward-compatible), and a fully-adversarial agent that also rewrites the stamp in `.aitri` is not stopped (the file is writable) — the spine makes the file harder to forge, it cannot make it impossible. New shared `.aitri` field `verifyResultsHash` (additive).
+- **Phase-2 design↔FR advisory (the largest *unnecessary* honor-system hole).** `phase2.validate(content)` gets no `dir`/config, so it structurally cannot check the design against the requirements — a design that silently omits a MUST FR passed every gate. `runReview` gains a `phase2` scope (and `complete 2` invokes it) that surfaces each MUST FR whose id is not referenced in `02_SYSTEM_DESIGN.md`. **Advisory, not a hard block** — the design is prose and may reference a requirement by description, so a hard string gate would false-fire on a good design (the no_go_zone-leak trap); the human confirms at `approve 2`. Honest ceiling: Aitri checks the id appears, not that the design addresses it.
+- Contract: new `.aitri#verifyResultsHash` → `docs/integrations/SCHEMA.md` + integrations CHANGELOG (additive). No artifact-schema change. `templates/AGENTS.md` updated (consumer-facing: don't hand-edit the results file; Phase-2 design-coverage note). +8 tests (run-binding match/edit/absent + tc re-stamp; phase2 warn/MUST-only/clean/absent-design). `npm run test:all` green (1821).
+
 ## [2.0.0-rc.128] — 2026-06-28 — `.aitri` merge-conflict refuses-don't-reset + tc-verify skip-partition fix (adversarial-review batch)
 
 Post-adversarial-review fix batch (4-agent review @ rc.127). Two behavior fixes + doc-truth corrections.

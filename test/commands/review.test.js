@@ -151,6 +151,82 @@ describe('runReview() — Requirements → Test Cases', () => {
 
 // ── Test Cases → Test Results ─────────────────────────────────────────────────
 
+describe('runReview() — System Design → MUST FRs (phase2)', () => {
+  function writeDesign(dir, text) {
+    const specDir = path.join(dir, 'spec');
+    fs.mkdirSync(specDir, { recursive: true });
+    fs.writeFileSync(path.join(specDir, '02_SYSTEM_DESIGN.md'), text);
+  }
+
+  it('warns (not errors) when a MUST FR id is not referenced in the design', () => {
+    const dir = tmpDir();
+    try {
+      writeArtifact(dir, '01_REQUIREMENTS.json', makeReqs([
+        { id: 'FR-001', title: 'login',  priority: 'MUST' },
+        { id: 'FR-002', title: 'logout', priority: 'MUST' },
+      ]));
+      writeDesign(dir, '# Design\n\nThe auth module implements FR-001 via JWT sessions.\n');
+      const { errors, warnings } = runReview(dir, baseConfig(dir), 'phase2');
+      assert.equal(errors.length, 0, 'phase2 is advisory — never errors');
+      assert.ok(warnings.some(w => w.includes('FR-002')), 'unreferenced MUST FR is surfaced');
+      assert.ok(!warnings.some(w => w.includes('FR-001')), 'referenced MUST FR is not flagged');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('boundary match: an omitted FR-1 is flagged even when FR-12 / NFR-1 are referenced (no substring false-negative)', () => {
+    const dir = tmpDir();
+    try {
+      writeArtifact(dir, '01_REQUIREMENTS.json', makeReqs([
+        { id: 'FR-1',  title: 'login',  priority: 'MUST' },
+        { id: 'FR-12', title: 'export', priority: 'MUST' },
+      ]));
+      // The design references FR-12 and NFR-1 — both literally CONTAIN "FR-1" — but omits FR-1.
+      writeDesign(dir, '# Design\n\nFR-12 is the export module. NFR-1 covers latency.\n');
+      const { warnings } = runReview(dir, baseConfig(dir), 'phase2');
+      assert.ok(warnings.some(w => w.includes('FR-1 ') && !w.includes('FR-12')),
+        'a real omission of FR-1 must be surfaced, not hidden by FR-12/NFR-1 substrings');
+      assert.ok(!warnings.some(w => w.includes('FR-12')), 'FR-12 (referenced) is not flagged');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not flag SHOULD/NICE FRs absent from the design (MUST-only)', () => {
+    const dir = tmpDir();
+    try {
+      writeArtifact(dir, '01_REQUIREMENTS.json', makeReqs([
+        { id: 'FR-001', title: 'core',  priority: 'MUST' },
+        { id: 'FR-009', title: 'extra', priority: 'SHOULD' },
+      ]));
+      writeDesign(dir, '# Design\n\nCovers FR-001.\n');
+      const { warnings } = runReview(dir, baseConfig(dir), 'phase2');
+      assert.ok(!warnings.some(w => w.includes('FR-009')), 'a SHOULD FR is not flagged');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('no warnings when every MUST FR id is referenced', () => {
+    const dir = tmpDir();
+    try {
+      writeArtifact(dir, '01_REQUIREMENTS.json', makeReqs([
+        { id: 'FR-001', title: 'a', priority: 'MUST' },
+        { id: 'FR-002', title: 'b', priority: 'MUST' },
+      ]));
+      writeDesign(dir, '# Design\n\nFR-001 and FR-002 are both addressed here.\n');
+      const { errors, warnings } = runReview(dir, baseConfig(dir), 'phase2');
+      assert.equal(errors.length, 0);
+      assert.equal(warnings.length, 0);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('silent when the design artifact is absent (nothing to check)', () => {
+    const dir = tmpDir();
+    try {
+      writeArtifact(dir, '01_REQUIREMENTS.json', makeReqs([{ id: 'FR-001', title: 'a', priority: 'MUST' }]));
+      const { errors, warnings } = runReview(dir, baseConfig(dir), 'phase2');
+      assert.equal(errors.length, 0);
+      assert.equal(warnings.length, 0);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('runReview() — Test Cases → Test Results', () => {
 
   it('returns no findings on clean TC→Results alignment', () => {

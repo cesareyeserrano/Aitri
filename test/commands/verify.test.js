@@ -5,6 +5,7 @@ import os from 'os';
 import path from 'path';
 import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, hasMutationGate, hasUISurfaceFRs, hasAppExecutingGate, gatesWithShellOperators, resolveWinBin } from '../../lib/commands/verify.js';
 import { cmdStatus } from '../../lib/commands/status.js';
+import { hashArtifact } from '../../lib/state.js';
 
 describe('parseRunnerOutput()', () => {
 
@@ -1850,6 +1851,67 @@ describe('cmdVerifyComplete() — FR coverage gate is MUST-only (#2)', () => {
 // NFR-regression (rc.73): a MUST NFR whose test SKIPPED (not failed) reaches the deploy
 // gate untested — fr_coverage is FR-only, so it was invisible. verify-complete now surfaces
 // it (ADVISORY, never blocks) so the operator sees it at the deploy moment.
+describe('cmdVerifyComplete() — run-binding: results file must match the stamped verify-run hash (Finding 1)', () => {
+  // Writes a clean, passing, MUST-FR-covered project WITHOUT a stamped hash; returns the
+  // exact results-file JSON so a test can stamp the matching (or a stale) hash into .aitri.
+  function seed(dir) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'core', priority: 'MUST' }],
+    }));
+    const results = {
+      executed_at: new Date().toISOString(), test_runner: 'node --test', exit_code: 0,
+      results: [{ tc_id: 'TC-001', status: 'pass' }],
+      fr_coverage: [{ fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' }],
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0 }, low_confidence_tcs: [],
+    };
+    const json = JSON.stringify(results, null, 2);
+    fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), json);
+    return json;
+  }
+  function setHash(dir, hash) {
+    const p = path.join(dir, '.aitri');
+    const cfg = { projectName: 'p', artifactsDir: 'spec', approvedPhases: [1,2,3,4], completedPhases: [1,2,3,4] };
+    if (hash !== undefined) cfg.verifyResultsHash = hash;
+    fs.writeFileSync(p, JSON.stringify(cfg));
+  }
+  const quiet = (fn) => { const ol = console.log, oe = process.stderr.write; console.log = () => {}; process.stderr.write = () => true; try { return fn(); } finally { console.log = ol; process.stderr.write = oe; } };
+
+  it('passes when the stamped hash matches the current results file', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rb-match-'));
+    try {
+      const json = seed(dir);
+      setHash(dir, hashArtifact(json));
+      assert.doesNotThrow(() => quiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('BLOCKS when the results file was edited after the run (hash mismatch)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rb-edit-'));
+    try {
+      const json = seed(dir);
+      setHash(dir, hashArtifact(json));        // stamp = hash of the real run output
+      // Now hand-edit the results file after the run (the realistic cheat).
+      const edited = json.replace('"total": 1', '"total": 1, "note": "edited"');
+      fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), edited);
+      assert.throws(
+        () => quiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })),
+        /results-hash mismatch/,
+        'an edited results file must not be trusted at the deploy gate'
+      );
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT block when no hash is stamped (backward-compatible / externally-produced file)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rb-absent-'));
+    try {
+      seed(dir);
+      setHash(dir, undefined); // no verifyResultsHash — pre-stamp project
+      assert.doesNotThrow(() => quiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('cmdVerifyComplete() — MUST-NFR skipped-test visibility (NFR-regression)', () => {
   // FR-001 MUST (TC-001 passes) so the FR gate is satisfied; NFR-001 MUST (TC-002).
   function seed(dir, nfrTcStatus) {

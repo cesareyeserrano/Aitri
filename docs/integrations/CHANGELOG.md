@@ -18,6 +18,11 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.129 (2026-06-28) — new `.aitri` field `verifyResultsHash` (deploy-gate run-binding) — additive
+
+- **New shared `.aitri` field `verifyResultsHash`** (`string|null`) — SHA-256 of the `04_TEST_RESULTS.json` content written by the last `verify-run` (re-stamped by `tc verify`). `verify-complete` now rejects a results file whose current hash differs from this stamp, binding the deploy gate to a real execution (a hand-edited results file no longer passes). Additive + absence-tolerant: pre-rc.129 projects (and externally-produced results files) have no hash → not enforced, so old readers and existing projects are unaffected. Consumers that gate on `verifyPassed` are unchanged.
+- No artifact-schema change. The Phase-2 `complete 2` advisory (surfaces MUST FRs not referenced in `02_SYSTEM_DESIGN.md`) is operator-facing only — no schema/field.
+
 ## v2.0.0-rc.128 (2026-06-28) — `coverage_map` description clarified: the audit diff is agent-performed — additive
 
 - **Clarification, no schema change, no reader impact.** The `01_REQUIREMENTS.json#coverage_map` description previously read that `aitri audit requirements` "diffs its own independent re-derivation against this map." The diff is **agent-performed via the audit prompt**, not a mechanical Aitri operation — a consumer (e.g. Hub) must not assume Aitri computed the comparison. ARTIFACTS.md reworded to "directs the agent to diff … (agent-performed, not a mechanical Aitri diff)". Field shape unchanged.
