@@ -1,7 +1,7 @@
 # Aitri — Architecture Reference
 
 > **Anchor document.** Any architectural proposal must be validated against this doc first — AND this doc must be UPDATED when an architectural change ships (new command, invariant, artifact-chain, or `.aitri`/artifact contract change — the same trigger as an ADR). A stale anchor inverts the relationship: the code ends up defining the doc instead of the doc defining Aitri.
-> Last updated: 2026-06-28 (v2.0.0-rc.125).
+> Last updated: 2026-06-28 (v2.0.0-rc.128).
 > This is the stable mental map; the detailed dated record is `DECISIONS.md` (ADRs) + `CHANGELOG.md` (both committed at `docs/`). The per-era evolution record below is the same content, reshaped as a scannable table (was one run-on paragraph through rc.117).
 
 ## What Aitri is
@@ -39,7 +39,11 @@ Each row is an era, not an exhaustive list — the authoritative dated record st
 | rc.119 | **Phase-1 `no_go_zone` content gate** — `complete 1`/`approve 1` require a non-empty `no_go_zone` (≥3 root / ≥1 feature; same feature-floor as FR/NFR minimums) | REQ-RICHNESS-0624 |
 | rc.120 | **`aitri feature discard <name>`** — isTTY-gated retirement of a cancelled feature: deletes the feature dir + SURFACES the shared code it built (git reverts it, not Aitri); single-path-segment guard against `discard ..` traversal | FEAT-DISCARD-0624 |
 | rc.122 | **`aitri feature <name> audit requirements`** — feature-scoped idea→FR completeness audit (`FEATURE_IDEA.md`/absorbed `original_brief` vs the feature's FRs; preserves ADR-048 independence). Root `audit coverage` renamed → `audit requirements` (deprecated alias kept, non-breaking) | AUDIT-COV-FEAT-0625 |
-| rc.124 | **Intent coverage map** — `01_REQUIREMENTS.json#coverage_map` (`[{need, disposition}]`): the idea→requirement decomposition externalised. Light fresh-seed Phase-1 gate (structural validity); the teeth are `audit requirements`, which diffs its independent re-derivation against the map to surface a silently-dropped need. Mitigation, not guarantee (ceiling stated) | ADR-060 |
+| rc.124 | **Intent coverage map** — `01_REQUIREMENTS.json#coverage_map` (`[{need, disposition}]`): the idea→requirement decomposition externalised. Light fresh-seed Phase-1 gate (structural validity); the teeth are `audit requirements`, whose prompt directs the agent to diff its independent re-derivation against the map to surface a silently-dropped need (agent-performed, not a mechanical Aitri diff). Mitigation, not guarantee (ceiling stated) | ADR-060 |
+| rc.125 | **Adoption builds grounded in existing code** — Phase-4 briefing surfaces `ADOPTION_AUDIT.md` + instructs reading the actual current source of every file to be touched before modifying (greenfield byte-identical; only when an audit exists) | ADOPT-BUILD-0628 |
+| rc.126 | **Smoke/quality-gate single-executable contract** — `quality_gate` commands run shell-less (`spawnSync`), so an inline `&&`/`;`/`\|` chain silently runs only the first program; contract + 3 instruction sites now require a single executable, and `verify-run` flags a standalone shell operator (read-only advisory). Rejected a blocking smoke gate (presence-theater) + an Aitri-owned probe (passive-producer line) | SMOKE-GATE-0628 |
+| rc.127 | **Verify-run stack-neutral fallback** — with no `--cmd`/`test_runner` declared, `verify-run` falls back to `npm test` only if a `package.json` exists, else refuses with stack-neutral guidance (removes the last Node bias, principle 4) | FALLBACK-DEFAULT-0628 |
+| rc.128 | **`.aitri` merge-conflict refuses-don't-reset** — `loadConfig` detects unresolved git conflict markers and throws actionable guidance instead of silently resetting shared pipeline state to DEFAULTS (the team case the committed `.aitri` exists to serve); `tc verify` skip-partition kept consistent with `skipped` | G-4 / C-2 (2026-06-28) |
 
 ---
 

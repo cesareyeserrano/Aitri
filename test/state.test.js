@@ -56,6 +56,60 @@ describe('loadConfig()', () => {
     fs.rmSync(dir, { recursive: true });
   });
 
+  it('G-4: refuses (throws) on unresolved git merge conflict markers instead of resetting', () => {
+    const dir = tmpDir();
+    // A routine team merge of the committed .aitri left conflict markers — invalid JSON.
+    const conflicted = [
+      '{',
+      '  "currentPhase": 2,',
+      '<<<<<<< HEAD',
+      '  "approvedPhases": [1, 2]',
+      '=======',
+      '  "approvedPhases": [1]',
+      '>>>>>>> feature-branch',
+      '}',
+    ].join('\n');
+    fs.writeFileSync(path.join(dir, '.aitri'), conflicted);
+    assert.throws(() => loadConfig(dir), /unresolved git merge conflict markers/,
+      'a conflicted .aitri must refuse, not reset to DEFAULTS');
+    // Must NOT silently reset: no backup written, file left intact for the operator to resolve.
+    assert.ok(!fs.existsSync(path.join(dir, '.aitri.bak')),
+      'a merge conflict must not trigger the backup-and-reset path');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('G-4: a genuinely-malformed (non-conflict) .aitri still resets, not throws', () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, '.aitri'), '{not valid json and no conflict markers');
+    const cfg = loadConfig(dir); // must not throw
+    assert.deepEqual(cfg.approvedPhases, [], 'non-conflict malformed config keeps the reset behavior');
+    assert.ok(fs.existsSync(path.join(dir, '.aitri.bak')), 'non-conflict malformed config still backs up');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('G-4: malformed JSON with a stray ======= line is NOT misread as a conflict (resets, not throws)', () => {
+    // Only the angle-bracket markers (<<<<<<< / >>>>>>>) signal a real git conflict; a lone
+    // ======= can appear in unrelated corruption and must keep the backup-and-reset path.
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, '.aitri'), '{ "currentPhase": 1 garbage\n=======\nmore garbage');
+    const cfg = loadConfig(dir); // must not throw
+    assert.deepEqual(cfg.approvedPhases, [], 'a stray ======= must not be treated as a conflict');
+    assert.ok(fs.existsSync(path.join(dir, '.aitri.bak')), 'still backs up like other malformed config');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('G-4: tolerateConflict returns DEFAULTS instead of throwing (resilient snapshot path)', () => {
+    const dir = tmpDir();
+    const conflicted = '{\n<<<<<<< HEAD\n  "currentPhase": 2\n=======\n  "currentPhase": 1\n>>>>>>> branch\n}';
+    fs.writeFileSync(path.join(dir, '.aitri'), conflicted);
+    assert.throws(() => loadConfig(dir), /unresolved git merge conflict markers/, 'default still refuses');
+    const cfg = loadConfig(dir, { tolerateConflict: true }); // must not throw
+    assert.equal(cfg.currentPhase, 0, 'tolerant load degrades to DEFAULTS');
+    assert.deepEqual(cfg.approvedPhases, []);
+    assert.ok(!fs.existsSync(path.join(dir, '.aitri.bak')), 'tolerant load does not back up or reset the file');
+    fs.rmSync(dir, { recursive: true });
+  });
+
   it('handles BOM-prefixed config file', () => {
     const dir = tmpDir();
     fs.writeFileSync(path.join(dir, '.aitri'), '\uFEFF' + JSON.stringify({ approvedPhases: [1, 2] }));

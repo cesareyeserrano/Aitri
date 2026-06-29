@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.128 (2026-06-28) — `coverage_map` description clarified: the audit diff is agent-performed — additive
+
+- **Clarification, no schema change, no reader impact.** The `01_REQUIREMENTS.json#coverage_map` description previously read that `aitri audit requirements` "diffs its own independent re-derivation against this map." The diff is **agent-performed via the audit prompt**, not a mechanical Aitri operation — a consumer (e.g. Hub) must not assume Aitri computed the comparison. ARTIFACTS.md reworded to "directs the agent to diff … (agent-performed, not a mechanical Aitri diff)". Field shape unchanged.
+
 ## v2.0.0-rc.126 (2026-06-28) — quality_gate `command` documented as shell:false / single-executable — additive
 
 - **Clarification, no schema change, no reader impact.** Documents existing behavior: a `04_BUILD_REPORT.json#quality_gates` command gate runs WITHOUT a shell (`spawnSync`, `shell:false`), so `command` must be a single executable plus arguments — shell operators (`&&`/`||`/`;`/`|`, redirects, globs) are NOT interpreted (only the first program runs). Multi-step gates (e.g. a smoke gate that boots the app then probes it) must live in a script file the gate invokes. No field added or changed; existing readers are unaffected.

@@ -1027,6 +1027,45 @@ describe('resilience', () => {
     } finally { cleanup(dir); }
   });
 
+  it('G-4 #1: a conflicted FEATURE .aitri flags parseError and does NOT abort the whole snapshot', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'root', artifactsDir: 'spec' });
+      // healthy feature
+      const okFeat = path.join(dir, 'features', 'ok');
+      fs.mkdirSync(path.join(okFeat, 'spec'), { recursive: true });
+      saveConfig(okFeat, { projectName: 'ok', artifactsDir: 'spec', approvedPhases: [1] });
+      // conflicted feature — a merge left git markers (raw write, not via saveConfig)
+      const badFeat = path.join(dir, 'features', 'bad');
+      fs.mkdirSync(badFeat, { recursive: true });
+      fs.writeFileSync(path.join(badFeat, '.aitri'),
+        '{\n<<<<<<< HEAD\n  "approvedPhases": [1, 2]\n=======\n  "approvedPhases": [1]\n>>>>>>> branch\n}');
+
+      const snap = buildProjectSnapshot(dir); // must NOT throw (was the ship-blocker regression)
+      assert.equal(snap.pipelines.length, 3, 'root + both features still present — aggregation continued');
+      const bad = snap.pipelines.find(p => p.scope === 'feature:bad');
+      assert.equal(bad.parseError, true, 'conflicted feature is flagged, not silently dropped or reset');
+      const ok = snap.pipelines.find(p => p.scope === 'feature:ok');
+      assert.ok(ok.phases.find(p => p.key === 1).status === 'approved', 'the healthy feature still renders');
+      // Pin G-4 specifically (not just "didn't abort"): the conflicted feature must be LEFT INTACT,
+      // not reset+backed-up. Without this the test also passes against the old silent-reset path.
+      assert.ok(!fs.existsSync(path.join(badFeat, '.aitri.bak')),
+        'tolerated conflict must NOT trigger backup-and-reset');
+      assert.match(fs.readFileSync(path.join(badFeat, '.aitri'), 'utf8'), /<<<<<<</,
+        'the conflicted feature .aitri is left untouched for the operator to resolve');
+    } finally { cleanup(dir); }
+  });
+
+  it('G-4: a conflicted ROOT .aitri refuses (throws) — project state is unknowable', () => {
+    const dir = tmpDir();
+    try {
+      fs.writeFileSync(path.join(dir, '.aitri'),
+        '{\n<<<<<<< HEAD\n  "currentPhase": 2\n=======\n  "currentPhase": 1\n>>>>>>> branch\n}');
+      assert.throws(() => buildProjectSnapshot(dir), /unresolved git merge conflict markers/,
+        'a conflicted root is not tolerated — it refuses like any other command');
+    } finally { cleanup(dir); }
+  });
+
   it('malformed 01_REQUIREMENTS.json does not crash the builder', () => {
     const dir = tmpDir();
     try {

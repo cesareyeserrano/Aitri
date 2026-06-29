@@ -39,7 +39,7 @@ import { cmdTC }           from '../lib/commands/tc.js';
 import { cmdRehash }       from '../lib/commands/rehash.js';
 import { homedirCaptureNote } from '../lib/state.js';
 
-const VERSION   = '2.0.0-rc.127';
+const VERSION   = '2.0.0-rc.128';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -143,6 +143,12 @@ switch (cmd) {
   if (/^Not an Aitri project/.test(e?.message || '')) {
     console.error(`❌ This folder isn't an Aitri project yet.`);
     console.error(`   Run 'aitri init' to start a new project, or 'aitri adopt scan' to adopt an existing one.`);
+    process.exit(1);
+  }
+  // An unresolved `.aitri` merge conflict: loadConfig refuses (G-4) rather than silently
+  // resetting the shared pipeline. Print the actionable guidance, not a raw stack trace.
+  if (/unresolved git merge conflict markers/.test(e?.message || '')) {
+    console.error(`❌ ${e.message}`);
     process.exit(1);
   }
   throw e;

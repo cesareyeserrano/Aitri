@@ -156,6 +156,52 @@ describe('cmdTC — tc verify', () => {
     assert.equal(ac.tests_failing, 1);
   });
 
+  it('C-2: keeps the skip partition consistent — skipped_e2e + skipped_no_marker === skipped', () => {
+    const dir = makeDir();
+    // Two skipped TCs (one e2e, one unit). A non-results evidence log lets us record the
+    // unit one as pass via the evidence floor (the runner skipped it, Aitri can't parse).
+    fs.writeFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [
+        { id: 'TC-E2E', type: 'e2e', automation: 'automated', title: 'browser flow' },
+        { id: 'TC-UNIT', type: 'unit', automation: 'automated', title: 'unit calc' },
+      ],
+    }));
+    writeResults(dir,
+      [{ tc_id: 'TC-E2E', status: 'skip' }, { tc_id: 'TC-UNIT', status: 'skip' }],
+      { total: 2, skipped: 2, skipped_e2e: 1, skipped_no_marker: 1 });
+    const evidence = path.join(dir, 'run.log');
+    fs.writeFileSync(evidence, 'TC-UNIT executed by hand: result OK');
+
+    cmdTC(makeCtx(dir, ['verify', 'TC-UNIT', '--result', 'pass', '--notes', 'ran by hand', '--evidence', evidence]));
+
+    const s = readResults(dir).summary;
+    assert.equal(s.skipped, 1, 'one skip remains (TC-E2E)');
+    assert.equal(s.skipped_e2e, 1, 'the remaining skip is the e2e one');
+    assert.equal(s.skipped_no_marker, 0, 'the unit skip left the partition');
+    assert.equal(s.skipped_e2e + s.skipped_no_marker, s.skipped,
+      'partition invariant holds (was broken before C-2: the two fields stayed stale at 1+1=2 > skipped=1)');
+    assert.equal(s.passed, 1, 'the verified TC counts as passed');
+  });
+
+  it('C-2: skip partition stays consistent even when 03_TEST_CASES is unreadable', () => {
+    const dir = makeDir();
+    // No 03_TEST_CASES.json on disk → the type map is unavailable.
+    writeResults(dir,
+      [{ tc_id: 'TC-A', status: 'skip' }, { tc_id: 'TC-B', status: 'skip' }],
+      { total: 2, skipped: 2, skipped_e2e: 2, skipped_no_marker: 0 });
+    const evidence = path.join(dir, 'run.log');
+    fs.writeFileSync(evidence, 'TC-A by hand: OK');
+
+    cmdTC(makeCtx(dir, ['verify', 'TC-A', '--result', 'pass', '--notes', 'ok', '--evidence', evidence]));
+
+    const s = readResults(dir).summary;
+    assert.equal(s.skipped, 1);
+    assert.equal(s.skipped_e2e + s.skipped_no_marker, s.skipped,
+      'invariant holds even with no 03_TEST_CASES (was broken: stale skipped_e2e=2 kept on the catch)');
+    assert.equal(s.skipped_e2e, 0, 'no type map → no e2e classification');
+    assert.equal(s.skipped_no_marker, 1, 'the remaining skip falls to no_marker');
+  });
+
   it('allows re-verification of already-verified TC', () => {
     const dir = makeDir();
     writeResults(dir, [{ tc_id: 'TC-002f', status: 'pass', notes: 'first run', verified_manually: true, verified_at: '2026-01-01T00:00:00Z' }]);
