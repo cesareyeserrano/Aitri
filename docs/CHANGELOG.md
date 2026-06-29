@@ -5,6 +5,13 @@
 
 ---
 
+## [2.0.0-rc.131] — 2026-06-28 — verify-complete surfaces low-confidence (hollow) tests at the deploy gate by default
+
+Tier-1 #2 of the purpose-fulfilment plan — smaller than framed, because the gap was narrower than the review implied. `verify-run` **already** warned about low-confidence TCs (≤1 assertion — a `assert.ok(true)` test that credits its FR without exercising behavior) by default; only the *block* was opt-in (`strictAssertions`). What was silent by default was **`verify-complete`** — the deploy gate itself only mentioned them under `strictAssertions`.
+
+- **`verify-complete` now emits a default advisory** when low-confidence TCs reached the deploy gate (strictAssertions off): it lists them and notes "Not blocking — confirm each genuinely verifies its expected_result; set strictAssertions to make it a hard gate." Mirrors the existing MUST-NFR-skip advisory — surfaces "green ≠ exercised" at the moment of deciding to ship, not only when the suite ran. **Advisory, never a default block** (a hard default gate would false-fire on legitimately terse tests; `strictAssertions` stays the opt-in gate).
+- No schema/contract change (reads the existing `low_confidence_tcs`); integration headers bumped. `templates/AGENTS.md` updated. +1 test; `npm run test:all` green.
+
 ## [2.0.0-rc.130] — 2026-06-28 — `aitri export traceability`: structured artifacts as human-readable Markdown (ADR-062)
 
 Closes the documentation gap the purpose review surfaced (`docs/Aitri_Design_Notes/_purpose-fulfilment-plan-0628.md`, Tier-1 #1). Aitri's first-class "documentation product/QA read without code" output ships the structured artifacts (PRD, test plan, traceability) as **JSON**, whose human-readable form was delegated to Hub — which is being rebuilt. So today there is no human-readable path for them from Core. The deferred `aitri export` (G-3) was waiting for "a consumer needs the rendered form without Hub"; Hub being down IS that consumer-need.

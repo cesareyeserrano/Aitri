@@ -1649,6 +1649,21 @@ describe('cmdVerifyComplete() — C2 strictAssertions gate', () => {
         cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  it('SURFACES a default advisory at the deploy gate (strictAssertions OFF) for low-confidence TCs (rc.131)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-c2-advisory-'));
+    try {
+      seed(dir, { strict: false, lowConfidence: true });
+      let stderr = '';
+      const oe = process.stderr.write, ol = console.log;
+      console.log = () => {}; process.stderr.write = (c) => { stderr += c; return true; };
+      try { cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } }); }
+      finally { process.stderr.write = oe; console.log = ol; }
+      assert.match(stderr, /low-confidence test case\(s\) reached the deploy gate/);
+      assert.match(stderr, /TC-001/);
+      assert.match(stderr, /Not blocking/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 describe('cmdVerifyComplete() — AC-level coverage gate (ADR-041 option A, rc.49)', () => {
