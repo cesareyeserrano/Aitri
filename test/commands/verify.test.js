@@ -5,7 +5,7 @@ import os from 'os';
 import path from 'path';
 import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, hasMutationGate, hasUISurfaceFRs, hasAppExecutingGate, gatesWithShellOperators, resolveWinBin } from '../../lib/commands/verify.js';
 import { cmdStatus } from '../../lib/commands/status.js';
-import { hashArtifact } from '../../lib/state.js';
+import { hashArtifact, hashResultsFile } from '../../lib/state.js';
 
 describe('parseRunnerOutput()', () => {
 
@@ -1924,6 +1924,55 @@ describe('cmdVerifyComplete() — run-binding: results file must match the stamp
       setHash(dir, undefined); // no verifyResultsHash — pre-stamp project
       assert.doesNotThrow(() => quiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  // H2 (2026-06-29): the binding must tolerate a WHITESPACE/EOL-only rewrite by an external
+  // tool between verify-run and verify-complete (editor "insert final newline", a JSON
+  // format/pre-commit hook, git autocrlf on a cross-machine/CI checkout) — no result changed,
+  // so a false-block here ("hand-edited") derails a legitimate run. hashResultsFile normalizes.
+  it('does NOT block when only a trailing newline was added after the run (format-hook normalization)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rb-newline-'));
+    try {
+      const json = seed(dir);
+      setHash(dir, hashResultsFile(json));   // stamp = what verify-run writes
+      fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), json + '\n');
+      assert.doesNotThrow(() => quiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT block when line endings differ (CRLF — git autocrlf on a cross-machine checkout)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rb-crlf-'));
+    try {
+      const json = seed(dir);
+      setHash(dir, hashResultsFile(json));
+      fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), json.replace(/\n/g, '\r\n'));
+      assert.doesNotThrow(() => quiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  // The non-weakening guard: whitespace tolerance must NOT let a genuine result edit through.
+  // Flip a passing TC to fail AND add a trailing newline; the binding must still block.
+  it('STILL blocks a real result edit even when whitespace is also normalized (binding not weakened)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rb-realedit-'));
+    try {
+      const json = seed(dir);
+      setHash(dir, hashResultsFile(json));
+      const edited = json.replace('"status": "pass"', '"status": "fail"') + '\n';
+      fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), edited);
+      assert.throws(
+        () => quiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })),
+        /results-hash mismatch/,
+        'a real content edit must still be caught despite whitespace normalization'
+      );
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('hashResultsFile: whitespace/EOL/BOM variants hash equal; a real content change does not', () => {
+    const base = '{\n  "a": 1\n}';
+    assert.equal(hashResultsFile(base + '\n'),            hashResultsFile(base), 'trailing newline must not change the hash');
+    assert.equal(hashResultsFile(base.replace(/\n/g, '\r\n')), hashResultsFile(base), 'CRLF must not change the hash');
+    assert.equal(hashResultsFile('\uFEFF' + base),       hashResultsFile(base), 'a leading BOM must not change the hash');
+    assert.notEqual(hashResultsFile('{\n  "a": 2\n}'),   hashResultsFile(base), 'a real value change must change the hash');
   });
 });
 

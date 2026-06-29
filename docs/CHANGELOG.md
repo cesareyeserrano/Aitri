@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.133] — 2026-06-29 — run-binding hash tolerates whitespace/EOL-only rewrites (H2)
+
+Surfaced by an adversarial review of the verification gates. The run-binding (Finding 1, rc.129) stamped the results-file hash on verify-run's in-memory output (LF, no trailing newline, no BOM), but verify-complete re-hashed the **raw bytes** read from disk. An external writer acting between the two commands — an editor's "insert final newline", a JSON format/pre-commit hook, or git's autocrlf on a cross-machine/CI checkout (the team handoff the committed `.aitri` exists to serve) — rewrites byte-level whitespace **without changing any result**, which false-blocked a legitimate run with a misleading "hand-edited" message.
+
+- **New `hashResultsFile()` in `lib/state.js`** canonicalizes before hashing (strip BOM, CRLF→LF, trim trailing whitespace), applied on BOTH the stamp (`verify-run`, `tc verify`, the known-gap re-stamp) and the check (`verify-complete`). A whitespace/EOL-only difference now matches; a real edit (flipped status, changed count, added field) still changes non-whitespace bytes and is caught — JSON carries no data in inter-token whitespace. Kept separate from `hashArtifact`, which backs drift detection over phase artifacts (a byte-exact contract, left untouched).
+- Backward-compatible: a hash stamped the old way still matches an unmutated file (the stamp input is canonical `JSON.stringify` output, so the two hashes coincide there).
+- +4 tests: trailing-newline tolerance, CRLF tolerance, the non-weakening guard (a real `pass→fail` edit still blocks even with whitespace normalized), and a `hashResultsFile` unit. Suite 1840.
+
 ## [2.0.0-rc.132] — 2026-06-29 — the build phase suggests an independent adversarial pass before reporting done
 
 The outcome of an architecture-critique session: a 5-proposal reform list was run through an adversarial panel, and **almost none survived** — the existing decisions hold (a mechanical smoke gate re-imports the rejected Aitri-owned probe; a load-bearing adversarial verdict is the ADR-053 verifier-with-conflict ceiling; file→FR is SCOPED-CHANGE's discarded honor-system; cross-feature overlap is trigger-gated). The honest finding: Aitri's reliability ceiling is set by its identity (zero-dep, passive producer, no API calls, semantic-quality-is-honor-system), and the existing gates already reach it. The **one** gap the panel approved: the independent-adversarial-subagent suggestion existed in the code-review / test / audit prompts (rc.118) but **not in the build phase** — exactly where the practice is highest-value (the session itself proved adversarial-on-implementation catches ship-blockers green tests miss).
