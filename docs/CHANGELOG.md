@@ -5,6 +5,13 @@
 
 ---
 
+## [2.0.0-rc.132] — 2026-06-29 — the build phase suggests an independent adversarial pass before reporting done
+
+The outcome of an architecture-critique session: a 5-proposal reform list was run through an adversarial panel, and **almost none survived** — the existing decisions hold (a mechanical smoke gate re-imports the rejected Aitri-owned probe; a load-bearing adversarial verdict is the ADR-053 verifier-with-conflict ceiling; file→FR is SCOPED-CHANGE's discarded honor-system; cross-feature overlap is trigger-gated). The honest finding: Aitri's reliability ceiling is set by its identity (zero-dep, passive producer, no API calls, semantic-quality-is-honor-system), and the existing gates already reach it. The **one** gap the panel approved: the independent-adversarial-subagent suggestion existed in the code-review / test / audit prompts (rc.118) but **not in the build phase** — exactly where the practice is highest-value (the session itself proved adversarial-on-implementation catches ship-blockers green tests miss).
+
+- **`templates/phases/build.md` now includes an "Optional — adversarial pass before you report the build done" block**, mirroring the code-review one: spawn an independent subagent told to *break* the diff (wrong requirement, hollow assertion, untested path, green-but-never-runs), then verify its load-bearing claims against the code. Advisory — Aitri cannot run or gate on it (an agent-authored verdict is honor-system; gating would be theater, ADR-053). Framed exactly as the rule the maintainer codified this session: not a substitute for green tests, mandatory-by-default for real-blast-radius work, accumulate-and-batch the trivial. `templates/AGENTS.md` updated (build added to the subagent-suggestion list).
+- PROMPT-mode only; no schema/contract/code change. Integration headers bumped for release-sync. +1 test (the build briefing renders the block). `npm run test:all` green.
+
 ## [2.0.0-rc.131] — 2026-06-28 — verify-complete surfaces low-confidence (hollow) tests at the deploy gate by default
 
 Tier-1 #2 of the purpose-fulfilment plan — smaller than framed, because the gap was narrower than the review implied. `verify-run` **already** warned about low-confidence TCs (≤1 assertion — a `assert.ok(true)` test that credits its FR without exercising behavior) by default; only the *block* was opt-in (`strictAssertions`). What was silent by default was **`verify-complete`** — the deploy gate itself only mentioned them under `strictAssertions`.

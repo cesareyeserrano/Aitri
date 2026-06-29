@@ -340,6 +340,11 @@ describe('Phase 4 — buildBriefing() (BL-004)', () => {
     assert.ok(briefing.includes('Human Review'), 'briefing must include Human Review section');
   });
 
+  it('briefing suggests an adversarial pass before reporting the build done (rc.132)', () => {
+    assert.match(briefing, /adversarial pass/i, 'build briefing must offer the independent adversarial pass');
+    assert.match(briefing, /told to \*\*break\*\*|to break/i, 'framed as break-not-validate');
+  });
+
   it('debug mode not present when no failingTests', () => {
     assert.ok(!briefing.includes('Debug Mode'), 'debug mode must not appear without failingTests');
   });

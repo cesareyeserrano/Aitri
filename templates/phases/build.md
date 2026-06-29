@@ -238,6 +238,9 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4   →   aitri {{SCOPE_VERB}}ap
 {{TDD_RECOMMENDATION}}
 {{/IF_TDD_RECOMMENDATION}}
 
+## Optional — adversarial pass before you report the build done
+Before you report this build complete, if your environment supports independent subagents, spawn one told to **break** what you just built — not to validate it. Point it at the diff: find the requirement you implemented *wrong* (not just untested), the assertion that passes without exercising real behavior, the untested path, the edge that crashes, the thing that's green but never actually runs. **Self-review shares the blind spot that wrote the code; an independent pass does not — and green tests are not a substitute** (the worst defects live in untested paths). Then verify the adversary's load-bearing claims against the code yourself before acting on them. This costs extra tokens and is the operator's call: skip it for trivial changes, **accumulate small ones and review the batch**, but do not skip it for anything with real blast-radius (logic, a gate, a schema, a new surface). This is advisory — Aitri cannot run or gate on it; it is the single practice that most catches what "all tests pass" misses.
+
 ## Human Review — Before approving phase 4
   [ ] All files listed in files_created exist on disk
   [ ] technical_debt is complete — every simplification named, no generic entries like "none" or "n/a"

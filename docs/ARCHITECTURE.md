@@ -1,7 +1,7 @@
 # Aitri — Architecture Reference
 
 > **Anchor document.** Any architectural proposal must be validated against this doc first — AND this doc must be UPDATED when an architectural change ships (new command, invariant, artifact-chain, or `.aitri`/artifact contract change — the same trigger as an ADR). A stale anchor inverts the relationship: the code ends up defining the doc instead of the doc defining Aitri.
-> Last updated: 2026-06-28 (v2.0.0-rc.131).
+> Last updated: 2026-06-29 (v2.0.0-rc.132).
 > This is the stable mental map; the detailed dated record is `DECISIONS.md` (ADRs) + `CHANGELOG.md` (both committed at `docs/`). The per-era evolution record below is the same content, reshaped as a scannable table (was one run-on paragraph through rc.117).
 
 ## What Aitri is
@@ -47,6 +47,7 @@ Each row is an era, not an exhaustive list — the authoritative dated record st
 | rc.129 | **Spine hardening from the purpose review** — deploy-gate **run-binding**: `verify-run`/`tc verify` stamp `.aitri#verifyResultsHash`; `verify-complete` rejects a results file edited after the run (closes the "edit results to pass" shortcut; absent-hash = backward-compatible). **Phase-2 design↔FR advisory**: `complete 2`/`runReview('phase2')` surface MUST FRs whose id is absent from `02_SYSTEM_DESIGN.md` (closes the read side Phase-2 `validate(content)` structurally cannot — advisory, not a hard block) | Finding-1 / Phase-2 (2026-06-28) |
 | rc.130 | **`aitri export traceability`** — first renderer of the structured (JSON) artifacts as human-readable Markdown (the req × tc × pass/fail × compliance matrix), closing the "docs PM/QA read without code" gap that Hub (being rebuilt) otherwise owns. Read-only `lib/commands/export.js`; joins 01_REQUIREMENTS + 03_TEST_CASES + 04_TEST_RESULTS#fr_coverage + 05_TRACEABILITY; degrades gracefully; zero-dep table generation (render.js can't). `requirements`/`tests` renderers are the next slices | ADR-062 (purpose-fulfilment plan) |
 | rc.131 | **verify-complete default advisory for low-confidence (hollow) tests** — `verify-run` already warned by default; the deploy gate (`verify-complete`) now also surfaces ≤1-assertion TCs (advisory, never a default block — `strictAssertions` stays the opt-in gate), so "green ≠ exercised" is visible at the ship decision | purpose-fulfilment plan (Tier-1 #2) |
+| rc.132 | **Build phase suggests an independent adversarial pass** — `build.md` gains the "told to break this, not validate it" subagent block (rc.118 had it in review/test/audit, not build — the highest-value spot). Advisory only; an agent-authored verdict can't be gated (ADR-053 verifier-with-conflict). Outcome of an architecture-critique whose 5 reform proposals were adversarially vetted — only this prompt nudge survived; the reliability ceiling is the zero-dep/passive/honor-system identity, already reached by the existing gates | architecture-critique panel (2026-06-29) |
 
 ---
 
