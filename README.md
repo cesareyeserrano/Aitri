@@ -1,6 +1,6 @@
 # Aitri
 
-**Turn AI-assisted development into a reviewable, gated pipeline — so you ship software you actually reviewed, not whatever the agent happened to produce.**
+**The harness that makes agentic engineering rigorous — your agent's work becomes a reviewable, gated pipeline, so you ship software you actually reviewed, not whatever the agent happened to produce.**
 
 ![npm](https://img.shields.io/npm/v/aitri) ![node](https://img.shields.io/node/v/aitri) ![license](https://img.shields.io/npm/l/aitri)
 
