@@ -106,6 +106,7 @@ If an artifact was modified after approval, `aitri status` shows `⚠️  DRIFT`
 If `aitri status` shows all phases approved and `deployable: Ready`:
 
 - Run `aitri validate` to confirm deployment readiness.
+- **Share the result with product/QA without making them read JSON or code:** `aitri export traceability [--out matrix.md]` renders the traceability matrix (requirement × test cases × pass/fail × compliance) as a Markdown table. Read-only — it reads the existing artifacts and writes only the export. Use it to give a non-coding reviewer a readable view of what was built vs verified.
 - Do **NOT** re-open approved phases to redo them (`aitri run-phase 1`, etc.). Re-running an approved phase whose artifact you then change clears its approval, flags drift, **and cascade-invalidates every downstream phase** — they were built on the version you are re-deriving, so each must be re-derived (run-phase → complete → approve) after you re-approve this one (you are warned). When you re-derive a reset downstream phase, `run-phase` prints the **FR delta** (which requirements were added/removed since that phase was last approved) — cover the additions, do not re-derive blind. Note: re-reading a briefing for a phase whose artifact is **unchanged** is a safe no-op — it prints the briefing without resetting state — so reviewing instructions does not cost you progress.
 - Do **NOT** implement new functionality outside the pipeline.
 

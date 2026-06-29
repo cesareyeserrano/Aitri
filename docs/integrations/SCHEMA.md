@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.129+
+**Aitri version:** v2.0.0-rc.130+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -56,7 +56,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `verifySummary` | `object` | `null` | Last test run summary — the `04_TEST_RESULTS.json#summary` object persisted verbatim (canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Written by `verify-complete` on success **and** by `tc verify` (which re-syncs it so `aitri resume` shows updated numbers after a per-TC verification); cleared by `verify-run` when `verifyPassed` resets (v2.0.0-alpha.13+). **Presence is NOT proof that `verify-complete` passed** — `verifyPassed` is the authoritative deploy-gate flag; consumers must read `verifyPassed`, not the presence of `verifySummary` |
 | `verifyRanAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri verify-run` execution (set on every run, regardless of pass/fail). Drives test-staleness signals (v0.1.79+) |
 | `lastVerifyRun` | `object\|null` | `null` | Last `verify-run`'s counts, written on EVERY run regardless of pass/fail: `{ passed, failed, skipped, manual, at }`. Unlike `verifySummary` (only on verify-complete success), this persists the raw run result so the no-op-loop guard survives event-log eviction. Read this for "what did the last run produce" (v2.0.0-rc.25+) |
-| `verifyResultsHash` | `string\|null` | `null` | SHA-256 of the `04_TEST_RESULTS.json` content written by the last `verify-run` (re-stamped by `tc verify`). `verify-complete` rejects a results file whose current hash differs — binding the deploy gate to a real execution so a hand-edited results file cannot pass (v2.0.0-rc.129+). Absent (pre-rc.129, or an externally-produced results file) = not enforced, backward-compatible |
+| `verifyResultsHash` | `string\|null` | `null` | SHA-256 of the `04_TEST_RESULTS.json` content written by the last `verify-run` (re-stamped by `tc verify`). `verify-complete` rejects a results file whose current hash differs — binding the deploy gate to a real execution so a hand-edited results file cannot pass (v2.0.0-rc.130+). Absent (pre-rc.129, or an externally-produced results file) = not enforced, backward-compatible |
 | `auditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit` invocation. Persisted because `AUDIT_REPORT.md` mtime resets on git clone (v0.1.79+) |
 | `coverageAuditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit requirements` invocation (formerly `audit coverage`; the field name is retained for back-compat). The idea→FR completeness audit. Persisted so the `resume` coverage nudge stops once run and re-fires when requirements change (v2.0.0-rc.75+, [ADR-048](../DECISIONS.md)) |
 | `securityAuditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit security` invocation (the adversarial security audit). Subproducts can compose a security-gap signal from this field: security NFRs declared in `01_REQUIREMENTS.json` + this field absent/stale ⇒ surface "security audit suggested" to the operator (v2.0.0-rc.83+, [ADR-051](../DECISIONS.md)) |

@@ -37,9 +37,10 @@ import { cmdReconcile }     from '../lib/commands/reconcile.js';
 import { cmdAudit }        from '../lib/commands/audit.js';
 import { cmdTC }           from '../lib/commands/tc.js';
 import { cmdRehash }       from '../lib/commands/rehash.js';
+import { cmdExport }       from '../lib/commands/export.js';
 import { homedirCaptureNote } from '../lib/state.js';
 
-const VERSION   = '2.0.0-rc.129';
+const VERSION   = '2.0.0-rc.130';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -126,6 +127,7 @@ switch (cmd) {
   case 'audit':            cmdAudit(ctx);           break;
   case 'tc':               cmdTC(ctx);              break;
   case 'rehash':           cmdRehash(ctx);          break;
+  case 'export':           cmdExport(ctx);          break;
   case '--version':        console.log(`Aitri v${VERSION}`); break;
   // No command given: if we're inside an Aitri project, run status;
   // otherwise fall through to help. An unknown command always shows help.

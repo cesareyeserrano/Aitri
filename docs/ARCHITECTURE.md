@@ -1,7 +1,7 @@
 # Aitri — Architecture Reference
 
 > **Anchor document.** Any architectural proposal must be validated against this doc first — AND this doc must be UPDATED when an architectural change ships (new command, invariant, artifact-chain, or `.aitri`/artifact contract change — the same trigger as an ADR). A stale anchor inverts the relationship: the code ends up defining the doc instead of the doc defining Aitri.
-> Last updated: 2026-06-28 (v2.0.0-rc.129).
+> Last updated: 2026-06-28 (v2.0.0-rc.130).
 > This is the stable mental map; the detailed dated record is `DECISIONS.md` (ADRs) + `CHANGELOG.md` (both committed at `docs/`). The per-era evolution record below is the same content, reshaped as a scannable table (was one run-on paragraph through rc.117).
 
 ## What Aitri is
@@ -45,6 +45,7 @@ Each row is an era, not an exhaustive list — the authoritative dated record st
 | rc.127 | **Verify-run stack-neutral fallback** — with no `--cmd`/`test_runner` declared, `verify-run` falls back to `npm test` only if a `package.json` exists, else refuses with stack-neutral guidance (removes the last Node bias, principle 4) | FALLBACK-DEFAULT-0628 |
 | rc.128 | **`.aitri` merge-conflict refuses-don't-reset** — `loadConfig` detects unresolved git conflict markers and throws actionable guidance instead of silently resetting shared pipeline state to DEFAULTS (the team case the committed `.aitri` exists to serve); `tc verify` skip-partition kept consistent with `skipped` | G-4 / C-2 (2026-06-28) |
 | rc.129 | **Spine hardening from the purpose review** — deploy-gate **run-binding**: `verify-run`/`tc verify` stamp `.aitri#verifyResultsHash`; `verify-complete` rejects a results file edited after the run (closes the "edit results to pass" shortcut; absent-hash = backward-compatible). **Phase-2 design↔FR advisory**: `complete 2`/`runReview('phase2')` surface MUST FRs whose id is absent from `02_SYSTEM_DESIGN.md` (closes the read side Phase-2 `validate(content)` structurally cannot — advisory, not a hard block) | Finding-1 / Phase-2 (2026-06-28) |
+| rc.130 | **`aitri export traceability`** — first renderer of the structured (JSON) artifacts as human-readable Markdown (the req × tc × pass/fail × compliance matrix), closing the "docs PM/QA read without code" gap that Hub (being rebuilt) otherwise owns. Read-only `lib/commands/export.js`; joins 01_REQUIREMENTS + 03_TEST_CASES + 04_TEST_RESULTS#fr_coverage + 05_TRACEABILITY; degrades gracefully; zero-dep table generation (render.js can't). `requirements`/`tests` renderers are the next slices | ADR-062 (purpose-fulfilment plan) |
 
 ---
 
