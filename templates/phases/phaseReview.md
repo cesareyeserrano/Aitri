@@ -29,23 +29,38 @@
 {{TEST_CASES_JSON}}
 ```
 
+{{#IF_SYSTEM_DESIGN}}
+## System Design (review the code against this contract)
+{{SYSTEM_DESIGN}}
+{{/IF_SYSTEM_DESIGN}}
+{{#IF_UX_SPEC}}
+## UX / Design Spec — the approved visual contract
+The UI must match this design, not just be functional. Flag any deviation from the declared semantic
+color rules, component affordances, and interactions; the structural test cases do NOT prove fidelity.
+If it references mockups in idea_context/, compare the built UI against them.
+{{UX_SPEC}}
+{{/IF_UX_SPEC}}
+
 ## Review Protocol
 1. Read every file listed above — do not skip any
 2. For each MUST FR: find the implementation, compare against AC and TCs
 3. For each security FR: read the actual auth/validation code — no assumptions
 4. For each technical_debt entry: verify the substitution matches what is actually in the code
-5. Write ## Issues Found — list each issue with FR-ID, TC-ID, file, line range, and what is wrong
-6. Write ## FR Coverage — one row per FR: status (implemented|partial|missing|substituted)
-7. Write ## Verdict — put the chosen verdict ALONE on the first line under the heading (exactly one of: PASS, CONDITIONAL_PASS, FAIL), then the justification below it. Do NOT leave the menu of options in the file. Example:
+5. Where a System Design and/or UX/Design Spec is provided above, check the code against it: flag
+   where the implementation deviates from the approved architecture or visual design — a passing test
+   suite does not prove the build matches the design.
+6. Write ## Issues Found — list each issue with FR-ID, TC-ID, file, line range, and what is wrong
+7. Write ## FR Coverage — one row per FR: status (implemented|partial|missing|substituted)
+8. Write ## Verdict — put the chosen verdict ALONE on the first line under the heading (exactly one of: PASS, CONDITIONAL_PASS, FAIL), then the justification below it. Do NOT leave the menu of options in the file. Example:
    ```
    ## Verdict
    CONDITIONAL_PASS
    FR-003 is functionally present but its error path is untested — fix before approving.
    ```
    (`reviewGate`, if enabled, blocks Phase 5 on a FAIL written here.)
-8. Save to: {{ARTIFACTS_BASE}}/04_CODE_REVIEW.md
-9. Present the Delivery Summary below to the user
-10. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} review
+9. Save to: {{ARTIFACTS_BASE}}/04_CODE_REVIEW.md
+10. Present the Delivery Summary below to the user
+11. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} review
 
 ## Delivery Summary
 After saving 04_CODE_REVIEW.md, present this report to the user:

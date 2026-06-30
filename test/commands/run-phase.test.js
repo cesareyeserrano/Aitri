@@ -125,6 +125,44 @@ describe('cmdRunPhase() — phase 1 (requirements) briefing', () => {
   });
 });
 
+describe('cmdRunPhase() — build surfaces visual assets when a UX spec exists (AUDIT-0630-B)', () => {
+  const buildFixture = (dir, { ux = true } = {}) => {
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1, 2, 3], currentPhase: 3 }));
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '# Design\n'.repeat(10));
+    writeFile(dir, 'spec/03_TEST_CASES.json', '{"test_cases":[]}');
+    if (ux) writeFile(dir, 'spec/01_UX_SPEC.md', '# UX Spec\n\nSemantic color: over-budget red.');
+  };
+
+  it('lists the mockups (not non-visual context) in the build briefing so the agent opens them', () => {
+    const dir = tmpDir();
+    buildFixture(dir);
+    writeFile(dir, 'idea_context/mockup-budget.png', 'x');
+    writeFile(dir, 'idea_context/demo.html', '<html>offline prototype</html>');
+    writeFile(dir, 'idea_context/notes.md', 'not a visual asset');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(/Visual reference/.test(stdout), 'build briefing surfaces the visual reference note');
+    assert.ok(stdout.includes('idea_context/mockup-budget.png'), 'the mockup is listed with its path');
+    assert.ok(stdout.includes('idea_context/demo.html'), 'an .html prototype is surfaced too (the Ledger demo case)');
+    assert.ok(!stdout.includes('idea_context/notes.md'),
+      'non-visual context is NOT injected at build — narrow exception, respects "no raw context at build"');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT surface visual assets when there is no UX spec (backend-only build)', () => {
+    const dir = tmpDir();
+    buildFixture(dir, { ux: false });
+    writeFile(dir, 'idea_context/diagram.png', 'x');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(!/Visual reference/.test(stdout), 'no visual injection without a UX spec');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
 describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () => {
   it('lists idea_context/ assets in the briefing', () => {
     const dir = tmpDir();

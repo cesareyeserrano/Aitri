@@ -182,3 +182,39 @@ describe('Phase review — buildBriefing()', () => {
     assert.ok(!b.includes('/tmp/test/04_CODE_REVIEW.md'), 'artifact path must NOT use bare dir');
   });
 });
+
+describe('Phase review — buildBriefing() design inputs (AUDIT-0630-A)', () => {
+  const base = {
+    '01_REQUIREMENTS.json': '{}',
+    '03_TEST_CASES.json': '{}',
+    '04_BUILD_REPORT.json': '{"files_modified":["src/x.ts"]}',
+    '02_SYSTEM_DESIGN.md': '# Design\n\nSticky 320px hierarchy column; Postgres.',
+  };
+  it('declares the design contract as OPTIONAL inputs (02_SYSTEM_DESIGN + 01_UX_SPEC)', () => {
+    const opt = PHASE_DEFS['review'].optionalInputs || [];
+    assert.ok(opt.includes('02_SYSTEM_DESIGN.md'),
+      '02 must be OPTIONAL, not hard — adopt --from approves Phase 4 on the build report alone, so a hard 02 would block review on a no-design adopt');
+    assert.ok(opt.includes('01_UX_SPEC.md'));
+    assert.ok(!PHASE_DEFS['review'].inputs.includes('02_SYSTEM_DESIGN.md'), '02 must NOT be a hard input');
+  });
+  it('degrades gracefully with no design doc (adopt edge): no error, no design block, no leaked tokens', () => {
+    const minimal = { '01_REQUIREMENTS.json': '{}', '03_TEST_CASES.json': '{}', '04_BUILD_REPORT.json': '{}' };
+    const b = PHASE_DEFS['review'].buildBriefing({ dir: '/tmp/t', inputs: minimal, feedback: null });
+    assert.ok(!/review the code against this contract/.test(b), 'no System Design block when 02 absent');
+    assert.ok(!/\{\{#?\/?IF_(UX_SPEC|SYSTEM_DESIGN)\}\}|\{\{(UX_SPEC|SYSTEM_DESIGN)\}\}/.test(b), 'no leaked tokens');
+  });
+  it('injects the system design + points the protocol at it', () => {
+    const b = PHASE_DEFS['review'].buildBriefing({ dir: '/tmp/t', inputs: base, feedback: null });
+    assert.ok(b.includes('Sticky 320px hierarchy column'), 'design content reaches the reviewer');
+    assert.ok(/review the code against this contract/i.test(b), 'protocol points the reviewer at the design');
+  });
+  it('renders the UX block when a UX spec is present, omits it (no leaked tokens) when absent', () => {
+    const withUx = PHASE_DEFS['review'].buildBriefing({
+      dir: '/tmp/t', inputs: { ...base, '01_UX_SPEC.md': '# UX\n\nover-budget shown in red' }, feedback: null });
+    assert.ok(withUx.includes('over-budget shown in red') && /approved visual contract/.test(withUx),
+      'the UX/design spec reaches the reviewer so it can flag visual deviations');
+    const without = PHASE_DEFS['review'].buildBriefing({ dir: '/tmp/t', inputs: base, feedback: null });
+    assert.ok(!/approved visual contract/.test(without), 'no UX block when absent');
+    assert.ok(!/\{\{#?\/?IF_UX_SPEC\}\}|\{\{UX_SPEC\}\}/.test(without), 'no leaked template tokens');
+  });
+});

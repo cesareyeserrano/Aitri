@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.138] — 2026-06-30 — whole-flow connectivity audit: two more "design doesn't reach the phase that needs it" gaps closed (AUDIT-0630-A/B)
+
+A step-by-step audit of the entire pipeline + the verification gates (prompted by "10 adversarial passes missed the rc.137 bug — how do we trust the process, what else is disconnected?"). The honest finding: change-scoped adversarial review is blind to *un-changed structural gaps* — the right tool is a whole-flow connectivity audit checking BOTH consumption mechanisms (declared `inputs`/`optionalInputs` AND direct `readArtifact`). The flow + gates came back **connected**; the verification gates (`verify-run`/`verify-complete`) read everything they need, block on the right things, and their outputs are consumed by `computeHealth`/snapshot — and rc.137's design-fidelity TCs ride the existing TC→verify spine (a failing fidelity e2e blocks deploy, no new gate). Two same-class residuals found and closed:
+
+- **A — code review now receives the design contract.** `phaseReview` consumed only requirements + test cases + build report, so it could not flag a deviation from the approved architecture or visual design. It now takes `02_SYSTEM_DESIGN.md` and `01_UX_SPEC.md` as **optional** inputs (not hard — `adopt apply --from` approves Phase 4 on the build report alone, so a hard input would block review on a brownfield adopt with no design doc; an adversarial pass caught this) and renders them (each in its own `{{#IF_…}}` block), plus a protocol step to flag design deviations.
+- **B — the build briefing now surfaces the visual reference with paths.** Phase 4 was deliberately excluded from raw-context injection on the bet "the agent reads the mockup on request" — the Ledger pilot falsified that bet. When a UX spec exists, the build briefing now lists ONLY the visual reference assets (images + `.html`/`.htm` prototypes — the Ledger demo was `.html`, which the image-only filter first missed; the adversarial caught it) with their paths, a narrow exception (like the existing ADOPT-BUILD one) that respects the no-raw-context intent. Makes rc.137's "open the referenced mockups" instruction actionable.
+
+Independent adversarial pass found both issues above (hard-input regression, `.html` exclusion) before ship; both fixed. +6 tests. `npm run test:all` green (1867). Remaining un-audited surfaces (command-flow internals, field-level consumers, prompt-completeness) noted for follow-up.
+
 ## [2.0.0-rc.137] — 2026-06-30 — the UX/design spec reaches the builder AND becomes verifiable (AUDIT-0630)
 
 Root-caused from the Ledger pilot: a UI that passed every gate (63/63 TCs, smoke, lint, type-check, verify-complete) yet matched none of the client's approved mockups. The forensic trace through the real artifacts showed it was **not** the agent misinterpreting clear requirements, and **not** the honor-system ceiling — it was a mechanical gap: the visual design was captured (semantic color rules, expand/collapse, hover affordances all lived in `01_UX_SPEC.md`), but it never reached the build, and was never turned into verifiable test cases.
