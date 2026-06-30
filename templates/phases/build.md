@@ -41,6 +41,16 @@ This is a quick reference — full requirements follow below. When in doubt, thi
 
 ## System Design
 {{SYSTEM_DESIGN}}
+{{#IF_UX_SPEC}}
+## UX / Design Spec — the approved visual contract (implement it, don't just pass the TCs)
+This is the design the product was approved against. The structural test cases below verify layout and
+behavior — they do **NOT** guarantee visual fidelity. Build to THIS spec: apply the declared semantic
+color rules (where appearance carries meaning), the named component affordances (expand/collapse,
+hover/row actions, reorder handles, etc.), and the interactions in the User Flows. If it references
+mockups/visual assets in `idea_context/`, those are the pixel reference — open them; tokens alone are
+not the design. A UI that passes every TC but ignores this spec is a failed build.
+{{UX_SPEC}}
+{{/IF_UX_SPEC}}
 
 ## Test Specs — implement exactly to these
 ```json

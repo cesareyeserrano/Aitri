@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.137] — 2026-06-30 — the UX/design spec reaches the builder AND becomes verifiable (AUDIT-0630)
+
+Root-caused from the Ledger pilot: a UI that passed every gate (63/63 TCs, smoke, lint, type-check, verify-complete) yet matched none of the client's approved mockups. The forensic trace through the real artifacts showed it was **not** the agent misinterpreting clear requirements, and **not** the honor-system ceiling — it was a mechanical gap: the visual design was captured (semantic color rules, expand/collapse, hover affordances all lived in `01_UX_SPEC.md`), but it never reached the build, and was never turned into verifiable test cases.
+
+- **Build now consumes the UX spec.** `phase4.js` had no `optionalInputs` — phases 2 and 3 both pull `01_UX_SPEC.md`, but Phase 4, which *writes the UI*, did not. So the build agent only ever saw FR-003 (structural acceptance criteria), the TRD (architecture), and structural TCs — the design was absent from everything it read. Added `optionalInputs: ['01_UX_SPEC.md']` + a `## UX / Design Spec — the approved visual contract` block in `build.md` that reinjects the spec with a hard instruction: implement the declared design (semantic color, named affordances, interactions); the structural TCs do NOT guarantee fidelity; open the referenced mockups — tokens alone are not the design.
+- **The design becomes verifiable.** `tests.md`'s UX block required state / mobile / contrast TCs but never the **declared-design behaviors** — so a structural-only suite passed over a UI that ignored the design. Added a **Declared-design fidelity TCs** requirement: semantic appearance rules (assert the computed style/applied class under the triggering condition, e.g. over-budget shown in the danger color), declared affordances (expand/collapse, hover/row actions, reorder handles present and functional), and key User-Flow interactions — all `type: "e2e"`. A colorless/affordance-less build now FAILS verify-run instead of passing it.
+- Stack-agnostic: both blocks render only when a UX spec exists (a visual surface); absent on backend-only / no-UX-phase projects, no leaked template tokens. See [ADR-063](DECISIONS.md). +5 tests. `npm run test:all` green (1861).
+
 ## [2.0.0-rc.136] — 2026-06-30 — consolidate the blocking-bug predicate into one SSoT (AUDIT-0629-G)
 
 Closes the structural root cause behind several AUDIT-0629 defects: a predicate reimplemented inline in two places that then drifted. The blocking-bug decision was the last remaining duplicate (the root deploy gate in `snapshot.aggregateBugs` and the feature gate in `bug.getBlockingBugs` each had their own copy — AUDIT-0629-B had to fix the same case-fold in both).

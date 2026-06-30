@@ -203,6 +203,13 @@ These TCs must reference the UX FR that owns the component in `requirement_id` a
 
 These TCs use `type: "e2e"` and `scenario: "happy_path"` unless testing a failure condition.
 
+**Declared-design fidelity TCs** — turn the design the spec DECLARES into verifiable cases (the state, mobile, and contrast TCs above do NOT cover these, and a structural-only suite passes over a UI that ignores the design):
+- **Semantic appearance rules** — wherever the spec says appearance carries meaning (e.g. a value shown in a danger/success color to signal a threshold crossed), a TC that asserts the rendered element actually uses that treatment under the triggering condition. Assert the rendered element's actual styling/state (computed style, applied class, or the platform's equivalent), not merely that the element exists.
+- **Declared affordances** — for each interactive affordance the spec names (expand/collapse controls, hover or row actions, reorder handles, …), a TC that the affordance is present and performs its declared action.
+- **Key interactions in User Flows** — for each flow step that changes what is shown (expand a group, reveal row actions, switch a view), a TC exercising it end to end against the spec's stated result — not "renders correctly".
+
+These verify the DESIGN the spec describes; structural layout/state/token TCs do not. Use `type: "e2e"`.
+
 ## UX Spec (for reference)
 {{UX_SPEC}}
 {{/IF_UX_SPEC}}

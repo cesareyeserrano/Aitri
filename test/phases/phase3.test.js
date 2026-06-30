@@ -649,6 +649,24 @@ describe('Phase 3 — buildBriefing() (BL-003)', () => {
     assert.ok(b.includes('One behavior per test case'), 'best practices content must appear in briefing');
   });
 
+  it('AUDIT-0630: requires declared-design fidelity TCs (semantic color + affordances) when a UX spec is present', () => {
+    const b = PHASE_DEFS[3].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '', '01_UX_SPEC.md': '# UX Spec\n\nSemantic color; hover actions; expand/collapse.' },
+      feedback: null,
+    });
+    assert.ok(/Declared-design fidelity TCs/.test(b), 'the fidelity-TC requirement must render so the design becomes verifiable');
+    assert.ok(/Semantic appearance rules/.test(b), 'semantic-appearance (color=meaning) TCs required');
+    assert.ok(/Declared affordances/.test(b), 'declared-affordance TCs required');
+  });
+
+  it('AUDIT-0630: omits the fidelity-TC block (and all UX TCs) when no UX spec — backend-only', () => {
+    const b = PHASE_DEFS[3].buildBriefing({
+      dir: '/tmp/test', inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '' }, feedback: null,
+    });
+    assert.ok(!/Declared-design fidelity TCs/.test(b), 'no UX fidelity block on a backend-only project');
+  });
+
   it('[v0.1.28] omits best practices block when bestPractices is empty', () => {
     const b = PHASE_DEFS[3].buildBriefing({
       dir: '/tmp/test', inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '' }, feedback: null,

@@ -369,6 +369,36 @@ describe('Phase 4 — buildBriefing() (BL-004)', () => {
   });
 });
 
+describe('Phase 4 — buildBriefing() UX spec injection (AUDIT-0630)', () => {
+  const uxSpec = '# UX / Design Spec\n\nColor semántico estricto: verde/rojo para semántica monetaria. Hover revela ＋/✎/🗑. Expande/colapsa la jerarquía.';
+
+  it('declares 01_UX_SPEC.md as an optional input (so run-phase loads it like phases 2 and 3)', () => {
+    assert.ok((PHASE_DEFS[4].optionalInputs || []).includes('01_UX_SPEC.md'),
+      'phase 4 must consume the UX spec — it WRITES the UI; phases 2/3 already do');
+  });
+
+  it('injects the UX design content + the fidelity contract when 01_UX_SPEC.md is present', () => {
+    const b = PHASE_DEFS[4].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '', '03_TEST_CASES.json': '{}', '01_UX_SPEC.md': uxSpec },
+      feedback: null,
+    });
+    assert.ok(b.includes('verde/rojo para semántica monetaria'), 'the UX design content must reach the build agent');
+    assert.ok(/the approved visual contract/.test(b), 'the fidelity contract header must render');
+    assert.ok(/passes every TC but ignores this spec is a failed build/.test(b), 'the hard fidelity instruction must render');
+  });
+
+  it('omits the UX block (no leaked tokens) when no UX spec — backend-only / no UX phase', () => {
+    const b = PHASE_DEFS[4].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '', '03_TEST_CASES.json': '{}' },
+      feedback: null,
+    });
+    assert.ok(!b.includes('the approved visual contract'), 'no UX block when 01_UX_SPEC.md is absent');
+    assert.ok(!/\{\{#?\/?IF_UX_SPEC\}\}|\{\{UX_SPEC\}\}/.test(b), 'no raw template tokens leak');
+  });
+});
+
 describe('Phase 4 — buildBriefing() with TC and FR data', () => {
   const reqsWithFRs = JSON.stringify({
     functional_requirements: [
