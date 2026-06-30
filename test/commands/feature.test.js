@@ -366,6 +366,34 @@ describe('aitri feature discard — behavior', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('AUDIT-0629-C: refuses a traversal name for STATE-MUTATING subcommands, not just discard', () => {
+    // Before AUDIT-0629 the traversal guard lived only inside discard; `approve ..`/`complete ..`
+    // resolved featureDir to the project root, passed existsSync, and WROTE the root .aitri. The
+    // guard now sits at the shared resolution point, so every subcommand is refused before dispatch.
+    const dir = makeProjectDir();
+    try {
+      const before = fs.readFileSync(path.join(dir, '.aitri'), 'utf8');
+      for (const sub of ['approve', 'complete', 'reject', 'rehash', 'run-phase']) {
+        assert.throws(
+          () => cmdFeature({ dir, args: [sub, '..', '1'], err: makeErr().fn, rootDir: ROOT_DIR }),
+          /Invalid feature name/, `${sub} ".." must be refused`);
+      }
+      assert.equal(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'), before,
+        'the root .aitri must be byte-identical — no subcommand wrote the wrong config');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('AUDIT-0629-C: refuses `feature init ../escape` — init cannot create a pipeline outside features/', () => {
+    const dir = makeProjectDir();
+    try {
+      assert.throws(
+        () => cmdFeature({ dir, args: ['init', '../escape'], err: makeErr().fn, rootDir: ROOT_DIR }),
+        /Invalid feature name/);
+      assert.ok(!fs.existsSync(path.join(dir, '..', 'escape')),
+        'no pipeline dir created outside the project');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('cancelling at the prompt deletes nothing and exits 1', () => {
     const dir = makeProjectDir();
     try {

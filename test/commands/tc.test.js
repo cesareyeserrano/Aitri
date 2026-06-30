@@ -203,6 +203,60 @@ describe('cmdTC — tc verify', () => {
     assert.equal(s.skipped_no_marker, 1, 'the remaining skip falls to no_marker');
   });
 
+  it('AUDIT-0629-A: stamps downgraded_from when --evidence overrides a prior FAIL to pass', () => {
+    const dir = makeDir();
+    // An automated TC the runner recorded as fail. A non-parseable evidence log lets the override
+    // through the manual-only guard (the honor-system floor) — but it must leave an audit trail,
+    // exactly as `tc mark-manual` does for the structurally identical laundering move (ADV-0622-05).
+    writeResults(dir,
+      [{ tc_id: 'TC-X', status: 'fail', notes: 'AssertionError: expected 200 got 500' }],
+      { total: 1, failed: 1 });
+    const evidence = path.join(dir, 'run.log');
+    fs.writeFileSync(evidence, 'TC-X re-run by hand: passes now');
+
+    cmdTC(makeCtx(dir, ['verify', 'TC-X', '--result', 'pass', '--notes', 'fixed and re-ran', '--evidence', evidence]));
+
+    const entry = readResults(dir).results.find(r => r.tc_id === 'TC-X');
+    assert.equal(entry.status, 'pass', 'the override applies');
+    assert.equal(entry.downgraded_from, 'fail',
+      'the prior failing verdict is stamped so a reviewer can spot a laundered failure');
+  });
+
+  it('AUDIT-0629-A: stamps downgraded_from when --evidence overrides a prior SKIP', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-S', status: 'skip' }], { total: 1, skipped: 1 });
+    const evidence = path.join(dir, 'run.log');
+    fs.writeFileSync(evidence, 'ran by hand');
+    cmdTC(makeCtx(dir, ['verify', 'TC-S', '--result', 'pass', '--notes', 'ok', '--evidence', evidence]));
+    assert.equal(readResults(dir).results.find(r => r.tc_id === 'TC-S').downgraded_from, 'skip');
+  });
+
+  it('AUDIT-0629-A: does NOT stamp downgraded_from for a normal manual verification (no prior fail/skip)', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-M', status: 'manual', notes: 'Manual execution required.' }]);
+    cmdTC(makeCtx(dir, ['verify', 'TC-M', '--result', 'pass', '--notes', 'verified ok']));
+    const entry = readResults(dir).results.find(r => r.tc_id === 'TC-M');
+    assert.equal(entry.status, 'pass');
+    assert.equal(entry.downgraded_from, undefined,
+      'a legitimate manual pass (no prior fail/skip) carries no laundering trail');
+  });
+
+  it('AUDIT-0629-A: clears a stale downgraded_from when a later override is not fail/skip laundering', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-R', status: 'fail', notes: 'failed' }], { total: 1, failed: 1 });
+    const evidence = path.join(dir, 'run.log');
+    fs.writeFileSync(evidence, 'by hand');
+    // fail → pass stamps the trail
+    cmdTC(makeCtx(dir, ['verify', 'TC-R', '--result', 'pass', '--notes', 'fixed', '--evidence', evidence]));
+    assert.equal(readResults(dir).results.find(r => r.tc_id === 'TC-R').downgraded_from, 'fail');
+    // pass → fail: prior is 'pass' (not laundering) → the stale stamp must be CLEARED, not kept
+    cmdTC(makeCtx(dir, ['verify', 'TC-R', '--result', 'fail', '--notes', 'regressed', '--evidence', evidence]));
+    const entry = readResults(dir).results.find(r => r.tc_id === 'TC-R');
+    assert.equal(entry.status, 'fail');
+    assert.equal(entry.downgraded_from, undefined,
+      'the trail must not claim "downgraded from fail" while the live verdict IS fail');
+  });
+
   it('Finding 1: tc verify re-stamps verifyResultsHash so verify-complete still accepts the file', () => {
     const dir = makeDir();
     writeResults(dir, [{ tc_id: 'TC-002f', status: 'manual', notes: 'Manual execution required.' }]);

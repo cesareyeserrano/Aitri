@@ -86,6 +86,22 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('AUDIT-0629-D: a null element in events[] does not crash the upgrade/inference path', () => {
+    const dir = tmpDir();
+    try {
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
+      // Hand-edited .aitri with stray nulls in events[] (valid JSON, so coerceArrayFields lets it
+      // through). The inference + migration paths (isInProgress / hasNoEventHistory /
+      // diagnoseLastSession) iterate events and must tolerate a null element, not crash — the same
+      // defect class FIX D removed from the live snapshot, here on the adopt --upgrade path.
+      const cfg = loadConfig(dir);
+      cfg.events = [null, { event: 'started', phase: 1, at: '2026-01-01' }, null];
+      saveConfig(dir, cfg);
+      assert.doesNotThrow(() =>
+        silence(() => runUpgrade({ dir, VERSION: '0.1.99', rootDir: ROOT_DIR })));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('STATE-MISSING: infers completedPhases from on-disk artifacts', () => {
     const dir = tmpDir();
     try {

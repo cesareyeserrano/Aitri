@@ -156,6 +156,15 @@ describe('getBlockingBugs()', () => {
       'in_progress critical/high must block verify-complete/reconcile, matching the deploy gate');
   });
 
+  it('AUDIT-0629-B: blocks on a capitalized "Critical"/"Open" bug (case-fold at the feature deploy gate)', () => {
+    const dir = tmpDir();
+    writeBugs(dir, [{ id: 'BG-001', status: 'Open', severity: 'Critical' }]);
+    const blocking = getBlockingBugs(dir, baseConfig());
+    assert.equal(blocking.length, 1,
+      'a hand-written capitalized severity/status must not slip a blocking bug past the gate');
+    assert.equal(blocking[0].id, 'BG-001');
+  });
+
   it('does not block on open medium bugs', () => {
     const dir = tmpDir();
     writeBugs(dir, [{ id: 'BG-001', status: 'open', severity: 'medium' }]);

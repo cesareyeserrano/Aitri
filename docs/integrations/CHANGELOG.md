@@ -18,6 +18,11 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.134 (2026-06-29) — new optional `04_TEST_RESULTS.json#results[].downgraded_from` (override audit trail) — additive
+
+- **New optional field `downgraded_from`** (`"fail" | "skip"`) on a `04_TEST_RESULTS.json` *results* entry — set by `aitri tc verify` when an `--evidence` override changes the prior verdict the runner recorded as `fail`/`skip`. It records that prior verdict so a reviewer can distinguish a justified manual pass from a laundered failure (parity with the same-named field `mark-manual` already stamps on a `03_TEST_CASES.json` TC). Auto-cleared if a later override is no longer a downgrade, so it never contradicts the live status. Additive + absence-tolerant: auto-parsed and non-override results carry no field; old readers ignore it.
+- No `.aitri` schema change. The case-fold of bug `severity`/`status` at the deploy gate (AUDIT-0629-B) and the snapshot `bugs.list[]` normalization are reader-transparent — the field shapes are unchanged; a previously-miscounted capitalized value now lands in the correct bucket.
+
 ## v2.0.0-rc.129 (2026-06-28) — new `.aitri` field `verifyResultsHash` (deploy-gate run-binding) — additive
 
 - **New shared `.aitri` field `verifyResultsHash`** (`string|null`) — SHA-256 of the `04_TEST_RESULTS.json` content written by the last `verify-run` (re-stamped by `tc verify`). `verify-complete` now rejects a results file whose current hash differs from this stamp, binding the deploy gate to a real execution (a hand-edited results file no longer passes). Additive + absence-tolerant: pre-rc.129 projects (and externally-produced results files) have no hash → not enforced, so old readers and existing projects are unaffected. Consumers that gate on `verifyPassed` are unchanged.

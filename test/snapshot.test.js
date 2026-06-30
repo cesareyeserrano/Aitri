@@ -745,6 +745,46 @@ describe('aggregateBugs() — bySeverity + openIds (2026-05-12)', () => {
     } finally { cleanup(dir); }
   });
 
+  it('AUDIT-0629-B: a capitalized "Critical"/"Open" bug still counts as blocking (deploy-gate case-fold)', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'x', artifactsDir: 'spec' });
+      // BUGS.json is a documented artifact agents/tools write directly — a hand-written capitalized
+      // severity/status must not false-pass the deploy gate (blocking=0 → deployable).
+      writeJsonSpec(dir, 'BUGS.json', {
+        bugs: [{ id: 'BG-001', severity: 'Critical', status: 'Open' }],
+      });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.bugs.blocking, 1,
+        'a capitalized critical/open bug is still blocking');
+      assert.equal(snap.bugs.bySeverity.critical, 1, 'normalized into the lowercase bucket');
+      assert.deepEqual(snap.bugs.openIds, ['BG-001']);
+      // list[] must also be normalized so list[] consumers (resume's "Open Bugs" section, Hub) stay
+      // consistent with the counters — a raw "Open"/"Critical" made resume self-contradict.
+      assert.equal(snap.bugs.list[0].status, 'open', 'list[] status normalized');
+      assert.equal(snap.bugs.list[0].severity, 'critical', 'list[] severity normalized');
+    } finally { cleanup(dir); }
+  });
+
+  it('AUDIT-0629-D: a null element in events[] does not crash the snapshot', () => {
+    const dir = tmpDir();
+    try {
+      // Valid JSON (coerceArrayFields lets it through — events IS an array), but a null element.
+      // Exercises BOTH access sites: the driftReapprovals filter (always runs) and the
+      // verify-run reverse scan (runs because no lastVerifyRun is set). Must not throw.
+      saveConfig(dir, {
+        projectName: 'x', artifactsDir: 'spec', approvedPhases: [1],
+        events: [
+          { event: 'verify-run', passed: 2, failed: 0, skipped: 0, manual: 0 },
+          { event: 'approved', phase: 1, afterDrift: true, at: '2026-01-01' },
+          null,
+        ],
+      });
+      const snap = buildProjectSnapshot(dir);
+      assert.ok(snap, 'snapshot built despite a null event element');
+    } finally { cleanup(dir); }
+  });
+
   it('feature-scoped bugs roll up into project-wide bySeverity + openIds', () => {
     const dir = tmpDir();
     try {
