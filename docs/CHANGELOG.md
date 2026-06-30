@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.136] — 2026-06-30 — consolidate the blocking-bug predicate into one SSoT (AUDIT-0629-G)
+
+Closes the structural root cause behind several AUDIT-0629 defects: a predicate reimplemented inline in two places that then drifted. The blocking-bug decision was the last remaining duplicate (the root deploy gate in `snapshot.aggregateBugs` and the feature gate in `bug.getBlockingBugs` each had their own copy — AUDIT-0629-B had to fix the same case-fold in both).
+
+- **`lib/commands/bug.js` now owns the bug-state predicate SSoT** — `isActiveBug` / `isBlockingBug` (+ `bugStatus` / `bugSeverity`), case-folded once. Both gates filter through `isBlockingBug`, so they can no longer diverge (the R3-12 / AUDIT-0629-B failure mode). `openBugCount` / `getOpenBugs` use the same normalizers, so a capitalized `"Open"`/`"Critical"` is handled consistently in the resume display too (minor observable fix).
+- **`docs/ARCHITECTURE.md` gains a "Shared predicate SSoTs" registry** — the canonical predicates (`isMustRequirement`, `HIGH_COMPLIANCE_LEVELS`/`EVIDENCE_OK_STATUSES`, `isActiveBug`/`isBlockingBug`, `isBehavioralFile`) with their consumers, and the honest note that a *general* mechanical detector of semantic re-implementation is not buildable — the real catch is the independent adversarial pass (which is what surfaced E/F). New shared predicates belong there, defined once.
+- Behavior-preserving consolidation (the gates compute the same result, now via one function); a cross-consumer test locks that `getBlockingBugs` and the snapshot blocking count agree on the same bugs. +4 tests. `npm run test:all` green.
+
 ## [2.0.0-rc.135] — 2026-06-29 — export reuses the deploy-gate predicates instead of its own copy (AUDIT-0629-E/F)
 
 The pending item from rc.134. `aitri export traceability` had reimplemented two predicates the Phase-5 deploy gate owns, and the private copies had drifted — so the rendered traceability matrix (a first-class product/QA document) could affirm a claim the gate rejects.

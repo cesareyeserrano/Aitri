@@ -1,7 +1,7 @@
 # Aitri — Architecture Reference
 
 > **Anchor document.** Any architectural proposal must be validated against this doc first — AND this doc must be UPDATED when an architectural change ships (new command, invariant, artifact-chain, or `.aitri`/artifact contract change — the same trigger as an ADR). A stale anchor inverts the relationship: the code ends up defining the doc instead of the doc defining Aitri.
-> Last updated: 2026-06-29 (v2.0.0-rc.132).
+> Last updated: 2026-06-30 (v2.0.0-rc.136).
 > This is the stable mental map; the detailed dated record is `DECISIONS.md` (ADRs) + `CHANGELOG.md` (both committed at `docs/`). The per-era evolution record below is the same content, reshaped as a scannable table (was one run-on paragraph through rc.117).
 
 ## What Aitri is
@@ -48,6 +48,7 @@ Each row is an era, not an exhaustive list — the authoritative dated record st
 | rc.130 | **`aitri export traceability`** — first renderer of the structured (JSON) artifacts as human-readable Markdown (the req × tc × pass/fail × compliance matrix), closing the "docs PM/QA read without code" gap that Hub (being rebuilt) otherwise owns. Read-only `lib/commands/export.js`; joins 01_REQUIREMENTS + 03_TEST_CASES + 04_TEST_RESULTS#fr_coverage + 05_TRACEABILITY; degrades gracefully; zero-dep table generation (render.js can't). `requirements`/`tests` renderers are the next slices | ADR-062 (purpose-fulfilment plan) |
 | rc.131 | **verify-complete default advisory for low-confidence (hollow) tests** — `verify-run` already warned by default; the deploy gate (`verify-complete`) now also surfaces ≤1-assertion TCs (advisory, never a default block — `strictAssertions` stays the opt-in gate), so "green ≠ exercised" is visible at the ship decision | purpose-fulfilment plan (Tier-1 #2) |
 | rc.132 | **Build phase suggests an independent adversarial pass** — `build.md` gains the "told to break this, not validate it" subagent block (rc.118 had it in review/test/audit, not build — the highest-value spot). Advisory only; an agent-authored verdict can't be gated (ADR-053 verifier-with-conflict). Outcome of an architecture-critique whose 5 reform proposals were adversarially vetted — only this prompt nudge survived; the reliability ceiling is the zero-dep/passive/honor-system identity, already reached by the existing gates | architecture-critique panel (2026-06-29) |
+| rc.134–136 | **Harness-frame re-audit (AUDIT-0629)** — re-audited the codebase under the corrected "rigor-harness" identity. Four verified edge defects fixed (deploy-gate severity/status **case-fold false-pass**; `tc verify --evidence` **laundering trail** `downgraded_from`; `feature ..` **path-traversal** writing the wrong `.aitri`; null-`events[]` **crash** in snapshot + upgrade), then `export` made to **reuse** the Phase-5 evidence/MUST predicates it had drifted from (one SSoT in `requirements.js`), then the **blocking-bug predicate consolidated** into `bug.js` `isActiveBug`/`isBlockingBug` shared by the root + feature gates. Recurring root cause = a predicate reimplemented inline then drifted → see **Shared predicate SSoTs** above. Each fix adversarially reviewed before ship | AUDIT-0629 (2026-06-29/30) |
 
 ---
 
@@ -131,6 +132,27 @@ test/phases/              One test file per phase (phase1-5, phaseUX, phaseDisco
 test/commands/            Unit tests for each command
 test/smoke.js             E2E CLI tests
 ```
+
+---
+
+## Shared predicate SSoTs (reuse, don't reimplement)
+
+A recurring defect class (AUDIT-0629) was a predicate/guard reimplemented inline instead of reusing
+its canonical definition, where the copy then drifted — a case-sensitive MUST check, an evidence rule
+that wrongly accepted `manual`, a blocking-bug filter case-folded in one gate but not the other. These
+are the canonical definitions — import them, never re-derive:
+
+| Predicate | SSoT | Consumers |
+| :--- | :--- | :--- |
+| Hard-block MUST requirement? | `lib/requirements.js` `isMustRequirement()` | phase3, phase5, verify, review, export |
+| Does coverage back a high compliance claim? | `lib/requirements.js` `HIGH_COMPLIANCE_LEVELS` / `EVIDENCE_OK_STATUSES` | phase5 (deploy gate), export |
+| Bug active / blocking? | `lib/commands/bug.js` `isActiveBug()` / `isBlockingBug()` (+ `bugStatus` / `bugSeverity`) | `getBlockingBugs` (feature gate), `snapshot.aggregateBugs` (root gate) |
+| Behavioral change for reconcile/snapshot? | `lib/reconcile-patterns.js` `isBehavioralFile()` | reconcile, snapshot |
+
+A *general* mechanical detector of semantic re-implementation is not buildable; the real catch is the
+**independent adversarial pass on changes** (it is what surfaced AUDIT-0629-E/F). This registry + the
+per-predicate tests lock the known ones. A new predicate that two gates/commands must agree on belongs
+here, defined once.
 
 ---
 

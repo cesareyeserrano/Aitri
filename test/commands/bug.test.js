@@ -4,7 +4,8 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
-import { openBugCount, autoVerifyBugs, getBlockingBugs, getOpenBugs, cmdBug } from '../../lib/commands/bug.js';
+import { openBugCount, autoVerifyBugs, getBlockingBugs, getOpenBugs, cmdBug,
+         isBlockingBug, isActiveBug, bugSeverity, bugStatus } from '../../lib/commands/bug.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -192,6 +193,33 @@ describe('getBlockingBugs()', () => {
       { id: 'BG-001', status: 'open', severity: 'medium', fr: 'FR-001' },
     ]);
     assert.deepEqual(getBlockingBugs(dir, baseConfig()), []);
+  });
+});
+
+// ── Bug-state predicates SSoT (AUDIT-0629-G) — the single definition the gates share ────────────
+describe('bug-state predicates (isBlockingBug / isActiveBug)', () => {
+  it('isActiveBug: open/in_progress are active; fixed/verified/closed are not (case-insensitive)', () => {
+    assert.equal(isActiveBug({ status: 'open' }), true);
+    assert.equal(isActiveBug({ status: 'in_progress' }), true);
+    assert.equal(isActiveBug({ status: 'OPEN' }), true, 'case-folded');
+    assert.equal(isActiveBug({ status: 'fixed' }), false);
+    assert.equal(isActiveBug({ status: 'verified' }), false);
+    assert.equal(isActiveBug({ status: 'closed' }), false);
+    assert.equal(isActiveBug({}), false, 'missing status is not active, no throw');
+  });
+  it('isBlockingBug: active AND critical/high, any casing', () => {
+    assert.equal(isBlockingBug({ status: 'open', severity: 'critical' }), true);
+    assert.equal(isBlockingBug({ status: 'in_progress', severity: 'high' }), true);
+    assert.equal(isBlockingBug({ status: 'Open', severity: 'Critical' }), true, 'case-folded — the AUDIT-0629-B defect');
+    assert.equal(isBlockingBug({ status: 'open', severity: 'medium' }), false, 'severity gate');
+    assert.equal(isBlockingBug({ status: 'fixed', severity: 'critical' }), false, 'inactive is not blocking');
+    assert.equal(isBlockingBug({ severity: 'critical' }), false, 'no status → not active → not blocking');
+  });
+  it('bugSeverity/bugStatus normalize to lowercase strings, tolerate missing/non-string', () => {
+    assert.equal(bugSeverity({ severity: 'HIGH' }), 'high');
+    assert.equal(bugStatus({ status: 'In_Progress' }), 'in_progress');
+    assert.equal(bugSeverity({}), '');
+    assert.equal(bugStatus(null), '');
   });
 });
 

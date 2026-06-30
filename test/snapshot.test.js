@@ -10,6 +10,7 @@ import path   from 'node:path';
 import os     from 'node:os';
 
 import { saveConfig } from '../lib/state.js';
+import { getBlockingBugs } from '../lib/commands/bug.js';
 import {
   buildProjectSnapshot,
   buildPipelineEntry,
@@ -763,6 +764,28 @@ describe('aggregateBugs() — bySeverity + openIds (2026-05-12)', () => {
       // consistent with the counters — a raw "Open"/"Critical" made resume self-contradict.
       assert.equal(snap.bugs.list[0].status, 'open', 'list[] status normalized');
       assert.equal(snap.bugs.list[0].severity, 'critical', 'list[] severity normalized');
+    } finally { cleanup(dir); }
+  });
+
+  it('AUDIT-0629-G: the root snapshot gate and getBlockingBugs agree on the SAME bugs (shared predicate)', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'x', artifactsDir: 'spec' });
+      // Battery mixing casing, severity, status. The feature gate (getBlockingBugs) and the root
+      // snapshot gate now share isBlockingBug, so they must return the SAME blocking count — locks
+      // the consolidation against a future re-divergence (the R3-12/AUDIT-0629-B failure mode).
+      writeJsonSpec(dir, 'BUGS.json', { bugs: [
+        { id: 'BG-001', severity: 'Critical', status: 'Open' },        // blocking (capitalized)
+        { id: 'BG-002', severity: 'high',     status: 'in_progress' }, // blocking
+        { id: 'BG-003', severity: 'critical', status: 'fixed' },       // inactive → not blocking
+        { id: 'BG-004', severity: 'medium',   status: 'open' },        // not severe → not blocking
+        { id: 'BG-005', severity: 'HIGH',     status: 'open' },        // blocking (caps)
+      ] });
+      const snap = buildProjectSnapshot(dir);
+      const viaFeatureGate = getBlockingBugs(dir, { artifactsDir: 'spec' }).length;
+      assert.equal(snap.bugs.blocking, 3, 'three blocking bugs, case-insensitive');
+      assert.equal(viaFeatureGate, snap.bugs.blocking,
+        'feature gate and root snapshot gate must agree — both filter through isBlockingBug');
     } finally { cleanup(dir); }
   });
 
