@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.134+
+**Aitri version:** v2.0.0-rc.135+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -352,7 +352,7 @@ Written by Phase 5 (DevOps persona). FR coverage proof linking requirements to t
 - `level: "placeholder"` blocks the pipeline — placeholder implementations cannot be shipped
 - Entries use field `id` (not `fr_id`) — a common mistake; validation will report the mismatch
 - If `01_REQUIREMENTS.json` is present: every requirement (FR or NFR, v2.0.0-rc.27+) with `priority: "MUST"` — or any NFR with `category: "Regression"` regardless of priority (v2.0.0-rc.104+) — must have an entry in `requirement_compliance`
-- **Claim-vs-evidence (v2.0.0-rc.13+):** if `04_TEST_RESULTS.json` is present, any entry with `level` `complete` or `production_ready` must have `fr_coverage` status `covered` (or `manual`) for that FR. An entry claiming a high level over `partial`/`uncovered` evidence is rejected — the proof must not over-claim past the tests. (Conservative: only fires when the coverage entry exists and contradicts.)
+- **Claim-vs-evidence (v2.0.0-rc.13+):** if `04_TEST_RESULTS.json` is present, any entry with `level` `complete` or `production_ready` must have `fr_coverage` status `covered` for that FR. A high level over `partial`/`uncovered`/`manual` evidence is rejected — a *pending* `manual` (0 passing, unverified) is **not** acceptable evidence (verify it with `aitri tc verify` → `pass` → `covered`); the proof must not over-claim past the tests. (Conservative: only fires when the coverage entry exists and contradicts.) The Phase-5 gate (`phase5.js`) and the `aitri export traceability` renderer (`export.js`) share this rule from one SSoT (`lib/requirements.js` `HIGH_COMPLIANCE_LEVELS` / `EVIDENCE_OK_STATUSES`, AUDIT-0629-E) so the rendered matrix flags exactly what the gate rejects.
 
 **Phase gate:** Approved when `"5"` is in `approvedPhases[]`. Requires `verifyPassed: true`.
 

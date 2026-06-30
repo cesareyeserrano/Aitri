@@ -86,6 +86,38 @@ describe('buildTraceabilityMarkdown()', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('AUDIT-0629-E: flags a "complete" level over a pending "manual" FR — matches what complete 5 rejects', () => {
+    const dir = tmpProject({
+      '01_REQUIREMENTS.json': { functional_requirements: [{ id: 'FR-001', title: 'Login', priority: 'MUST' }] },
+      '03_TEST_CASES.json': { test_cases: [{ id: 'TC-1', requirement_id: 'FR-001', automation: 'manual' }] },
+      // a pending (unverified) manual TC → fr_coverage status "manual", 0 passing. The deploy gate
+      // (phase5) rejects a "complete" claim over this; the export shared the SAME rule must flag it.
+      '04_TEST_RESULTS.json': { fr_coverage: [{ fr_id: 'FR-001', tests_passing: 0, tests_failing: 0, tests_manual: 1, status: 'manual' }] },
+      '05_TRACEABILITY.json': { requirement_compliance: [{ id: 'FR-001', level: 'complete', tc_ids: ['TC-1'] }] },
+    });
+    try {
+      const md = buildTraceabilityMarkdown(dir, cfg);
+      assert.match(md, /⚠ complete \(vs tests\)/,
+        'a "complete" claim over a pending manual FR must be flagged — the doc must not render clean what the deploy gate rejects (the old inline copy wrongly accepted "manual")');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('AUDIT-0629-F: a lowercase category:"regression" NFR is still treated as MUST (reuses isMustRequirement)', () => {
+    const dir = tmpProject({
+      '01_REQUIREMENTS.json': { non_functional_requirements: [
+        { id: 'NFR-001', requirement: 'no perf regression', category: 'regression' },   // lowercase — the old inline check missed it
+      ] },
+      '04_TEST_RESULTS.json': { fr_coverage: [] },   // uncovered → a MUST must alarm; a non-MUST renders plain '—'
+    });
+    try {
+      const md = buildTraceabilityMarkdown(dir, cfg);
+      assert.match(md, /\| NFR-001 \| no perf regression \| MUST \(reg\) \| NFR \|/,
+        'a regression NFR of any casing shows the MUST priority label');
+      assert.match(md, /⚠ untested/,
+        'an uncovered regression NFR alarms as a MUST, not a plain dash (case-sensitive inline check used to drop it)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('H3: surfaces a coverage entry whose requirement id is absent from 01 (orphan/stale)', () => {
     const dir = tmpProject({
       '01_REQUIREMENTS.json': { functional_requirements: [{ id: 'FR-001', title: 'x', priority: 'MUST' }] },

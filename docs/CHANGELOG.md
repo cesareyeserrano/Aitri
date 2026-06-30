@@ -5,6 +5,14 @@
 
 ---
 
+## [2.0.0-rc.135] — 2026-06-29 — export reuses the deploy-gate predicates instead of its own copy (AUDIT-0629-E/F)
+
+The pending item from rc.134. `aitri export traceability` had reimplemented two predicates the Phase-5 deploy gate owns, and the private copies had drifted — so the rendered traceability matrix (a first-class product/QA document) could affirm a claim the gate rejects.
+
+- **E — `export` no longer renders `complete` over a pending `manual` FR as clean.** Its `backed` check counted `fr_coverage` status `manual` as evidence, while `complete 5` rejects it ("a pending 'manual' is not evidence"). The claim-vs-evidence rule (`HIGH_COMPLIANCE_LEVELS` + `EVIDENCE_OK_STATUSES`) is now a single exported SSoT in `lib/requirements.js`, imported by **both** `phase5.js` (the gate) and `export.js` (the renderer) — they can no longer disagree. The renderer flags exactly what the gate rejects.
+- **F — `export`'s MUST predicate is no longer case-sensitive.** It inlined `r.category === 'Regression'` (exact case), diverging from the hardened `isMustRequirement` SSoT (case/whitespace-insensitive, ADV-0622-06) — so a `category:"regression"` NFR silently lost its MUST priority label and coverage alarm in the matrix. `export.js` now imports and uses `isMustRequirement`.
+- Pure SSoT-reuse: the Phase-5 gate behavior is unchanged (the extracted constants are byte-identical to the former locals); the only behavioral change is the renderer now agreeing with the gate. Verified by an independent adversarial pass over the change (gate identical, no `backed` regression — `covered` implies `tests_failing===0` by construction at `verify.js:507`, no import cycle). `docs/integrations/ARTIFACTS.md` claim-vs-evidence note corrected (it had documented the buggy "covered or manual"). +2 tests. `npm run test:all` green (1852).
+
 ## [2.0.0-rc.134] — 2026-06-29 — four verified defects from the harness-frame re-audit (AUDIT-0629)
 
 After re-anchoring Aitri's identity to "the harness that makes agentic engineering rigorous" (rc.132), the whole codebase was re-audited with the correct lens — a defect is the code doing something different from what it *promises* (false-pass, false-block, crash, corruption), not "it can't guarantee good software" (the harness boundary by design). Four parallel adversarial passes over the highest-blast-radius subsystems, each finding re-verified against the code, then an independent adversarial pass over the fixes themselves (which caught three real follow-ups, folded in before shipping).
