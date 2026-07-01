@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.141] — 2026-06-30 — connectivity-audit hygiene: stop authoring dead fields + document real ones (AUDIT-0630-D)
+
+Two low-risk cleanups from the connectivity audit, bundled:
+
+- **Templates no longer order the agent to emit a field no consumer reads.** `tests.md` mandated `type_coverage_matrix` "as a JSON field in the output", `requirements.md` put `implementation_level` in the FR schema example and offered a `product_analysis` field — all three had **zero readers** and were not even in the artifact schema (dead authoring: wasted tokens + false implication they matter). The *useful* parts stay — the Type Coverage Matrix remains a planning step (it drives the FR-type gates, it just isn't demanded as output), and the Product Analysis Vector still feeds `project_summary`. Locked by a new guard in `test/connectivity.test.js` so the emission orders can't silently return.
+- **ARTIFACTS.md now documents three fields that shipped and are consumed but had drifted out of the schema** — `04_BUILD_REPORT.json#technical_debt[].reason`/`.effort_to_fix` (surfaced by `status`/`resume`), `05_TRACEABILITY.json#requirement_compliance[].title` (rendered by `export traceability`), `03_TEST_CASES.json#test_cases[].stub` (set by `adopt verify-spec`, read as a known gap by `verify-complete`). All additive, absence-tolerant — no code or shape change, the doc catches up to reality. See `docs/integrations/CHANGELOG.md` (— additive).
+
+Independent adversarial pass on the diff before ship. `npm run test:all` green.
+
 ## [2.0.0-rc.140] — 2026-06-30 — the NFR acceptance criterion now reaches the phase that tests it (AUDIT-0630-D)
 
 Connectivity-audit follow-up (Tier 1): closes the field-level shape of the rc.137 silent-drop. `extractRequirements` (`lib/phases/context.js`, Phase 1's `extractContext`, applied to `01_REQUIREMENTS.json` for every downstream phase) forwarded only `id`/`category`/`requirement` for each NFR — **not its `acceptance_criteria`**. But `requirements.md` instructs the PM to author that criterion as the *observable, measurable target* (and for a `category: "Regression"` NFR it is literally "how a test confirms it still works"), so Phase 3 was designing NFR tests blind to the very criterion Phase 1 wrote — the same "authored upstream, never delivered downstream" class the audit exists to catch, at field granularity. Now forwarded, exactly like the FR-level `acceptance_criteria` already is. Additive projection change (the briefing gains a field; no artifact-schema change — `nfr.acceptance_criteria` was already in ARTIFACTS.md). The other `extractContext`-dropped fields (`us.as_a/i_want/so_that`, `fr.description`, `tc.preconditions/steps/test_data`) were reviewed and deliberately left stripped — `given/when/then` + the ACs already carry the testable content, and the narrative strip is an existing tested contract. +1 test. `npm run test:all` green.

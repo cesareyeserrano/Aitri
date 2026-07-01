@@ -130,3 +130,23 @@ describe('pipeline connectivity — declared inputs must be INSTRUCTED, not just
       'system design — not receive it as a silent dump under a bare header.');
   });
 });
+
+// The inverse of a silent input: a template that ORDERS the agent to emit a field NO consumer reads
+// (connectivity audit 2026-06-30, AUDIT-0630-D). type_coverage_matrix / implementation_level /
+// product_analysis were mandated in the JSON output but had zero readers and were not even in the
+// ARTIFACTS.md schema — dead authoring. These locks keep the emission orders from being re-added.
+describe('pipeline connectivity — no template orders emitting a field no consumer reads (AUDIT-0630-D)', () => {
+  const TEMPLATES = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'templates', 'phases');
+  const tmpl = (name) => fs.readFileSync(path.join(TEMPLATES, name), 'utf8');
+
+  it('tests.md does not order emitting type_coverage_matrix as a JSON field (0 readers, not in schema)', () => {
+    assert.ok(!/type_coverage_matrix/.test(tmpl('tests.md')),
+      'nothing consumes type_coverage_matrix — keep the coverage matrix as a planning aid, do not order it emitted as a JSON field.');
+  });
+
+  it('requirements.md does not order emitting implementation_level or a product_analysis field (0 readers)', () => {
+    const src = tmpl('requirements.md');
+    assert.ok(!/implementation_level/.test(src), 'implementation_level has no reader and is not in the schema — do not instruct emitting it.');
+    assert.ok(!/product_analysis/.test(src), 'no consumer reads a product_analysis field — fold that analysis into project_summary instead.');
+  });
+});

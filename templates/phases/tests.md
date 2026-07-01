@@ -103,7 +103,7 @@ Rules:
   - FR type security: Unit AND Integration are both MUST
   - FR type logic: Unit is always MUST
 
-Include the coverage matrix as `type_coverage_matrix` field in the JSON output.
+Work through this matrix before writing test cases — it drives the per-FR levels the gates below enforce. It is a planning aid; you do not need to emit it as a JSON field (nothing consumes it).
 
 ## Test Portability Rule
 Test setup, fixtures, and file paths MUST be relative to the project (`process.cwd()`, `path.join(__dirname, ...)`, env vars) or use generated temp dirs (`os.tmpdir()`).

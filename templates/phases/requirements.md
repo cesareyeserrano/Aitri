@@ -99,8 +99,7 @@ Schema: { project_name, project_summary,
   functional_requirements: [{
     id:"FR-001", title, description, priority:"MUST|SHOULD|NICE",
     type:"UX|persistence|security|reporting|logic",
-    acceptance_criteria:["measurable metric — e.g. passes mobile viewport test"],
-    implementation_level:"present|functional|complete|production_ready"
+    acceptance_criteria:["measurable metric — e.g. passes mobile viewport test"]
   }],
   user_personas: [{role:"End User", tech_level:"low|mid|high", goal:"...", pain_point:"..."}],
   user_stories: [{
@@ -163,7 +162,7 @@ Before writing FRs, identify:
   - North Star KPI: the single metric that defines success (e.g. "user records first movement within 60s of opening app"). When success is parity rather than a product outcome (a migration/refactor/upgrade), this is the acceptance gate instead — e.g. "builds + boots + zero behavioral change vs the baseline".
   - JTBD (Jobs To Be Done): what job does the user hire this product to do? (e.g. "track daily spend without opening a bank app")
   - Top guardrail metric: what must NOT get worse (e.g. "load time must stay ≤2s even with 365 days of data")
-Include these as comments in project_summary or as a separate "product_analysis" field.
+Fold these into project_summary (they inform the FRs; no consumer reads a separate field for them).
 
 ## Rules
 - Min 5 FRs (root pipeline). Capture every MUST the scope genuinely needs — and no more. Do NOT pad to hit a number: an MVP correctly defined by 5 real MUSTs is complete, and inflating the count contradicts the MVP-proportionality and anti-scope-creep rules above. If the Depth Protocol surfaces genuinely missing requirements, add them; if it doesn't, 5 is fine

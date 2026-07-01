@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.140+
+**Aitri version:** v2.0.0-rc.141+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -150,7 +150,8 @@ Written by Phase 3 (QA persona). Test cases keyed to FRs, user stories, and acce
       "when": "string",
       "then": "string",
       "automation": "auto | manual (optional, default auto)",
-      "manual_reason": "string (optional) — why this TC can't be automated"
+      "manual_reason": "string (optional) — why this TC can't be automated",
+      "stub": "boolean (optional) — set true by `aitri adopt verify-spec` for a placeholder TC generated during adoption; `verify-complete` treats an acknowledged stub as a known gap. Absent on normally-authored TCs"
     }
   ]
 }
@@ -194,7 +195,9 @@ Written by Phase 4 (Developer persona). Implementation tracking and test runner 
   "technical_debt": [
     {
       "fr_id": "FR-001",
-      "substitution": "specific description of what was simplified — generic values like 'none' or 'n/a' are rejected"
+      "substitution": "specific description of what was simplified — generic values like 'none' or 'n/a' are rejected",
+      "reason": "string (optional) — why the substitution was necessary (e.g. 'library conflict')",
+      "effort_to_fix": "low | medium | high (optional) — estimated effort to remove the debt"
     }
   ],
   "test_runner": "npm test",
@@ -214,7 +217,7 @@ Written by Phase 4 (Developer persona). Implementation tracking and test runner 
 - `setup_commands` and `environment_variables` are optional. When present they must be arrays; when absent they are treated as `[]`. (v2.0.0-alpha.9+ — earlier versions required the keys to be present even when empty.)
 - At least one of `files_created` or `files_modified` must be a non-empty array — supports both greenfield (new files only) and modification/redesign work
 - `technical_debt` field is required — use `[]` if no substitutions were made
-- Each `technical_debt` entry must have `fr_id` and a non-generic `substitution`
+- Each `technical_debt` entry must have `fr_id` and a non-generic `substitution`. Optional `reason` (why the substitution was necessary) and `effort_to_fix` (`low`/`medium`/`high`) are additive, not validated — `aitri status`/`aitri resume` surface them in the debt digest, so a reader following this schema should carry them (v2.0.0-rc.141+ documented; the fields shipped earlier and were surfaced but undocumented)
 - `test_runner` is required (e.g. `"npm test"`, `"node --test tests/"`) — **except** in manual-verification mode (see below)
 - `test_files` must be a non-empty array listing all files with `@aitri-tc` markers — same manual-mode exception; entries are flat string paths (objects are rejected)
 - **Manual-verification mode (v2.0.0-rc.86+):** when every `03_TEST_CASES.json` test case is `automation: "manual"`, the project has no automated runner by design, so `test_runner` and `test_files` are **optional** in `04_BUILD_REPORT.json`. A reader must therefore treat both as possibly-absent on a manual-mode build (do not assume `test_runner` is always a string). With any automated test case present, both stay required as before.
@@ -337,6 +340,7 @@ Written by Phase 5 (DevOps persona). FR coverage proof linking requirements to t
   "requirement_compliance": [
     {
       "id": "FR-001",
+      "title": "string (optional) — the FR/NFR title echoed for readability; `aitri export traceability` renders it (falls back to `requirement`)",
       "level": "placeholder | functionally_present | partial | complete | production_ready",
       "evidence": "string",
       "tc_ids": ["TC-001h", "TC-001f"]

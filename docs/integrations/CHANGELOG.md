@@ -18,6 +18,16 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.141 (2026-06-30) — document three fields that shipped + were consumed but were absent from the schema (connectivity audit) — additive
+
+Pure documentation reconciliation — no code or shape change; the fields already exist and are read. The connectivity audit found ARTIFACTS.md drifted from what Aitri produces and consumes:
+
+- **`04_BUILD_REPORT.json#technical_debt[].reason` and `.effort_to_fix`** — emitted by the build briefing and surfaced by `aitri status`/`resume` in the debt digest, but absent from the documented `technical_debt` schema (which listed only `fr_id` + `substitution`). Now documented (both optional; `effort_to_fix` ∈ `low`/`medium`/`high`).
+- **`05_TRACEABILITY.json#requirement_compliance[].title`** — instructed by the deploy briefing and rendered by `aitri export traceability` (falls back to `requirement`), but not in the schema. Now documented (optional).
+- **`03_TEST_CASES.json#test_cases[].stub`** — set by `aitri adopt verify-spec` for placeholder TCs and read by adopt / treated as a known gap by `verify-complete`, but undocumented. Now documented (optional boolean).
+
+All three are additive and absence-tolerant — old readers are unaffected; a reader following the schema now correctly carries them. No `.aitri` schema change.
+
 ## v2.0.0-rc.134 (2026-06-29) — new optional `04_TEST_RESULTS.json#results[].downgraded_from` (override audit trail) — additive
 
 - **New optional field `downgraded_from`** (`"fail" | "skip"`) on a `04_TEST_RESULTS.json` *results* entry — set by `aitri tc verify` when an `--evidence` override changes the prior verdict the runner recorded as `fail`/`skip`. It records that prior verdict so a reviewer can distinguish a justified manual pass from a laundered failure (parity with the same-named field `mark-manual` already stamps on a `03_TEST_CASES.json` TC). Auto-cleared if a later override is no longer a downgrade, so it never contradicts the live status. Additive + absence-tolerant: auto-parsed and non-override results carry no field; old readers ignore it.
