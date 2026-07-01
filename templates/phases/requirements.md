@@ -88,6 +88,8 @@ For each Tier-A field — **problem, users, baseline, success_metric, no_go_zone
    then it MUST be recorded as a tracked gap (see provenance contract below). An assumed
    ground-truth input is a visible risk, never a silent guess.
 
+**The same discipline applies to EVERY definition the client provided — not only the five Tier-A fields.** If the designated context (a functional spec, business rules, a feature list, a prior PRD, mockups) states a requirement or decision precisely, that is a **provided decision**: carry it into the FRs faithfully — a stated "must" becomes a MUST FR; a specific screen, rule, or behavior the client defined survives verbatim in an FR + its acceptance_criteria. Do NOT drop it, fold it into a different mechanism, water it down, or swap it for your own preference — the client brought it so Aitri would BUILD it, not re-open it. Where a provided definition is only partial or ambiguous, **ask to refine and align** before finalizing (same as above); only a genuinely absent need is yours to derive, marked [ASSUMPTION]. Judge maturity to know whether to transcribe, ask, or derive — never as a license to rewrite what the client already decided. (The `coverage_map` below makes a *dropped* provided decision visible after the fact — but the rule is to not drop it in the first place.)
+
 Do not collapse this into zero questions. Inferring everything and asking nothing is the
 failure mode this protocol exists to prevent.
 {{/IF_IDEA_MD}}

@@ -128,6 +128,23 @@ describe('Phase UX — buildBriefing()', () => {
     assert.ok(briefing.includes('End User'), 'persona role must appear in briefing');
   });
 
+  // AUDIT-0630-D — the UX persona re-invented a provided design instead of transcribing it (the
+  // archetype was "non-negotiable" and mockups were never a source). That inverted the intended
+  // authority of idea_context and broke the Ledger UI. These lock the corrected authority order.
+  it('AUDIT-0630-D: instructs that a client-PROVIDED design is the source of truth (transcribe, not re-invent)', () => {
+    assert.match(briefing, /PROVIDED DESIGN IS THE SOURCE OF TRUTH/,
+      'a provided design (mockups/prototype/spec) must be authoritative — the persona must transcribe it, not generate an alternative');
+    assert.match(briefing, /transcribe it/i, 'must instruct transcribing the provided design');
+  });
+  it('AUDIT-0630-D: subordinates the archetype to a provided design (fallback, not non-negotiable)', () => {
+    assert.match(briefing, /A provided visual design and explicit visual FRs override archetype defaults/,
+      'a provided design must override archetype defaults');
+    assert.ok(!/archetype sets non-negotiable defaults/.test(briefing),
+      'the archetype must NOT be framed as non-negotiable — that inverts the provided-design authority');
+    assert.match(briefing, /\(0\) the CLIENT-PROVIDED DESIGN if present/,
+      'tokens must derive from the provided design FIRST (top of the priority order)');
+  });
+
   // A3 (rc.10) — responsive breakpoints are conditional on the target medium
   it('breakpoints are conditional on medium, not imposed on every screen', () => {
     assert.ok(/fixed-medium/i.test(briefing),

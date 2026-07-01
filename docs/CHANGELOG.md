@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.143] — 2026-07-01 — provided client definitions are authoritative; Aitri decides only for gaps (ADR-065)
+
+Root-caused from the Ledger pilot: after rc.137/138 got the design to reach the build, the UI still diverged from the client's mockups — because the pipeline was **re-inventing** provided definitions instead of using them. The `_context` folders exist so that when the client already has business definitions, Aitri BUILDS with them and does not re-open closed decisions; its own generation (discovery, UX/archetype) is for what is absent or incomplete. The implementation had inverted this.
+
+- **UX transcribes a provided design; the archetype is a fallback (not "non-negotiable").** The UX persona ran a mandatory archetype step and derived tokens from `archetype → visual FRs → inferred context` — the provided mockups were never in the hierarchy (the word "mockup" appeared nowhere). Now: `PROVIDED DESIGN IS THE SOURCE OF TRUTH — transcribe it`, the archetype fills only what the provided design leaves unspecified, and tokens derive from the provided design first. (`lib/personas/ux.js`, `templates/phases/phaseUX.md`.)
+- **Phase 1 carries precise provided decisions faithfully — the complement to "never invent".** The PM had "never invent (mark [ASSUMPTION])" but no rule to keep what the client DID define, so a stated "must" (the desktop capture side panel) was silently dropped. Now the PM judges each provided item's **maturity** (qualitative, no thresholds) and acts: a precise/closed decision → carry it verbatim into an FR; a partial/ambiguous one → **ask to refine and align** before finalizing; a genuinely absent need → derive it, marked [ASSUMPTION]. This generalizes the existing Seed-Input Elicitation discipline from the five Tier-A inputs to **every** definition the client provided. (`lib/personas/pm.js`, `templates/phases/requirements.md`.)
+
+Honest ceiling (ADR-065 trade-off): "identify maturity / transcribe vs ask vs derive" is agent judgment — prompt-only, no new gate (a "did you honor the input" gate would be theater). The harness makes a dropped/re-invented decision **catchable** (the `confirmed`/`assumed` + `coverage_map` record is visible at `approve`), not impossible; and this removes the *upstream* cause of the Ledger divergence, which is necessary but not sufficient for pixel fidelity (the reproduction ceiling is separate, ADR-063). +3 tests. `npm run test:all` green (1885).
+
 ## [2.0.0-rc.142] — 2026-06-30 — the two remaining connectivity-audit decisions: canonical AC shape + a populated bug resolution (AUDIT-0630-E)
 
 Closes the two items the audit left as decisions rather than mechanical fixes.

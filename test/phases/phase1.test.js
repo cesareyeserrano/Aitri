@@ -473,6 +473,17 @@ describe('Phase 1 — buildBriefing() (BL-001)', () => {
     assert.ok(briefing.includes('[ASSUMPTION'), 'PM persona must instruct agent to use [ASSUMPTION] marker for inferred requirements');
   });
 
+  // ADR-065 — provided client definitions are authoritative; the PM must carry a precise provided
+  // decision faithfully (the complement to "never invent"), not re-decide or silently drop it (the
+  // Ledger side-panel drop). Maturity-aware: transcribe closed / ask about partial / derive absent.
+  it('ADR-065: PM persona treats provided client definitions as authoritative (carry precise ones, do not re-decide)', () => {
+    assert.match(briefing, /Provided definitions are AUTHORITATIVE/,
+      'the PM must carry precise provided decisions faithfully — not just "never invent", but "never drop/re-decide what the client defined"');
+    assert.match(briefing, /carry it into the FRs faithfully/i, 'a precise provided decision must survive verbatim');
+    assert.match(briefing, /ask the user a direct, specific question to refine and align/i,
+      'a partial/ambiguous provided definition must trigger a refine-and-align question, not a silent guess');
+  });
+
   it('briefing contains no-go zone instruction', () => {
     assert.ok(briefing.includes('no-go'), 'briefing must mention no-go zone');
   });
