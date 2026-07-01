@@ -335,10 +335,34 @@ describe('cmdBug lifecycle', () => {
     assert.equal(readBugs(dir).bugs[0].status, 'verified');
   });
 
+  it('fix with --resolution records the resolution note (AUDIT-0630-E — was seeded null and never written)', () => {
+    const dir = setup();
+    cmdBug({ dir, args: ['fix', 'BG-001', '--resolution', 'guarded the null path in auth.js'], err });
+    const bug = readBugs(dir).bugs[0];
+    assert.equal(bug.status, 'fixed');
+    assert.equal(bug.resolution, 'guarded the null path in auth.js');
+  });
+
+  it('resolution set at fix persists through verify → close', () => {
+    const dir = setup();
+    cmdBug({ dir, args: ['fix', 'BG-001', '--resolution', 'fixed in auth.js'], err });
+    cmdBug({ dir, args: ['verify', 'BG-001'], err });
+    cmdBug({ dir, args: ['close', 'BG-001'], err });
+    assert.equal(readBugs(dir).bugs[0].resolution, 'fixed in auth.js', 'close without --resolution keeps the fix-time resolution');
+  });
+
   it('close sets status to closed', () => {
     const dir = setup();
     cmdBug({ dir, args: ['close', 'BG-001'], err });
     assert.equal(readBugs(dir).bugs[0].status, 'closed');
+  });
+
+  it('close with --resolution records it (won\'t-fix / duplicate path, no prior fix)', () => {
+    const dir = setup();
+    cmdBug({ dir, args: ['close', 'BG-001', '--resolution', 'duplicate of BG-002'], err });
+    const bug = readBugs(dir).bugs[0];
+    assert.equal(bug.status, 'closed');
+    assert.equal(bug.resolution, 'duplicate of BG-002');
   });
 
   it('errors when bug id not found', () => {

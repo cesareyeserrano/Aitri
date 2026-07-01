@@ -422,6 +422,17 @@ describe('buildACCoverage() — AC-level traceability (ADR-041 option A)', () =>
     const cov = buildACCoverage([{ tc_id: 'TC-001', status: 'pass' }], [{ id: 'TC-001', ac_id: 'AC-001' }], reqs);
     assert.equal(cov.find(a => a.ac_id === 'AC-001')?.status, 'covered');
   });
+
+  it('joins on the id for the canonical {id, given, when, then} AC shape (AUDIT-0630-E — the template\'s SPEC-SEALED form)', () => {
+    // The template emits acceptance_criteria as { id, given, when, then }; ac_coverage joins purely
+    // on the id, so this shape must map with no text field present (the vestigial text read was removed).
+    const reqs = { user_stories: [{ requirement_id: 'FR-001', acceptance_criteria: [
+      { id: 'AC-001', given: 'a state', when: 'an action', then: 'an assertion' },
+    ] }] };
+    const cov = buildACCoverage([{ tc_id: 'TC-001', status: 'pass' }], [{ id: 'TC-001', ac_id: 'AC-001' }], reqs);
+    assert.equal(cov.find(a => a.ac_id === 'AC-001')?.status, 'covered');
+    assert.equal(cov.find(a => a.ac_id === 'AC-001')?.fr_id, 'FR-001');
+  });
 });
 
 describe('buildFRCoverage()', () => {

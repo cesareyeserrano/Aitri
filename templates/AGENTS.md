@@ -156,9 +156,9 @@ Features are independent sub-pipelines under `{{FEATURES_DIR}}/<name>/`. Each ha
 
 `aitri bug add` writes to `{{SPEC_DIR}}/BUGS.json`. Subsequent transitions:
 
-- `aitri bug fix <BG-ID>` — developer marks it resolved.
+- `aitri bug fix <BG-ID>` — developer marks it resolved. Add `--resolution "how it was fixed"` to record the resolution note (the word-level companion to the captured fix-commit SHA).
 - `aitri bug verify <BG-ID>` — auto-set when the linked TC passes in `verify-run`, or manual.
-- `aitri bug close <BG-ID>` — archive.
+- `aitri bug close <BG-ID>` — archive. Also accepts `--resolution "..."` for a bug closed without a code fix (won't-fix, duplicate).
 
 Critical and high severity bugs in `open` or `in_progress` state block: `verify-complete`, `reconcile --resolve`, and the deploy gate.
 

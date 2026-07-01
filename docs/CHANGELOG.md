@@ -5,6 +5,15 @@
 
 ---
 
+## [2.0.0-rc.142] — 2026-06-30 — the two remaining connectivity-audit decisions: canonical AC shape + a populated bug resolution (AUDIT-0630-E)
+
+Closes the two items the audit left as decisions rather than mechanical fixes.
+
+- **AC-shape drift ratified ([ADR-064](DECISIONS.md)).** A three-way inconsistency: the `requirements.md` template emits structured acceptance criteria as `{ id, given, when, then }`, ARTIFACTS.md documented `{ id, description }`, and `verify.js` `buildACCoverage` read `ac.text || ac.description` for a criterion-text label. Since the template never emits `text`/`description`, that label always resolved to `''`. **Impact was nil** — every consumer joins on the `ac_id`, and the text was never carried in the `ac_coverage` entry nor displayed. Resolved by ratifying `{ id, given, when, then }` as canonical: dropped the vestigial `text`/`description` read (`acMeta` now carries only `{ fr_id }`), documented the real shape in ARTIFACTS.md (legacy `{id,text}`/`{id,description}` still accepted — only `id` is load-bearing), no artifact in the wild breaks.
+- **`BUGS.json#resolution` is no longer inert.** The field was seeded `null` at creation and never written by any command — a documented lifecycle field the CLI left blank while the SHA trail (`fix_commit_sha`/`close_commit_sha`/`files_changed`) carried the mechanical record. Added `aitri bug fix --resolution "..."` (the natural point — the resolution is known at fix; it persists through verify → close) and `aitri bug close --resolution "..."` (for a bug closed without a code fix — won't-fix, duplicate). The word-level "how it was resolved" now complements the SHA trail.
+
++4 tests (2 bug lifecycle, 1 canonical-AC-shape join, plus the persist-through-close case). AGENTS.md, ARTIFACTS.md, integrations/CHANGELOG (— additive) updated. Independent adversarial pass over the whole rc.139–142 audit-fix series before ship. `npm run test:all` green.
+
 ## [2.0.0-rc.141] — 2026-06-30 — connectivity-audit hygiene: stop authoring dead fields + document real ones (AUDIT-0630-D)
 
 Two low-risk cleanups from the connectivity audit, bundled:

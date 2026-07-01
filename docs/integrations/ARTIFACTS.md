@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.141+
+**Aitri version:** v2.0.0-rc.142+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -48,7 +48,9 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
       "acceptance_criteria": [
         {
           "id": "AC-001",
-          "description": "string"
+          "given": "concrete system state",
+          "when": "exact action or input",
+          "then": "verifiable assertion with a specific value"
         }
       ]
     }
@@ -80,7 +82,7 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
 - Every FR and NFR must have a non-empty string `id`, unique within each list (v2.0.0-rc.26+). The id is the join key — phase 3 ties each TC to one via `requirement_id`/`frs`, phase 5 demands a compliance entry per MUST id. A missing id collapsed to an `undefined` key downstream; a duplicate silently masked one requirement's coverage. Format (`FR-xxx`/`NFR-xxx`) stays a convention; downstream keys on membership, not the prefix.
 - All MUST FRs must have a `type` field and at least one `acceptance_criteria` entry
 - An NFR with `category: "Regression"` is treated as a hard MUST regardless of its `priority` (v2.0.0-rc.104+, REG-GATE-0621). A regression NFR is a Must-Not-Break commitment, so it must have a test case (Phase 3) and a compliance entry (Phase 5) even when `priority` is absent. Before rc.104 `category` was display-only and such an NFR silently escaped both gates. Consumers that surface MUST requirements should apply the same rule, matching `category` case- and whitespace-insensitively (v2.0.0-rc.110+): `priority === "MUST" || category?.trim().toLowerCase() === "regression"`
-- **Structured AC ids** (v2.0.0-rc.48+, [ADR-041](../DECISIONS.md) option A) — when `user_stories[].acceptance_criteria` entries are structured objects (`{ id, text }`), every such `id` must be a non-empty string and **unique across all user stories**. It is the finer join key that `03_TEST_CASES.json#test_cases[].ac_id` traces to and that `04_TEST_RESULTS.json#ac_coverage` rolls up on; a duplicate masks one criterion's AC-level coverage. Enforced **only** when structured ACs are present — plain-string ACs and projects with none are unaffected (additive).
+- **Structured AC ids** (v2.0.0-rc.48+, [ADR-041](../DECISIONS.md) option A; canonical shape ratified v2.0.0-rc.142) — when `user_stories[].acceptance_criteria` entries are structured objects (canonically `{ id, given, when, then }` — the SPEC-SEALED form the template emits; the older `{ id, text }` / `{ id, description }` are still accepted because **only the `id` is the join key**), every such `id` must be a non-empty string and **unique across all user stories**. It is the finer join key that `03_TEST_CASES.json#test_cases[].ac_id` traces to and that `04_TEST_RESULTS.json#ac_coverage` rolls up on; a duplicate masks one criterion's AC-level coverage. Enforced **only** when structured ACs are present — plain-string ACs and projects with none are unaffected (additive).
 - MUST FRs of type `ux`, `visual`, or `audio` must include at least one criterion with a measurable metric (e.g. pixels, ms, %, contrast ratio)
 - All MUST FRs where every AC is purely vague (e.g. "works properly", "runs smoothly") will fail validation
 - MUST FRs whose `title` is fully vague (matches qualifier like "properly"/"correctly"/"correctamente" with <2 substantive tokens remaining after stopword/vague-word removal) will fail validation (v0.1.82+)
@@ -163,7 +165,7 @@ Written by Phase 3 (QA persona). Test cases keyed to FRs, user stories, and acce
 - TC `id` values must be **canonical** (v2.0.0-rc.16+): `TC` + optional UPPERCASE namespace segments + a numeric block + suffix — e.g. `TC-001h`, `TC-E2E-001h`, `TC-API-USER-010f`. Ids without a numeric block (`TC-e2eFolderScan`) or with a lowercase namespace (`TC-fe-001h`) are rejected. Rationale: `verify-run` links a parsed runner-output id to a plan id by string equality, so any id the shared parser cannot round-trip would silently drop to `skip`. The grammar is shared between the parser and this gate (`lib/tc-id.js`), so the two cannot drift.
 - `type` must be: `unit` | `integration` | `e2e`
 - `scenario` must be: `happy_path` | `edge_case` | `negative`
-- Each TC must have: `requirement_id` (or `frs[]`) and `user_story_id`. `ac_id` is **conditional** (v2.0.0-rc.36+, ADR-041): required only when `01_REQUIREMENTS.json` provides structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, text }` objects); when ACs are plain strings, `ac_id` is optional
+- Each TC must have: `requirement_id` (or `frs[]`) and `user_story_id`. `ac_id` is **conditional** (v2.0.0-rc.36+, ADR-041): required only when `01_REQUIREMENTS.json` provides structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, given, when, then }` objects — or the legacy `{ id, text }` / `{ id, description }`; only the `id` is the join key); when ACs are plain strings, `ac_id` is optional
 - `expected_result` must not be a placeholder (`"it works"`, `"passes"`, `"succeeds"`, etc.)
 - Each FR must have a minimum of 3 TCs, with at least one `happy_path` and one `negative` scenario (edge_case is encouraged but not enforced)
 - Each FR must have at least one TC with id ending in `h` (happy path) and one ending in `f` (failure)
@@ -296,7 +298,7 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 
 **`line_coverage`** (optional, v2.0.0-rc.9+) — measured line-coverage percentage, present only when `verify-run` was invoked with `--coverage-threshold` AND a recognized runner emitted a parseable figure. Stack-agnostic: node built-in `--coverage`, `go test -cover`, `pytest --cov`, `jest`/`vitest --coverage`. Absent when no threshold was requested or the runner's coverage output could not be parsed.
 
-**`ac_coverage`** (optional, v2.0.0-rc.48+, [ADR-041](../DECISIONS.md) option A) — per-acceptance-criterion coverage, the finer-grained companion to `fr_coverage`. Present **only** when `01_REQUIREMENTS.json` declares structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, text }` — `description` is also accepted as the text field); absent otherwise, so string-AC and legacy projects are unaffected. Each entry: `{ ac_id, fr_id, tests_passing, tests_failing, tests_skipped, tests_manual, status }`. `status` adds one value over `fr_coverage`: **`untested`** — no test case references this criterion via `ac_id` at all (the headline signal: "FR-001 is covered, but AC-001-3 has no test"). `verify-run` lists `untested`/`uncovered` criteria in its output, and (v2.0.0-rc.49+) `verify-complete` **blocks** on them: when structured ACs are present, every declared criterion must have a passing test to reach Phase 5 — the finer-grained companion to the uncovered-FR gate. Declaring structured ACs is itself the opt-in; string-AC and legacy projects write no `ac_coverage` and are unaffected.
+**`ac_coverage`** (optional, v2.0.0-rc.48+, [ADR-041](../DECISIONS.md) option A) — per-acceptance-criterion coverage, the finer-grained companion to `fr_coverage`. Present **only** when `01_REQUIREMENTS.json` declares structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, given, when, then }` — the legacy `{ id, text }` / `{ id, description }` also work, since the join is purely on `id`); absent otherwise, so string-AC and legacy projects are unaffected. Each entry: `{ ac_id, fr_id, tests_passing, tests_failing, tests_skipped, tests_manual, status }` — the criterion's text is not carried (the entry keys on `ac_id`). `status` adds one value over `fr_coverage`: **`untested`** — no test case references this criterion via `ac_id` at all (the headline signal: "FR-001 is covered, but AC-001-3 has no test"). `verify-run` lists `untested`/`uncovered` criteria in its output, and (v2.0.0-rc.49+) `verify-complete` **blocks** on them: when structured ACs are present, every declared criterion must have a passing test to reach Phase 5 — the finer-grained companion to the uncovered-FR gate. Declaring structured ACs is itself the opt-in; string-AC and legacy projects write no `ac_coverage` and are unaffected.
 
 **`low_confidence_tcs`** (v2.0.0-rc.9+) — TCs whose test block contains ≤1 assertion (possible trivial test). Always present (possibly `[]`). Each entry: `{ tc_id, file, assertCount }`. Informational by default; becomes a hard gate in `verify-complete` only when the project sets `strictAssertions: true` in `.aitri` (see SCHEMA.md).
 
@@ -391,7 +393,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
       "reported_by": "string | null",
       "created_at": "ISO8601",
       "updated_at": "ISO8601",
-      "resolution":       "string | null",
+      "resolution":       "string | null — human-readable 'how it was resolved', set by `aitri bug fix --resolution` / `bug close --resolution` (v2.0.0-rc.142+); the word-level companion to the fix/close SHA trail. null until supplied",
       "fix_commit_sha":   "string (optional, v0.1.90+) — HEAD at the moment of `aitri bug fix`",
       "fix_at":           "ISO8601 (optional, v0.1.90+) — timestamp paired with fix_commit_sha",
       "close_commit_sha": "string (optional, v0.1.90+) — HEAD at the moment of `aitri bug close`",

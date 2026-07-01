@@ -25,7 +25,7 @@
 > **Adoption audit (brownfield):** if `idea_context/ADOPTION_AUDIT.md` is present, read it before designing tests — its findings name the existing behavior, integration seams, and regression risks the change must not break. Turn each Must-Not-Break / regression risk it records into a concrete negative or edge test case (a `category: "Regression"` NFR is a hard MUST and needs the full happy/edge/negative set).
 
 ## System Design (architecture + API) — design your tests against this contract
-The interface, data model, and integration seams below are the approved contract. Your integration and e2e tests MUST exercise the real interface the design declares — in the form this stack uses (HTTP endpoints, function/class signatures, CLI commands, or protocol messages) — and your test data MUST match the Data Model. Do not invent an interface the design does not define, and do not leave a declared interface or integration seam untested.
+The interface, data model, and integration seams below are the approved contract. Whatever integration and e2e tests you write MUST target the real interface the design declares — in the form this stack uses (HTTP endpoints, function/class signatures, CLI commands, or protocol messages) — and your test data MUST match the Data Model. Do not invent an interface the design does not define, and do not leave a declared interface or integration seam untested.
 {{SYSTEM_DESIGN}}
 
 ## TC ID naming convention
@@ -72,7 +72,7 @@ Scan this before writing. These are mechanical (validated by exit code, not advi
 - `requirement_id` is a single id — never comma-separated (use `frs: [...]` for multi-FR).
 - `requirement_id`/`frs[]` and `user_story_id` reference real ids in `01_REQUIREMENTS.json`.
 - `expected_result` is specific — not `"works"`, `"passes"`, `"is correct"`.
-- `ac_id`: required **only when** `01_REQUIREMENTS.json` provides structured acceptance criteria — i.e. `user_stories[].acceptance_criteria` are `{ id, text }` objects. Then every TC must carry an `ac_id` matching one of those ids (the value is cross-validated; the error lists the valid ids). If Phase 1's acceptance_criteria are plain strings with no ids, `ac_id` is **optional** — traceability still holds via `requirement_id` + `user_story_id` (both always required). Do NOT invent an `ac_id` format: use an id that exists in `01_REQUIREMENTS.json`, or omit it when none exist.
+- `ac_id`: required **only when** `01_REQUIREMENTS.json` provides structured acceptance criteria — i.e. `user_stories[].acceptance_criteria` are `{ id, given, when, then }` objects (the legacy `{ id, text }` also counts — only the `id` is the join key). Then every TC must carry an `ac_id` matching one of those ids (the value is cross-validated; the error lists the valid ids). If Phase 1's acceptance_criteria are plain strings with no ids, `ac_id` is **optional** — traceability still holds via `requirement_id` + `user_story_id` (both always required). Do NOT invent an `ac_id` format: use an id that exists in `01_REQUIREMENTS.json`, or omit it when none exist.
 
 ## Given/When/Then — SPEC-SEALED rule
 Every test case MUST include `given`, `when`, `then` fields with concrete, verifiable values.

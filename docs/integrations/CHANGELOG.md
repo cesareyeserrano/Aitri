@@ -18,6 +18,11 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.142 (2026-06-30) — ratify structured-AC shape `{id,given,when,then}`; `BUGS.json#resolution` now populated — additive
+
+- **`01_REQUIREMENTS.json#user_stories[].acceptance_criteria`** is now documented canonically as `{ id, given, when, then }` ([ADR-064](../DECISIONS.md)) — the SPEC-SEALED form the template emits. The legacy `{ id, text }` / `{ id, description }` still validate and join, because **only `id` is the join key**; no artifact in the wild breaks. `04_TEST_RESULTS.json#ac_coverage` entries are unchanged (`{ ac_id, fr_id, tests_*, status }`) and never carried the criterion text (the vestigial `text` read was removed).
+- **`BUGS.json#bugs[].resolution`** is now populated by `aitri bug fix --resolution` / `aitri bug close --resolution` — previously seeded `null` and never written by any command. Additive: old readers ignore it; a reader that surfaces it gets a value only when the operator supplied one.
+
 ## v2.0.0-rc.141 (2026-06-30) — document three fields that shipped + were consumed but were absent from the schema (connectivity audit) — additive
 
 Pure documentation reconciliation — no code or shape change; the fields already exist and are read. The connectivity audit found ARTIFACTS.md drifted from what Aitri produces and consumes:
