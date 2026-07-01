@@ -92,3 +92,41 @@ describe('pipeline connectivity — design-flow regression locks (the AUDIT-0630
     }
   });
 });
+
+// Instruction-level connectivity (whole-flow audit 2026-06-30). A declared+interpolated input is not
+// enough — the rc.137 defect was a design that reached the briefing but was never INSTRUCTED to be used
+// ("present-but-not-instructed"). The connectivity audit found two more of the same class: phase 2 got
+// the UX spec as a passive "read-only context" dump, and phase 3 got the system design under a bare
+// header, neither with a directive to consume it. These locks assert the briefing carries a real
+// consumption directive, and that the optional one is stripped on a project that lacks the input.
+describe('pipeline connectivity — declared inputs must be INSTRUCTED, not just interpolated (AUDIT-0630-C)', () => {
+  it('phase 2 (architecture) is instructed to build the architecture to support the UX spec when present', () => {
+    const b = PHASE_DEFS[2].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { '01_REQUIREMENTS.json': '{}', '01_UX_SPEC.md': '# UX Spec\n\nScreens, flows, component inventory.' },
+      feedback: null,
+    });
+    assert.match(b, /architecture MUST support/i,
+      'phase 2 briefing must direct the architect to support the UX spec (Data Model / API Design / System Architecture) — ' +
+      'not dump it as read-only context (the rc.137 silent-input class).');
+  });
+
+  it('phase 2 strips the UX directive (and leaks no raw tokens) on a project with no UX spec', () => {
+    const b = PHASE_DEFS[2].buildBriefing({
+      dir: '/tmp/test', inputs: { '01_REQUIREMENTS.json': '{}' }, feedback: null,
+    });
+    assert.ok(!/architecture MUST support/i.test(b), 'no UX directive when 01_UX_SPEC.md is absent (backend-only project)');
+    assert.ok(!/\{\{#?\/?IF_UX_SPEC\}\}|\{\{UX_SPEC\}\}/.test(b), 'no raw template tokens leak');
+  });
+
+  it('phase 3 (tests) is instructed to design the tests against the system design contract', () => {
+    const b = PHASE_DEFS[3].buildBriefing({
+      dir: '/tmp/test',
+      inputs: { '01_REQUIREMENTS.json': '{}', '02_SYSTEM_DESIGN.md': '# Design\n\n## API Design\nPOST /x' },
+      feedback: null,
+    });
+    assert.match(b, /design your tests against this contract/i,
+      'phase 3 briefing must direct the QA agent to design integration/e2e tests against the API/Data Model in the ' +
+      'system design — not receive it as a silent dump under a bare header.');
+  });
+});

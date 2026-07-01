@@ -29,7 +29,13 @@ Do not invent a constraint the project did not state — but do not silently des
 **Adoption audit (if present).** If an `ADOPTION_AUDIT.md` is among the context files (`idea_context/`), this is a change to an existing system: factor its findings — blast radius, risks, what must not break — into the design, and make the preservation contract (Data Model / API Design sections) concrete against them.
 
 {{#IF_UX_SPEC}}
-## UX/UI Specification (01_UX_SPEC.md — read-only context)
+## UX/UI Specification (01_UX_SPEC.md — the approved design your architecture MUST support)
+This UX spec is approved — design the system to support it, do not treat it as decoration:
+- **Data Model** must hold every entity, field, and state the screens display.
+- **API Design** must expose an operation for every user action in the User Flows — no action without a backing endpoint/signature.
+- **System Architecture** must account for the interaction patterns the design implies (real-time, offline, optimistic update, pagination).
+An architecture that omits a data field or endpoint the UX requires is a design gap — reconcile it here, or raise the conflict in `## Technical Risk Flags`.
+
 {{UX_SPEC}}
 {{/IF_UX_SPEC}}
 

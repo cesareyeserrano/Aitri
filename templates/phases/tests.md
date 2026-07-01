@@ -24,7 +24,8 @@
 > no_go_zone above lists what is explicitly out of scope — do NOT write test cases for these items.
 > **Adoption audit (brownfield):** if `idea_context/ADOPTION_AUDIT.md` is present, read it before designing tests — its findings name the existing behavior, integration seams, and regression risks the change must not break. Turn each Must-Not-Break / regression risk it records into a concrete negative or edge test case (a `category: "Regression"` NFR is a hard MUST and needs the full happy/edge/negative set).
 
-## System Design (architecture + API)
+## System Design (architecture + API) — design your tests against this contract
+The interface, data model, and integration seams below are the approved contract. Your integration and e2e tests MUST exercise the real interface the design declares — in the form this stack uses (HTTP endpoints, function/class signatures, CLI commands, or protocol messages) — and your test data MUST match the Data Model. Do not invent an interface the design does not define, and do not leave a declared interface or integration seam untested.
 {{SYSTEM_DESIGN}}
 
 ## TC ID naming convention
