@@ -91,6 +91,17 @@ describe('extractRequirements()', () => {
     assert.equal(us.so_that, undefined);
   });
 
+  it('forwards non_functional_requirements acceptance_criteria (QA designs the NFR test against it — AUDIT-0630-D)', () => {
+    const out = JSON.parse(extractRequirements(fullRequirements()));
+    const nfr = out.non_functional_requirements[0];
+    assert.equal(nfr.id, 'NFR-001');
+    assert.equal(nfr.category, 'Performance');
+    assert.equal(nfr.requirement, 'p99 < 200ms');
+    assert.equal(nfr.acceptance_criteria, 'measured under load',
+      'the NFR acceptance_criteria (esp. a regression NFR — how a test confirms it still works) must ' +
+      'reach the downstream phases; dropping it left phase 3 designing NFR tests blind to it');
+  });
+
   it('handles missing user_stories gracefully (no throw)', () => {
     const d = JSON.parse(fullRequirements());
     delete d.user_stories;

@@ -5,6 +5,10 @@
 
 ---
 
+## [2.0.0-rc.140] — 2026-06-30 — the NFR acceptance criterion now reaches the phase that tests it (AUDIT-0630-D)
+
+Connectivity-audit follow-up (Tier 1): closes the field-level shape of the rc.137 silent-drop. `extractRequirements` (`lib/phases/context.js`, Phase 1's `extractContext`, applied to `01_REQUIREMENTS.json` for every downstream phase) forwarded only `id`/`category`/`requirement` for each NFR — **not its `acceptance_criteria`**. But `requirements.md` instructs the PM to author that criterion as the *observable, measurable target* (and for a `category: "Regression"` NFR it is literally "how a test confirms it still works"), so Phase 3 was designing NFR tests blind to the very criterion Phase 1 wrote — the same "authored upstream, never delivered downstream" class the audit exists to catch, at field granularity. Now forwarded, exactly like the FR-level `acceptance_criteria` already is. Additive projection change (the briefing gains a field; no artifact-schema change — `nfr.acceptance_criteria` was already in ARTIFACTS.md). The other `extractContext`-dropped fields (`us.as_a/i_want/so_that`, `fr.description`, `tc.preconditions/steps/test_data`) were reviewed and deliberately left stripped — `given/when/then` + the ACs already carry the testable content, and the narrative strip is an existing tested contract. +1 test. `npm run test:all` green.
+
 ## [2.0.0-rc.139] — 2026-06-30 — connectivity audit, field + prompt dimensions: two more silent inputs closed (AUDIT-0630-C)
 
 Completes the whole-flow connectivity audit's three previously-unaudited dimensions (field-level consumers, prompt-completeness, `.aitri`/`status --json` state) via a parallel producer→consumer trace of every artifact and field. **The flow came back overwhelmingly connected** — no hard artifact-level orphan, no dangling read that breaks, no state-field orphan, and every `status --json` field documented + emitted both ways. The audit found the same *instruction-level* defect class as rc.137 (a design that reaches the briefing but is never INSTRUCTED to be used) in **two** more places, both fixed here:
