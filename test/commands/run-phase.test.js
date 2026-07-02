@@ -263,6 +263,109 @@ describe('cmdRunPhase() — context folder (idea_context/ rename, rc.37)', () =>
   });
 });
 
+// ADR-066: the intake used to list every context asset as a bare PATH and bet the agent would open
+// each on request. The Ledger pilot falsified that bet — the agent read the .md spec but silently
+// skipped the mockups and the .html prototype. At the grounding/design phases, readable text is now
+// INJECTED in full (a skip becomes impossible) and unreadable/oversized material gets a loud "OPEN
+// each" pointer. These tests pin both halves and the phase scoping.
+describe('cmdRunPhase() — intake injects readable context, flags the unreadable (ADR-066)', () => {
+  it('injects the CONTENT of a readable text asset into the Phase 1 briefing, not just its path', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    writeFile(dir, 'idea_context/client-spec.md',
+      '# Client Spec\nThe primary accent MUST be #4a7fa5. The delete flow MUST reassign to a sibling category.');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(stdout.includes('#4a7fa5') && stdout.includes('reassign to a sibling category'),
+      'the spec CONTENT is injected into the briefing, so the agent cannot silently skip it');
+    assert.match(stdout, /included IN FULL/, 'injected material is framed as authoritative, read-and-reflect');
+    assert.ok(stdout.includes('idea_context/client-spec.md'), 'the injected file is still identified by path');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT inject a binary or oversized text asset — it surfaces a loud OPEN-each pointer', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    writeFile(dir, 'idea_context/mockup.png', 'x');
+    const oversized = '# Prototype\n' + 'A'.repeat(40000);   // > MAX_INJECT_BYTES → pointer, not inlined
+    writeFile(dir, 'idea_context/prototype.html', oversized);
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.match(stdout, /OPEN each one before writing/, 'unreadable/oversized material gets the loud open instruction');
+    assert.ok(stdout.includes('idea_context/mockup.png'), 'the binary mockup is surfaced by path');
+    assert.ok(stdout.includes('idea_context/prototype.html'), 'oversized text falls back to a pointer, by path');
+    assert.ok(!stdout.includes('A'.repeat(40000)), 'the oversized body is NOT inlined into the briefing');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT inject raw context CONTENT at execution phases (build stays context-excluded)', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1, 2, 3], currentPhase: 3 }));
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', '# Design\n'.repeat(10));
+    writeFile(dir, 'spec/03_TEST_CASES.json', '{"test_cases":[]}');
+    writeFile(dir, 'idea_context/client-spec.md', 'SECRET_MARKER_CONTENT the build must not inline');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(!stdout.includes('SECRET_MARKER_CONTENT'), 'build phase must not inline idea_context text content');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT inline a binary file with a text extension — NUL-byte sniff falls to a pointer', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    fs.mkdirSync(path.join(dir, 'idea_context'), { recursive: true });
+    // a .json (whitelisted extension) that is actually binary: PNG magic + a NUL byte
+    fs.writeFileSync(path.join(dir, 'idea_context', 'blob.json'),
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x00, 0x01, 0x02, 0x03, 0x04]));
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(stdout.includes('idea_context/blob.json'), 'the binary-with-text-extension is surfaced by path');
+    assert.match(stdout, /OPEN each one before writing/, 'a binary blob is a pointer, never inlined as mojibake');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('injects smallest-first and loudly warns when the total budget demotes a readable file (no silent starvation)', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'IDEA.md', IDEA_CONTENT);
+    // readable text well over the 96KB per-briefing budget: four ~31KB files + one small critical file.
+    for (const n of ['a', 'b', 'c', 'd']) writeFile(dir, `idea_context/${n}-big.md`, n.toUpperCase().repeat(31000));
+    writeFile(dir, 'idea_context/z-small.md', 'Z_CRITICAL_REQUIREMENT_MARKER — small but must not be starved');
+    const { stdout, stderr } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(stdout.includes('Z_CRITICAL_REQUIREMENT_MARKER'),
+      'smallest-first ordering keeps the small file injected — a large file cannot starve it');
+    assert.match(stderr, /exceeded the per-briefing injection/,
+      'a readable file demoted by the budget is surfaced loudly on stderr, never silently dropped to a pointer');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('injects feature_context content in a FEATURE sub-pipeline, not just root idea_context (scope parity)', () => {
+    const parent = tmpDir();
+    writeFile(parent, '.aitri', minimalConfig());   // parent must load for the parent-context pointer block
+    const dir = tmpDir();                            // the feature pipeline dir
+    writeFile(dir, '.aitri', minimalConfig());
+    writeFile(dir, 'FEATURE_IDEA.md', '# Feature\n\n## Problem / Why\nx\n## Target Users\nx\n## New Behavior\nx\n## Success Criteria\nx\n');
+    writeFile(dir, 'feature_context/fspec.md', 'FEATURE_CONTEXT_MARKER — the client feature spec, authoritative');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['requirements'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR, featureRoot: parent, scopeName: 'foo' })
+    );
+    assert.ok(stdout.includes('FEATURE_CONTEXT_MARKER'), 'feature_context readable text is injected in a feature pipeline (same path as root)');
+    assert.ok(stdout.includes('feature_context/fspec.md'), 'the feature_context file is identified by path');
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.rmSync(parent, { recursive: true, force: true });
+  });
+});
+
 // ADOPT-BUILD-0628: the build phase is otherwise context-excluded, but an adoption build must be
 // grounded in the existing code or it modifies the system blind. The adoption audit (relocated into
 // idea_context/ by `adopt apply`) is surfaced to Phase 4 with an instruction to read current source.

@@ -176,7 +176,7 @@ here, defined once.
 - `extractContext()` per phase: passes only the fields the next agent needs
 - Phase 2 → Phase 3: `head(sdd, 160)` — architecture + API, skips risk/deploy
 - Phase 2 → Phase 4: passes the **full** system design (the rc.28 audit found `head()` truncation dropped sections the Dev needs — full design now)
-- Context assets (`idea_context/` / `feature_context/`) are listed only in the **spec-definition** phases (discovery, requirements, ux, architecture, tests), never in build/deploy/review (rc.39) — bounds staleness
+- Context assets (`idea_context/` / `feature_context/`) surface only in the **spec-definition** phases (discovery, requirements, ux, architecture, tests), never in build/deploy/review (rc.39) — bounds staleness. At the **grounding/design** phases (discovery, requirements, ux) readable text is **injected in full** (capped per-file + per-briefing) so the agent cannot silently skip provided definitions, and images / oversized text get a loud "OPEN each" pointer instead of a bare path (ADR-066); phases 2–3 keep the lighter path listing (they build on approved artifacts)
 - JSON artifacts: only relevant fields extracted (~40-60% token savings)
 - Each phase runs in a clean context — no accumulated history
 
