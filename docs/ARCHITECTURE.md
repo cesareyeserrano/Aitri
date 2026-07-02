@@ -188,8 +188,9 @@ Intentionally NOT inventoried in this anchor — they change every release and w
 - **Command surface / flow** → `aitri help` (authoritative, always current).
 - **Dev process · version-bump policy · release checklist · impact analysis** → `CLAUDE.md` (the *Working Method* + *Critical rules*).
 - **What shipped, when** → `docs/CHANGELOG.md`.
+- **What the data flow MUST uphold** (per-phase inputs + how, gates, mechanical-vs-honor-system ceiling) → `docs/FLOW_INVARIANTS.md`. This anchor is *descriptive* (what Aitri is); FLOW_INVARIANTS is *normative* (what the flow must uphold) — the reference conformance audits validate against. Keep it current in the same commit as any change to phase inputs, an `extract*` transform, the intake/injection policy, or a gate.
 
-This doc keeps only the durable architecture (above) + the non-negotiable rejections (below). `ARCHITECTURE.md` and `DECISIONS.md` are committed team artifacts at `docs/`; the rest of the dev working notes are kept local to the maintainer.
+This doc keeps only the durable architecture (above) + the non-negotiable rejections (below). `ARCHITECTURE.md`, `DECISIONS.md`, and `FLOW_INVARIANTS.md` are committed team artifacts at `docs/`; the rest of the dev working notes are kept local to the maintainer.
 
 ---
 
