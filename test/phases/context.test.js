@@ -25,7 +25,7 @@ const fullRequirements = () => JSON.stringify({
     },
   ],
   non_functional_requirements: [
-    { id: 'NFR-001', category: 'Performance', requirement: 'p99 < 200ms', acceptance_criteria: 'measured under load' },
+    { id: 'NFR-001', category: 'Performance', priority: 'MUST', requirement: 'p99 < 200ms', acceptance_criteria: 'measured under load' },
   ],
 });
 
@@ -100,6 +100,16 @@ describe('extractRequirements()', () => {
     assert.equal(nfr.acceptance_criteria, 'measured under load',
       'the NFR acceptance_criteria (esp. a regression NFR — how a test confirms it still works) must ' +
       'reach the downstream phases; dropping it left phase 3 designing NFR tests blind to it');
+  });
+
+  it('forwards non_functional_requirements priority for parity with FRs (F2 sweep 2026-07-02)', () => {
+    const out = JSON.parse(extractRequirements(fullRequirements()));
+    assert.equal(out.non_functional_requirements[0].priority, 'MUST',
+      'NFR priority must reach the architect/QA so a MUST NFR is distinguishable from a SHOULD one at ' +
+      'design time; the FR arm already forwards priority — the omission was an unprincipled asymmetry');
+    const comp = JSON.parse(extractRequirementsForCompliance(fullRequirements()));
+    assert.equal(comp.non_functional_requirements[0].priority, 'MUST',
+      'extractRequirementsForCompliance forwards NFR priority too (parity)');
   });
 
   it('handles missing user_stories gracefully (no throw)', () => {

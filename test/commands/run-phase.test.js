@@ -125,7 +125,7 @@ describe('cmdRunPhase() — phase 1 (requirements) briefing', () => {
   });
 });
 
-describe('cmdRunPhase() — build surfaces visual assets when a UX spec exists (AUDIT-0630-B)', () => {
+describe('cmdRunPhase() — build surfaces design reference when a UX spec exists (AUDIT-0630-B / F1)', () => {
   const buildFixture = (dir, { ux = true } = {}) => {
     writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1, 2, 3], currentPhase: 3 }));
     writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
@@ -134,31 +134,63 @@ describe('cmdRunPhase() — build surfaces visual assets when a UX spec exists (
     if (ux) writeFile(dir, 'spec/01_UX_SPEC.md', '# UX Spec\n\nSemantic color: over-budget red.');
   };
 
-  it('lists the mockups (not non-visual context) in the build briefing so the agent opens them', () => {
+  it('lists context assets in ANY form (F1: readable .md/.txt, not only visuals) so the agent opens them', () => {
     const dir = tmpDir();
     buildFixture(dir);
     writeFile(dir, 'idea_context/mockup-budget.png', 'x');
     writeFile(dir, 'idea_context/demo.html', '<html>offline prototype</html>');
-    writeFile(dir, 'idea_context/notes.md', 'not a visual asset');
+    writeFile(dir, 'idea_context/notes.md', 'a readable design doc');
     const { stdout } = captureAll(() =>
       cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
     );
-    assert.ok(/Visual reference/.test(stdout), 'build briefing surfaces the visual reference note');
+    assert.ok(/Design reference/.test(stdout), 'build briefing surfaces the design reference note');
     assert.ok(stdout.includes('idea_context/mockup-budget.png'), 'the mockup is listed with its path');
     assert.ok(stdout.includes('idea_context/demo.html'), 'an .html prototype is surfaced too (the Ledger demo case)');
-    assert.ok(!stdout.includes('idea_context/notes.md'),
-      'non-visual context is NOT injected at build — narrow exception, respects "no raw context at build"');
+    assert.ok(stdout.includes('idea_context/notes.md'),
+      'F1: a readable .md design doc is NOW surfaced as a pointer — form-agnostic, no fixed-extension filter');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it('does NOT surface visual assets when there is no UX spec (backend-only build)', () => {
+  it('F1 regression: a readable design doc with NO visual assets still surfaces at build', () => {
     const dir = tmpDir();
-    buildFixture(dir, { ux: false });
-    writeFile(dir, 'idea_context/diagram.png', 'x');
+    buildFixture(dir);
+    // The exact F1 trace: an authoritative readable design reference, no image/.html to trigger the old filter.
+    writeFile(dir, 'idea_context/DESIGN_SYSTEM.md', 'BUTTON_RADIUS=4px; PRIMARY=#0055FF');
     const { stdout } = captureAll(() =>
       cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
     );
-    assert.ok(!/Visual reference/.test(stdout), 'no visual injection without a UX spec');
+    assert.ok(/Design reference/.test(stdout),
+      'the block fires even when the only asset is readable text (old visualAssets+.html filter left it empty)');
+    assert.ok(stdout.includes('idea_context/DESIGN_SYSTEM.md'),
+      'the readable design doc reaches the builder as a pointer instead of vanishing silently');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('excludes ADOPTION_AUDIT.md from the design-reference list (it has its own framed block)', () => {
+    const dir = tmpDir();
+    buildFixture(dir);
+    writeFile(dir, 'idea_context/ADOPTION_AUDIT.md', '# Existing code audit');
+    writeFile(dir, 'idea_context/mockup.png', 'x');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(/Design reference/.test(stdout), 'the design-reference block still fires for the mockup');
+    const refBlock = stdout.slice(stdout.indexOf('Design reference'));
+    assert.ok(!refBlock.includes('idea_context/ADOPTION_AUDIT.md'),
+      'ADOPTION_AUDIT.md is not double-listed in the design-reference block');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT surface context at build when there is no UX spec (backend-only build keeps the default)', () => {
+    const dir = tmpDir();
+    buildFixture(dir, { ux: false });
+    writeFile(dir, 'idea_context/diagram.png', 'x');
+    writeFile(dir, 'idea_context/spec.md', 'a spec');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    assert.ok(!/Design reference/.test(stdout),
+      'no context surfaced without a UX spec — the deliberate "no raw context at build" default is preserved');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });
