@@ -145,6 +145,28 @@ describe('Phase 4 — validate()', () => {
     assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /timeout_ms must be a positive number/);
   });
 
+  // test_runner_timeout_ms — per-project runner timeout (additive). A slow suite
+  // raises it so a legitimate long run is not killed and mis-read as a regression.
+  it('passes with a positive test_runner_timeout_ms', () => {
+    const d = JSON.parse(validP4());
+    d.test_runner_timeout_ms = 1800000;
+    assert.doesNotThrow(() => PHASE_DEFS[4].validate(JSON.stringify(d)));
+  });
+
+  it('passes when test_runner_timeout_ms is absent (additive default)', () => {
+    const d = JSON.parse(validP4());
+    delete d.test_runner_timeout_ms;
+    assert.doesNotThrow(() => PHASE_DEFS[4].validate(JSON.stringify(d)));
+  });
+
+  it('rejects a non-positive or non-numeric test_runner_timeout_ms', () => {
+    const d = JSON.parse(validP4());
+    d.test_runner_timeout_ms = 0;
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /test_runner_timeout_ms must be a positive number/);
+    d.test_runner_timeout_ms = 'long';
+    assert.throws(() => PHASE_DEFS[4].validate(JSON.stringify(d)), /test_runner_timeout_ms must be a positive number/);
+  });
+
   it('rejects empty-string path entries', () => {
     const d = JSON.parse(validP4());
     d.files_created = ['src/ok.js', '   '];

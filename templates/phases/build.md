@@ -135,7 +135,7 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
     technical_debt:[{fr_id, substitution, reason, effort_to_fix:"low|medium|high"}],
     test_runner: "<exact command matching your stack>",
     test_files: ["<test files containing @aitri-tc markers>"],
-    quality_gates:[{name, command, required, timeout_ms?}] }
+    quality_gates:[{name, command, required, timeout_ms?}], test_runner_timeout_ms? }
   files_created / files_modified / test_files are FLAT arrays of string paths — NOT objects. Write
     ["src/foo.ts", "tests/foo.test.ts"], never [{path:"src/foo.ts", type:…}]. The substitution text goes
     in the field named `substitution` (not `description`).
@@ -154,6 +154,11 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
        path for any stack the stdout convention does not fit.
     3. EVIDENCE — if neither fits, record each result against a file:
        aitri tc verify <TC> --result pass|fail --evidence <path>.
+  test_runner_timeout_ms (optional): a per-project ceiling in ms for how long the whole test run may
+    take before verify-run kills it as hung (default 900000 = 15 min). It is a hang-catcher, not a
+    speed target — leave it out unless your suite legitimately runs long (large integration/e2e/.NET
+    suites), then RAISE it. A run killed at this limit is reported "did not finish" and does NOT fail
+    the suite — so setting it too low only produces a confusing "raise the timeout", never a false pass.
   test_files: every file that contains @aitri-tc markers — required for aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}}
   Feature sub-pipelines (aitri feature verify-run <name>): the runner executes with the FEATURE
     directory ({{FEATURES_DIR}}/<name>/) as its working directory, and test_runner / test_files are resolved

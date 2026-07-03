@@ -18,6 +18,11 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.146 (2026-07-03) — `04_BUILD_REPORT.json#test_runner_timeout_ms` (new optional field); a killed runner no longer flips `verifyPassed` — additive
+
+- **`04_BUILD_REPORT.json#test_runner_timeout_ms`** (new, optional, positive number) — per-project ceiling in ms for the automated test run before `verify-run` kills it as hung. Default `900000` (15 min). Old readers ignore it; a reader that surfaces build-report config should carry it. A slow suite raises it.
+- **Behavior (no schema shape change): a runner *killed* — timeout, capture-buffer overflow, or OS signal — is now reported as "did not finish" and does NOT write `04_TEST_RESULTS.json` nor flip `verifyPassed`.** Previously only a missing binary (ENOENT) was treated this way; a timeout/buffer kill fell through and persisted a degraded/partial result, surfacing a *phantom regression* on a healthy-but-slow (or verbose) suite. A clean non-zero exit is still a real test failure and is persisted as before. No field shape changed — readers of `04_TEST_RESULTS.json` see fewer spurious `verifyPassed:false` states, never a new one. ([ADR-068](../DECISIONS.md))
+
 ## v2.0.0-rc.142 (2026-06-30) — ratify structured-AC shape `{id,given,when,then}`; `BUGS.json#resolution` now populated — additive
 
 - **`01_REQUIREMENTS.json#user_stories[].acceptance_criteria`** is now documented canonically as `{ id, given, when, then }` ([ADR-064](../DECISIONS.md)) — the SPEC-SEALED form the template emits. The legacy `{ id, text }` / `{ id, description }` still validate and join, because **only `id` is the join key**; no artifact in the wild breaks. `04_TEST_RESULTS.json#ac_coverage` entries are unchanged (`{ ac_id, fr_id, tests_*, status }`) and never carried the criterion text (the vestigial `text` read was removed).

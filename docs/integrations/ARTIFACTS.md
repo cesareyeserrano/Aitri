@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.145+
+**Aitri version:** v2.0.0-rc.146+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -203,6 +203,7 @@ Written by Phase 4 (Developer persona). Implementation tracking and test runner 
     }
   ],
   "test_runner": "npm test",
+  "test_runner_timeout_ms": 900000,
   "test_files": ["tests/unit.test.js"],
   "quality_gates": [
     { "name": "lint",      "command": "eslint .",    "required": true },
@@ -221,6 +222,7 @@ Written by Phase 4 (Developer persona). Implementation tracking and test runner 
 - `technical_debt` field is required — use `[]` if no substitutions were made
 - Each `technical_debt` entry must have `fr_id` and a non-generic `substitution`. Optional `reason` (why the substitution was necessary) and `effort_to_fix` (`low`/`medium`/`high`) are additive, not validated — `aitri status`/`aitri resume` surface them in the debt digest, so a reader following this schema should carry them (v2.0.0-rc.141+ documented; the fields shipped earlier and were surfaced but undocumented)
 - `test_runner` is required (e.g. `"npm test"`, `"node --test tests/"`) — **except** in manual-verification mode (see below)
+- **`test_runner_timeout_ms`** (optional, v2.0.0-rc.146+) — per-project ceiling in milliseconds for how long the automated test run (the `test_runner` command, and the auto-detected Playwright e2e run) may take before `verify-run` kills it as hung. Default `900000` (15 min). It is a **hang-catcher, not a speed target**: the failure is asymmetric — too-low kills a healthy-but-slow suite, too-high just delays killing a genuinely hung process — so the default is generous and a slow suite raises it. A runner **killed** for any reason (timeout, capture-buffer overflow, OS signal) is reported as "did not finish" and does **NOT** mutate `verifyPassed` or write `04_TEST_RESULTS.json` — a killed run is not a failing suite (distinct from a clean non-zero exit, which is a real test failure and IS persisted). If present, must be a positive number.
 - `test_files` must be a non-empty array listing all files with `@aitri-tc` markers — same manual-mode exception; entries are flat string paths (objects are rejected)
 - **Manual-verification mode (v2.0.0-rc.86+):** when every `03_TEST_CASES.json` test case is `automation: "manual"`, the project has no automated runner by design, so `test_runner` and `test_files` are **optional** in `04_BUILD_REPORT.json`. A reader must therefore treat both as possibly-absent on a manual-mode build (do not assume `test_runner` is always a string). With any automated test case present, both stay required as before.
 

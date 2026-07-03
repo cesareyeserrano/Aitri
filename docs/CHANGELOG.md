@@ -5,6 +5,17 @@
 
 ---
 
+## [2.0.0-rc.146] — 2026-07-03 — a *killed* test runner is "did not finish", not a failing suite; per-project `test_runner_timeout_ms` (ADR-068)
+
+`verify-run` gave the test-runner spawn a hardcoded 5-min timeout (Playwright 10-min) and a default 1 MiB capture buffer, but only special-cased a **missing binary** (ENOENT). A runner **killed** for any other reason — hitting the timeout, or overflowing the buffer (a verbose `pytest -v` / `node --test` / `vitest --reporter verbose` routinely exceeds 1 MiB, at which point Node kills the child and truncates stdout) — fell straight through: the partial/truncated output was parsed as if the run finished, TC markers past the cut vanished → those TCs went `skipped` → `verifyPassed` flipped false. A **phantom regression** on a healthy-but-slow-or-loud suite, verifiable from the code regardless of whether a canary had tripped it yet.
+
+- **A killed runner no longer mutates state (`lib/commands/verify.js`).** The main runner and the auto-detected Playwright run now use one generic kill guard — `result.signal || result.error`, mirroring the existing `runQualityGates` check — so a timeout, a capture-buffer overflow (ENOBUFS), or an OS signal is reported as "did not finish": `04_TEST_RESULTS.json` is NOT written and `verifyPassed` is left unchanged, exactly like ENOENT. A **clean non-zero exit** (real test failures) sets neither `signal` nor `error` and is still persisted as a genuine failure — the guard does not swallow real red.
+- **Capture buffer raised to 64 MiB (`RUNNER_MAX_BUFFER`).** A heavy-but-healthy suite is no longer killed for output *volume* in the first place; the kill guard is the backstop if a run somehow still exceeds it.
+- **New optional `04_BUILD_REPORT.json#test_runner_timeout_ms`** (positive number, default `900000` = 15 min, validated by `complete 4`). A timeout is a hang-catcher, not a speed target, and the failure is asymmetric (too-low kills a healthy slow suite; too-high only delays killing a hung one) — so the **default is generous and the agent obtains it by doing nothing**; a genuinely slow suite raises it. The field is not the line of defense against a mis-set value — the generous default and the non-mutating kill handling are. The old hardcoded 300000/600000 both become this one generous, project-overridable knob.
+- Tests: runner killed at its timeout, and killed by a signal (the ENOBUFS-adjacent path), each assert no results written + `verifyPassed` preserved + a non-timeout kill is not mis-labelled a timeout; phase-4 validation of the new field.
+
+Adversarial-over-the-diff (standing default) caught the ship-blocker: the first cut guarded only `ETIMEDOUT` and left the ENOBUFS/buffer kill — the more common trigger — wide open, which raising the timeout would have *increased* exposure to. Generalized to the signal-based check before shipping.
+
 ## [2.0.0-rc.145] — 2026-07-02 — build design-reference is form-agnostic; NFR priority forwarded for parity (intake-gap sweep 2026-07-02, ADR-067)
 
 A conformance sweep for the ADR-066 "intake gap" class (an input a phase should use never reaching the agent as usable content) — one tracer per phase + one for gates, each tracing a real fixture through `cmdRunPhase` and diffing the ACTUAL briefing against what the prompt/persona claims it needs. Result: the exemplar class (ADR-066/065) is **closed** across discovery/1/ux; the verification spine and every isTTY gate trace as mechanically sound. Two small residuals fixed:

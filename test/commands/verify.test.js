@@ -1424,6 +1424,98 @@ describe('cmdVerifyRun() — runner ENOENT does not persist degraded results', (
   });
 });
 
+// ── Runner timeout is "did not finish", not a failing suite ─────────────────
+// A test runner killed at its timeout must be reported as a timeout to raise —
+// NOT persisted as a degraded/failing 04_TEST_RESULTS.json (which would flip
+// verifyPassed=false per Z1 and surface a phantom regression on a healthy-but-slow
+// suite). Same class as the ENOENT guard above. The timeout is per-project via
+// 04_BUILD_REPORT.json#test_runner_timeout_ms; here we set it tiny to force a kill.
+describe('cmdVerifyRun() — runner timeout does not persist degraded results', () => {
+  function seed(dir, timeoutMs) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases:  [1, 2, 3, 4],
+      completedPhases: [1, 2, 3, 4],
+      verifyPassed:    true,
+      verifySummary:   { total: 1, passed: 1, failed: 0, skipped: 0 },
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+      files_created: [{ path: 'src/x.js' }],
+      test_runner:   'node slowrunner.js',
+      test_runner_timeout_ms: timeoutMs,
+    }));
+    // A runner that never finishes on its own — it will be killed at the timeout.
+    fs.writeFileSync(path.join(dir, 'slowrunner.js'), 'setTimeout(function(){process.exit(0);}, 30000);\n');
+  }
+  function silent(fn) {
+    const origLog = console.log; const origErr = process.stderr.write;
+    console.log = () => {}; process.stderr.write = () => true;
+    try { return fn(); } finally { console.log = origLog; process.stderr.write = origErr; }
+  }
+
+  it('does NOT write 04_TEST_RESULTS.json when the runner is killed at its timeout', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-timeout-write-'));
+    try {
+      seed(dir, 200);
+      const errs = [];
+      silent(() => {
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { errs.push(m); throw new Error(m); } }); }
+        catch { /* err() throws, ignore */ }
+      });
+      assert.equal(fs.existsSync(path.join(dir, 'spec/04_TEST_RESULTS.json')), false,
+        '04_TEST_RESULTS.json must NOT be written when the runner timed out');
+      assert.ok(errs.some(m => /timeout/i.test(m) && /test_runner_timeout_ms/.test(m)),
+        'expected an err() message calling it a timeout and pointing at test_runner_timeout_ms');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT flip verifyPassed when the runner times out', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-timeout-flag-'));
+    try {
+      seed(dir, 200);
+      silent(() => {
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } }); }
+        catch { /* err() throws */ }
+      });
+      const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+      assert.equal(cfg.verifyPassed, true,
+        'verifyPassed must be preserved — a timeout is not a failing suite');
+      assert.ok(cfg.verifySummary, 'verifySummary must be preserved');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  // Generalized kill guard: a runner killed by a SIGNAL (OS kill, and by the same
+  // `result.signal || result.error` mechanism, a capture-buffer/ENOBUFS overflow) is
+  // "did not finish" too — not a failing suite. Distinct from ETIMEDOUT so the message
+  // must NOT mis-call it a timeout.
+  it('does NOT persist results when the runner is killed by a signal (non-timeout kill)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-signal-kill-'));
+    try {
+      seed(dir, 900000); // generous timeout — the runner kills itself before it fires
+      fs.writeFileSync(path.join(dir, 'slowrunner.js'), 'process.kill(process.pid, "SIGKILL");\n');
+      const errs = [];
+      silent(() => {
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { errs.push(m); throw new Error(m); } }); }
+        catch { /* err() throws */ }
+      });
+      assert.equal(fs.existsSync(path.join(dir, 'spec/04_TEST_RESULTS.json')), false,
+        '04_TEST_RESULTS.json must NOT be written when the runner was killed');
+      const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+      assert.equal(cfg.verifyPassed, true, 'verifyPassed must be preserved on a killed runner');
+      const msg = errs.find(m => /killed before finishing/i.test(m)) || '';
+      assert.ok(msg, 'expected a "killed before finishing" err() message');
+      assert.doesNotMatch(msg, /timeout/i, 'a signal kill must not be mis-reported as a timeout');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('cmdVerifyRun() — all-manual project seeds results without spawning (FB-MULTI-0619 #2)', () => {
   function seed(dir) {
     fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
