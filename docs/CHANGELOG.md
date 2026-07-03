@@ -1,7 +1,24 @@
 # Aitri — Changelog
 
 > Published version history. Format: [version] — date — what shipped.
-> Version scheme: `0.1.x` (npm canonical). Previous entries used `2.0.x` — those entries are preserved below for history.
+> **Current scheme: `2.0.0-rc.N`** — a rolling pre-release channel, installed from GitHub by branch/SHA (`npm i -g github:cesareyeserrano/Aitri#<branch-or-sha>`). The npm registry is frozen at `0.1.25` and contract-incompatible with 2.x; publishing resumes at 2.0.0 stable. Breaking changes inside the rc channel are marked in `docs/integrations/CHANGELOG.md`.
+> **Promotion criterion (UPLAN-0703 A5):** 2.0.0 promotes to stable when (1) a third-party adopter has validated end-to-end — **met** (DSB-AT-POC, two rounds) — and (2) the last planned breaking window, UPLAN-0703 Phase B (verification-spine hardening), has landed. The promotion itself is executed by the maintainer.
+> Older eras are preserved below for history: the `0.1.x` npm-published era, and the original `2.0.x` entries of 2026-03.
+
+---
+
+## [2.0.0-rc.147] — 2026-07-03 — outward truth: README/ARCHITECTURE/CHANGELOG say nothing the code contradicts (UPLAN-0703 Phase A)
+
+Three independent audit passes converged on the same diagnosis: the internal docs are honest about Aitri's ceiling, the external surfaces were not. Doc/text-only fixes; the one behavior-adjacent file is `templates/AGENTS.md` (copied verbatim into consumer projects), which motivates the bump.
+
+- **README install line delivered a dead product (A1).** `npm install -g aitri` serves `0.1.25` (~150 releases old, pre-ADR-042 names). Replaced with the GitHub branch/SHA install, a loud do-not-npm-install warning, and static badges (the npm-registry badges advertised the stale version).
+- **README claims aligned with code reality (A2).** "Nothing advances on its own" / "always under human control" replaced with the truthful two-mode gating story (agent-mode `approve` proceeds by default with an honor-system relay; `"humanApprovalGate": true` is the hard stop — promoted from buried help text to "What you get"). New section **"What is mechanical vs. what is attested"** exports the internal honest-ceiling framing: visible and catchable, not impossible. "Recorded not asserted" softened to "written down and checkable" (Phase B may re-strengthen it once the stamp is load-bearing).
+- **`templates/AGENTS.md` approve bullet no longer self-contradicts (A2).** "Present these to the user … do NOT chain" and "approve autonomously by default" lived in one bullet; split into the two explicit modes (default = relay-then-approve, `humanApprovalGate` = human-only).
+- **ARCHITECTURE.md self-contradictions (A3).** "No interactive prompts — 100% scriptable" restated honestly (scriptable by default; deliberate isTTY human gates enumerated — they are a system invariant, not a violation); hardcoded command count removed (`ls lib/commands/` is the source of truth; `export` was missing); "What Aitri IS" line re-anchored to the harness identity; header refreshed. Discarded-decisions row on interactive prompts clarified to match.
+- **CHANGELOG header described the inverse of reality (A4)** — claimed `0.1.x` is current and `2.0.x` historical. Rewritten to the actual channel truth (above).
+- **Version-channel criterion now exists in writing (A5)** — see the header block above: promotion gate met, held pending Phase B (the last planned breaking window), executed by the maintainer.
+
+`UPLAN-0703` · no behavior change in any command; no schema change.
 
 ---
 

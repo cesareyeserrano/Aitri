@@ -2,22 +2,37 @@
 
 **The harness that makes agentic engineering rigorous — your agent's work becomes a reviewable, gated pipeline, so you ship software you actually reviewed, not whatever the agent happened to produce.**
 
-![npm](https://img.shields.io/npm/v/aitri) ![node](https://img.shields.io/node/v/aitri) ![license](https://img.shields.io/npm/l/aitri)
+![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen) ![license](https://img.shields.io/badge/license-Apache_2.0-blue) ![channel](https://img.shields.io/badge/channel-2.0.0--rc_(pre--release)-orange)
 
 ```bash
-npm install -g aitri
+# current line of development (2.0.0-rc channel) — install from GitHub:
+npm install -g github:cesareyeserrano/Aitri#feat/upgrade-protocol
+
+# for a reproducible install, pin a commit SHA instead:
+npm install -g github:cesareyeserrano/Aitri#<sha>
 ```
 
-AI agents write code fast — and that's the problem. The spec lives in a chat that scrolls away, the code drifts from the original intent, and "done" means "the agent stopped," not "this was reviewed." Aitri puts the structure back: development becomes a pipeline of phases, each producing a **versioned artifact** — requirements, design, tests, build, traceability — that **you approve before the next phase starts**. Nothing advances on its own.
+> **Do not `npm install -g aitri`.** The npm registry is frozen at `0.1.25` — roughly 150 releases old and contract-incompatible with everything documented here. Publishing resumes when 2.0.0 promotes to stable (promotion criterion: `docs/CHANGELOG.md` header).
+
+AI agents write code fast — and that's the problem. The spec lives in a chat that scrolls away, the code drifts from the original intent, and "done" means "the agent stopped," not "this was reviewed." Aitri puts the structure back: development becomes a pipeline of phases, each producing a **versioned artifact** — requirements, design, tests, build, traceability — that **must pass an explicit review-and-approve step before the next phase unlocks**.
 
 It works with **any agent that reads stdout** — Claude Code, Codex, Gemini CLI, Opencode, or a plain shell. Aitri never calls a model or writes code itself: it generates the briefing your agent acts on, then validates and gates what comes back.
 
 ### What you get
 
-- **Human-gated phases** — every artifact is reviewed and approved before the pipeline moves on. No phase advances automatically.
-- **Specs as contracts** — each phase's output is the typed handoff to the next; editing an approved artifact behind Aitri's back is detected as *drift* and blocked.
+- **Gated phases** — every artifact must pass schema validation (`complete`) and an explicit `approve` step before the pipeline moves on. **By default an agent may run `approve`** — it is instructed to present the review checkpoint to you first, but that relay is on the agent's honor. Set `"humanApprovalGate": true` in `.aitri` to make every approval a hard interactive stop only a human at a terminal can pass.
+- **Specs as contracts** — each phase's output is the typed handoff to the next; editing an approved artifact behind Aitri's back is detected as *drift*, and re-approving after drift always requires a human.
 - **A real test gate** — code can't reach deployment until your tests run, pass, and every MUST requirement traces to a passing test.
-- **Traceability, recorded not asserted** — requirement → test → result, written down and checkable.
+- **Traceability, written down and checkable** — requirement → test → result, recorded in artifacts you can audit.
+
+### What is mechanical vs. what is attested
+
+Aitri enforces in two different ways, and is honest about which is which:
+
+- **Mechanical (Aitri executes and gates):** artifact schemas, phase ordering, the MUST-requirement→passing-test join (`verify-complete`), drift hashes on approved artifacts, and your project's declared quality gates (lint, type-check, security scan) judged by exit code.
+- **Attested (the agent writes, you review):** the content of requirements, the quality of tests, build-report declarations, audit self-reports, and — in default agent mode — the approve relay itself.
+
+The harness makes drops and drift **visible and catchable, not impossible**. The review checkpoints exist so a human catches what the mechanics cannot.
 
 ---
 
@@ -31,7 +46,7 @@ aitri complete <N>    →   Aitri validates the artifact against its schema
 aitri approve <N>     →   you review + approve → the next phase unlocks
 ```
 
-No phase advances automatically — the pipeline is always under human control.
+A phase never unlocks without an explicit `approve`. Who runs it is your configuration choice: by default your agent may, relaying the review checkpoint to you; with `"humanApprovalGate": true` in `.aitri`, only a human at a terminal can.
 
 ---
 

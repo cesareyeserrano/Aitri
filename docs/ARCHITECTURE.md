@@ -1,7 +1,7 @@
 # Aitri — Architecture Reference
 
 > **Anchor document.** Any architectural proposal must be validated against this doc first — AND this doc must be UPDATED when an architectural change ships (new command, invariant, artifact-chain, or `.aitri`/artifact contract change — the same trigger as an ADR). A stale anchor inverts the relationship: the code ends up defining the doc instead of the doc defining Aitri.
-> Last updated: 2026-06-30 (v2.0.0-rc.138).
+> Last updated: 2026-07-03 (v2.0.0-rc.147).
 > This is the stable mental map; the detailed dated record is `DECISIONS.md` (ADRs) + `CHANGELOG.md` (both committed at `docs/`). The per-era evolution record below is the same content, reshaped as a scannable table (was one run-on paragraph through rc.117).
 
 ## What Aitri is
@@ -56,11 +56,11 @@ Each row is an era, not an exhaustive list — the authoritative dated record st
 
 ## What Aitri IS
 
-A CLI that orchestrates a 5-phase Spec-Driven Development pipeline so that any LLM agent can build applications from an idea.
+A CLI harness that orchestrates a gated, 5-phase Spec-Driven Development pipeline in which an LLM agent does the engineering work and a human validates each phase.
 
 - Generates structured phase briefings (stdout)
 - The agent reads the briefing, generates the artifact, saves it to disk
-- The human approves or rejects each phase before proceeding
+- Each phase must be explicitly approved (or rejected) before the pipeline proceeds — by a human, or by an agent relaying the review checkpoint (default mode; `humanApprovalGate` makes approval human-only)
 - Validates artifacts at `aitri complete` before recording completion
 
 ## What Aitri IS NOT
@@ -82,7 +82,7 @@ A CLI that orchestrates a 5-phase Spec-Driven Development pipeline so that any L
 | **Stateless** | Every command reads/writes `.aitri` (shared, committed) + `.aitri.local` (per-machine, gitignored) via `lib/state.js` — no in-memory state. Split in ADR-045 (rc.51) |
 | **Model-agnostic** | Plain-text briefings — any bash-capable agent reads them |
 | **Zero dependencies** | `"dependencies": {}` — always |
-| **No interactive prompts** | 100% scriptable — CI/CD compatible |
+| **Scriptable by default** | Every routine op is pipe-safe / CI-compatible; the deliberate exceptions are the human-gated ops (isTTY invariant) — the ops that commit or destroy state: `approve` under `humanApprovalGate` or after drift, `reconcile --resolve`, `rehash`, `feature discard`, re-running a phase of a fully-approved pipeline, failing-stub-TC acknowledgment at `verify-complete`, `adopt --upgrade --layout` |
 | **Human as gate** | `approve`/`reject` are explicit decisions, never automatic |
 | **FS as IPC** | Artifacts are plain files — handshake: file exists + passes `validate()` |
 
@@ -92,11 +92,11 @@ A CLI that orchestrates a 5-phase Spec-Driven Development pipeline so that any L
 
 ```
 bin/aitri.js              CLI entry point — Command Pattern (switch/case), VERSION const
-lib/commands/             One file per command (21 total):
+lib/commands/             One file per command (`ls lib/commands/` is the source of truth):
                           init, run-phase, complete, approve, reject,
                           verify, tc, status, validate, help,
                           adopt, wizard, feature, resume, checkpoint,
-                          backlog, review, bug, audit, reconcile, rehash
+                          backlog, review, bug, audit, reconcile, rehash, export
 lib/scope.js              scopeTokens() — single source of truth for
                           `aitri feature <verb> <name> <phase>` grammar
 lib/verify-display.js     formatVerifyCounts() — three-bucket P/F/Deferred
@@ -201,7 +201,7 @@ This doc keeps only the durable architecture (above) + the non-negotiable reject
 | MCP server | Not portable across agents — breaks model-agnostic principle |
 | Claude Code Skill | Same problem — only works with Claude Code |
 | Internal API calls | Aitri must not depend on any specific model |
-| Interactive prompts | Breaks CI/CD and pipe compatibility |
+| Interactive prompts as the default interface | Breaks CI/CD and pipe compatibility — the routine flow stays pipe-safe; the deliberate isTTY human gates (see Design Principles) are the exception, not the interface |
 | External dependencies | Any dep is a failure vector for global install |
 | In-memory state | Breaks reproducibility across sessions |
 | Rename artifacts to industry acronyms (`01_PRD.json`, `02_SDD.md`) | Clear descriptive names read more modern than IEEE/waterfall acronyms; homologation is only partial (04/05 have no industry equivalent). Shipped the homologation *display* layer instead (ADR-042 Phase 3) |
