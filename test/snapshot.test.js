@@ -9,7 +9,7 @@ import fs     from 'node:fs';
 import path   from 'node:path';
 import os     from 'node:os';
 
-import { saveConfig } from '../lib/state.js';
+import { saveConfig, hashResultsFile } from '../lib/state.js';
 import { getBlockingBugs } from '../lib/commands/bug.js';
 import {
   buildProjectSnapshot,
@@ -470,6 +470,101 @@ describe('health.deployable', () => {
       const snap = buildProjectSnapshot(dir, { cliVersion: '0.1.76' });
       assert.equal(snap.health.deployable, true);
       assert.deepEqual(snap.health.deployableReasons, []);
+    } finally { cleanup(dir); }
+  });
+
+  // ── UPLAN-0703 B3: run-binding re-check against disk ──────────────────────
+  // Helper: stamp the seeded results file so its binding is 'bound'.
+  function stampRoot(dir) {
+    const rp = path.join(dir, 'spec', '04_TEST_RESULTS.json');
+    const cp = path.join(dir, '.aitri');
+    const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
+    cfg.verifyResultsHash = hashResultsFile(fs.readFileSync(rp, 'utf8'));
+    fs.writeFileSync(cp, JSON.stringify(cfg));
+  }
+
+  it('B3: resultsBinding is "bound" and deploy stays open when the stamped file is unchanged', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      stampRoot(dir);
+      const snap = buildProjectSnapshot(dir, { cliVersion: '0.1.76' });
+      const root = snap.pipelines.find(p => p.scopeType === 'root');
+      assert.equal(root.verify.resultsBinding, 'bound');
+      assert.equal(snap.health.deployable, true);
+    } finally { cleanup(dir); }
+  });
+
+  it('B3: a results file edited after the run → mismatch blocks deploy though verifyPassed is sticky-true', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);        // verifyPassed: true
+      stampRoot(dir);                 // bind it
+      // Rewrite the results file AFTER the run — the sticky flag would hide this.
+      const rp = path.join(dir, 'spec', '04_TEST_RESULTS.json');
+      const res = JSON.parse(fs.readFileSync(rp, 'utf8'));
+      res.summary = { passed: 999, failed: 0, skipped: 0, total: 999 };
+      fs.writeFileSync(rp, JSON.stringify(res));
+      const snap = buildProjectSnapshot(dir, { cliVersion: '0.1.76' });
+      const root = snap.pipelines.find(p => p.scopeType === 'root');
+      assert.equal(root.verify.resultsBinding, 'mismatch');
+      assert.equal(root.verify.passed, true, 'the sticky flag is still true — the point is health no longer trusts it alone');
+      assert.equal(snap.health.deployable, false);
+      assert.ok(snap.health.deployableReasons.some(r => r.type === 'results_tampered'));
+    } finally { cleanup(dir); }
+  });
+
+  it('B3: a stamped-but-deleted results file → missing-file blocks deploy', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      stampRoot(dir);
+      fs.rmSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'));
+      const snap = buildProjectSnapshot(dir, { cliVersion: '0.1.76' });
+      const root = snap.pipelines.find(p => p.scopeType === 'root');
+      assert.equal(root.verify.resultsBinding, 'missing-file');
+      assert.equal(snap.health.deployable, false);
+      assert.ok(snap.health.deployableReasons.some(r => r.type === 'results_missing'));
+    } finally { cleanup(dir); }
+  });
+
+  it('B3 follow-up: a terminal feature (5/5, verify passed) with a tampered results file blocks root deploy', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      stampRoot(dir);
+      // Terminal feature, verify passed, results file bound then edited after its run.
+      const featDir = path.join(dir, 'features', 'sneaky');
+      fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+      const featResults = JSON.stringify({ summary: { passed: 4, failed: 0, total: 4 }, fr_coverage: [], results: [] });
+      fs.writeFileSync(path.join(featDir, 'spec', '04_TEST_RESULTS.json'), featResults);
+      saveConfig(featDir, {
+        projectName: 'sneaky', artifactsDir: 'spec',
+        approvedPhases: [1, 2, 3, 4, 5], completedPhases: [1, 2, 3, 4, 5],
+        verifyPassed: true, verifySummary: { passed: 4, failed: 0, total: 4 },
+        verifyResultsHash: hashResultsFile(featResults),
+      });
+      // Post-run rewrite of the feature's results file.
+      fs.writeFileSync(path.join(featDir, 'spec', '04_TEST_RESULTS.json'),
+        JSON.stringify({ summary: { passed: 999, failed: 0, total: 999 }, fr_coverage: [], results: [] }));
+      const snap = buildProjectSnapshot(dir, { cliVersion: '0.1.76' });
+      const feat = snap.pipelines.find(p => p.scopeName === 'sneaky');
+      assert.equal(feat.verify.resultsBinding, 'mismatch');
+      assert.equal(snap.health.deployable, false);
+      const reason = snap.health.deployableReasons.find(r => r.type === 'feature_results_tampered');
+      assert.ok(reason, 'feature_results_tampered reason must be present');
+      assert.deepEqual(reason.features, ['sneaky']);
+    } finally { cleanup(dir); }
+  });
+
+  it('B3: a stamp-less legacy project keeps its prior deployable verdict (no-stamp is not a new block)', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);        // no stamp written
+      const snap = buildProjectSnapshot(dir, { cliVersion: '0.1.76' });
+      const root = snap.pipelines.find(p => p.scopeType === 'root');
+      assert.equal(root.verify.resultsBinding, 'no-stamp');
+      assert.equal(snap.health.deployable, true, 'health does not retroactively block a stamp-less project — B1 owns that gate at verify-complete');
     } finally { cleanup(dir); }
   });
 

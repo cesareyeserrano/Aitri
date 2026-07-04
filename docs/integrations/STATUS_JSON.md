@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v2.0.0-rc.147+
+**Aitri version:** v2.0.0-rc.148+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -74,7 +74,7 @@ Root pipeline phase list. One entry per phase, plus a synthetic `"verify"` entry
 }
 ```
 
-The `"verify"` entry uses `status: "passed" | "not_run"` and may include a `verifySummary` field — the persisted `04_TEST_RESULTS.json#summary` object verbatim (canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`).
+The `"verify"` entry uses `status: "passed" | "not_run"` and may include a `verifySummary` field — the persisted `04_TEST_RESULTS.json#summary` object verbatim (canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Its `drift` is `true` when the results file on disk no longer matches the run-binding stamp (v2.0.0-rc.148+ — previously hardcoded `false`). It also carries an additive `resultsBinding` field: `"bound" | "mismatch" | "no-stamp" | "missing-file"` — the run-binding state of `04_TEST_RESULTS.json` vs `.aitri#verifyResultsHash`. `status` stays `"passed"` even on a `"mismatch"` (the flag is sticky); read `drift`/`resultsBinding` for the current disk truth (v2.0.0-rc.148+).
 
 ---
 
@@ -122,9 +122,9 @@ Deploy-gate reasoning and global signals.
 
 `staleVerify` lists pipelines whose `verifyRanAt` is older than 14 days **and** that are still in flux — i.e. NOT (all core phases approved AND verify passed AND no drift). A terminal-and-clean pipeline (finished feature or shipped root) is excluded regardless of calendar age: nothing it tracks has changed since the run, so its evidence still holds and re-verifying would only reproduce the same result. Drift is reported separately via `driftPresent` and is the real "evidence is outdated" signal (v2.0.0-rc.84+, STALE-VERIFY-1). This keeps finished work from blocking the project's idle state.
 
-Deploy-gate reason types: `no_root`, `phases_pending`, `verify_not_passed`, `drift`, `reconcile_pending`, `blocking_bugs`, `version_mismatch`, `feature_verify_failed` (v0.1.87+).
+Deploy-gate reason types: `no_root`, `phases_pending`, `verify_not_passed`, `drift`, `reconcile_pending`, `blocking_bugs`, `version_mismatch`, `feature_verify_failed` (v0.1.87+), `results_tampered`, `results_missing`, `feature_results_tampered` (v2.0.0-rc.148+). `results_tampered`/`results_missing` fire when the root's `verifyPassed` is sticky-true but the results file on disk no longer matches its run-binding stamp (edited after the run) or is gone — the deploy gate no longer trusts the sticky flag alone. `feature_results_tampered` is the same check on terminal features (5/5, verify passed) whose results file was edited or removed after its run.
 
-The `feature_verify_failed` reason carries an additional `features: string[]` field listing the feature names at phases 5/5 whose verify ran and did not pass. WIP features (phases < 5/5) do not trigger this reason — by design, a feature still in progress must not block root deploy.
+The `feature_verify_failed` and `feature_results_tampered` reasons carry an additional `features: string[]` field listing the affected feature names at phases 5/5. WIP features (phases < 5/5) do not trigger these reasons — by design, a feature still in progress must not block root deploy.
 
 ---
 

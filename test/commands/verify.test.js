@@ -7,6 +7,18 @@ import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytes
 import { cmdStatus } from '../../lib/commands/status.js';
 import { hashArtifact, hashResultsFile } from '../../lib/state.js';
 
+// UPLAN-0703 B1: verify-complete now requires a run-binding stamp. Test seeds that write a
+// results file directly (simulating a real verify-run) must stamp .aitri#verifyResultsHash
+// with the hash of the exact file on disk, or the B1 precondition fires before the gate they
+// exercise. Reads the results file from disk and patches the existing .aitri in place.
+function stampResults(dir, artifactsDir = 'spec') {
+  const rp = path.join(dir, artifactsDir, '04_TEST_RESULTS.json');
+  const cp = path.join(dir, '.aitri');
+  const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
+  cfg.verifyResultsHash = hashResultsFile(fs.readFileSync(rp, 'utf8'));
+  fs.writeFileSync(cp, JSON.stringify(cfg));
+}
+
 describe('parseRunnerOutput()', () => {
 
   it('detects passing TC from ✔ TC-XXX line', () => {
@@ -1714,6 +1726,7 @@ describe('cmdVerifyComplete() — C2 strictAssertions gate', () => {
       summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
       low_confidence_tcs: lowConfidence ? [{ tc_id: 'TC-001', file: 'x.test.js', assertCount: 1 }] : [],
     }));
+    stampResults(dir);
   }
 
   it('blocks when strictAssertions ON and low_confidence_tcs non-empty', () => {
@@ -1795,6 +1808,7 @@ describe('cmdVerifyComplete() — AC-level coverage gate (ADR-041 option A, rc.4
       summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
       low_confidence_tcs: [],
     }));
+    stampResults(dir);
   }
   function runQuiet(fn) {
     const origLog = console.log; const origErr = process.stderr.write;
@@ -1850,6 +1864,7 @@ describe('cmdVerifyComplete() — AC-level coverage gate (ADR-041 option A, rc.4
       const d = JSON.parse(fs.readFileSync(rp, 'utf8'));
       d.summary = 'all good';   // non-object
       fs.writeFileSync(rp, JSON.stringify(d));
+      stampResults(dir);        // re-bind: simulate verify-run having produced THIS file
       let msg = '';
       try { runQuiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); }
       catch (e) { msg = e.message; }
@@ -1898,6 +1913,7 @@ describe('cmdVerifyComplete() — FR coverage gate is MUST-only (#2)', () => {
       summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
       low_confidence_tcs: [],
     }));
+    stampResults(dir);
   }
   function capture(fn) {
     let err = '';
@@ -1935,6 +1951,7 @@ describe('cmdVerifyComplete() — FR coverage gate is MUST-only (#2)', () => {
       const res = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8'));
       res.fr_coverage[0] = { fr_id: 'FR-001', tests_passing: 0, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'partial' };
       fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify(res));
+      stampResults(dir);        // re-bind: simulate verify-run having produced THIS file
       let msg = '';
       try { capture(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); }
       catch (e) { msg = e.message; }
@@ -1957,6 +1974,7 @@ describe('cmdVerifyComplete() — FR coverage gate is MUST-only (#2)', () => {
       res.fr_coverage[1] = { fr_id: 'FR-002', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' };
       res.summary = { total: 2, passed: 1, failed: 0, skipped: 0, manual: 1 };
       fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify(res));
+      stampResults(dir);        // re-bind: simulate verify-run having produced THIS file
       let msg = '';
       try { capture(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); }
       catch (e) { msg = e.message; }
@@ -2020,12 +2038,20 @@ describe('cmdVerifyComplete() — run-binding: results file must match the stamp
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('does NOT block when no hash is stamped (backward-compatible / externally-produced file)', () => {
+  it('BLOCKS when no hash is stamped — no sanctioned run produced this file (UPLAN-0703 B1)', () => {
+    // Previously allowed for backward-compatibility with pre-rc.129 stamp-less projects; B1
+    // closes that window. A results file with no run-binding is exactly the cheapest audit
+    // bypass (a hand-written, internally-consistent green file no test ever generated), so the
+    // deploy gate now refuses it and names the command to bind a real run.
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rb-absent-'));
     try {
       seed(dir);
-      setHash(dir, undefined); // no verifyResultsHash — pre-stamp project
-      assert.doesNotThrow(() => quiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })));
+      setHash(dir, undefined); // no verifyResultsHash — unbound file
+      assert.throws(
+        () => quiet(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })),
+        /No verify-run is recorded/,
+        'an unbound results file must not gate deployment'
+      );
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -2076,6 +2102,10 @@ describe('cmdVerifyComplete() — run-binding: results file must match the stamp
     assert.equal(hashResultsFile(base.replace(/\n/g, '\r\n')), hashResultsFile(base), 'CRLF must not change the hash');
     assert.equal(hashResultsFile('\uFEFF' + base),       hashResultsFile(base), 'a leading BOM must not change the hash');
     assert.notEqual(hashResultsFile('{\n  "a": 2\n}'),   hashResultsFile(base), 'a real value change must change the hash');
+    // rc.148 (adversarial-pass follow-up): a trim-trailing-whitespace format hook edits per
+    // LINE, not only at EOF \u2014 that legitimate rewrite must not read as "tampered".
+    assert.equal(hashResultsFile('{  \n  "a": 1\t\n}'),  hashResultsFile(base), 'per-line trailing spaces/tabs must not change the hash');
+    assert.notEqual(hashResultsFile('{\n    "a": 1\n}'), hashResultsFile(base), 'a re-indent (leading whitespace) DOES change the hash \u2014 documented ceiling, recovered by one verify-run');
   });
 });
 
@@ -2112,6 +2142,7 @@ describe('cmdVerifyComplete() — MUST-NFR skipped-test visibility (NFR-regressi
       summary: { total: 2, passed: nfrTcStatus === 'pass' ? 2 : 1, failed: 0, skipped: nfrTcStatus === 'skip' ? 1 : 0, manual: nfrTcStatus === 'manual' ? 1 : 0 },
       low_confidence_tcs: [],
     }));
+    stampResults(dir);
   }
   function capture(fn) {
     let err = '';
@@ -2184,6 +2215,7 @@ describe('cmdVerifyComplete() — Z3 next-action respects phase 5 state', () => 
       fr_coverage: [{ fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' }],
       summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
     }));
+    stampResults(dir);
   }
 
   function captureLog(fn) {
@@ -2324,6 +2356,7 @@ describe('cmdVerifyComplete() — zero-verification guard for all-manual seed (F
       fr_coverage: [{ fr_id: 'FR-001', tests_passing: passing, tests_failing: 0, tests_skipped: 0, tests_manual: 2 - passing, status: passing > 0 ? 'covered' : 'manual' }],
       summary: { total: 2, passed: passing, failed: 0, skipped: 0, manual: 2 - passing },
     }));
+    stampResults(dir);
   }
 
   it('BLOCKS when every TC is a pending manual seed (zero verification → no false green)', () => {
@@ -2415,6 +2448,7 @@ describe('cmdVerifyComplete() — e2e gate honours automation: "manual" and runn
     if (hasPlaywright) {
       fs.writeFileSync(path.join(dir, 'playwright.config.js'), '// stub');
     }
+    stampResults(dir);
   }
 
   it('blocks when e2e TC is skip and recommends automation:"manual" (no Playwright)', () => {

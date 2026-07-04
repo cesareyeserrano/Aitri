@@ -61,7 +61,7 @@ If there is no `.aitri` yet, run `aitri init`. It creates `{{IDEA_FILE}}` (the s
 
 ## When verify-run fails or produces skipped tests
 
-`aitri verify-run` writes `04_TEST_RESULTS.json` — **do not hand-write or edit that file.** `verify-run` (and `tc verify`) stamp a hash of the results they produce; `aitri verify-complete` rejects a results file that no longer matches, so editing it to turn failures into passes is blocked at the deploy gate. If tests fail or skip unexpectedly:
+`aitri verify-run` writes `04_TEST_RESULTS.json` — **do not hand-write or edit that file.** `verify-run` (and `tc verify`) stamp a hash of the results they produce; `aitri verify-complete` requires that stamp and rejects the file if it is absent or no longer matches. So a results file you never actually ran (`verify-complete` reports "no verify-run recorded") **and** one you edited to turn failures into passes are both blocked at the deploy gate — the only way through is a real run. `tc verify` holds the same line: it refuses a results file that has no recorded run (run `verify-run` first — it seeds and binds the file, including for all-manual projects) or that was edited since its run. A results file produced by an external runner is bound by `aitri verify-run --results <file|dir>` (not by dropping the file in place). If tests fail or skip unexpectedly:
 
 - Register the failure as a bug — accept the prompt that `verify-run` offers, or run `aitri bug add` manually.
 - Fix the implementation, re-run `aitri verify-run`, then `aitri verify-complete` when the run is clean.

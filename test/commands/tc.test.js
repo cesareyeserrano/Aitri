@@ -4,13 +4,25 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { cmdTC, parseGuidedAnswer } from '../../lib/commands/tc.js';
-import { hashArtifact } from '../../lib/state.js';
+import { hashArtifact, hashResultsFile } from '../../lib/state.js';
 
 function makeDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-tc-'));
   fs.mkdirSync(path.join(dir, 'spec'));
   fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec', approvedPhases: [] }));
   return dir;
+}
+
+// UPLAN-0703 B2: tc verify now requires the run-binding stamp AND requires the file on disk
+// to match it (verify-run is the only sanctioned producer of a fresh results file). Test
+// fixtures simulate that run by stamping .aitri with the hash of the exact file they wrote —
+// call again after any direct rewrite of 04_TEST_RESULTS.json.
+function stampResults(dir) {
+  const rp = path.join(dir, 'spec', '04_TEST_RESULTS.json');
+  const cp = path.join(dir, '.aitri');
+  const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
+  cfg.verifyResultsHash = hashResultsFile(fs.readFileSync(rp, 'utf8'));
+  fs.writeFileSync(cp, JSON.stringify(cfg));
 }
 
 function writeResults(dir, results, summary = {}) {
@@ -23,6 +35,7 @@ function writeResults(dir, results, summary = {}) {
     summary: { total: results.length, passed: 0, failed: 0, skipped: 0, manual: 0, manual_verified: 0, ...summary },
   };
   fs.writeFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), JSON.stringify(d));
+  stampResults(dir);
 }
 
 function readResults(dir) {
@@ -122,6 +135,7 @@ describe('cmdTC — tc verify', () => {
     let d0 = readResults(dir);
     d0.fr_coverage = [{ fr_id: 'FR-001', tests_passing: 0, tests_failing: 0, tests_skipped: 0, tests_manual: 1, status: 'manual' }];
     fs.writeFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), JSON.stringify(d0));
+    stampResults(dir);
 
     cmdTC(makeCtx(dir, ['verify', 'TC-002f', '--result', 'pass', '--notes', 'verified by hand']));
 
@@ -146,6 +160,7 @@ describe('cmdTC — tc verify', () => {
     const d0 = readResults(dir);
     d0.ac_coverage = [{ ac_id: 'AC-001-1', fr_id: 'FR-001', tests_passing: 0, tests_failing: 0, tests_skipped: 0, tests_manual: 1, status: 'manual' }];
     fs.writeFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), JSON.stringify(d0));
+    stampResults(dir);
 
     // The human verifies the AC's only test as FAIL. Before R3-8, ac_coverage stayed "manual"
     // (treated as covered) and the build shipped; tc verify now recomputes it to "uncovered".
@@ -265,6 +280,70 @@ describe('cmdTC — tc verify', () => {
     const fileContent = fs.readFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), 'utf8');
     assert.equal(cfg.verifyResultsHash, hashArtifact(fileContent),
       'tc verify must re-stamp the run-binding hash to match the file it just wrote');
+  });
+
+  it('UPLAN-0703 B2: refuses to re-stamp a results file edited after its last run (laundering guard)', () => {
+    const dir = makeDir();
+    // A legitimately bound file: stamp = hash of what an authorized run wrote.
+    writeResults(dir, [
+      { tc_id: 'TC-001f', status: 'fail', notes: 'real failure' },
+      { tc_id: 'TC-002f', status: 'manual', notes: 'pending' },
+    ]);
+    const rp = path.join(dir, 'spec', '04_TEST_RESULTS.json');
+    const cp = path.join(dir, '.aitri');
+    const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
+    cfg.verifyResultsHash = hashArtifact(fs.readFileSync(rp, 'utf8'));
+    fs.writeFileSync(cp, JSON.stringify(cfg));
+    // The cheat: hand-edit the failing TC to pass, then launder the whole file by verifying
+    // one legitimate manual entry — which would re-stamp the tampered file if unguarded.
+    const tampered = JSON.parse(fs.readFileSync(rp, 'utf8'));
+    tampered.results[0].status = 'pass';
+    fs.writeFileSync(rp, JSON.stringify(tampered));
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['verify', 'TC-002f', '--result', 'pass', '--notes', 'ok'])),
+      /results-hash mismatch/,
+      'tc verify must refuse a results file that no longer matches its stamp — it would re-bless the edit'
+    );
+    // And it must NOT have re-stamped: the config hash is unchanged (no laundering happened).
+    const after = JSON.parse(fs.readFileSync(cp, 'utf8'));
+    assert.equal(after.verifyResultsHash, cfg.verifyResultsHash, 'the tampered file must not be re-stamped');
+  });
+
+  it('UPLAN-0703 B2: refuses to stamp a results file with NO stamp (fabrication guard — adversarial-pass ship-blocker)', () => {
+    // The B1 bypass the adversarial pass found: hand-write a green results file (never run
+    // verify-run), include one manual entry, and use tc verify's re-stamp to hash-bless the
+    // whole fabrication. tc verify must hold the same line as verify-complete: no stamp → no service.
+    const dir = makeDir();
+    const fabricated = {
+      executed_at: new Date().toISOString(), test_runner: 'pytest -v', exit_code: 0,
+      results: [
+        { tc_id: 'TC-001', status: 'pass' },   // fabricated — no run produced this
+        { tc_id: 'TC-M', status: 'manual', notes: 'pending' },
+      ],
+      fr_coverage: [],
+      summary: { total: 2, passed: 1, failed: 0, skipped: 0, manual: 1 },
+    };
+    fs.writeFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), JSON.stringify(fabricated));
+    // NOTE: no stampResults() — the file is unbound, exactly like a hand-written one.
+    assert.throws(
+      () => cmdTC(makeCtx(dir, ['verify', 'TC-M', '--result', 'pass', '--notes', 'ok'])),
+      /No verify-run is recorded/,
+      'tc verify must not stamp a results file no run produced'
+    );
+    const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    assert.ok(!cfg.verifyResultsHash, 'the fabricated file must not have been stamped');
+  });
+
+  it('UPLAN-0703 B2: a bound file (unchanged since its run) still accepts a normal tc verify', () => {
+    const dir = makeDir();
+    writeResults(dir, [{ tc_id: 'TC-002f', status: 'manual', notes: 'pending' }]);
+    const rp = path.join(dir, 'spec', '04_TEST_RESULTS.json');
+    const cp = path.join(dir, '.aitri');
+    const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
+    cfg.verifyResultsHash = hashArtifact(fs.readFileSync(rp, 'utf8'));
+    fs.writeFileSync(cp, JSON.stringify(cfg));
+    assert.doesNotThrow(() => cmdTC(makeCtx(dir, ['verify', 'TC-002f', '--result', 'pass', '--notes', 'ok'])));
+    assert.equal(readResults(dir).results[0].status, 'pass');
   });
 
   it('allows re-verification of already-verified TC', () => {

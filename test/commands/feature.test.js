@@ -9,6 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { cmdFeature, featureDiscard, collectBuiltFiles } from '../../lib/commands/feature.js';
+import { hashResultsFile } from '../../lib/state.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -630,9 +631,17 @@ describe('feature run-phase — surfaces parent idea_context/ (TPA-4)', () => {
 // FEATURE's own 03_TEST_CASES.json / 04_TEST_RESULTS.json, not the root's.
 describe('aitri feature tc', () => {
   function seedFeature(dir, name) {
+    const results = JSON.stringify({
+      executed_at: new Date().toISOString(), test_runner: null, exit_code: null,
+      results: [{ tc_id: 'TC-001f', status: 'manual', notes: 'pending' }],
+      fr_coverage: [], summary: { total: 1, passed: 0, failed: 0, skipped: 0, manual: 1, manual_verified: 0 },
+    });
+    // UPLAN-0703 B2: tc verify requires the run-binding stamp — the fixture simulates the
+    // feature's verify-run by stamping the feature .aitri with the hash of the seeded file.
     writeFile(dir, path.join('features', name, '.aitri'), JSON.stringify({
       projectName: name, artifactsDir: 'spec',
       approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+      verifyResultsHash: hashResultsFile(results),
     }));
     writeFile(dir, path.join('features', name, 'spec', '03_TEST_CASES.json'), JSON.stringify({
       test_cases: [
@@ -640,11 +649,7 @@ describe('aitri feature tc', () => {
         { id: 'TC-002e', title: 't2', requirement_id: 'FR-001', automation: 'automated', expected_result: 'r' },
       ],
     }));
-    writeFile(dir, path.join('features', name, 'spec', '04_TEST_RESULTS.json'), JSON.stringify({
-      executed_at: new Date().toISOString(), test_runner: null, exit_code: null,
-      results: [{ tc_id: 'TC-001f', status: 'manual', notes: 'pending' }],
-      fr_coverage: [], summary: { total: 1, passed: 0, failed: 0, skipped: 0, manual: 1, manual_verified: 0 },
-    }));
+    writeFile(dir, path.join('features', name, 'spec', '04_TEST_RESULTS.json'), results);
   }
   const featResults = (dir, name) =>
     JSON.parse(fs.readFileSync(path.join(dir, 'features', name, 'spec', '04_TEST_RESULTS.json'), 'utf8'));

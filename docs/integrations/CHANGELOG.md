@@ -18,6 +18,20 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.148 (2026-07-03) — verify-complete now REQUIRES the run-binding stamp; additive `resultsBinding` on status/validate JSON (UPLAN-0703 Phase B, B1–B3) — breaking
+
+Mixed upgrade — the stricter marker wins. The breaking piece is the deploy-gate precondition (B1); everything else is additive.
+
+- **BREAKING (B1): `aitri verify-complete` now rejects a results file with NO `verifyResultsHash` stamp**, not only a mismatched one. An `04_TEST_RESULTS.json` that never went through `verify-run`/`tc verify` (a hand-written or externally-produced file) can no longer gate deployment — it must be bound to a real run. The rc.129–rc.147 backward-compatible "absent stamp = allowed" window is closed. **Impact on subproducts:** none read this gate directly, but a consumer that drives the pipeline must ensure `verify-run` (or `verify-run --results <file>`) runs before `verify-complete`; a pre-rc.129 project re-binds by running it once. See [SCHEMA.md `verifyResultsHash`](./SCHEMA.md).
+- **Behavior (B2): `aitri tc verify` now requires the run-binding stamp AND requires the file to match it.** A stamp-less results file is refused ("no verify-run recorded" — without this, `tc verify`'s re-stamp could hash-bless a hand-fabricated green file, defeating B1 in one command; caught by the adversarial pass), and a file edited since its stamp is refused (laundering guard). `verify-run` has seeded + stamped the all-manual project since rc.129, so the only files this refuses are legacy or fabricated — a legacy project re-binds with one `verify-run`. No schema shape change.
+- **Additive (B3): run-binding is now re-checked against disk on every read surface.**
+  - `status --json`: the synthetic `verify` phase entry now sets `drift: true` when the results file no longer matches the stamp (was hardcoded `false`) and carries a new `resultsBinding` field (`"bound" | "mismatch" | "no-stamp" | "missing-file"`). `status` stays `"passed"` (the flag is sticky). See [STATUS_JSON.md](./STATUS_JSON.md).
+  - `validate --json`: the `04_TEST_RESULTS.json` artifact entry now reflects real drift (`drift: true` on a post-run edit) plus the additive `resultsBinding` field; `approved` is `false` on a `mismatch`.
+  - New `health.deployableReasons` types `results_tampered` / `results_missing` (root) and `feature_results_tampered` (a terminal feature — 5/5, verify passed — whose results file was edited or removed after its run; carries a `features: string[]` list like `feature_verify_failed`). The deploy gate blocks when `verifyPassed` is sticky-true but the results evidence no longer matches its run. Old readers that switch on reason `type` ignore unknown types (additive).
+  - `hashResultsFile` canonicalization now also strips per-line trailing whitespace (a trim-trailing-whitespace format hook is no longer reported as tampering). Hash-stable for standard JSON output; a re-indent still mismatches (recovered by one `verify-run`).
+
+Honest ceiling (unchanged): these bind the results file to a recorded run; an agent that rewrites BOTH the file and `.aitri#verifyResultsHash` is not stopped (`.aitri` is writable). They raise the forgery cost from a trivial/accidental pass to a deliberate edit of a state field the agent is never told to touch — not unforgeability. ([ADR-069](../DECISIONS.md))
+
 ## v2.0.0-rc.146 (2026-07-03) — `04_BUILD_REPORT.json#test_runner_timeout_ms` (new optional field); a killed runner no longer flips `verifyPassed` — additive
 
 - **`04_BUILD_REPORT.json#test_runner_timeout_ms`** (new, optional, positive number) — per-project ceiling in ms for the automated test run before `verify-run` kills it as hung. Default `900000` (15 min). Old readers ignore it; a reader that surfaces build-report config should carry it. A slow suite raises it.

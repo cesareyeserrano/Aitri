@@ -152,10 +152,19 @@ phase that PRODUCED the artifact is applied on consumption (`run-phase.js:114`),
   judged by exit code (missing binary → error); advisory gates warn. `strictAssertions` opt-in blocks
   ≤1-assertion TCs. Blocking-bug gate (critical/high open|in_progress, case-folded via `isBlockingBug` SSoT)
   → BLOCKED. Run-binding hash (`hashResultsFile`, whitespace/EOL-tolerant) BLOCKS a results file whose stamp
-  matches a different original.
-- **Run-binding absent-hash path** — a results file with NO stamped hash is not hash-blocked (documented
-  backward-compat ceiling; a fully-adversarial agent that rewrites the stamp is unstoppable without sealing).
-  Message correctly scoped ("last verify-run"). `[pilot-only]`, NOT an I3 violation.
+  matches a different original. **As of rc.148 (ADR-069, B1): an ABSENT stamp is ALSO blocked** — a results
+  file not produced by a sanctioned run cannot gate deployment; the rc.129–rc.147 backward-compat window is
+  closed. `tc verify` holds the same line — it refuses a stamp-less file (fabrication guard: its re-stamp
+  would otherwise bless a hand-written file, defeating B1 in one command) and a file edited since its stamp
+  (laundering guard) (B2). The binding is re-checked on every read surface via the
+  `state.js#verifyResultsBinding` SSoT (`bound`/`mismatch`/`no-stamp`/`missing-file`): `computeHealth.deployable`
+  blocks on root `mismatch`/`missing-file` AND on a terminal feature's (`feature_results_tampered`),
+  `validate`/`status --json` report real drift, `phase5.validate` refuses a compliance proof over a mismatch
+  (B3). verify-complete's own stub-known-gap rewrite persists its re-stamp at the rewrite (not at function
+  end), so a later gate exit cannot strand a falsely-"tampered" file.
+- **Honest ceiling (unchanged identity):** a fully-adversarial agent that rewrites BOTH the results file AND
+  `.aitri#verifyResultsHash` (both writable) still passes — the binding raises forgery cost to a deliberate
+  state-file edit, it does not make the gate unforgeable. `[pilot-only]` on that residual, NOT an I3 violation.
 - **isTTY-gated state commits** (approve-drift, rehash, reconcile --resolve, run-phase pipeline-complete
   re-run, feature discard) all `process.exit(1)` in non-TTY. `reject` is DELIBERATELY ungated (advisory,
   scriptable) — NOT a defect.

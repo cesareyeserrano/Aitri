@@ -9,7 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { cmdValidate } from '../../lib/commands/validate.js';
-import { loadConfig, hashArtifact } from '../../lib/state.js';
+import { loadConfig, hashArtifact, hashResultsFile } from '../../lib/state.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -497,6 +497,46 @@ describe('cmdValidate() — --json output', () => {
 
   it('has deployFiles', () => {
     assert.ok(jsonOutput.deployFiles, 'deployFiles must exist');
+  });
+});
+
+describe('cmdValidate() — --json run-binding on the results file (UPLAN-0703 B3)', () => {
+  function stampRoot(dir) {
+    const rp = path.join(dir, 'spec', '04_TEST_RESULTS.json');
+    const cp = path.join(dir, '.aitri');
+    const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
+    cfg.verifyResultsHash = hashResultsFile(fs.readFileSync(rp, 'utf8'));
+    fs.writeFileSync(cp, JSON.stringify(cfg));
+  }
+
+  it('reports drift:true + resultsBinding:"mismatch" when the results file was edited after the run', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      stampRoot(dir);
+      // Edit the results file after it was bound — no longer hardcoded drift:false.
+      writeFile(dir, 'spec/04_TEST_RESULTS.json', '{"summary":{"total":1,"passed":1,"failed":0},"results":[],"note":"edited"}');
+      const json = JSON.parse(captureStdout(() => cmdValidate({ dir, args: ['--json'] })));
+      const entry = json.artifacts.find(a => a.name === '04_TEST_RESULTS.json');
+      assert.ok(entry, 'results artifact must be present');
+      assert.equal(entry.drift, true, 'an edited results file is drift, not hardcoded false');
+      assert.equal(entry.resultsBinding, 'mismatch');
+      assert.equal(entry.approved, false, 'a tampered results file is not approved');
+      assert.equal(json.allValid, false);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('reports drift:false + resultsBinding:"bound" when the stamped file is unchanged', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      stampRoot(dir);
+      const json = JSON.parse(captureStdout(() => cmdValidate({ dir, args: ['--json'] })));
+      const entry = json.artifacts.find(a => a.name === '04_TEST_RESULTS.json');
+      assert.equal(entry.drift, false);
+      assert.equal(entry.resultsBinding, 'bound');
+      assert.equal(entry.approved, true);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
 

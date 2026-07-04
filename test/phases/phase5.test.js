@@ -197,6 +197,36 @@ describe('Phase 5 — validate()', () => {
     assert.doesNotThrow(() => PHASE_DEFS[5].validate(validP5()));
   });
 
+  // UPLAN-0703 B3: the compliance proof is built on 04_TEST_RESULTS.json; if that file was
+  // edited after the last verify-run, phase5 validate must refuse — the evidence is untrusted.
+  it('[cross-artifact] refuses when the results file was edited after the run (results-hash mismatch)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p5-rb-'));
+    try {
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'),
+        JSON.stringify({ functional_requirements: [{ id: 'FR-001', priority: 'MUST' }, { id: 'FR-002', priority: 'MUST' }] }));
+      // A results file whose stamp does NOT match its content (simulates a post-run edit).
+      fs.writeFileSync(path.join(dir, '04_TEST_RESULTS.json'),
+        JSON.stringify({ summary: { total: 1, passed: 1 }, fr_coverage: [], results: [], note: 'edited' }));
+      const config = { verifyResultsHash: 'stale-hash-from-a-different-file' };
+      assert.throws(
+        () => PHASE_DEFS[5].validate(validP5(), { dir, config }),
+        /results-hash mismatch/,
+        'a tampered results file must not back a traceability record'
+      );
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('[cross-artifact] does NOT refuse on a stamp-less project (B1 owns that gate, not phase5)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-p5-rb-ok-'));
+    try {
+      fs.writeFileSync(path.join(dir, '01_REQUIREMENTS.json'),
+        JSON.stringify({ functional_requirements: [{ id: 'FR-001', priority: 'MUST' }, { id: 'FR-002', priority: 'MUST' }] }));
+      fs.writeFileSync(path.join(dir, '04_TEST_RESULTS.json'),
+        JSON.stringify({ summary: { total: 1, passed: 1 }, fr_coverage: [], results: [] }));
+      assert.doesNotThrow(() => PHASE_DEFS[5].validate(validP5(), { dir, config: {} }));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('rejects compliance level "Placeholder" (capital P) as invalid — not silently passed as valid', () => {
     const d = JSON.parse(validP5());
     d.requirement_compliance[0].level = 'Placeholder';
