@@ -155,6 +155,54 @@ describe('persona/template drift canaries (C3 — known-drifted vocabulary must 
   });
 });
 
+describe('Phase 4 plan-first protocol (C8/ADR-071)', () => {
+  function renderBuild({ failingTests = null } = {}) {
+    return PHASE_DEFS[4].buildBriefing({
+      dir: path.join(ROOT, 'test'),
+      inputs: { '01_REQUIREMENTS.json': PRD, '02_SYSTEM_DESIGN.md': DESIGN, '03_TEST_CASES.json': TCS, '01_UX_SPEC.md': '' },
+      feedback: '', failingTests, artifactsBase: 'spec', bestPractices: '', config: {},
+      featureRoot: null, scopeVerb: '', scopeArg: '', contextAssets: '',
+    });
+  }
+
+  it('a FRESH build carries the full protocol: plan file, present-before-code, per-cluster roadmap, checkpoints, resume rule', () => {
+    const out = renderBuild();
+    assert.match(out, /Plan-First Build Protocol/);
+    assert.match(out, /BUILD_PLAN\.md/);
+    assert.match(out, /Present the plan to the user in conversation before implementing/i);
+    assert.match(out, /Within EACH cluster follow the layer roadmap/i, 'the roadmap is per-cluster, not whole-project');
+    assert.match(out, /When a human operator is present.*pause and present progress/is);
+    assert.match(out, /autonomous\/CI run.*record.*continue/is, 'the checkpoint must not stall an unattended run');
+    assert.match(out, /read BUILD_PLAN\.md FIRST/i, 'session resume reads the plan first');
+    assert.match(out, /cascade-invalidates/i, 'spec-change routing states the honest cost');
+    assert.match(out, /never resume from this briefing \+ the old BUILD_PLAN\.md/i, 'stale-briefing guard after upstream re-open');
+  });
+
+  it('a DEBUG re-entry renders NEITHER the protocol nor the plan instructions (minimal-fix protocol instead)', () => {
+    const out = renderBuild({ failingTests: [{ tc_id: 'TC-001h', notes: 'assertion failed' }] });
+    assert.doesNotMatch(out, /Plan-First Build Protocol/, 'debug mode must not instruct re-planning');
+    assert.doesNotMatch(out, /BUILD_PLAN\.md/, 'the plan file has no role in a minimal-fix re-entry');
+    assert.match(out, /Instructions \(debug re-entry\)/, 'the debug instruction variant renders instead');
+    assert.match(out, /Debug Mode — Fix Failing Tests/, 'the debug protocol block still renders');
+  });
+
+  it('FR_SNAPSHOT no longer echoes acceptance_criteria (the one honest dedup) — TC_LOCK untouched', () => {
+    const out = renderBuild();
+    const snapshot = out.slice(out.indexOf('Requirements Snapshot'), out.indexOf('## Requirements\n'));
+    assert.ok(!snapshot.includes('— AC:'), 'the AC text was duplicated with the Requirements block below');
+    assert.match(snapshot, /FR-001 \[MUST\/logic\] Record expense/, 'id/priority/type/title survive');
+    assert.match(out, /Test Authorship Lock/, 'TC_LOCK carries the verify-run naming contract — never trim it');
+    assert.match(out, /TC-001h \(FR-001\)/, 'the TC id list is intact');
+  });
+
+  it('developer persona and build template agree on the per-cluster roadmap (C3 rule)', () => {
+    const src = persona('developer');
+    assert.ok(!src.includes('Work in three phases'), 'the whole-project three-phase roadmap contradicts the per-cluster protocol');
+    assert.ok(!src.includes('Follow the 3-phase roadmap'), 'same — the persona and template render into one prompt');
+    assert.ok(src.includes('cluster'), 'the persona carries the per-cluster judgment');
+  });
+});
+
 describe('optional phases print a Human Review checklist (C5)', () => {
   for (const key of ['ux', 'discovery']) {
     it(`phase ${key} template has a ## Human Review section (approve extracts it from here)`, () => {

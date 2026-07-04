@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.151 (2026-07-04) — `BUILD_PLAN.md` documented as an off-pipeline working file (Phase 4 plan-first protocol) — additive
+
+- **`BUILD_PLAN.md`** (new, off-pipeline, agent-authored markdown) — the Phase 4 briefing now instructs a plan-first build: the agent writes FR clusters + order + per-cluster status to `<artifactsDir>/BUILD_PLAN.md` and maintains it during the build. Same class as `AUDIT_REPORT.md`: no schema, nothing validates it, it is NOT in the artifact chain. Old readers are unaffected (a new optional file); a reader that wants to render build progress may parse it as free markdown. No `.aitri` schema change, no existing artifact shape change. ([ADR-071](../DECISIONS.md))
+
 ## v2.0.0-rc.149 (2026-07-03) — state integrity: refuse-don't-reset everywhere; bug-fix evidence contract (UPLAN-0703 Phase B, B4–B8) — breaking
 
 Mixed upgrade — the stricter marker wins. The breaking pieces are CLI-contract semantics (`bug fix` on a blocking bug, `bug verify` order); all schema changes are additive.

@@ -7,6 +7,20 @@
 
 ---
 
+## [2.0.0-rc.151] — 2026-07-04 — Phase 4 is plan-first with human checkpoints (UPLAN-0703 C8, ADR-071)
+
+Phase 4 was a monolith: one briefing = implement every FR, deliver a finished whole. Operator evidence from real projects: the human's first chance to correct arrived when correction was most expensive ("aitri construye todo de una … al final entrega algo quizá lleno de sorpresas"), and a new session re-entered the longest phase with no execution structure. Briefing-level fix — **no phase, no schema, no gate; NOT ADR-061 resurrected** (the history guard is the ADR's core: ADR-061's plan artifact had no consumer and per-slice verify stays structurally blocked; this protocol's consumers are the agent across sessions and the human during the build).
+
+- **Plan-First Build Protocol in the fresh-build briefing (`{{#IF_PLAN_FIRST}}`):** write `<artifactsDir>/BUILD_PLAN.md` (FR clusters + order + rationale + per-cluster status — a working file, documented in integrations/ARTIFACTS.md as the AUDIT_REPORT.md class), **present the plan to the user before any code** (advisory checkpoint), implement cluster by cluster with the skeleton→persistence→hardening roadmap applied PER CLUSTER, **checkpoint at each cluster boundary** — pause + present progress when a human is present; record-and-continue when autonomous (an unconditional pause stalls unattended runs and teaches the agent the protocol is ignorable). Session resume reads BUILD_PLAN.md first. Delivery Summary references the plan trail for `approve 4`.
+- **Correction routing with the honest cost:** implementation-level → apply + note in the plan; spec-changing → route through the pipeline, with the cascade cost stated (re-opening Phase 1 wipes ux/2/3/4/5 approvals) and a hard rule: after ANY upstream re-open, re-run `run-phase 4` — never resume from the stale briefing + old plan (a Phase-3 re-run changes the TC set; stale cluster/TC keys diverge silently).
+- **Debug re-entry renders NEITHER the protocol nor the plan instructions** — a debug-instructions variant renders instead ("minimal fix, no re-planning" and "re-plan first" must never render together). The developer persona was rewritten mode-neutral in the same commit — the first cut's persona named the protocol unconditionally, contradicting the debug briefing (the exact C3 defect class, caught by the new test).
+- **The one honest dedup:** FR_SNAPSHOT drops its acceptance_criteria echo (kept id/priority/type/title — the AC text was duplicated in the Requirements block below). TC_LOCK is untouched: the design's adversarial review established it carries the entire verify-run naming contract — the originally-claimed "40% double-injection cut" was a misdiagnosis.
+- **Honest ceiling + escalation trigger (recorded, not built):** the pause is honor-system, and the cascade-cost asymmetry incentivizes silently absorbing spec changes; if a real project shows checkpoints skipped or spec changes absorbed AND end-of-build surprises, a NEW ADR reopens the checkpoint-mechanism discussion (Phase G/MCP could type the pause). Docs: ADR-071, FLOW_INVARIANTS §build, integrations/{ARTIFACTS,CHANGELOG} (additive), templates/AGENTS.md. Tests: fresh-build protocol content, debug-mode exclusion, FR_SNAPSHOT trim + TC_LOCK intact, persona/template mode-consistency.
+
+`UPLAN-0703`
+
+---
+
 ## [2.0.0-rc.150] — 2026-07-03 — the briefing says what the mechanism delivers: prompt & briefing coherence (UPLAN-0703 Phase C, C1–C7)
 
 The audit's phase/prompt pass found normative content living in four places (persona, template, AGENTS.md, JS-built strings) with live drift between them. Tier-1 fixes — these change what the agent READS in every consumer project.

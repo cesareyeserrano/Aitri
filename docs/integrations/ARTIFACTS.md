@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.150+
+**Aitri version:** v2.0.0-rc.151+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -428,6 +428,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
 | `BUGS.json` | `aitri bug add` / `aitri verify-run` | Present if any bug has been registered |
 | `BACKLOG.json` | `aitri backlog add` | Present if any backlog item has been registered |
 | `AUDIT_REPORT.md` | `aitri audit` / `aitri audit requirements` / `aitri audit security` | Present if an on-demand audit has been run. `audit requirements` (formerly `audit coverage`, still a working alias) appends a "Requirements Coverage" section (idea→FR completeness); `audit security` appends a "Security" section (RQ-SEC remediation requirements) |
+| `BUILD_PLAN.md` | the build agent (Phase 4 plan-first protocol, v2.0.0-rc.151+) | Present on fresh builds. A **working file, not a pipeline artifact**: FR clusters + order + per-cluster status the agent maintains during Phase 4 (the AUDIT_REPORT.md precedent — agent-authored markdown, no schema, nothing validates it). Readers may render it as build progress; do NOT treat it as a contract |
 
 Check `approvedPhases[]` and `completedPhases[]` in `.aitri` to determine which optional artifacts exist before attempting to read them.
 

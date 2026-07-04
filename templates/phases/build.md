@@ -82,6 +82,23 @@ Marker comment: use your language's line comment style (// @aitri-tc TC-XXX for 
 Tests not matching TC-XXX: naming are auto-classified as skip — verify-complete rejects 0 passing tests.
 {{/IF_TC_LOCK}}
 
+{{#IF_PLAN_FIRST}}
+## Plan-First Build Protocol (mandatory on a fresh build — debug re-entry skips it)
+Phase 4 is the longest phase, and "build everything, then show a finished whole" is its failure mode: the human's first chance to correct arrives when correction is most expensive, and a new session re-enters the phase with no execution structure. Work in visible increments instead:
+
+1. **Before writing any code, write `{{ARTIFACTS_BASE}}/BUILD_PLAN.md`** — a WORKING file, not a pipeline artifact (nothing validates it; it exists for you and the human). **If BUILD_PLAN.md already exists (a feedback iteration or a resumed session), UPDATE it — do not rewrite it from scratch or reset done clusters to pending; adjust only what the feedback/new context changes.**
+   - Cluster the FRs into coherent implementation units (by feature area / dependency order), each cluster listing its FR ids and the TC ids it will make pass.
+   - Order the clusters and state the rationale in one line each (what unblocks what).
+   - Give every cluster a status line: `pending` / `in-progress` / `done`.
+2. **Present the plan to the user in conversation before implementing** — a short summary: the clusters, the order, why (on a feedback iteration, present only what changed and which clusters it re-opens). This is an advisory checkpoint (no Aitri gate); incorporate their corrections into BUILD_PLAN.md before starting.
+3. **Implement cluster by cluster.** Within EACH cluster follow the layer roadmap: skeleton → persistence/integrations → hardening. The roadmap is per-cluster — a cluster is not done at "skeleton"; the product is not built as one project-wide skeleton pass.
+4. **At each cluster boundary, update the cluster's status in BUILD_PLAN.md, then checkpoint:**
+   - **When a human operator is present in the conversation:** pause and present progress — what was built, how to see/run it (a command, a URL, a test), and what comes next. Incorporate corrections before continuing.
+   - **In an autonomous/CI run:** record the same progress note in BUILD_PLAN.md and continue — do not stall waiting for input that cannot come.
+   - **Correction routing:** an implementation-level correction (within the approved spec) → apply it and note it in the plan. A correction that CHANGES the spec (new behavior, changed requirement, dropped scope) → do NOT silently absorb it: route it through the pipeline (`aitri run-phase requirements` or `aitri feature init`). Be honest about the cost: re-opening Phase 1 cascade-invalidates ux/2/3/4/5 — approvals and hashes are wiped and each phase re-runs/re-approves before the build resumes. **After ANY upstream re-open, re-run `aitri {{SCOPE_VERB}}run-phase{{SCOPE_ARG}} 4` for a fresh briefing — never resume from this briefing + the old BUILD_PLAN.md** (a Phase-3 re-run can change the TC set; stale cluster/TC keys silently diverge).
+5. **On resuming a session mid-build: read BUILD_PLAN.md FIRST** — it is the execution state this briefing does not carry. Continue from the first non-`done` cluster.
+{{/IF_PLAN_FIRST}}
+
 ## Code Standards (mandatory)
 - Standard doc format for your language on every function (JSDoc, Python docstrings, godoc, Rustdoc, Javadoc, etc.) — at minimum: parameters, return value, thrown exceptions
 - File header: Module, Purpose, Dependencies
@@ -220,22 +237,32 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
 {{BEST_PRACTICES}}
 {{/IF_BEST_PRACTICES}}
 
+{{#IF_PLAN_FIRST}}
 ## Instructions
-1. Phase skeleton: create all file structure and module interfaces
-2. Phase persistence/integrations: implement DB layer, APIs, storage
-3. Phase hardening: error handling, validation, boundary cases
+1. Write {{ARTIFACTS_BASE}}/BUILD_PLAN.md and present the plan to the user (Plan-First Build Protocol above) — before any code
+2. Implement cluster by cluster; within each cluster: skeleton → persistence/integrations → hardening
+3. At each cluster boundary: update BUILD_PLAN.md, checkpoint with the human when present (record-and-continue when autonomous)
 4. Add @aitri-trace headers to key functions
 5. Verify Technical Definition of Done checklist
 6. Save manifest (with technical_debt) to: {{ARTIFACTS_BASE}}/04_BUILD_REPORT.json
 7. Present the Delivery Summary below to the user
 8. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4
+{{/IF_PLAN_FIRST}}
+{{#IF_DEBUG}}
+## Instructions (debug re-entry)
+1. Apply the Debug protocol at the top — minimal fixes, no re-planning, do NOT rewrite working code
+2. Keep @aitri-trace headers intact on anything you touch
+3. Run the FULL suite green (the Definition of Done), then update the manifest if files changed
+4. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4
+{{/IF_DEBUG}}
 
 ## Delivery Summary
 After saving all files + 04_BUILD_REPORT.json, present this report to the user:
 
 ```
 ─── Phase 4 Complete — Implementation ────────────────────────
-Files created:   [N] — [list src files]
+{{#IF_PLAN_FIRST}}Build plan:      BUILD_PLAN.md — [N] clusters, all done · checkpoints presented: [N] (the full trail for approve 4)
+{{/IF_PLAN_FIRST}}Files created:   [N] — [list src files]
 Test files:      [N] — framework: [framework from System Design] · command: [test_runner]
 @aitri-trace:    [N] functions tagged
 
