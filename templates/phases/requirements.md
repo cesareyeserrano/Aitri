@@ -93,7 +93,7 @@ For each Tier-A field — **problem, users, baseline, success_metric, no_go_zone
 Do not collapse this into zero questions. Inferring everything and asking nothing is the
 failure mode this protocol exists to prevent.
 {{/IF_IDEA_MD}}
-
+{{CONTEXT_ASSETS}}
 ---
 
 ## Output: `{{ARTIFACTS_BASE}}/01_REQUIREMENTS.json`
@@ -149,7 +149,7 @@ Each item above that is not in no_go_zone is a candidate FR. If you don't write 
 **Adoption audit (if present).** If an `ADOPTION_AUDIT.md` is among the context files (`idea_context/`), this is a change to an existing system — read it first. Its findings (blast radius, missing tests, security gaps, what must not break) are the evidence base for the requirements: ground the FRs in them, and turn each must-not-break item into a regression NFR (`category: "Regression"`, as above).
 
 ## No-go zone (mandatory)
-Before listing any FR, declare ≥3 items that are explicitly OUT OF SCOPE for this delivery.
+Before listing any FR, declare the items that are explicitly OUT OF SCOPE for this delivery (validator floor for this scope: ≥{{MIN_NGZ}} — a floor, not a target: list every real exclusion).
 The no_go_zone field must be populated — an empty array is a scope defect.
 Examples of what belongs here:
   - "No backend server — frontend-only, no Node/Python/Go process"
@@ -167,14 +167,17 @@ Before writing FRs, identify:
 Fold these into project_summary (they inform the FRs; no consumer reads a separate field for them).
 
 ## Rules
-- Min 5 FRs (root pipeline). Capture every MUST the scope genuinely needs — and no more. Do NOT pad to hit a number: an MVP correctly defined by 5 real MUSTs is complete, and inflating the count contradicts the MVP-proportionality and anti-scope-creep rules above. If the Depth Protocol surfaces genuinely missing requirements, add them; if it doesn't, 5 is fine
+- **Sizing: the seed decides the count — the floor only rejects an empty artifact.** The validator's lower bounds for this scope are ≥{{MIN_FR}} FRs, ≥{{MIN_NFR}} NFRs, ≥{{MIN_NGZ}} no_go_zone items. **These are floors, NOT targets — do not size the artifact to them.** The correct FR count is however many distinct behaviors the seed genuinely implies: decompose until every need in your `coverage_map` maps to its own FR/NFR. Most real products land well above the floor; **stopping at the floor when the seed implies more is silent scope loss** — the exact drop `aitri audit requirements` exists to catch, and the human reviewer will diff your FRs against the seed at approve. In both directions:
+  - Do NOT pad: if honest decomposition genuinely lands at the floor, that is complete — inflating the count contradicts the MVP-proportionality and anti-scope-creep rules above.
+  - Do NOT truncate: reaching the floor is not a stopping signal. If the Depth Protocol or the coverage_map surfaces more genuine needs, add them all.
+  - If honest decomposition lands BELOW the floor, split coarse multi-behavior FRs into their real distinct behaviors (error paths, persistence, validation are usually separate behaviors hiding in one sentence) — never invent unrelated requirements to clear the gate
 - Every MUST FR must have ≥1 linked user story. For projects with multiple personas, write one story per persona that interacts with that FR
 - **Shape acceptance_criteria for the Three-Amigos test gate (enforced later at Phase 3).** At Phase 3, every MUST FR needs ≥3 test cases covering a **happy path**, an **edge case**, and a **negative/failure** scenario (the gate requires a TC id ending `h` AND one ending `f`). So write each MUST FR's acceptance_criteria to support all three — at minimum one positive (expected behaviour) AND one negative/boundary (rejection, error, limit, empty/duplicate input). An FR whose ACs are **all positive** (e.g. a plain list/create) or **all negative** (e.g. a permission check) cannot satisfy the Phase-3 gate and forces a Phase-1 re-open + cascade — shape it correctly now. MUST FRs of type security, persistence, logic, or reporting especially need an explicit failure AC.
 - Every user story linked to a MUST FR must have ≥1 acceptance_criteria entry in Given/When/Then format
   Given: concrete system state | When: exact action or input | Then: verifiable assertion with specific value
 - user_personas: infer from IDEA.md — who uses this product, their tech level, goal, and pain point
   If IDEA.md doesn't specify, use the most likely real user (not "general user")
-- Min 3 NFRs — cover ALL applicable operational categories below. If a category does not apply, declare it explicitly with a reason (do NOT silently omit):
+- NFRs: cover ALL applicable operational categories below — the categories drive the count, not the ≥{{MIN_NFR}} floor. If a category does not apply, declare it explicitly with a reason (do NOT silently omit):
     **Observability** — applies to: any HTTP server or daemon process
       NFR minimum: every request logs [timestamp] METHOD /path STATUS to stdout/stderr
     **CI/CD** — applies to: any project with a test suite
@@ -185,7 +188,7 @@ Fold these into project_summary (they inform the FRs; no consumer reads a separa
     **Healthcheck** — applies to: any project with Docker or server deployment
       NFR minimum: GET /health returns 200 when the process is alive
 - Every MUST FR must have a type (UX|persistence|security|reporting|logic)
-- acceptance_criteria must be measurable by type:
+- acceptance_criteria must be measurable by type (examples assume a responsive web surface — for a fixed-medium product (kiosk, TUI, desktop-fixed, embedded) state the equivalent metric at ITS declared medium instead of importing mobile viewports):
     UX         → "passes mobile viewport at 375px", "animation completes in ≤200ms", "contrast ≥4.5:1"
     visual     → "component renders at 375px/768px/1440px", "color contrast ≥4.5:1", "layout matches spec at each breakpoint"
     audio      → "sound plays within ≤100ms of trigger", "volume normalized to ≤-14 LUFS", "no audio gap on loop"
@@ -215,7 +218,7 @@ A feature MODIFIES a live system. If the seed has a **Must Not Break** section, 
 
 ## Instructions
 1. Confirm the five Tier-A inputs with the user (Seed-Input Elicitation above) and set `idea_provenance` honestly — ask before assuming; record every assumption in `idea_gaps`
-2. Declare no_go_zone (≥3 items) before writing any FR
+2. Declare no_go_zone (≥{{MIN_NGZ}} items — floor, not target) before writing any FR
 3. Identify North Star KPI + JTBD + guardrail metric
 4. Work through the Requirement Depth Protocol — enumerate screens, actions, states, auth, async, edge cases
 5. Generate complete 01_REQUIREMENTS.json
@@ -257,7 +260,7 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 1   →   aitri {{SCOPE_VERB}}ap
 ## Human Review — Before approving phase 1
   [ ] idea_provenance reflects reality — every "confirmed" field was actually confirmed by you, not the agent's guess
   [ ] Every "assumed" Tier-A field is one you accept proceeding on (or correct it and re-run)
-  [ ] no_go_zone has ≥3 explicit, specific items (not generic filler)
+  [ ] no_go_zone has ≥{{MIN_NGZ}} explicit, specific items (not generic filler)
   [ ] Every MUST FR has type AND at least one acceptance_criteria with a concrete metric
   [ ] acceptance_criteria for UX/visual/audio FRs contain real measurements (px, ms, %, fps)
   [ ] user_personas reflect real users — not "general user" — with a real goal and pain_point

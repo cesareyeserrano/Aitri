@@ -1,9 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'fs';
+import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { PHASE_DEFS } from '../lib/phases/index.js';
+import { extractRequirements } from '../lib/phases/context.js';
 
 // Whole-pipeline connectivity guard (AUDIT-0630). The rc.137/rc.138 defects were all the SAME class:
 // an artifact a phase needs is produced but never reaches it — invisible to change-scoped adversarial
@@ -90,6 +92,62 @@ describe('pipeline connectivity — design-flow regression locks (the AUDIT-0630
     for (const art of ['01_REQUIREMENTS.json', '02_SYSTEM_DESIGN.md', '03_TEST_CASES.json']) {
       assert.ok(consumes(4, art), `the build phase must consume ${art}`);
     }
+  });
+
+  // UPLAN-0703 C1: field-level forwards through extractRequirements. This suite existed to
+  // catch silent input drops and missed the LARGEST field — fr.description (the behavioral
+  // prose of the PRD) never reached phases 2/3/4, and project_summary (North Star KPI /
+  // guardrails) had zero consumers.
+  it('extractRequirements forwards fr.description — the PRD prose reaches downstream phases (C1)', () => {
+    const prd = JSON.stringify({
+      functional_requirements: [{
+        id: 'FR-001', title: 'Login', priority: 'MUST', type: 'logic',
+        description: 'The user authenticates with email+password; lockout after 5 failures.',
+        acceptance_criteria: ['AC1'],
+      }],
+    });
+    const out = JSON.parse(extractRequirements(prd));
+    assert.equal(out.functional_requirements[0].description,
+      'The user authenticates with email+password; lockout after 5 failures.',
+      'dropping fr.description leaves architecture/tests/build designing from the title alone');
+  });
+
+  // COMPOSITION-LEVEL (adversarial-pass fix): the first cut forwarded project_summary via an
+  // extractRequirements option — a no-op in the real flow, because run-phase applies the
+  // PRODUCER's transform first, so phase 2's re-extract ran on an already-stripped string.
+  // This test composes the two passes exactly as production does: producer transform →
+  // phase2.buildBriefing (which reads the RAW artifact from disk for project_summary).
+  it('project_summary reaches the Phase 2 BRIEFING through the real producer-transform flow (C1)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-c1-ps-'));
+    try {
+      const prd = JSON.stringify({
+        project_name: 'demo',
+        project_summary: { north_star: 'weekly active savers', jtbd: 'track budget' },
+        functional_requirements: [{ id: 'FR-001', title: 't', priority: 'MUST' }],
+      });
+      fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), prd);
+      // What run-phase actually hands phase 2: the producer's extract (strips project_summary).
+      const transported = PHASE_DEFS[1].extractContext(prd);
+      assert.ok(!transported.includes('north_star'), 'precondition: the transported input IS stripped');
+      const briefing = PHASE_DEFS[2].buildBriefing({
+        dir, inputs: { '01_REQUIREMENTS.json': transported },
+        feedback: '', artifactsBase: 'spec', bestPractices: '',
+        config: { artifactsDir: 'spec' }, scopeVerb: '', scopeArg: '', contextAssets: '',
+      });
+      assert.match(briefing, /north_star/,
+        'phase 2 must receive project_summary from the raw artifact on disk — KPI/guardrails inform architecture trade-offs');
+      assert.match(briefing, /Product intent/, 'the dedicated briefing section must render');
+      // And the other phases do NOT carry it: their input is the stripped transport form.
+      for (const key of [3, 4]) {
+        const other = PHASE_DEFS[key].buildBriefing({
+          dir, inputs: { '01_REQUIREMENTS.json': transported, '02_SYSTEM_DESIGN.md': '# D', '03_TEST_CASES.json': '{"test_cases":[]}' },
+          feedback: '', artifactsBase: 'spec', bestPractices: '', config: { artifactsDir: 'spec' },
+          scopeVerb: '', scopeArg: '', contextAssets: '',
+        });
+        assert.ok(!other.includes('north_star'), `phase ${key} must NOT carry project_summary — targeted forward, not prompt bloat`);
+      }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
 

@@ -137,11 +137,23 @@ describe('extractRequirements()', () => {
     assert.equal(extractRequirements(raw), raw);
   });
 
-  it('excludes description from functional_requirements', () => {
+  // UPLAN-0703 C1 (flips the old exclusion pin): fr.description is the PRD's behavioral
+  // prose — the template's own "good FR" example is description-shaped. Dropping it as a
+  // token saving left phases 2/3/4 designing, testing, and building from the title alone.
+  it('C1: forwards description on functional_requirements (the PRD prose reaches downstream)', () => {
     const d = JSON.parse(fullRequirements());
     d.functional_requirements[0].description = 'some description';
     const out = JSON.parse(extractRequirements(JSON.stringify(d)));
-    assert.equal(out.functional_requirements[0].description, undefined);
+    assert.equal(out.functional_requirements[0].description, 'some description');
+  });
+
+  it('C1: extractRequirements never forwards project_summary — Phase 2 reads it from disk', () => {
+    // Deliberate: run-phase applies THIS producer transform before any consumer sees the
+    // input, so an opt-in parameter here can never fire in the real flow (adversarial-pass
+    // finding). Phase 2's disk read is the mechanism; composition pinned in connectivity.test.js.
+    const d = JSON.parse(fullRequirements());
+    d.project_summary = { north_star: 'x' };
+    assert.ok(!('project_summary' in JSON.parse(extractRequirements(JSON.stringify(d)))));
   });
 });
 

@@ -151,6 +151,28 @@ describe('cmdRunPhase() — build surfaces design reference when a UX spec exist
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
+  // UPLAN-0703 C2, integration level: the assets/design blocks render INSIDE the briefing
+  // (via {{CONTEXT_ASSETS}}), BEFORE the instructions — not appended after the checklist.
+  // The C7 suite pins this at the buildBriefing layer; this pins the cmdRunPhase composition
+  // (assetsNote construction → placeholder interpolation → no duplicate fallback print).
+  it('C2: the design-reference block renders inside the build briefing, before Test Specs — and only once', () => {
+    const dir = tmpDir();
+    buildFixture(dir);
+    writeFile(dir, 'idea_context/mockup.png', 'x');
+    const { stdout } = captureAll(() =>
+      cmdRunPhase({ dir, args: ['build'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+    );
+    const block = stdout.indexOf('Design reference');
+    const specs = stdout.indexOf('## Test Specs');
+    const done  = stdout.indexOf('## Technical Definition of Done');   // section header — the persona text also names it near the top
+    assert.ok(block !== -1 && specs !== -1 && done !== -1, 'all three sections present');
+    assert.ok(block < specs, 'the design reference must precede the Test Specs the agent implements to');
+    assert.ok(block < done, 'the design reference must precede the instructions/DoD block');
+    assert.equal(stdout.indexOf('Design reference'), stdout.lastIndexOf('Design reference'),
+      'the block renders ONCE — the after-briefing fallback must not double-print it');
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
   it('F1 regression: a readable design doc with NO visual assets still surfaces at build', () => {
     const dir = tmpDir();
     buildFixture(dir);

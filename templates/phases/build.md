@@ -23,7 +23,7 @@ Debug protocol — follow this order, do NOT rewrite working code:
 2. Find the exact function/handler responsible for that TC
 3. Identify the gap: what the code does vs what 'then' requires
 4. Write the minimal fix — one function, one file if possible
-5. Re-run only the failing TCs to confirm the fix before calling aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4
+5. Re-run the failing TCs to iterate on the fix — then run the FULL suite green before calling aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4 (one completion bar: the Definition of Done below; a targeted re-run is a debugging step, not the exit criterion)
 {{/IF_DEBUG}}
 
 {{#IF_FR_SNAPSHOT}}
@@ -51,7 +51,7 @@ mockups/visual assets in `idea_context/`, those are the pixel reference — open
 not the design. A UI that passes every TC but ignores this spec is a failed build.
 {{UX_SPEC}}
 {{/IF_UX_SPEC}}
-
+{{CONTEXT_ASSETS}}
 ## Test Specs — implement exactly to these
 ```json
 {{TEST_CASES_JSON}}
@@ -85,7 +85,7 @@ Tests not matching TC-XXX: naming are auto-classified as skip — verify-complet
 ## Code Standards (mandatory)
 - Standard doc format for your language on every function (JSDoc, Python docstrings, godoc, Rustdoc, Javadoc, etc.) — at minimum: parameters, return value, thrown exceptions
 - File header: Module, Purpose, Dependencies
-- Zero hardcoded values — all config via env vars
+- Zero hardcoded config values — route them through the project's declared config mechanism (env vars, config file, flags); when the project uses env-based config, all of it via env vars
 - Error handling: input validation + async try-catch + HTTP errors
 - Follow EXACT tech stack from System Design
 - Traceability headers on key functions: /** @aitri-trace FR-ID: FR-001, US-ID: US-001, AC-ID: AC-001, TC-ID: TC-001 */
@@ -94,9 +94,9 @@ Tests not matching TC-XXX: naming are auto-classified as skip — verify-complet
 
 ## CI/CD Deliverable (mandatory when NFR requires it)
 If `01_REQUIREMENTS.json` contains an NFR for CI/CD (category: "CI/CD" or keyword "pipeline" or "continuous integration"):
-- Create `.github/workflows/ci.yml` (GitHub Actions) or equivalent for the declared CI platform
+- Create the CI pipeline config for the platform the project declares (e.g. .github/workflows/ci.yml on GitHub Actions, .gitlab-ci.yml on GitLab, azure-pipelines.yml on Azure DevOps) — never a dead workflow for a platform the repo does not use
 - The workflow MUST: (1) trigger on push and pull_request to the main branch, (2) install dependencies, (3) run the exact `test_runner` command from this manifest, (4) run the project's declared e2e runner as a separate step if one is configured (otherwise omit the e2e step — do not invent a runner the project does not use)
-- Include `.github/workflows/ci.yml` in `files_created` in the manifest
+- Include that CI config file in `files_created` in the manifest
 - If CI/CD NFR is MUST priority and you cannot create the workflow → declare it as technical debt with reason
 
 ## Technical Definition of Done
@@ -106,13 +106,13 @@ You MUST verify ALL of the following before calling aitri {{SCOPE_VERB}}complete
   [ ] technical_debt in manifest is complete — every simplification is declared
   [ ] All files listed in files_created exist on disk
   [ ] No TODO/FIXME/PLACEHOLDER comments remain in production code
-  [ ] .env.example includes all required environment variables
+  [ ] When the project uses env-based config: .env.example includes all required environment variables (skip if none — or record its absence in technical_debt)
 
 If any item above fails, fix it before completing. Calling aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 4 with a failing checklist item is a defect.
 
 ## Self-Evaluation Checklist — FR types
 For each MUST FR, confirm:
-  [ ] type UX:          responsive layout implemented — not just functional HTML, passes 375px viewport
+  [ ] type UX:          layout implemented at the declared medium — responsive web passes its declared viewports (375px default); a fixed-medium surface renders correctly at ITS medium — not just functional HTML
   [ ] type persistence: real DB or file storage — not in-memory variable or JSON mock
   [ ] type security:    real token validation — not mock/skip/hardcoded bypass
   [ ] type reporting:   chart/graph library rendering — not plain HTML table substitution
@@ -266,5 +266,5 @@ Before you report this build complete, if your environment supports independent 
   [ ] Tech stack matches 02_SYSTEM_DESIGN.md exactly — no unrequested substitutions
   [ ] Open each file in test_files[]: verify every TC assertion tests REAL behavior — not assert.ok(true), assert.equal(1,1), or constant expressions
   [ ] aitri {{SCOPE_VERB}}verify-run{{SCOPE_ARG}} assertion density warnings reviewed — investigate any TC with ≤1 assertion
-  [ ] If CI/CD NFR exists: .github/workflows/ci.yml created and listed in files_created
+  [ ] If CI/CD NFR exists: the declared CI platform's pipeline config created and listed in files_created
   [ ] No test fixture uses hardcoded absolute paths — all paths relative or os.tmpdir()

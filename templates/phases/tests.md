@@ -20,14 +20,14 @@
 {{REQUIREMENTS_JSON}}
 ```
 
-> user_stories above include acceptance_criteria with Given/When/Then per AC id — use these to populate user_story_id, ac_id, and to write SPEC-SEALED test cases.
+> user_stories above include acceptance_criteria — use them to populate user_story_id and to write SPEC-SEALED test cases. Populate ac_id ONLY where Phase 1 declares structured ACs with ids (per the ID rules below); a plain-string-AC project rightly omits it — do NOT invent an ac_id format.
 > no_go_zone above lists what is explicitly out of scope — do NOT write test cases for these items.
 > **Adoption audit (brownfield):** if `idea_context/ADOPTION_AUDIT.md` is present, read it before designing tests — its findings name the existing behavior, integration seams, and regression risks the change must not break. Turn each Must-Not-Break / regression risk it records into a concrete negative or edge test case (a `category: "Regression"` NFR is a hard MUST and needs the full happy/edge/negative set).
 
 ## System Design (architecture + API) — design your tests against this contract
 The interface, data model, and integration seams below are the approved contract. Whatever integration and e2e tests you write MUST target the real interface the design declares — in the form this stack uses (HTTP endpoints, function/class signatures, CLI commands, or protocol messages) — and your test data MUST match the Data Model. Do not invent an interface the design does not define, and do not leave a declared interface or integration seam untested.
 {{SYSTEM_DESIGN}}
-
+{{CONTEXT_ASSETS}}
 ## TC ID naming convention
 - Canonical shape: `TC[-NAMESPACE]*-<digits><suffix>` — namespace segments are letters only, digits and suffix sit in the LAST segment.
 - Happy-path TCs: suffix ID with `h` — e.g., `TC-001h: user logs in with valid credentials`
@@ -130,8 +130,8 @@ If a behavior is genuinely hard to verify observationally → document it as `"m
 - Go test functions MUST use the canonical TC-XXX id with underscores as separators because Go syntax forbids `-` in identifiers: `func TestTC_NS_001h(t *testing.T)`. The `Test` prefix is mandatory. aitri normalizes underscores to dashes on parse — canonical id stored in `03_TEST_CASES.json` stays `TC-NS-001h`. Run `go test -v` so passes are visible in output
 
 ## Mandatory gates by FR type (test LEVEL of implementation, not just presence)
-- FR type UX:          must include test for responsive layout at 375px viewport AND visual component rendering
-- FR type visual:      must include test at each breakpoint declared in acceptance_criteria (e.g. 375px, 768px, 1440px)
+- FR type UX:          must include a visual component rendering test AND a layout test at the product's declared medium — for a responsive web surface, use the project's declared breakpoints (375px as the default mobile viewport when none are declared); for a fixed-medium surface (kiosk, TUI, desktop-fixed, embedded display), test layout at THAT medium instead — do not import mobile viewports the product will never render at
+- FR type visual:      must include test at each breakpoint/medium declared in acceptance_criteria (e.g. 375px/768px/1440px for responsive web, or the fixed resolution for a kiosk)
 - FR type audio:       must include test that audio fires within the ms threshold declared in acceptance_criteria
 - FR type persistence: must include test that data survives process restart — NOT in-memory/variable storage
 - FR type security:    must include ≥3 distinct failure modes per security NFR — not just the most obvious one. For an FR that exposes a runtime attack surface (input handling, auth, file access) these are attack vectors (examples by control type below). For a security-RELEVANT config or migration change (rewiring SSO, bumping a security package, removing a legacy auth path) they are the failure modes of THAT change — e.g. scope violation, a dangling reference after removal, a prerelease/downgraded dependency slipping through. Examples by control type:
@@ -194,9 +194,9 @@ This is the one check Aitri cannot make for you: it verifies that the `ac_id` li
 
 These TCs must reference the UX FR that owns the component in `requirement_id` and use `type: "e2e"`.
 
-**Mobile behavior TCs** — for every screen declared in User Flows:
-- At least one TC verifying layout and interaction at 375px viewport
-- `expected_result` must reference the spec's declared mobile behavior — not "renders correctly"
+**Declared-medium behavior TCs** — for every screen declared in User Flows:
+- At least one TC verifying layout and interaction at the medium the UX spec declares — the mobile viewport (375px default) when the spec targets responsive web; the fixed medium (kiosk resolution, terminal size, desktop window) when it does not
+- `expected_result` must reference the spec's declared behavior at that medium — not "renders correctly"
 
 **Design token compliance** — at least one TC verifying:
 - Primary text contrast ratio meets the value declared in Design Tokens (≥4.5:1 against its background)
@@ -252,7 +252,7 @@ If subagents are available, consider one tasked only with finding the cases you 
   [ ] Every MUST FR has ≥3 test cases (happy path, edge case, negative)
   [ ] At least 2 e2e tests targeting critical user flows
   [ ] given/when/then use concrete values — no "valid data", "correct input", or abstractions
-  [ ] user_story_id and ac_id in each TC reference real IDs from 01_REQUIREMENTS.json
+  [ ] user_story_id in each TC references a real ID from 01_REQUIREMENTS.json — and ac_id too where Phase 1 declares structured ACs (a plain-string-AC project rightly has no ac_id; invented ids are the defect, not the omission)
   [ ] No test cases written for items declared in no_go_zone
   [ ] Type Coverage Matrix is present and FR types have correct required levels
   [ ] Every FR has at least one TC id ending in `h` (happy path) and one ending in `f` (failure)

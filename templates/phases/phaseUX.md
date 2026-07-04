@@ -25,13 +25,13 @@
 ```json
 {{REQUIREMENTS_JSON}}
 ```
-
+{{CONTEXT_ASSETS}}
 ## Constraint check — confirm BEFORE designing the UX
 If `01_REQUIREMENTS.json` (`constraints` / `technology_preferences`) already states these, **USE them — do NOT re-ask**. For any that are **missing or vague**, confirm with the user **before** designing, and mark anything assumed:
 - **Design system / branding** · **Accessibility level** (e.g. WCAG AA) · **Device / viewport targets** · **Performance budget** (load time)
 
 ## Output: `{{ARTIFACTS_BASE}}/01_UX_SPEC.md`
-> **If the context above lists client-provided mockups / a prototype / a design spec (idea_context/ or feature_context/): OPEN them and TRANSCRIBE their design into the sections below — they are the source of truth (per the first Constraint). The sections are how you WRITE the provided design down completely, element for element (every screen, component, icon, semantic-color rule, affordance, interaction). Do NOT replace a provided decision with an archetype/heuristic default. Generate from the archetype only for what the provided design does not cover, or when none was provided.**
+> **If the '── Additional context' section of this briefing lists or inlines client-provided mockups / a prototype / a design spec (idea_context/ or feature_context/): OPEN them and TRANSCRIBE their design into the sections below — they are the source of truth (per the first Constraint). The sections are how you WRITE the provided design down completely, element for element (every screen, component, icon, semantic-color rule, affordance, interaction). Do NOT replace a provided decision with an archetype/heuristic default. Generate from the archetype only for what the provided design does not cover, or when none was provided.**
 
 Required sections (in order):
 1. ## User Flows — per screen, per user persona. For each flow: entry point, steps, exit point, error path
@@ -73,10 +73,18 @@ Design Tokens:
   Font:         [family] · [scale summary]
   Contrast:     all roles ≥4.5:1 [confirmed | gaps: list]
 
-Responsive breakpoints: [375px · 768px · 1440px — behavior per screen]
+Viewport/medium:       [responsive: 375px · 768px · 1440px behavior per screen | fixed medium: declared resolution/terminal size]
 
 Nielsen compliance:    [N/10 heuristics applied]
 Nielsen violations:    [N found · N corrected · N accepted trade-off]
 ──────────────────────────────────────────────────────────────
 Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} ux   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} ux
 ```
+
+## Human Review — Before approving phase ux
+  [ ] The spec matches the provided design material (mockups/prototype/design doc in the context assets) element for element — no client-provided decision was replaced by an archetype default
+  [ ] Every UX/visual/audio FR from Phase 1 is covered by a screen, component, or flow — none silently dropped
+  [ ] No invented flows or screens beyond what the requirements and provided design imply
+  [ ] Component states are complete (default/loading/error/empty/disabled) for the components that ship
+  [ ] Design tokens and contrast meet the declared accessibility level — verified against the tokens table, not assumed
+  [ ] The declared viewport/medium targets match the product's real surface (responsive web vs fixed medium)

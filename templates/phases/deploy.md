@@ -74,7 +74,7 @@ If `01_REQUIREMENTS.json` contains a CI/CD NFR:
 2. Assign compliance level per FR using fr_coverage from Test Results
 3. Copy technical_debt from 04_BUILD_REPORT.json into technical_debt_inherited
 4. Save 05_TRACEABILITY.json to: {{ARTIFACTS_BASE}}/05_TRACEABILITY.json
-5. Document setup commands in DEPLOYMENT.md — do NOT run npm install or start the app
+5. Document setup commands in DEPLOYMENT.md — do NOT install dependencies or start the app as part of deploy verification
 6. Present the Delivery Summary below to the user
 7. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 5
 
@@ -86,9 +86,9 @@ After saving all deployment files + 05_TRACEABILITY.json, present this report to
 Deployment files:  [list: Dockerfile, docker-compose.yml, DEPLOYMENT.md, etc.]
 Overall status:    [compliant | partial | draft]
 
-FR compliance:
-  MUST:   [N]/[N] production_ready · [N] partial · [N] placeholder
-  SHOULD: [N]/[N] production_ready · [N] partial
+FR compliance (list the problems FIRST — the body warns against defaulting to production_ready):
+  MUST:   [N] placeholder · [N] functionally_present · [N] partial · [N] complete · [N] production_ready
+  SHOULD: [N] partial · [N] complete/production_ready
   (list any placeholder FRs — these block the pipeline)
 
 Technical debt inherited: [N] items from Phase 4

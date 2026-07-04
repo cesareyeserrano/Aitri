@@ -26,10 +26,10 @@ Where answers are vague, mark the gap in Evidence gaps.
 
 ## Source Idea ({{IDEA_WORD_COUNT}} words)
 {{IDEA_MD}}
-
+{{CONTEXT_ASSETS}}
 ## Ingest the context FIRST, then elicit what's missing
 Discovery is not "fill in four headings." It is: **read what already exists → derive the understanding → confirm/ask only what the sources don't answer.**
-- If the idea references context — an `## Assets` section, files in the `idea_context/` folder (listed below the briefing), a repo, a doc, mockups, a prior PRD — **READ them before writing anything.** Open the files, look at the mockups, read the docs. Derive Problem / Users / Success / Out-of-Scope from that material; do not re-ask what a provided doc already states.
+- If the idea references context — an `## Assets` section, files in the `idea_context/` folder (surfaced in the "── Additional context" section of this briefing), a repo, a doc, mockups, a prior PRD — **READ them before writing anything.** Open the files, look at the mockups, read the docs. Derive Problem / Users / Success / Out-of-Scope from that material; do not re-ask what a provided doc already states.
 - Mark in Evidence gaps anything the sources leave unclear, and confirm the three highest-stakes inputs with the owner (the problem, the success metric, the no-go boundaries) — those are unrecoverable if wrong.
 
 ## Match the depth to the project (proportional — do not over-process an MVP)
@@ -91,3 +91,11 @@ Evidence gaps (if any):
 ──────────────────────────────────────────────────────────────
 Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} discovery   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} discovery
 ```
+
+## Human Review — Before approving phase discovery
+  [ ] The problem statement describes YOUR real problem — grounded in the idea and provided context, not the agent's reframing of it
+  [ ] Target users and their pain match who this is actually for
+  [ ] Success criteria are the outcomes you would actually accept as "it worked"
+  [ ] Out-of-scope decisions are ones you agree to defer — nothing you need was quietly parked
+  [ ] No solutioneering — the document defines the problem; it does not pre-commit architecture or implementation choices
+  [ ] Key assumptions flagged by the agent are ones you accept (or correct them and re-run)

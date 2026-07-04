@@ -55,6 +55,16 @@ Notation: **content** = injected in-full into the briefing (skip impossible). **
 (downstream phases building on approved artifacts). Producer transform = the `extractContext` of the
 phase that PRODUCED the artifact is applied on consumption (`run-phase.js:114`), never the consumer's.
 
+**Placement invariant (rc.150, C2):** whatever its form, the context block renders INSIDE the briefing
+via the template's `{{CONTEXT_ASSETS}}` placeholder, positioned BEFORE the Output/Instructions sections
+— never appended after the Delivery Summary / `Run: aitri complete` block (an agent that stops at the
+instructions must still have seen the client material). A template that drops the placeholder falls back
+to the after-briefing print (defensive only); `test/rendered-briefing.test.js` pins the ordering per phase.
+Two more C-phase invariants the same suite pins: **scope-correct floors** ({{MIN_FR}}/{{MIN_NFR}}/{{MIN_NGZ}}
+render from the `phase1.js#scopeFloors` SSoT shared with the gate, framed as floors-not-targets — sizing
+comes from the seed via coverage_map, never from the floor), and the **persona/template division rule**
+(`lib/personas/README.md`: personas carry role+judgment only; ALL mechanics live in the template).
+
 ### discovery (optional; `00_DISCOVERY.md`)
 - **MUST receive:** `IDEA.md`/`FEATURE_IDEA.md` as **content** (identity extract, no truncation; missing
   → hard error). `idea_context/`/`feature_context/` readable text as **content** (ADR-066 injection,
