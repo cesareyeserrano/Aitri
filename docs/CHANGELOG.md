@@ -7,6 +7,16 @@
 
 ---
 
+## [2.0.0-rc.155] — 2026-07-04 — the adversarial method ships as briefing blocks, not a command: `aitri challenge` panel-REJECTED (UPLAN-0703 Phase E, ADR-072)
+
+Phase E proposed `aitri challenge <phase>` — a new command + challenger persona + CHALLENGE_REPORT.md + approve surfacing. Per the repo's go/no-go calibration (structural → matrix + full adversarial panel), a three-seat panel ran BEFORE implementation (kill, GO, bar judge — each independently grounded in the code, every load-bearing claim verified by hand before ruling). **Verdict: the structural form does not survive its own repo's rules; the verified residue ships at ~2% of the cost.**
+
+- **Why rejected (ADR-072):** (1) the delta-problem is unestablished — the proven kernel (independent adversarial pass) already ships as the rc.132 inline block in build.md, never observed insufficient; building the harness first and collecting evidence after inverts evidence-before-build; (2) Phases 1 and 3 are already occupied by stronger mechanisms (`audit requirements` + coverage_map diff IS the Phase-1 challenge; the Phase-3 sweep + ADR-053 mutation gate); (3) a self-written "challenge found nothing" surfaced at approve is manufactured reassurance at the exact point rc.153 made honest; (4) reviewer.js already carries the destructive mandate — "review is constructive, challenge is destructive" did not survive contact with the code. Re-open bar + GO objections recorded in ADR-072.
+- **What shipped instead:** `architecture.md` gains the adversarial-pass block with Phase-2 attack vectors (the MUST FR with no home in any component, the unstated assumption, the UX/context contradiction, the unanswered NFR promise, the invented constraint) — the one real gap (176 lines, zero independent-pass instruction). `tests.md`'s edge-case sweep upgraded to the rc.132 method standard (refute-what-exists: invented expected values, happy-path-only MUSTs, stub-passable scenarios; verify-the-adversary's-claims; blast-radius rule). `requirements.md` deliberately gets NOTHING (recorded as decision — a generic block would duplicate a stronger tool).
+- **reviewer.js false-independence claim fixed:** "You were NOT involved in writing the code" was false in the dominant single-session flow. Replaced with the honest conditional — seek real independence (fresh session/subagent); if you authored the code, disclose it in the review's first line so the human knows they are reading the weaker signal.
+
+`UPLAN-0703` · briefing/persona content changes (visible prompt output); no schema change, no new command.
+
 ## [2.0.0-rc.154] — 2026-07-04 — one owner for the UX-routing decision; the intent-coverage audit is wired into the Phase-1 flow (UPLAN-0703 Phase D, D4–D5)
 
 Closes Phase D: the next-action routing that `approve` and `status`/`resume` both compute no longer has two copies that can drift, and the best drop-catcher in the product (`audit requirements`) is surfaced where its catch is cheapest — before `approve 1`.

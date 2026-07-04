@@ -1,4 +1,4 @@
-# Code Review — Independent Review
+# Code Review — Before Test Verification
 
 {{ROLE}}
 
@@ -81,6 +81,8 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} review   →   aitri {{SCOPE_VER
 ```
 
 ## Output: `{{ARTIFACTS_BASE}}/04_CODE_REVIEW.md`
+First line of the file (before any section) — one authorship line, so the human knows which kind of review they are reading:
+  `Reviewer: independent (fresh session/subagent)`  — or —  `Reviewer: build author (self-review — weaker signal)`
 Required sections:
   ## Issues Found       — one entry per gap (empty section if none)
   ## FR Coverage        — table with FR-ID, implementation status, TC-ID

@@ -26,7 +26,14 @@ function optionalBlock(rendered, heading) {
 describe('Optional subagent-pass suggestions in prompts', () => {
   const cases = [
     ['phases/phaseReview', '## Optional — independent adversarial pass', /refute/i],
-    ['phases/tests', '## Optional — independent edge-case sweep', /edge[- ]case|cases you .{0,4}did/i],
+    // ADR-072 (rc.155): the tests.md sweep was upgraded to the rc.132 method standard —
+    // refute-what-exists (invented expected values, happy-path-only) + the missing-case
+    // sweep it always had. The style contract below (conditional, "consider", optional,
+    // token-costing, no mandate) is unchanged and applies to the upgraded block.
+    ['phases/tests', '## Optional — adversarial pass before you report the test plan done', /cases you .{0,4}did|invented|happy-path/i],
+    // ADR-072 (rc.155): architecture.md gained the block (the one phase with no
+    // independent-pass instruction) — same family, same style contract.
+    ['phases/architecture', '## Optional — adversarial pass before you report the design done', /no home in any component|unstated assumption/i],
     ['phases/auditSecurity', '## Optional — multi-lens fan-out', /authz|injection|data exposure/i],
     ['phases/audit', '## Optional — multi-lens fan-out', /correctness|performance/i],
   ];
@@ -48,7 +55,11 @@ describe('Optional subagent-pass suggestions in prompts', () => {
       assert.match(block, /token/i, `${tpl} must state the token cost`);
       // No imperative that turns the suggestion into a mandate. Catches phrasings a
       // future edit might reach for ("you MUST run", "Always spawn", "Run a subagent").
-      assert.doesNotMatch(block, /\b(you\s+)?must\b/i, `${tpl} must not mandate the pass`);
+      // Strip the CASE-SENSITIVE domain vocabulary "MUST FR/NFR" (requirement priority,
+      // not a mandate verb — the architecture block's attack vectors name it, ADR-072)
+      // BEFORE applying the guard, so a lowercase "must FR-check…" mandate still fails.
+      const deVocabed = block.replace(/\bMUST (FRs?|NFRs?)\b/g, 'PRIORITY-$1');
+      assert.doesNotMatch(deVocabed, /\b(you\s+)?must\b/i, `${tpl} must not mandate the pass`);
       assert.doesNotMatch(block, /\b(always|never skip)\b/i, `${tpl} must not phrase the pass as unconditional`);
       assert.doesNotMatch(block, /^\s*(run|spawn|use)\s+(a\s+)?(an\s+)?(independent\s+)?subagent/im,
         `${tpl} must not open with an imperative subagent command`);

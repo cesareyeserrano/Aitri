@@ -245,8 +245,8 @@ FRs with gaps (< 3 TCs): [list or "none"]
 Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 3
 ```
 
-## Optional — independent edge-case sweep
-If subagents are available, consider one tasked only with finding the cases you *didn't* write: the negative input, the boundary, the attack vector behind a security NFR. It reports gaps; you decide which become TCs. Optional and token-costing — the operator decides.
+## Optional — adversarial pass before you report the test plan done
+Before you report this test plan complete, if your environment supports independent subagents, consider spawning one told to **refute** the plan you just wrote — not to validate it. Two mandates: (a) find the cases you *didn't* write — the negative input, the boundary, the attack vector behind a security NFR; and (b) attack the TCs that DO exist — the given/when/then whose expected value is invented rather than derived from the FR's acceptance criteria, the MUST FR covered only by happy-path TCs, the scenario a trivial stub implementation would pass. **Self-review shares the blind spot that wrote the plan; an independent pass does not.** Then verify the adversary's load-bearing claims against 01_REQUIREMENTS.json yourself before acting — it reports gaps; you decide which become TCs. This costs extra tokens and is the operator's call: skip it for a trivial plan, but do not skip it when the plan guards real blast-radius (security NFRs, money paths, data integrity). Advisory — Aitri cannot run or gate on it; a hollow TC caught here costs a JSON edit, the same TC caught after the build has already "passed" it costs a false green.
 
 ## Human Review — Before approving phase 3
   [ ] Every MUST FR has ≥3 test cases (happy path, edge case, negative)

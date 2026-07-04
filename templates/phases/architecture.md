@@ -165,6 +165,9 @@ Top risks:
 Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 2   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 2
 ```
 
+## Optional — adversarial pass before you report the design done
+Before you report this design complete, if your environment supports independent subagents, consider spawning one told to **refute** the design you just wrote — not to validate it. Point it at 02_SYSTEM_DESIGN.md plus the requirements, with these attack vectors: find the MUST FR that has no home in any component or flow (join every FR to the design element that realizes it — the one with no join is the dropped one); the unstated assumption the design silently depends on (an implicit data shape, an implicit service, an implicit scale); the contradiction with the UX spec or a context asset; the NFR promise (latency, security, availability) the design never answers; the invented constraint — a technology or pattern no FR/NFR asked for. **Self-review shares the blind spot that wrote the design; an independent pass does not.** Then verify the adversary's load-bearing claims against the actual documents yourself before acting on them. This costs extra tokens and is the operator's call: skip it for a trivial design, but do not skip it when the design carries real blast-radius (many MUST FRs, security surface, a stack decision that is expensive to reverse). Advisory — Aitri cannot run or gate on it; a design defect caught here costs a markdown edit, the same defect caught at build costs a re-implementation.
+
 ## Human Review — Before approving phase 2
   [ ] All 9 required sections are present with exact header names (Executive Summary, System Architecture, Data Model, API Design, Security Design, Performance & Scalability, Deployment Architecture, Risk Analysis, Technical Risk Flags)
   [ ] Technical Risk Flags: read each [RISK] flag — do you accept the mitigation proposed? If severity is critical or high, have a plan before proceeding

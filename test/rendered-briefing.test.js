@@ -203,6 +203,54 @@ describe('Phase 4 plan-first protocol (C8/ADR-071)', () => {
   });
 });
 
+// ADR-072 (UPLAN-0703 Phase E): the adversarial method ships as briefing blocks, not an
+// `aitri challenge` command (panel-rejected). Pins: the block exists where the panel found
+// a real gap (Phase 2), the Phase-3 sweep carries the rc.132 method standard, Phase 1
+// deliberately gets NOTHING (audit requirements + coverage_map IS its challenge), and the
+// reviewer persona no longer makes the false independence claim.
+describe('adversarial-pass briefing blocks (ADR-072 — challenge command rejected)', () => {
+  it('Phase 2 briefing carries the adversarial-pass block with design attack vectors', () => {
+    const out = renderPhase(2);
+    assert.match(out, /adversarial pass before you report the design done/i);
+    assert.match(out, /refute.*the design/is, 'the mandate is refutation, not validation');
+    assert.match(out, /no home in any component/i, 'the FR→design join attack vector');
+    assert.match(out, /unstated assumption/i);
+    assert.match(out, /verify the adversary's load-bearing claims/i, 'the verify-the-adversary rule (rc.132 method standard)');
+  });
+
+  it('Phase 3 sweep is upgraded to the method standard: refute-what-exists + verify claims + blast-radius', () => {
+    const out = renderPhase(3);
+    assert.match(out, /adversarial pass before you report the test plan done/i);
+    assert.match(out, /expected value is invented/i, 'attacks the TCs that DO exist, not only the missing ones');
+    assert.match(out, /happy-path/i);
+    assert.match(out, /verify the adversary's load-bearing claims/i);
+    assert.match(out, /blast-radius/i, 'the skip-trivial/never-skip-blast-radius rule');
+  });
+
+  it('Phase 1 briefing deliberately has NO adversarial-pass block (audit requirements is its challenge)', () => {
+    const out = renderPhase(1);
+    assert.doesNotMatch(out, /adversarial pass before you report/i,
+      'a generic refute block would duplicate the stronger audit-requirements + coverage_map mechanism (ADR-072)');
+    assert.match(out, /coverage_map/, 'the comparison mechanism Phase 1 relies on instead');
+  });
+
+  it('reviewer persona no longer claims false independence; it instructs disclosure instead', () => {
+    const src = persona('reviewer');
+    assert.ok(!src.includes('You were NOT involved in writing the code'),
+      'false in the dominant single-session flow — the live dishonesty ADR-072 fixes');
+    assert.ok(!src.includes('reviewing code written by someone else'),
+      'same false claim in REASONING');
+    assert.match(src, /If YOU wrote the code, declare it/i, 'the honest conditional: disclose authorship');
+    assert.match(src, /fresh session|subagent/i, 'independence is instructed where available');
+    // C3 division rule: the persona carries the NORM (declare authorship), the template
+    // carries the MECHANIC (the authorship line's placement + format in the output spec).
+    const tmpl = fs.readFileSync(path.join(ROOT, 'templates', 'phases', 'phaseReview.md'), 'utf8');
+    assert.match(tmpl, /Reviewer: independent \(fresh session\/subagent\)/, 'the template output spec defines the authorship line');
+    assert.match(tmpl, /Reviewer: build author \(self-review — weaker signal\)/);
+    assert.ok(!src.includes('first line of the review'), 'placement mechanic must NOT live in the persona (C3)');
+  });
+});
+
 describe('optional phases print a Human Review checklist (C5)', () => {
   for (const key of ['ux', 'discovery']) {
     it(`phase ${key} template has a ## Human Review section (approve extracts it from here)`, () => {
