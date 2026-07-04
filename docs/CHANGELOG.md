@@ -7,6 +7,20 @@
 
 ---
 
+## [2.0.0-rc.153] — 2026-07-04 — approve = real review: one instruction, show the content, show the drift (UPLAN-0703 Phase D, D1–D3)
+
+The human gate is Aitri's differentiator against raw agent coding, and it was the weakest surface. This fixes what the reviewer sees and does at `approve` (D4 routing-dedup + D5 audit shift-left land next).
+
+- **D1 — agent-mode `approve` emits a checkpoint, not the auto-chain imperative.** In non-TTY approve, the command printed "⚠️ HUMAN REVIEW CHECKPOINT … do not chain" and then, ~20 lines later, "PIPELINE INSTRUCTION — your only next action is: `aitri run-phase <next>`" — and `AGENTS.md` trains agents to obey PIPELINE INSTRUCTION literally. The tool instructed the auto-chaining its own rules forbid (the concrete mechanism behind autonomous approve 1→5). Now the agent-mode-no-gate path prints **⏸ PIPELINE CHECKPOINT — approval recorded, human review pending**, names the next command but frames it as post-confirmation, and suppresses "your only next action". A TTY (human-confirmed) approval keeps the direct instruction. `templates/AGENTS.md` + `help` updated to teach the checkpoint.
+- **D2 — `aitri approve <phase> --show` prints the full artifact before the checklist.** Approval of phases 2–5 was structurally y/N over a count summary or a `##`-heading list — the human never saw content. `--show` renders it: markdown verbatim, `05_TRACEABILITY.json` through the existing `export` renderer (reuse, not a second renderer), other JSON pretty-printed. Opt-in (a Phase-2 design is long; forced content would pollute agent transcripts); a TTY user who omits it gets a one-line nudge, agent mode is not nudged. Never blocks approval — an unreadable artifact degrades to a note.
+- **D3 — re-approval after drift shows what changed.** The after-drift path already ran `git diff HEAD` to decide the rehash hint but never SHOWED the diff — the human re-approved a changed artifact blind. It now prints a bounded diff (stat + first 200 hunks + a full-diff pointer, labeled "changes since the last commit of this artifact") before the y/N prompt. The load-bearing logic is extracted to a pure `buildArtifactDriftDiff` helper (the TTY drift path itself is not unit-testable) and tested against a git fixture; git via `execFileSync` array-args (ADR-058); silent no-op outside a git repo.
+
+- **The adversarial pass caught a ship-blocker in D2:** `buildTraceabilityMarkdown` returns an `{error}` OBJECT (not a throw) when an upstream artifact is missing/malformed, so `showArtifact`'s `if (!body)` fallback was skipped and `body.trimEnd()` crashed — `approve deploy --show` hard-failed BEFORE recording the approval, exactly the artifact `--show` exists to defend. Fixed (accept only a string; else fall back to pretty JSON) + two tests (missing-requirements fallback, complete-pipeline matrix render).
+
+`UPLAN-0703` · visible output changes at `approve`; no schema change.
+
+---
+
 ## [2.0.0-rc.152] — 2026-07-04 — extract the pure parser matrix; the verify-run banner stops over-claiming (UPLAN-0703 B9)
 
 - **New `lib/verify-parsers.js` — the ~660-line stack-agnostic parser matrix extracted from `verify.js`** (which was 2,157 lines): the seven runner-output parsers (node/vitest/pytest/playwright/go + the regex TRX/JUnit-XML parser that guards the deploy gate and has bitten before — rc.99 CDATA), result-file resolution, `buildFRCoverage`/`buildACCoverage`, and the content/density/coverage scanners. Pure functions — no `state.js`, no `child_process`, no pipeline mutation; `verify.js` imports and re-exports them, so every existing importer and test path is unchanged. Behavior-preserving refactor (the parser regexes now live where they can be reviewed independently of the 700-line command bodies).

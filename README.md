@@ -136,6 +136,7 @@ aitri approve 5
 | `aitri complete <phase>` | Validate the artifact schema and record the phase as complete. |
 | `aitri complete <phase> --check` | Dry-run validation — reports pass/fail without writing any state. |
 | `aitri approve <phase>` | Approve the phase after completing the human review checklist. Unlocks the next phase. |
+| `aitri approve <phase> --show` | Print the full artifact content before the checklist — review what you're approving, not just a summary. |
 | `aitri reject <phase> --feedback "..."` | Reject and record feedback. Injected automatically in the next `run-phase`. |
 
 `<phase>` accepts: `1` `2` `3` `4` `5` `discovery` `ux` `review`

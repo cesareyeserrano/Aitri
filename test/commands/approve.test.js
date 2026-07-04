@@ -17,6 +17,8 @@ import {
   summarizeManifest,
   summarizeCompliance,
   summarizeMarkdownSections,
+  buildArtifactDriftDiff,
+  showArtifact,
 } from '../../lib/commands/approve.js';
 import { loadConfig, hashArtifact } from '../../lib/state.js';
 
@@ -80,6 +82,21 @@ describe('cmdApprove() — B1/B2 human-review gate (rc.12)', () => {
       assert.match(out, /You are about to approve/, 'summary must print in agent mode (was silent on !isTTY)');
       assert.match(out, /Human Review/, 'real Human Review checklist must be extracted from the template');
       assert.match(out, /HUMAN REVIEW CHECKPOINT/, 'agent-relay checkpoint directive must print');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('D1 — agent-mode approve emits a CHECKPOINT, never the "your only next action" auto-chain imperative', () => {
+    const dir = tmpDir();
+    try {
+      seedPhase1(dir);   // no TTY in tests → agent-mode-no-gate path
+      const out = captureStdout(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      assert.match(out, /PIPELINE CHECKPOINT — Phase (1|requirements) approval recorded, human review pending/,
+        'agent mode must print the checkpoint, not the direct instruction');
+      assert.doesNotMatch(out, /your only next action is/,
+        'the imperative AGENTS.md obeys literally is the concrete auto-chain mechanism — it must NOT print in agent mode');
+      assert.match(out, /After they confirm, the next action is:/, 'the next command is framed as post-confirmation');
+      assert.match(out, /aitri run-phase (ux|architecture)/, 'the next command is still NAMED so the agent can relay it');
+      assert.match(out, /do NOT run the next action before the user confirms/i, 'the stop is explicit');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -1210,6 +1227,145 @@ describe('cmdApprove() — upstream ordering gate + honest completion message (�
       writeFile(dir, '.aitri', minimalConfig({ completedPhases: [5], approvedPhases: [1, 2, 3, 4] }));
       const out = captureAll(() => cmdApprove({ dir, args: ['deploy'], err: noopErr }));
       assert.ok(/All 5 phases complete and approved/.test(out), 'genuine completion must celebrate');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+// ── D3 (UPLAN-0703): the drift-reapproval diff the human sees before re-approving ──
+// The TTY drift path itself is not unit-testable (interactive y/N), so the load-bearing
+// logic is extracted into buildArtifactDriftDiff and tested here against a git fixture.
+describe('buildArtifactDriftDiff() — shows what changed since the artifact was committed (D3)', () => {
+  it('renders a bounded diff (stat + hunks + full-diff pointer) for a committed-then-edited artifact', () => {
+    const d = tmpDir();
+    try {
+      gitInit(d);
+      fs.mkdirSync(path.join(d, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(d, 'spec/01_REQUIREMENTS.json'), '{\n  "project_name": "orig"\n}\n');
+      gitAddCommit(d, 'seed');
+      // Edit after commit — this is the drift the human must see.
+      fs.writeFileSync(path.join(d, 'spec/01_REQUIREMENTS.json'), '{\n  "project_name": "EDITED"\n}\n');
+      const out = buildArtifactDriftDiff(d, 'spec/01_REQUIREMENTS.json');
+      assert.match(out, /Changes since the last commit of this artifact/);
+      assert.match(out, /```diff/, 'the diff renders in a fenced block');
+      assert.match(out, /-\s*"project_name": "orig"/, 'the removed line is shown');
+      assert.match(out, /\+\s*"project_name": "EDITED"/, 'the added line is shown');
+    } finally { fs.rmSync(d, { recursive: true, force: true }); }
+  });
+
+  it('returns empty string when the artifact matches its committed content (no drift to show)', () => {
+    const d = tmpDir();
+    try {
+      gitInit(d);
+      fs.mkdirSync(path.join(d, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(d, 'spec/01_REQUIREMENTS.json'), '{"project_name":"x"}\n');
+      gitAddCommit(d, 'seed');
+      assert.equal(buildArtifactDriftDiff(d, 'spec/01_REQUIREMENTS.json'), '',
+        'no uncommitted change → nothing to show');
+    } finally { fs.rmSync(d, { recursive: true, force: true }); }
+  });
+
+  it('returns empty string outside a git repo (silent no-op, never crashes the approve)', () => {
+    const d = tmpDir();
+    try {
+      fs.mkdirSync(path.join(d, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(d, 'spec/01_REQUIREMENTS.json'), '{"x":1}');
+      assert.equal(buildArtifactDriftDiff(d, 'spec/01_REQUIREMENTS.json'), '');
+    } finally { fs.rmSync(d, { recursive: true, force: true }); }
+  });
+
+  it('caps a large diff and points at the full command', () => {
+    const d = tmpDir();
+    try {
+      gitInit(d);
+      fs.mkdirSync(path.join(d, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(d, 'spec/02_SYSTEM_DESIGN.md'), 'line\n'.repeat(5));
+      gitAddCommit(d, 'seed');
+      fs.writeFileSync(path.join(d, 'spec/02_SYSTEM_DESIGN.md'), Array.from({ length: 400 }, (_, i) => `new line ${i}`).join('\n') + '\n');
+      const out = buildArtifactDriftDiff(d, 'spec/02_SYSTEM_DESIGN.md', { cap: 50 });
+      assert.match(out, /more lines — full diff: git diff HEAD -- spec\/02_SYSTEM_DESIGN\.md/);
+    } finally { fs.rmSync(d, { recursive: true, force: true }); }
+  });
+});
+
+// ── D2 (UPLAN-0703): `approve --show` renders the full artifact for review ──
+describe('cmdApprove() --show / showArtifact() — full artifact content at approval (D2)', () => {
+  function seed(dir, rel, content, cfg = {}) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'spec', rel), content);
+    writeFile(dir, '.aitri', minimalConfig(cfg));
+  }
+
+  it('markdown artifact prints verbatim (a heading list is no longer all the human sees)', () => {
+    const p = { artifact: '02_SYSTEM_DESIGN.md' };
+    const dir = tmpDir();
+    try {
+      seed(dir, '02_SYSTEM_DESIGN.md', '# Design\n\n## API\nGET /health → 200\n');
+      const out = showArtifact(dir, loadConfig(dir), p, path.join(dir, 'spec/02_SYSTEM_DESIGN.md'));
+      assert.match(out, /02_SYSTEM_DESIGN\.md — full content for review/);
+      assert.match(out, /GET \/health → 200/, 'the actual design content is shown, not just section titles');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('non-traceability JSON prints pretty (readable), not minified', () => {
+    const p = { artifact: '01_REQUIREMENTS.json' };
+    const dir = tmpDir();
+    try {
+      seed(dir, '01_REQUIREMENTS.json', '{"project_name":"X","functional_requirements":[{"id":"FR-001"}]}');
+      const out = showArtifact(dir, loadConfig(dir), p, path.join(dir, 'spec/01_REQUIREMENTS.json'));
+      assert.match(out, /"project_name": "X"/, 'pretty-printed with spaces, not minified');
+      assert.match(out, /"id": "FR-001"/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('an unreadable artifact degrades to a note — never blocks the approval', () => {
+    const p = { artifact: '01_REQUIREMENTS.json' };
+    const dir = tmpDir();
+    try {
+      writeFile(dir, '.aitri', minimalConfig({}));
+      const out = showArtifact(dir, loadConfig(dir), p, path.join(dir, 'spec/nope.json'));
+      assert.match(out, /could not read/i);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('05_TRACEABILITY --show falls back to pretty JSON when requirements are missing (never crashes — adversarial-pass fix)', () => {
+    // buildTraceabilityMarkdown returns an {error} OBJECT (not a throw) when 01_REQUIREMENTS
+    // is absent/malformed; showArtifact must NOT try to .trimEnd() that object.
+    const p = { artifact: '05_TRACEABILITY.json' };
+    const dir = tmpDir();
+    try {
+      seed(dir, '05_TRACEABILITY.json', '{"overall_status":"partial","requirement_compliance":[{"id":"FR-001","level":"complete"}]}');
+      let out;
+      assert.doesNotThrow(() => { out = showArtifact(dir, loadConfig(dir), p, path.join(dir, 'spec/05_TRACEABILITY.json')); },
+        'a missing upstream artifact must not crash --show');
+      assert.match(out, /"overall_status": "partial"/, 'falls back to pretty JSON of the raw traceability file');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('05_TRACEABILITY --show renders the matrix through the export renderer when the pipeline is complete', () => {
+    const p = { artifact: '05_TRACEABILITY.json' };
+    const dir = tmpDir();
+    try {
+      seed(dir, '05_TRACEABILITY.json', '{"overall_status":"compliant","requirement_compliance":[{"id":"FR-001","level":"complete"}]}');
+      fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), '{"project_name":"T","functional_requirements":[{"id":"FR-001","title":"Login","priority":"MUST"}]}');
+      const out = showArtifact(dir, loadConfig(dir), p, path.join(dir, 'spec/05_TRACEABILITY.json'));
+      assert.match(out, /FR-001/, 'the matrix renders through the export renderer (reuse, not a 2nd renderer)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('a TTY user without --show is nudged to it; agent mode is NOT nudged (no transcript pollution)', () => {
+    const dir = tmpDir();
+    try {
+      fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), '{"project_name":"T","functional_requirements":[]}');
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1] }));
+      // agent mode (no TTY): the summary+checklist print but NOT the --show hint.
+      let out = '';
+      const ow = process.stdout.write.bind(process.stdout), ol = console.log;
+      process.stdout.write = (s) => { out += s; return true; };
+      console.log = (...a) => { out += a.join(' ') + '\n'; };
+      try { cmdApprove({ dir, args: ['requirements'], err: noopErr }); }
+      finally { process.stdout.write = ow; console.log = ol; }
+      assert.doesNotMatch(out, /--show/, 'agent mode must not print the --show hint');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
