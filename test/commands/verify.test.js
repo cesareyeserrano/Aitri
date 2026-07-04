@@ -2201,12 +2201,18 @@ describe('cmdVerifyComplete() — Z3 next-action respects phase 5 state', () => 
     fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
       functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have' }],
     }));
+    // B7: every approved phase's artifact must exist on disk, or the artifact_missing
+    // blocker outranks the next-action this suite pins.
+    fs.writeFileSync(path.join(dir, 'spec/02_SYSTEM_DESIGN.md'), '# Design\n');
     fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
       test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
     }));
     fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
       files_created: [{ path: 'x.js' }], test_runner: 'node --test',
     }));
+    if (phase5Approved) {
+      fs.writeFileSync(path.join(dir, 'spec/05_TRACEABILITY.json'), JSON.stringify({ requirement_compliance: [] }));
+    }
     fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
       executed_at: new Date().toISOString(),
       test_runner: 'node --test',

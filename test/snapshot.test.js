@@ -557,6 +557,24 @@ describe('health.deployable', () => {
     } finally { cleanup(dir); }
   });
 
+  it('B7: an approved artifact deleted from disk blocks deploy (artifact_missing) though approval stands', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      stampRoot(dir);
+      fs.rmSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'));
+      const snap = buildProjectSnapshot(dir, { cliVersion: '0.1.76' });
+      const root = snap.pipelines.find(p => p.scopeType === 'root');
+      const p1 = root.phases.find(p => p.key === 1);
+      assert.equal(p1.status, 'approved', 'the approval state fact is preserved — existence is reported separately');
+      assert.equal(p1.exists, false);
+      assert.equal(snap.health.deployable, false);
+      const reason = snap.health.deployableReasons.find(r => r.type === 'artifact_missing');
+      assert.ok(reason, 'artifact_missing reason must be present');
+      assert.match(reason.message, /01_REQUIREMENTS\.json/);
+    } finally { cleanup(dir); }
+  });
+
   it('B3: a stamp-less legacy project keeps its prior deployable verdict (no-stamp is not a new block)', () => {
     const dir = tmpDir();
     try {
@@ -1176,12 +1194,31 @@ describe('tests aggregation across pipelines', () => {
 // ── Resilience to malformed input ────────────────────────────────────────────
 
 describe('resilience', () => {
-  it('parseError is true when .aitri is malformed JSON', () => {
+  it('B6: a malformed ROOT .aitri refuses (throws) — same posture as the G-4 conflict case', () => {
+    // Pre-B6 loadConfig returned DEFAULTS and the snapshot flagged parseError; but any
+    // state-mutating command on that DEFAULTS base then wiped the shared state. The root
+    // config being unreadable now refuses everywhere (features keep the tolerated,
+    // parseError-flagged path — next test).
     const dir = tmpDir();
     try {
       fs.writeFileSync(path.join(dir, '.aitri'), '{not valid json');
-      const snap = buildProjectSnapshot(dir);
-      assert.equal(snap.pipelines[0].parseError, true);
+      assert.throws(() => buildProjectSnapshot(dir), /not valid JSON/,
+        'an unreadable root config must refuse, not render a fake-fresh pipeline');
+    } finally { cleanup(dir); }
+  });
+
+  it('B6: a malformed (non-conflict) FEATURE .aitri is tolerated + flagged, aggregation continues', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'root', artifactsDir: 'spec' });
+      const badFeat = path.join(dir, 'features', 'bad');
+      fs.mkdirSync(badFeat, { recursive: true });
+      fs.writeFileSync(path.join(badFeat, '.aitri'), '{not valid json');
+      const snap = buildProjectSnapshot(dir); // must NOT throw
+      const bad = snap.pipelines.find(p => p.scope === 'feature:bad');
+      assert.equal(bad.parseError, true, 'malformed feature is flagged, not fatal');
+      assert.ok(!fs.existsSync(path.join(badFeat, '.aitri.bak')),
+        'the read-only tolerated path must not write a backup');
     } finally { cleanup(dir); }
   });
 

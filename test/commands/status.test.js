@@ -199,6 +199,14 @@ describe('cmdStatus --json', () => {
     config.completedPhases = [1, 2, 3, 4];
     config.verifyPassed = false;
     saveConfig(dir, config);
+    // B7: approved phases must have their artifacts on disk, or artifact_missing outranks
+    // the verify-run suggestion this test pins.
+    const specDir = path.join(dir, config.artifactsDir || 'spec');
+    fs.mkdirSync(specDir, { recursive: true });
+    fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), '{"functional_requirements":[]}');
+    fs.writeFileSync(path.join(specDir, '02_SYSTEM_DESIGN.md'), '# Design\n');
+    fs.writeFileSync(path.join(specDir, '03_TEST_CASES.json'), '{"test_cases":[]}');
+    fs.writeFileSync(path.join(specDir, '04_BUILD_REPORT.json'), '{"files_created":[]}');
     const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
     const verify = result.phases.find(p => p.key === 'verify');
     assert.ok(verify, 'verify phase should be present');

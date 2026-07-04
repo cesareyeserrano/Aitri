@@ -5,7 +5,7 @@ import os from 'os';
 import path from 'path';
 import { execSync } from 'child_process';
 import { openBugCount, autoVerifyBugs, getBlockingBugs, getOpenBugs, cmdBug,
-         isBlockingBug, isActiveBug, bugSeverity, bugStatus } from '../../lib/commands/bug.js';
+         isBlockingBug, isActiveBug, bugSeverity, bugStatus, assertBugsReadable } from '../../lib/commands/bug.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -368,6 +368,132 @@ describe('cmdBug lifecycle', () => {
   it('errors when bug id not found', () => {
     const dir = setup();
     assert.throws(() => cmdBug({ dir, args: ['fix', 'BG-999'], err }), /BG-999 not found/);
+  });
+});
+
+// ── UPLAN-0703 B8: blocking-fix evidence, lifecycle order, unreadable BUGS.json ──
+
+describe('cmdBug — B8 blocking bugs require evidence to de-block', () => {
+  function setupBlocking() {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    writeBugs(dir, [{ id: 'BG-001', title: 'crash on login', severity: 'critical', status: 'open' }]);
+    return dir;
+  }
+
+  it('bare fix on a BLOCKING bug refuses and does not mutate', () => {
+    const dir = setupBlocking();
+    assert.throws(() => cmdBug({ dir, args: ['fix', 'BG-001'], err }), /BLOCKING bug.*--resolution.*--tc/s);
+    assert.equal(readBugs(dir).bugs[0].status, 'open', 'refusal must not flip the status');
+  });
+
+  it('fix on a BLOCKING bug proceeds with --resolution', () => {
+    const dir = setupBlocking();
+    cmdBug({ dir, args: ['fix', 'BG-001', '--resolution', 'null-guarded the session read'], err });
+    const b = readBugs(dir).bugs[0];
+    assert.equal(b.status, 'fixed');
+    assert.equal(b.resolution, 'null-guarded the session read');
+  });
+
+  it('fix on a BLOCKING bug proceeds with --tc (the test is the evidence)', () => {
+    const dir = setupBlocking();
+    cmdBug({ dir, args: ['fix', 'BG-001', '--tc', 'TC-007'], err });
+    const b = readBugs(dir).bugs[0];
+    assert.equal(b.status, 'fixed');
+    assert.equal(b.tc_reference, 'TC-007');
+  });
+
+  it('a NON-blocking bug keeps the light path (bare fix works)', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    writeBugs(dir, [{ id: 'BG-002', title: 'typo in footer', severity: 'low', status: 'open' }]);
+    cmdBug({ dir, args: ['fix', 'BG-002'], err });
+    assert.equal(readBugs(dir).bugs[0].status, 'fixed');
+  });
+
+  it('verify on a never-fixed bug refuses (open → verified in one step is not a lifecycle)', () => {
+    const dir = setupBlocking();
+    assert.throws(() => cmdBug({ dir, args: ['verify', 'BG-001'], err }), /is open, not fixed/);
+    assert.equal(readBugs(dir).bugs[0].status, 'open');
+  });
+});
+
+describe('cmdBug — B8 unreadable BUGS.json refuses everywhere it matters', () => {
+  function setupMalformed() {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    fs.writeFileSync(path.join(dir, 'spec', 'BUGS.json'), '{ "bugs": [ {broken');
+    return dir;
+  }
+
+  it('bug add refuses instead of OVERWRITING the corrupt file with a one-bug list', () => {
+    const dir = setupMalformed();
+    assert.throws(() => cmdBug({ dir, args: ['add', '--title', 'new bug'], err }), /malformed JSON.*NOT overwrite/s);
+    assert.match(fs.readFileSync(path.join(dir, 'spec', 'BUGS.json'), 'utf8'), /\{broken/,
+      'the corrupt file must be left intact for recovery');
+  });
+
+  it('assertBugsReadable errs on a malformed file (the gate-side guard)', () => {
+    const dir = setupMalformed();
+    assert.throws(() => assertBugsReadable(dir, { artifactsDir: 'spec' }, err), /malformed JSON.*blocking bug/s);
+  });
+
+  it('the malformed marker is OUT-OF-BAND: a BUGS.json with a literal "malformed" key is NOT refused', () => {
+    // Adversarial-pass fix: a string-key sentinel would (a) serialize into the file if a
+    // marked object were ever saved, poisoning it forever, and (b) false-refuse a legitimate
+    // file containing a top-level "malformed" key. The Symbol marker can do neither.
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    fs.writeFileSync(path.join(dir, 'spec', 'BUGS.json'),
+      JSON.stringify({ malformed: true, bugs: [{ id: 'BG-001', title: 't', severity: 'low', status: 'open' }] }));
+    assert.doesNotThrow(() => assertBugsReadable(dir, { artifactsDir: 'spec' }, err),
+      'a parseable file is readable regardless of its key names');
+    assert.doesNotThrow(() => cmdBug({ dir, args: ['fix', 'BG-001'], err }));
+    // And the marker never leaks into the file on save:
+    assert.ok(!('malformed' in readBugs(dir)) || readBugs(dir).malformed === true,
+      'the file content is whatever the user wrote — Aitri adds no malformed key');
+  });
+
+  it('bare close on a BLOCKING bug refuses; --resolution closes it (the close-side de-block bypass)', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    writeBugs(dir, [{ id: 'BG-001', title: 'crash', severity: 'high', status: 'open' }]);
+    assert.throws(() => cmdBug({ dir, args: ['close', 'BG-001'], err }), /BLOCKING bug.*--resolution/s,
+      'closing a blocking bug without stating why is the same bare de-block the fix gate refuses');
+    assert.equal(readBugs(dir).bugs[0].status, 'open');
+    cmdBug({ dir, args: ['close', 'BG-001', '--resolution', 'duplicate of BG-000'], err });
+    assert.equal(readBugs(dir).bugs[0].status, 'closed');
+  });
+
+  it('assertBugsReadable is silent when the file is absent or valid', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    assert.doesNotThrow(() => assertBugsReadable(dir, { artifactsDir: 'spec' }, err), 'absent file is fine');
+    writeBugs(dir, [{ id: 'BG-001', title: 't', severity: 'low', status: 'open' }]);
+    assert.doesNotThrow(() => assertBugsReadable(dir, { artifactsDir: 'spec' }, err), 'valid file is fine');
+  });
+});
+
+describe('cmdBug — B8 unknown severity/status warn instead of silently not blocking', () => {
+  it('warns once naming the bug when severity is outside the recognized set', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    writeBugs(dir, [{ id: 'BG-009', title: 'sev-1 outage', severity: 'P0', status: 'open' }]);
+    let stderr = '';
+    const origErr = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (c) => { stderr += c; return true; };
+    let blocking;
+    try { blocking = getBlockingBugs(dir, { artifactsDir: 'spec' }); }
+    finally { process.stderr.write = origErr; }
+    assert.equal(blocking.length, 0, 'unknown severity stays non-blocking (behavior unchanged)');
+    assert.match(stderr, /BG-009.*P0/s, 'the toothless bug is named');
+    assert.match(stderr, /critical\|high\|medium\|low/, 'the valid values are stated');
   });
 });
 

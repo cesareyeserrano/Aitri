@@ -90,6 +90,8 @@ If `aitri status` reports `reconcile: pending` and the next-action is `aitri rec
 - Run `aitri reconcile` to classify the changes.
 - If the diff is refactor or already-registered bug fixes, **commit your fixes first** (including any edit `verify-run` forced), then run `aitri reconcile --resolve` (TTY-gated; requires tests passing, no blocking bugs, and a clean working tree — `--resolve` stamps the baseline at the current commit and rejects while behavioral files are uncommitted, or they re-trigger reconcile after you commit them).
 - If the diff contains functional behavior changes, route them through the pipeline: `aitri feature init <name>` or `aitri run-phase requirements` for a root-pipeline change.
+- **Detecting off-pipeline changes clears `verifyPassed`** — the previous verify verdict predates the drifted code, so `--resolve`'s tests-passing gate genuinely requires a fresh `verify-run` + `verify-complete` over the current code. Run them before resolving.
+- If Aitri reports the reconcile baseline is **unreachable** (git history rewritten, ref gone), it refuses to classify — it will never report "clean" against a baseline it cannot read. Recover with `aitri reconcile --init` (and review pre-re-baseline changes manually).
 
 The behavioral allowlist filters out documentation, build manifests, lockfiles, CI configs, and generated assets — those will not trigger `reconcile: pending` by themselves.
 
@@ -159,11 +161,11 @@ Features are independent sub-pipelines under `{{FEATURES_DIR}}/<name>/`. Each ha
 
 `aitri bug add` writes to `{{SPEC_DIR}}/BUGS.json`. Subsequent transitions:
 
-- `aitri bug fix <BG-ID>` — developer marks it resolved. Add `--resolution "how it was fixed"` to record the resolution note (the word-level companion to the captured fix-commit SHA).
-- `aitri bug verify <BG-ID>` — auto-set when the linked TC passes in `verify-run`, or manual.
-- `aitri bug close <BG-ID>` — archive. Also accepts `--resolution "..."` for a bug closed without a code fix (won't-fix, duplicate).
+- `aitri bug fix <BG-ID>` — developer marks it resolved. Add `--resolution "how it was fixed"` to record the resolution note (the word-level companion to the captured fix-commit SHA). **A BLOCKING bug (critical/high, active) REQUIRES `--resolution` or `--tc`** — fixing it unblocks the deploy gate, so the fix must carry evidence, not a bare state flip.
+- `aitri bug verify <BG-ID>` — auto-set when the linked TC passes in `verify-run`, or manual. **Only a `fixed` bug can be verified** — open → verified in one step is refused.
+- `aitri bug close <BG-ID>` — archive. Also accepts `--resolution "..."` for a bug closed without a code fix (won't-fix, duplicate). **Closing a BLOCKING bug that is still open/in_progress REQUIRES `--resolution`** — closing de-blocks the deploy gate exactly like fixing does, so it carries the same evidence contract.
 
-Critical and high severity bugs in `open` or `in_progress` state block: `verify-complete`, `reconcile --resolve`, and the deploy gate.
+Critical and high severity bugs in `open` or `in_progress` state block: `verify-complete`, `reconcile --resolve`, and the deploy gate. Use only the recognized values — severity `critical|high|medium|low`, status `open|in_progress|fixed|verified|closed`; anything else (e.g. `P0`, `blocker`) is treated as NON-blocking by every gate (Aitri warns when it sees one). A malformed `BUGS.json` refuses every bug command and gate — fix the JSON or restore it from git; do not delete it.
 
 ---
 

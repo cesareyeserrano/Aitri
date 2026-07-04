@@ -540,6 +540,43 @@ describe('cmdValidate() — --json run-binding on the results file (UPLAN-0703 B
   });
 });
 
+describe('cmdValidate() --ci — unreadable BUGS.json refuses (UPLAN-0703 B8)', () => {
+  function runCi(dir) {
+    let stderr = '';
+    const origErr = process.stderr.write.bind(process.stderr);
+    const origCode = process.exitCode;
+    process.stderr.write = (c) => { stderr += c; return true; };
+    try { captureLog(() => cmdValidate({ dir, args: ['--ci'] })); }
+    finally { process.stderr.write = origErr; }
+    const code = process.exitCode;
+    process.exitCode = origCode;   // don't leak into the test runner
+    return { stderr, code };
+  }
+
+  it('a malformed ROOT BUGS.json exits non-zero (never green over dropped blocking bugs)', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      writeFile(dir, 'spec/BUGS.json', '{ bugs: [ broken');
+      const { stderr, code } = runCi(dir);
+      assert.equal(code, 1);
+      assert.match(stderr, /BUGS\.json is malformed/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('a malformed FEATURE BUGS.json also exits non-zero (the aggregate reads every pipeline)', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      seedFeature(dir, 'billing', { approvedPhases: [1, 2, 3, 4, 5], completedPhases: [1, 2, 3, 4, 5], verifyPassed: true });
+      writeFile(dir, path.join('features', 'billing', 'spec', 'BUGS.json'), '{ bugs: [ broken');
+      const { stderr, code } = runCi(dir);
+      assert.equal(code, 1);
+      assert.match(stderr, /feature:billing.*BUGS\.json is malformed/s);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('cmdValidate() — drift uses alias in message', () => {
   let dir;
   let output;

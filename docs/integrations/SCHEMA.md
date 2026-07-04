@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.148+
+**Aitri version:** v2.0.0-rc.149+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -106,7 +106,7 @@ Written automatically by `complete`, `approve`, `verify-run`, `verify-complete`,
 }
 ```
 
-Valid `event` values: `"started"`, `"completed"`, `"approved"`, `"rejected"`, `"upgrade_migration"` (v2.0.0+), `"rehash"` (v2.0.0-alpha.3+), `"approve_preflight_autofix"` (v2.0.0-alpha.27+), `"layout_migrated"` (v2.0.0-rc.78+ — emitted once by `adopt --upgrade --layout`), `"verify-run"`, `"verify-complete"` (both carry `phase: "verify"`), `"verify-spec-complete"` (carries `phase: "adopt"`), `"reconcile-resolved"` (carries `phase: null`)
+Valid `event` values: `"started"`, `"completed"`, `"approved"`, `"rejected"`, `"upgrade_migration"` (v2.0.0+), `"rehash"` (v2.0.0-alpha.3+), `"approve_preflight_autofix"` (v2.0.0-alpha.27+), `"layout_migrated"` (v2.0.0-rc.78+ — emitted once by `adopt --upgrade --layout`), `"verify-run"`, `"verify-complete"` (both carry `phase: "verify"`), `"verify-spec-complete"` (carries `phase: "adopt"`), `"reconcile-resolved"` (carries `phase: null`), `"reconcile-pending"` (v2.0.0-rc.149+ — carries `phase: null` + `{ files, method }`, and `verifyPassedCleared: true` when detecting the off-pipeline changes also invalidated a prior verify verdict)
 
 **`phase` field:** usually the numeric phase key, but it may also be a phase ALIAS string (e.g. `"discovery"`, `"ux"`, `"review"`, `"verify"`, `"adopt"`, `"upgrade"`) or **`null`** for a global/non-phase event (e.g. `reconcile-resolved`). The string set is not exhaustive — readers must accept number | string | null.
 
@@ -283,7 +283,7 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 | `.aitri` | **Shared** — everything except the three per-machine fields below: `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `layoutRoot`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `cascadedPhases`, `frSnapshots`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`/`verifySummary`/`verifyRanAt`/`lastVerifyRun`/`verifyResultsHash`, `auditLastAt`, `coverageAuditLastAt`, `securityAuditLastAt`, `upgradeFindings`, and the opt-in flags (`strictAssertions`, `humanApprovalGate`, `reviewGate`). The split is a per-machine DENY-list — any new field is shared by default | **committed** |
 | `.aitri.local` | **Per-machine** — `lastSession` (`.at`, `.agent`, …), `sessionContext` (`.text`, `.at`) and `reconcileState` (`baseRef`, `method`, `status`, `lastRun`) | **gitignored** |
 
-`saveConfig` writes `.aitri` only when a shared field other than `updatedAt` changed, so committing it no longer creates per-command noise — the noise that previously pushed teams to gitignore the whole file now lives in `.aitri.local`. `loadConfig` merges both files; every reader still sees one config object. (An old single-file `.aitri` with per-machine fields inline auto-migrates on its first save; `adopt --upgrade` also fixes the project's `.gitignore`. A pre-existing `.aitri/` *folder* uses `.aitri/config.json` + `.aitri/local.json` instead — supported as a fallback.)
+`saveConfig` writes `.aitri` only when a shared field other than `updatedAt` changed, so committing it no longer creates per-command noise — the noise that previously pushed teams to gitignore the whole file now lives in `.aitri.local`. `loadConfig` merges both files; every reader still sees one config object. **v2.0.0-rc.149+: the read side enforces the same partition as the write side** — only the per-machine fields (`lastSession`, `sessionContext`, `reconcileState`) are read from `.aitri.local`; a SHARED key found there (hand edit, old CLI, restored backup) is ignored with a warning naming it, so it can never shadow the committed team state. Also rc.149+: a **malformed shared `.aitri` refuses** (with git-restore guidance and a `.aitri.bak` backup) instead of silently resetting to defaults — extending the rc.128 merge-conflict rule (G-4) to every parse failure; a malformed `.aitri.local` stays lenient (per-machine, re-establishable). (An old single-file `.aitri` with per-machine fields inline auto-migrates on its first save; `adopt --upgrade` also fixes the project's `.gitignore`. A pre-existing `.aitri/` *folder* uses `.aitri/config.json` + `.aitri/local.json` instead — supported as a fallback.)
 
 ### Why committing `.aitri` matters (what the split preserves)
 

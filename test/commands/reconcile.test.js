@@ -181,6 +181,137 @@ describe('cmdReconcile() — no changes since baseline', () => {
 
 // ── Changes detected ─────────────────────────────────────────────────────────
 
+// ── UPLAN-0703 B4: unreachable baseline ≠ clean; pending clears verifyPassed ─────
+
+describe('cmdReconcile() — B4 unreachable baseline refuses, never reports clean', () => {
+  function runExpectExit(fn) {
+    let exitCode = null, stderr = '';
+    const origExit = process.exit.bind(process);
+    const origErr  = process.stderr.write.bind(process.stderr);
+    process.exit = (code) => { exitCode = code; throw new Error('exit'); };
+    process.stderr.write = (c) => { stderr += c; return true; };
+    try { fn(); } catch { /* exit throw */ }
+    finally { process.exit = origExit; process.stderr.write = origErr; }
+    return { exitCode, stderr };
+  }
+
+  it('refuses (exit 1) when a git baseRef cannot be compared and is not a timestamp — no false clean', () => {
+    const dir = tmpDir();   // NOT a git repo — the git path is unavailable
+    try {
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion: '0.1.70', artifactsDir: 'spec',
+        reconcileState: { baseRef: 'deadbeefcafe1234deadbeefcafe1234deadbeef', method: 'git', status: 'resolved' },
+      }));
+      const { exitCode, stderr } = runExpectExit(() =>
+        captureStdout(() => cmdReconcile({ dir, err: noopErr })));
+      assert.equal(exitCode, 1, 'an unreachable baseline must refuse, not report clean');
+      assert.match(stderr, /baseline is unreachable/i);
+      assert.match(stderr, /reconcile --init/);
+      const config = loadConfig(dir);
+      assert.notEqual(config.reconcileState.status, 'pending', 'state must not be mutated on refusal');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('--init re-baselines over an unreachable baseline (the documented recovery path)', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion: '0.1.70', artifactsDir: 'spec',
+        approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+        reconcileState: { baseRef: 'deadbeefcafe1234deadbeefcafe1234deadbeef', method: 'git', status: 'resolved' },
+      }));
+      let stderr = '';
+      const origErr = process.stderr.write.bind(process.stderr);
+      process.stderr.write = (c) => { stderr += c; return true; };
+      try { captureLog(() => cmdReconcile({ dir, args: ['--init'], err: noopErr })); }
+      finally { process.stderr.write = origErr; }
+      const config = loadConfig(dir);
+      assert.notEqual(config.reconcileState.baseRef, 'deadbeefcafe1234deadbeefcafe1234deadbeef', 'baseline must be replaced');
+      assert.match(stderr, /unreachable.*re-initializing/is);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+});
+
+describe('cmdReconcile() — B4 entering pending clears the stale verify verdict', () => {
+  it('clears verifyPassed + verifySummary and records the reconcile-pending event', () => {
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion: '0.1.70', artifactsDir: 'spec',
+        verifyPassed: true, verifySummary: { total: 5, passed: 5, failed: 0, skipped: 0 },
+        reconcileState: { baseRef: pastRef, method: 'mtime', status: 'resolved' },
+      }));
+      writeFile(dir, 'src/app.js', 'console.log("off-pipeline change");');
+      let stderr = '';
+      const origErr = process.stderr.write.bind(process.stderr);
+      process.stderr.write = (c) => { stderr += c; return true; };
+      try { captureStdout(() => cmdReconcile({ dir, err: noopErr })); }
+      finally { process.stderr.write = origErr; }
+      const config = loadConfig(dir);
+      assert.equal(config.reconcileState.status, 'pending');
+      assert.equal(config.verifyPassed, false, 'the pre-drift verify verdict must not survive into pending');
+      assert.ok(!config.verifySummary, 'verifySummary must be cleared with it');
+      assert.match(stderr, /verifyPassed cleared/);
+      const ev = (config.events || []).find(e => e.event === 'reconcile-pending');
+      assert.ok(ev, 'reconcile-pending event must be recorded');
+      assert.equal(ev.verifyPassedCleared, true);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('re-running reconcile while ALREADY pending does not re-clear a fresh verify nor re-append the event', () => {
+    // Adversarial-pass fix: the clear fires on the TRANSITION into pending only. A re-run
+    // against the same unchanged drift (e.g. to re-print the briefing) must not destroy a
+    // verify done AFTER the drift, nor churn the 20-capped shared event log.
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion: '0.1.70', artifactsDir: 'spec',
+        verifyPassed: true, verifySummary: { total: 5, passed: 5, failed: 0, skipped: 0 },
+        reconcileState: { baseRef: pastRef, method: 'mtime', status: 'resolved' },
+      }));
+      writeFile(dir, 'src/app.js', 'off-pipeline change');
+      const quietErr = () => { const o = process.stderr.write.bind(process.stderr); process.stderr.write = () => true; return () => { process.stderr.write = o; }; };
+      let restore = quietErr();
+      try { captureStdout(() => cmdReconcile({ dir, err: noopErr })); } finally { restore(); }
+      // Simulate a FRESH verify over the drifted code (postdates the drift).
+      const cfg1 = loadConfig(dir);
+      assert.equal(cfg1.reconcileState.status, 'pending');
+      cfg1.verifyPassed = true;
+      cfg1.verifySummary = { total: 5, passed: 5, failed: 0, skipped: 0 };
+      saveConfig(dir, cfg1);
+      // Re-run reconcile while still pending, same drift.
+      restore = quietErr();
+      try { captureStdout(() => cmdReconcile({ dir, err: noopErr })); } finally { restore(); }
+      const cfg2 = loadConfig(dir);
+      assert.equal(cfg2.verifyPassed, true, 'a verify that POSTDATES the drift must survive a reconcile re-run');
+      const pendingEvents = (cfg2.events || []).filter(e => e.event === 'reconcile-pending');
+      assert.equal(pendingEvents.length, 1, 'only the transition appends the event — re-runs must not churn the capped log');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not touch verify fields when verifyPassed was already false', () => {
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion: '0.1.70', artifactsDir: 'spec',
+        reconcileState: { baseRef: pastRef, method: 'mtime', status: 'resolved' },
+      }));
+      writeFile(dir, 'src/app.js', 'code');
+      captureStdout(() => cmdReconcile({ dir, err: noopErr }));
+      const config = loadConfig(dir);
+      assert.equal(config.reconcileState.status, 'pending');
+      assert.ok(!config.verifyPassed, 'verifyPassed stays falsy');
+      const ev = (config.events || []).find(e => e.event === 'reconcile-pending');
+      assert.ok(ev, 'the pending event is still recorded');
+      assert.ok(!('verifyPassedCleared' in ev), 'no clearing happened, so no clearing flag');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('cmdReconcile() — changes detected (mtime)', () => {
   it('sets reconcileState.status to pending when files changed', () => {
     const dir = tmpDir();
@@ -618,14 +749,17 @@ describe('cmdReconcile() --init — brownfield baseline escape hatch', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('refuses when reconcileState already exists (no silent clobber)', () => {
+  it('refuses when a REACHABLE reconcileState already exists (no silent clobber)', () => {
+    // B4 note: the baseline must be reachable for the clobber-refusal to apply — an
+    // unreachable one (e.g. a git SHA in a non-git dir) is now the documented --init
+    // recovery path and re-initializes instead (covered in the B4 describe above).
     const dir = tmpDir();
     try {
       writeFile(dir, '.aitri', JSON.stringify({
         aitriVersion:   '0.1.80',
         artifactsDir:   'spec',
         approvedPhases: [1, 2, 3, 4],
-        reconcileState: { baseRef: 'deadbeef', method: 'git', status: 'resolved' },
+        reconcileState: { baseRef: new Date(Date.now() - 60_000).toISOString(), method: 'mtime', status: 'resolved' },
       }));
       assert.throws(
         () => cmdReconcile({ dir, args: ['--init'], err: noopErr }),
@@ -758,9 +892,18 @@ describe('cmdReconcile() — git baseRef is never shell-interpreted (R3-15 RCE g
       approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
       reconcileState: { baseRef: `$(touch ${pwned})`, method: 'git', status: 'resolved' },
     }));
-    // git errors on the bogus revision (no shell ran) — swallow it; the assertion is the payload.
+    // git errors on the bogus revision (no shell ran). Post-B4 the unresolvable baseRef is
+    // refused as unreachable (process.exit 1) instead of silently falling through — stub the
+    // exit; the security assertion is unchanged: the payload must never execute.
+    let exitCode = null;
+    const origExit = process.exit.bind(process);
+    const origErr  = process.stderr.write.bind(process.stderr);
+    process.exit = (code) => { exitCode = code; throw new Error('exit'); };
+    process.stderr.write = () => true;
     try { captureLog(() => cmdReconcile({ dir, args: [], err: noopErr })); } catch { /* expected */ }
+    finally { process.exit = origExit; process.stderr.write = origErr; }
     assert.equal(fs.existsSync(pwned), false, 'baseRef must never reach a shell');
+    assert.equal(exitCode, 1, 'an unresolvable baseRef is refused as unreachable (B4), never silently clean');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 });

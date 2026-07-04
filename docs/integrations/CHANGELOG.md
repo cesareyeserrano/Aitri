@@ -18,6 +18,19 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.149 (2026-07-03) — state integrity: refuse-don't-reset everywhere; bug-fix evidence contract (UPLAN-0703 Phase B, B4–B8) — breaking
+
+Mixed upgrade — the stricter marker wins. The breaking pieces are CLI-contract semantics (`bug fix` on a blocking bug, `bug verify` order); all schema changes are additive.
+
+- **BREAKING (B8): `aitri bug fix <id>` on a BLOCKING bug (critical/high, active) now requires `--resolution "<text>"` or `--tc TC-NNN`, and `aitri bug close <id>` on a blocking bug requires `--resolution`.** De-blocking the deploy gate must carry evidence on BOTH de-blocking transitions — the close-side requirement was added by the adversarial pass, which showed a bare `close` bypassed the fix gate entirely. Non-blocking bugs keep the light path on both. `aitri bug verify <id>` on a never-`fixed` bug now refuses (was: informational note, then verified anyway). Automation that scripted bare `bug fix`/`bug close` on blocking bugs must pass a flag.
+- **Behavior (B8): a malformed `BUGS.json` refuses every bug command and every gate that reads bug state** (`verify-complete`, `reconcile --resolve`, `validate --ci` — checked for the root AND every feature pipeline, since the aggregate reads them all) — a parse failure previously emptied the bug list, silently dropping every blocking bug from the gates, and a subsequent `bug add` (or verify-run's interactive auto-registration, also guarded now) would have OVERWRITTEN the corrupt file. The malformed marker is out-of-band (a Symbol) — it can never serialize into the file, and a legitimate `BUGS.json` containing a literal `"malformed"` key is not false-refused. Unrecognized severity/status values (e.g. `P0`, `blocker`) now warn once per file — they were and remain non-blocking, but no longer silently so.
+- **Behavior (B6): a malformed shared `.aitri` refuses with git-restore guidance** (writing `.aitri.bak` as a recovery aid) instead of returning defaults — the rc.128 G-4 conflict rule extended to every parse failure, closing the "next save wipes approvals" path. The read-only snapshot still degrades a broken FEATURE config to a flagged `parseError` entry. See [SCHEMA.md](./SCHEMA.md).
+- **Behavior (B5): `loadConfig` reads only the per-machine fields from `.aitri.local`** — a shared key found there is ignored with a warning instead of shadowing the committed team state (and being promoted into it on the next save). See [SCHEMA.md](./SCHEMA.md).
+- **Behavior (B4): an unreachable reconcile baseline refuses** ("cannot compare" + `--init` recovery, which now allows re-baselining over an unreachable ref) instead of reporting a false "no changes detected"; **entering** pending (the transition only — a re-run against the same drift neither re-clears nor re-appends, so a verify that postdates the drift survives) **clears `verifyPassed`**, so `reconcile --resolve`'s tests-passing gate requires a verify that postdates the drift. New additive event value `"reconcile-pending"` (documented in SCHEMA.md), emitted once per transition.
+- **Additive (B7): new `health.deployableReasons` type `artifact_missing`** — an approved core phase whose artifact is absent from disk blocks deploy (approval state and disk truth are now both consulted); surfaces as a priority-2 next-action. Old readers ignore unknown reason types. See [STATUS_JSON.md](./STATUS_JSON.md).
+
+([ADR-070](../DECISIONS.md))
+
 ## v2.0.0-rc.148 (2026-07-03) — verify-complete now REQUIRES the run-binding stamp; additive `resultsBinding` on status/validate JSON (UPLAN-0703 Phase B, B1–B3) — breaking
 
 Mixed upgrade — the stricter marker wins. The breaking piece is the deploy-gate precondition (B1); everything else is additive.

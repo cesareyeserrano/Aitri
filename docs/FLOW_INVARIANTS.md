@@ -168,6 +168,14 @@ phase that PRODUCED the artifact is applied on consumption (`run-phase.js:114`),
 - **isTTY-gated state commits** (approve-drift, rehash, reconcile --resolve, run-phase pipeline-complete
   re-run, feature discard) all `process.exit(1)` in non-TTY. `reject` is DELIBERATELY ungated (advisory,
   scriptable) — NOT a defect.
+- **State-integrity rules (rc.149, ADR-070):** an UNKNOWN state is reported unknown, never clean — an
+  unreachable reconcile baseline refuses (`--init` recovers); a CORRUPT record is refused, never reset —
+  malformed `.aitri` (all parse failures, extending G-4) and malformed `BUGS.json` (all bug commands +
+  bug-reading gates) both refuse with restore guidance; `.aitri.local` can only supply `LOCAL_FIELDS` on
+  read (shared keys there are ignored + warned); `computeHealth` requires an approved artifact to EXIST on
+  disk (`artifact_missing` blocks deploy); detecting off-pipeline drift clears `verifyPassed` (the resolve
+  gate requires a verify that postdates the drift); de-blocking a critical/high bug requires evidence
+  (`--resolution`/`--tc`), and only a `fixed` bug can be verified.
 - **`export traceability`** derives/flags cross-artifact inconsistency (over-claim, uncovered MUST, orphan
   ids) rather than trusting fields; `--out` has a path-traversal/clobber guard. **`validate`** is a reporting
   projection over the snapshot; `--ci` opt-in exits non-zero. **`audit`** is a reasoning command emitting

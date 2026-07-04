@@ -40,7 +40,7 @@ import { cmdRehash }       from '../lib/commands/rehash.js';
 import { cmdExport }       from '../lib/commands/export.js';
 import { homedirCaptureNote } from '../lib/state.js';
 
-const VERSION   = '2.0.0-rc.148';
+const VERSION   = '2.0.0-rc.149';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -150,6 +150,12 @@ switch (cmd) {
   // An unresolved `.aitri` merge conflict: loadConfig refuses (G-4) rather than silently
   // resetting the shared pipeline. Print the actionable guidance, not a raw stack trace.
   if (/unresolved git merge conflict markers/.test(e?.message || '')) {
+    console.error(`❌ ${e.message}`);
+    process.exit(1);
+  }
+  // A malformed `.aitri` (any parse failure — B6/ADR-070 extends G-4): same refuse-with-
+  // guidance treatment; the message carries the restore instructions.
+  if (/\.aitri is not valid JSON/.test(e?.message || '')) {
     console.error(`❌ ${e.message}`);
     process.exit(1);
   }

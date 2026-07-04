@@ -906,12 +906,21 @@ describe('Aitri CLI — bug smoke', () => {
     assert.match(out, /BG-001/, 'open bug must appear in --status open filter');
   });
 
-  it('aitri bug fix BG-001 marks bug as fixed', () => {
-    const out = aitri('bug fix BG-001', bugDir);
+  it('aitri bug fix on a BLOCKING (high) bug requires evidence — bare fix refuses (UPLAN-0703 B8)', () => {
+    const out = aitriShouldFail('bug fix BG-001', bugDir);
+    assert.match(out, /BLOCKING bug/i, 'bare fix of a blocking bug must name the rule');
+    assert.match(out, /--resolution|--tc/, 'the refusal must name the evidence flags');
+    const bugs = JSON.parse(fs.readFileSync(path.join(bugDir, SPEC, 'BUGS.json'), 'utf8'));
+    assert.equal(bugs.bugs.find(b => b.id === 'BG-001').status, 'open', 'refusal must not mutate the bug');
+  });
+
+  it('aitri bug fix BG-001 --resolution marks the blocking bug as fixed (evidence supplied)', () => {
+    const out = aitri('bug fix BG-001 --resolution "rehashed the session token on login"', bugDir);
     assert.match(out, /fixed|BG-001/i);
     const bugs = JSON.parse(fs.readFileSync(path.join(bugDir, SPEC, 'BUGS.json'), 'utf8'));
     const bug = bugs.bugs.find(b => b.id === 'BG-001');
-    assert.equal(bug.status, 'fixed', 'bug status must be fixed after bug fix');
+    assert.equal(bug.status, 'fixed', 'bug status must be fixed after bug fix with evidence');
+    assert.equal(bug.resolution, 'rehashed the session token on login');
   });
 
   it('aitri bug add fails without --title', () => {

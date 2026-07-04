@@ -39,19 +39,21 @@ describe('loadConfig()', () => {
     fs.rmSync(dir, { recursive: true });
   });
 
-  it('returns defaults on malformed JSON', () => {
+  it('B6: refuses (throws) on malformed JSON instead of resetting to DEFAULTS', () => {
+    // Pre-B6 this returned DEFAULTS — and the next state-mutating command saved that
+    // DEFAULTS-derived object, silently wiping approvals/hashes. Refuse-don't-reset (G-4
+    // extended to every parse failure, UPLAN-0703 B6).
     const dir = tmpDir();
     fs.writeFileSync(path.join(dir, '.aitri'), '{not valid json');
-    const cfg = loadConfig(dir);
-    assert.deepEqual(cfg.approvedPhases, []);
-    assert.deepEqual(cfg.completedPhases, []);
+    assert.throws(() => loadConfig(dir), /not valid JSON.*NOT reset/s,
+      'malformed shared state must refuse, never launder into DEFAULTS');
     fs.rmSync(dir, { recursive: true });
   });
 
-  it('creates .aitri.bak when config is malformed', () => {
+  it('B6: still creates .aitri.bak (recovery aid) before refusing', () => {
     const dir = tmpDir();
     fs.writeFileSync(path.join(dir, '.aitri'), '{not valid json');
-    loadConfig(dir);
+    try { loadConfig(dir); } catch { /* expected refusal */ }
     assert.ok(fs.existsSync(path.join(dir, '.aitri.bak')), '.aitri.bak must exist after malformed config');
     fs.rmSync(dir, { recursive: true });
   });
@@ -78,22 +80,23 @@ describe('loadConfig()', () => {
     fs.rmSync(dir, { recursive: true });
   });
 
-  it('G-4: a genuinely-malformed (non-conflict) .aitri still resets, not throws', () => {
+  it('B6 (was G-4 carve-out): a genuinely-malformed (non-conflict) .aitri now ALSO refuses — with the JSON message, not the conflict one', () => {
     const dir = tmpDir();
     fs.writeFileSync(path.join(dir, '.aitri'), '{not valid json and no conflict markers');
-    const cfg = loadConfig(dir); // must not throw
-    assert.deepEqual(cfg.approvedPhases, [], 'non-conflict malformed config keeps the reset behavior');
+    assert.throws(() => loadConfig(dir), /not valid JSON/,
+      'every shared-state parse failure refuses (B6 extends G-4 beyond conflict markers)');
     assert.ok(fs.existsSync(path.join(dir, '.aitri.bak')), 'non-conflict malformed config still backs up');
     fs.rmSync(dir, { recursive: true });
   });
 
-  it('G-4: malformed JSON with a stray ======= line is NOT misread as a conflict (resets, not throws)', () => {
+  it('B6: malformed JSON with a stray ======= line is NOT misread as a conflict (JSON refusal, backup written)', () => {
     // Only the angle-bracket markers (<<<<<<< / >>>>>>>) signal a real git conflict; a lone
-    // ======= can appear in unrelated corruption and must keep the backup-and-reset path.
+    // ======= is generic corruption → the not-valid-JSON refusal (which writes a backup),
+    // not the conflict refusal (which deliberately does not).
     const dir = tmpDir();
     fs.writeFileSync(path.join(dir, '.aitri'), '{ "currentPhase": 1 garbage\n=======\nmore garbage');
-    const cfg = loadConfig(dir); // must not throw
-    assert.deepEqual(cfg.approvedPhases, [], 'a stray ======= must not be treated as a conflict');
+    assert.throws(() => loadConfig(dir), /not valid JSON/,
+      'a stray ======= must not be treated as a conflict');
     assert.ok(fs.existsSync(path.join(dir, '.aitri.bak')), 'still backs up like other malformed config');
     fs.rmSync(dir, { recursive: true });
   });
@@ -199,16 +202,25 @@ describe('split layout — .aitri (shared) + .aitri.local (per-machine) (ADR-045
     assert.equal(c.reconcileState.baseRef, 'abc');
   });
 
-  // ADV-0622-25: when the same key exists in BOTH files, the merge `{...raw, ...local}`
-  // makes the per-machine local file win. This was undefined+untested; pin it so a future
-  // merge-order change is caught (a per-machine override silently shadowing shared state).
-  it('loadConfig: .aitri.local takes precedence over .aitri on a key collision', () => {
+  // UPLAN-0703 B5 (flips ADV-0622-25): a SHARED key in the local file is IGNORED on read,
+  // not honored. The old `{...raw, ...local}` merge let a hand edit / old CLI / restored
+  // backup silently shadow committed team state — and the next saveConfig PROMOTED the
+  // local value into the committed file. Only LOCAL_FIELDS may come from .aitri.local.
+  it('loadConfig B5: a shared key in .aitri.local is ignored (committed .aitri is authoritative) + warned', () => {
     const dir = tmpDir();
     fs.writeFileSync(cp(dir), JSON.stringify({ aitriVersion: 'shared', currentPhase: 1 }));
-    fs.writeFileSync(lp(dir), JSON.stringify({ aitriVersion: 'local' }));
-    const c = loadConfig(dir);
-    assert.equal(c.aitriVersion, 'local', 'a colliding key resolves to the per-machine local value');
+    fs.writeFileSync(lp(dir), JSON.stringify({ aitriVersion: 'local', approvedPhases: [1, 2, 3, 4, 5], lastSession: { agent: 'claude' } }));
+    let stderr = '';
+    const origErr = process.stderr.write.bind(process.stderr);
+    process.stderr.write = (c2) => { stderr += c2; return true; };
+    let c;
+    try { c = loadConfig(dir); } finally { process.stderr.write = origErr; }
+    assert.equal(c.aitriVersion, 'shared', 'the committed value wins — local cannot shadow shared state');
+    assert.deepEqual(c.approvedPhases, [], 'approvals cannot be injected via .aitri.local');
+    assert.equal(c.lastSession.agent, 'claude', 'genuine LOCAL_FIELDS still come from the local file');
     assert.equal(c.currentPhase, 1, 'non-colliding shared keys are preserved');
+    assert.match(stderr, /shared field\(s\) ignored on read: aitriVersion, approvedPhases/,
+      'the ignored keys are named so the operator can clean the file');
     fs.rmSync(dir, { recursive: true });
   });
 
