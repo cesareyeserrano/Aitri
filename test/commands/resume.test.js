@@ -9,6 +9,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { cmdResume } from '../../lib/commands/resume.js';
+import { hashArtifact } from '../../lib/state.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -510,21 +511,50 @@ describe('cmdResume() — Requirements Coverage nudge (ADR-048)', () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it('does NOT suggest it once audited and requirements unchanged', () => {
+  // D5 (UPLAN-0703): freshness is by CONTENT HASH, not mtime — "fresh" = the stamped
+  // coverageAuditReqHash matches the current requirements AND a report file exists.
+  it('does NOT suggest it once audited for THIS version and a report exists', () => {
     const dir = tmpDir();
-    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1], completedPhases: [1], coverageAuditLastAt: '2999-01-01T00:00:00.000Z' }));
     writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
+    writeFile(dir, 'AUDIT_REPORT.md', '## Requirements Coverage\nAll needs covered.\n');
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1], completedPhases: [1],
+      coverageAuditLastAt: '2999-01-01T00:00:00.000Z',
+      coverageAuditReqHash: hashArtifact(requirementsJson),
+    }));
     const out = captureStdout(() => cmdResume({ dir }));
     assert.doesNotMatch(out, /aitri audit requirements/);
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it('re-suggests it when requirements changed after the last coverage audit', () => {
+  it('re-suggests it when the requirements hash no longer matches the stamped one', () => {
     const dir = tmpDir();
-    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1], completedPhases: [1], coverageAuditLastAt: '2000-01-01T00:00:00.000Z' }));
-    writeFile(dir, '01_REQUIREMENTS.json', requirementsJson); // mtime now > 2000 → changed since
+    writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
+    writeFile(dir, 'AUDIT_REPORT.md', '## Requirements Coverage\nOld pass.\n');
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1], completedPhases: [1],
+      coverageAuditLastAt: '2000-01-01T00:00:00.000Z',
+      coverageAuditReqHash: 'staleHashFromAnEarlierRequirementsVersion',
+    }));
     const out = captureStdout(() => cmdResume({ dir }));
     assert.match(out, /Requirements changed since the last coverage audit/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT survive a git-clone mtime reset as fresh (hash, not mtime)', () => {
+    // The stamped hash matches the requirements content regardless of file mtime, so a
+    // clone that resets mtimes keeps a genuinely-fresh audit fresh — the ADR-048 failure
+    // the old mtime comparison reintroduced.
+    const dir = tmpDir();
+    writeFile(dir, '01_REQUIREMENTS.json', requirementsJson);
+    writeFile(dir, 'AUDIT_REPORT.md', '## Requirements Coverage\nFresh.\n');
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1], completedPhases: [1],
+      coverageAuditLastAt: '2000-01-01T00:00:00.000Z', // old timestamp, would look "stale" by mtime
+      coverageAuditReqHash: hashArtifact(requirementsJson),
+    }));
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.doesNotMatch(out, /aitri audit requirements/, 'hash match keeps it fresh despite an old timestamp');
     fs.rmSync(dir, { recursive: true, force: true });
   });
 

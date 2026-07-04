@@ -999,6 +999,63 @@ describe('cmdApprove() — feature-context PIPELINE INSTRUCTION carries `feature
   });
 });
 
+// ── D5 (UPLAN-0703): approve 1 surfaces intent-coverage audit freshness ──────
+// Shift-left the requirements audit to the moment a dropped need is cheapest to catch.
+// Informational (root + feature); never a gate.
+
+describe('cmdApprove() — D5 intent-coverage audit surfacing at approve 1', () => {
+  const REQS = '{"project_name":"T","functional_requirements":[{"id":"FR-1","priority":"MUST","type":"core","title":"t","acceptance_criteria":["a"]}]}';
+
+  it('approve 1 warns when the requirements audit has not run for this version', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', REQS);
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1] }));
+      const out = captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      assert.match(out, /Intent-coverage audit not run for this version/);
+      assert.match(out, /aitri audit requirements/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('approve 1 stays silent when the audit is fresh (report + matching hash)', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', REQS);
+      writeFile(dir, 'spec/AUDIT_REPORT.md', '## Requirements Coverage\nall covered');
+      writeFile(dir, '.aitri', minimalConfig({
+        completedPhases: [1],
+        coverageAuditLastAt: '2999-01-01T00:00:00.000Z',
+        coverageAuditReqHash: hashArtifact(REQS),
+      }));
+      const out = captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      assert.doesNotMatch(out, /Intent-coverage audit not run/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('feature scope surfaces the feature-prefixed audit command', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', REQS);
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1] }));
+      const out = captureAll(() =>
+        cmdApprove({ dir, args: ['requirements'], err: noopErr, featureRoot: '/parent', scopeName: 'foo' })
+      );
+      assert.match(out, /Intent-coverage audit not run for this version/);
+      assert.match(out, /aitri feature audit foo requirements/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does NOT surface the audit line when approving a non-1 phase', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/04_BUILD_REPORT.json', '{"files_created":[{"path":"x"}]}');
+      writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1, 2, 3], completedPhases: [1, 2, 3, 4] }));
+      const out = captureAll(() => cmdApprove({ dir, args: ['build'], err: noopErr }));
+      assert.doesNotMatch(out, /Intent-coverage audit not run/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── P1.A (rc.1): feature approve 4 advances ROOT reconcile baseline ──────
 // Closes BACKLOG.md "Pre-promotion findings (Codex canary 2026-05-11)" — P1
 // upstream. Before this fix, feature-approve-4 advanced only the feature's

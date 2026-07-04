@@ -12,8 +12,10 @@ import {
   buildIntentSources,
   buildSecurityNfrSummary,
   buildQualityGatesSummary,
+  requirementsAuditState,
   cmdAudit,
 } from '../../lib/commands/audit.js';
+import { hashArtifact, loadConfig } from '../../lib/state.js';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -375,6 +377,71 @@ describe('cmdAudit — coverage sub-command', () => {
     assert.match(out, /Invoicing app/);                         // original_brief fed in
     const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
     assert.ok(cfg.coverageAuditLastAt, 'coverageAuditLastAt must be persisted');
+  });
+
+  // D5 (UPLAN-0703): the invocation also stamps a CONTENT HASH of the requirements it ran
+  // against — the git-clone-proof freshness signal (mtime resets; a content hash does not).
+  it('stamps coverageAuditReqHash = content hash of 01_REQUIREMENTS.json (D5)', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '00_DISCOVERY.md', '# Discovery\nSuccess criteria.');
+    const reqs = { original_brief: 'App', functional_requirements: [{ id: 'FR-001', priority: 'MUST', title: 'x' }] };
+    writeArtifact(dir, '01_REQUIREMENTS.json', reqs);
+    captureStdout(() => cmdAudit({ dir, args: ['requirements'], err: noErr }));
+    const cfg = loadConfig(dir);
+    // readArtifact strips BOM; the fixture has none, so the raw file bytes hash equal.
+    const expected = hashArtifact(fs.readFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), 'utf8'));
+    assert.equal(cfg.coverageAuditReqHash, expected, 'stamped hash must match the requirements content');
+  });
+});
+
+// ── requirementsAuditState() (UPLAN-0703 D5) ─────────────────────────────────
+// SSoT freshness predicate shared by resume / approve 1 / complete 1: "has the intent
+// coverage audit run for THIS version of the requirements, with a report on disk?".
+
+describe('requirementsAuditState() (UPLAN-0703 D5)', () => {
+  it('hasRequirements=false when there is no 01_REQUIREMENTS.json', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    const s = requirementsAuditState(dir, loadConfig(dir));
+    assert.deepEqual(s, { hasRequirements: false, audited: false, fresh: false });
+  });
+
+  it('audited=false, fresh=false when never run', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '01_REQUIREMENTS.json', { functional_requirements: [{ id: 'FR-1', title: 't' }] });
+    const s = requirementsAuditState(dir, loadConfig(dir));
+    assert.equal(s.hasRequirements, true);
+    assert.equal(s.audited, false);
+    assert.equal(s.fresh, false);
+  });
+
+  it('fresh=true only when the stamped hash matches AND a report exists', () => {
+    const dir = tmpDir();
+    const reqs = { functional_requirements: [{ id: 'FR-1', title: 't' }] };
+    writeArtifact(dir, '01_REQUIREMENTS.json', reqs);
+    const reqHash = hashArtifact(fs.readFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), 'utf8'));
+
+    // hash matches but NO report yet → not fresh (the section may never have been written)
+    writeAitri(dir, { artifactsDir: 'spec', coverageAuditLastAt: 'x', coverageAuditReqHash: reqHash });
+    assert.equal(requirementsAuditState(dir, loadConfig(dir)).fresh, false, 'no report → not fresh');
+
+    // report present + hash matches → fresh
+    writeArtifact(dir, 'AUDIT_REPORT.md', '## Requirements Coverage\nok');
+    const s = requirementsAuditState(dir, loadConfig(dir));
+    assert.equal(s.fresh, true);
+    assert.equal(s.audited, true);
+  });
+
+  it('audited=true but fresh=false when requirements changed after the stamp (stale hash)', () => {
+    const dir = tmpDir();
+    writeArtifact(dir, '01_REQUIREMENTS.json', { functional_requirements: [{ id: 'FR-1', title: 't' }] });
+    writeArtifact(dir, 'AUDIT_REPORT.md', '## Requirements Coverage\nold');
+    writeAitri(dir, { artifactsDir: 'spec', coverageAuditLastAt: 'x', coverageAuditReqHash: 'a-hash-of-an-older-version' });
+    const s = requirementsAuditState(dir, loadConfig(dir));
+    assert.equal(s.audited, true);
+    assert.equal(s.fresh, false, 'hash mismatch → stale');
   });
 
   // ADR-060: when a coverage_map is present, feed it + instruct the auditor to DIFF its

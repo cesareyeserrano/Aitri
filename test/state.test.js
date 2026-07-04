@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { execSync } from 'node:child_process';
-import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate, configExists, homedirCaptureNote, clearCascadePending, atomicWrite } from '../lib/state.js';
+import { loadConfig, saveConfig, readArtifact, artifactPath, hashArtifact, writeLastSession, detectAgent, cascadeInvalidate, configExists, homedirCaptureNote, clearCascadePending, atomicWrite, computeReconcileBaseline, stampReconcileBaseline } from '../lib/state.js';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-state-test-'));
@@ -664,6 +664,49 @@ describe('shell-command portability (TPA-10)', () => {
     };
     walk(libDir);
     assert.deepEqual(offenders, [], `Hardcoded POSIX null device breaks on Windows cmd.exe. Suppress stderr with stdio:['ignore','pipe','ignore']; use os.devNull for a portable null file. Offenders: ${offenders.join(', ')}`);
+  });
+});
+
+// ── computeReconcileBaseline() (UPLAN-0703 D4) ────────────────────────────────
+// The git-HEAD-else-timestamp probe has a single owner now, shared by
+// stampReconcileBaseline (load+save) and approve.js phase-4 (in-memory assign).
+
+describe('computeReconcileBaseline() (UPLAN-0703 D4)', () => {
+  it('returns the git HEAD sha with method:git inside a committed repo', () => {
+    const dir = tmpDir();
+    execSync('git init -q', { cwd: dir });
+    execSync('git config user.email t@t.t && git config user.name t', { cwd: dir });
+    fs.writeFileSync(path.join(dir, 'a.txt'), 'x');
+    execSync('git add -A && git commit -q -m init', { cwd: dir });
+    const head = execSync('git rev-parse HEAD', { cwd: dir }).toString().trim();
+    const s = computeReconcileBaseline(dir);
+    assert.equal(s.method, 'git');
+    assert.equal(s.baseRef, head);
+    assert.equal(s.status, 'resolved');
+    assert.ok(s.lastRun, 'lastRun timestamp is stamped');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('falls back to method:mtime with a timestamp baseRef outside a git repo', () => {
+    const dir = tmpDir(); // no git init
+    const s = computeReconcileBaseline(dir);
+    assert.equal(s.method, 'mtime');
+    assert.equal(s.status, 'resolved');
+    assert.match(s.baseRef, /^\d{4}-\d\d-\d\dT/, 'baseRef falls back to an ISO timestamp');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('stampReconcileBaseline persists the computed state and no-ops on a non-Aitri dir', () => {
+    const nonAitri = tmpDir();
+    assert.equal(stampReconcileBaseline(nonAitri), null, 'no aitriVersion → no-op');
+    fs.rmSync(nonAitri, { recursive: true });
+
+    const dir = tmpDir();
+    saveConfig(dir, { aitriVersion: 'x', approvedPhases: [] });
+    const r = stampReconcileBaseline(dir);
+    assert.ok(r && r.method, 'returns {baseRef, method}');
+    assert.equal(loadConfig(dir).reconcileState.status, 'resolved', 'reconcileState persisted');
+    fs.rmSync(dir, { recursive: true });
   });
 });
 

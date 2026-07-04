@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { isMustRequirement } from '../lib/requirements.js';
+import { isMustRequirement, hasUxRequiringFr, UX_REQUIRING_FR_TYPES } from '../lib/requirements.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const reqTemplate = readFileSync(
@@ -58,6 +58,63 @@ describe('isMustRequirement() (REG-GATE-0621)', () => {
   it('does not let a regression-named FR-style object slip in via priority alone', () => {
     // FRs have no category field; the category arm never changes FR behavior.
     assert.equal(isMustRequirement({ id: 'FR-003', priority: 'NICE' }), false);
+  });
+});
+
+// UPLAN-0703 D4: single source of truth for "do these requirements force the UX phase
+// before Architecture?". approve.js (the `approve requirements` next-action) and snapshot.js
+// (the status/resume ladder) both import this one predicate — the ADV-0622-29 divergence
+// (approve steered to `run-phase ux` while `status` pointed straight at Architecture) is now
+// structurally impossible.
+describe('hasUxRequiringFr() (UPLAN-0703 D4)', () => {
+  it('is true when any FR has type ux / visual / audio', () => {
+    for (const type of ['ux', 'visual', 'audio']) {
+      assert.equal(
+        hasUxRequiringFr({ functional_requirements: [{ id: 'FR-1', type }] }),
+        true, `type "${type}" must require the UX phase`);
+    }
+  });
+
+  it('is case-insensitive on the FR type', () => {
+    assert.equal(hasUxRequiringFr({ functional_requirements: [{ id: 'FR-1', type: 'VISUAL' }] }), true);
+    assert.equal(hasUxRequiringFr({ functional_requirements: [{ id: 'FR-1', type: 'Ux' }] }), true);
+  });
+
+  it('is false when no FR is a UX type', () => {
+    assert.equal(hasUxRequiringFr({ functional_requirements: [
+      { id: 'FR-1', type: 'functional' }, { id: 'FR-2', type: 'data' },
+    ] }), false);
+  });
+
+  it('does NOT crash on a non-string FR type — degrades to not-UX', () => {
+    // Both former inline copies used `fr.type?.toLowerCase()`, which throws on a numeric
+    // type; the throw was swallowed by each call site's try/catch (→ uxRequired false).
+    // Answering false directly preserves the routing outcome without the throw.
+    assert.equal(hasUxRequiringFr({ functional_requirements: [
+      { id: 'FR-1', type: 123 }, { id: 'FR-2', type: ['visual'] }, { id: 'FR-3', type: { v: 'ux' } },
+    ] }), false);
+  });
+
+  it('is false for absent / malformed requirements (no crash)', () => {
+    assert.equal(hasUxRequiringFr(undefined), false);
+    assert.equal(hasUxRequiringFr({}), false);
+    assert.equal(hasUxRequiringFr({ functional_requirements: null }), false);
+    assert.equal(hasUxRequiringFr({ functional_requirements: [null, undefined] }), false);
+  });
+
+  it('exposes the type set so both consumers reference one list', () => {
+    assert.deepEqual([...UX_REQUIRING_FR_TYPES].sort(), ['audio', 'ux', 'visual']);
+  });
+
+  it('single-owner: the UX-type literal list lives only in requirements.js', () => {
+    // Pins the D4 dedup: if a future edit reintroduces an inline `['ux', 'visual', 'audio']`
+    // in approve.js or snapshot.js, the two routing surfaces can drift again — fail here.
+    const root = join(__dirname, '..');
+    const inline = /\[\s*'ux'\s*,\s*'visual'\s*,\s*'audio'\s*\]/;
+    for (const rel of ['lib/commands/approve.js', 'lib/snapshot.js']) {
+      assert.equal(inline.test(readFileSync(join(root, rel), 'utf8')), false,
+        `${rel} must call hasUxRequiringFr(), not inline the UX-type list`);
+    }
   });
 });
 

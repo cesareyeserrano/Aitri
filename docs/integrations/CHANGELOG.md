@@ -18,7 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
-## v2.0.0-rc.151 (2026-07-04) — `BUILD_PLAN.md` documented as an off-pipeline working file (Phase 4 plan-first protocol) — additive
+## v2.0.0-rc.154 (2026-07-04) — `coverageAuditReqHash` — requirements-audit freshness by content hash (UPLAN-0703 D5) — additive
+
+- **`.aitri.coverageAuditReqHash`** (new, optional, `string` sha256 hex) — content hash of `01_REQUIREMENTS.json` stamped at each `aitri audit requirements` invocation. It makes the requirements coverage audit's freshness *version-keyed*: "fresh" = this hash equals the current requirements hash AND `AUDIT_REPORT.md` exists. Old readers are unaffected (new optional field). Subproducts that want to render "coverage audit stale for this requirements version" may read it; a subproduct that ignores it keeps the prior `coverageAuditLastAt`-only behavior. No existing field changed shape. See [SCHEMA.md](./SCHEMA.md).
+- Internal note (no schema impact): `resume`'s coverage nudge switched from a file-mtime comparison to this hash — mtime resets on git clone (the exact ADR-048 failure), so the mtime path could mis-report a genuinely-fresh audit as stale after a clone. `approve 1` and `complete 1` now surface the same freshness signal (the audit is advisory, never a gate).
 
 - **`BUILD_PLAN.md`** (new, off-pipeline, agent-authored markdown) — the Phase 4 briefing now instructs a plan-first build: the agent writes FR clusters + order + per-cluster status to `<artifactsDir>/BUILD_PLAN.md` and maintains it during the build. Same class as `AUDIT_REPORT.md`: no schema, nothing validates it, it is NOT in the artifact chain. Old readers are unaffected (a new optional file); a reader that wants to render build progress may parse it as free markdown. No `.aitri` schema change, no existing artifact shape change. ([ADR-071](../DECISIONS.md))
 

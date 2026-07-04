@@ -130,6 +130,55 @@ describe('cmdComplete() — successful complete (requirements)', () => {
     assert.match(output, /run-phase requirements --feedback/);
     assert.match(output, /not free chat/);
   });
+
+  // D5 (UPLAN-0703): shift-left the intent-coverage audit — recommend a FRESH-session run
+  // before approving. Recommendation, not a PIPELINE INSTRUCTION (complete prints a branch).
+  it('recommends a fresh-session `audit requirements` before approving Phase 1', () => {
+    assert.match(output, /Recommended before approving: have a FRESH session/);
+    assert.match(output, /aitri audit requirements/);
+  });
+});
+
+// D5 (UPLAN-0703): the recommendation is Phase-1-only and disappears once the audit is fresh.
+describe('cmdComplete() — D5 audit recommendation scoping', () => {
+  const VALID_DESIGN = [
+    '# System Design', '',
+    '## Executive Summary', 'Node service. Decision: REST over gRPC because clients are browsers; simplicity wins.', '',
+    '## System Architecture', 'API gateway, service layer, datastore — each independently deployable.', '',
+    '## Data Model', 'Users(id, email), Sessions(id, user_id, token). Normalized to 3NF with indexes.', '',
+    '## API Design', 'POST /login returns a token. All other endpoints require a bearer token.', '',
+    '## Security Design', 'TLS 1.3 everywhere. Short-lived JWTs with rotation. Input validated at the gateway.', '',
+    '## Performance & Scalability', 'p99 < 200ms target. Horizontal scaling behind a load balancer with cached hot reads.', '',
+    '## Deployment Architecture', 'Containerized service behind a reverse proxy. Rolling deploys gated by health checks.', '',
+    '## Risk Analysis', '- token theft — short TTL + rotation.\n- datastore outage — replicas + failover.\n- traffic spike — autoscaling.', '',
+    '## Technical Risk Flags', 'None detected — the stack is well understood and the scope is bounded.', '',
+    '## Notes', ...Array.from({ length: 20 }, (_, i) => `Design detail line ${i + 1}: component contracts and data flow are documented.`), '',
+  ].join('\n');
+
+  it('does NOT recommend the audit when completing a non-1 phase', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1], approvedPhases: [1] }));
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', VALID_DESIGN);
+    const out = captureStdout(() => cmdComplete({ dir, args: ['architecture'], err: noopErr }));
+    assert.doesNotMatch(out, /Recommended before approving: have a FRESH session/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('does NOT recommend the audit at complete 1 once it is fresh for this version', () => {
+    const dir = tmpDir();
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    writeFile(dir, 'spec/AUDIT_REPORT.md', '## Requirements Coverage\nok');
+    // The stored artifact hash must match so complete does not treat it as a content change;
+    // the audit freshness hash is independent (content hash of the requirements file).
+    writeFile(dir, '.aitri', minimalConfig({
+      coverageAuditLastAt: '2999-01-01T00:00:00.000Z',
+      coverageAuditReqHash: hashArtifact(VALID_REQUIREMENTS),
+    }));
+    const out = captureStdout(() => cmdComplete({ dir, args: ['requirements'], err: noopErr }));
+    assert.doesNotMatch(out, /Recommended before approving: have a FRESH session/);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
 });
 
 describe('cmdComplete() — accepts numeric phase', () => {
