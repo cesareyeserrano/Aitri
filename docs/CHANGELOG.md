@@ -7,6 +7,15 @@
 
 ---
 
+## [2.0.0-rc.156] — 2026-07-04 — `validate` flags a stale intent-coverage audit at the deploy verdict (D5 follow-up)
+
+User-raised gap (2026-07-04): D5 (rc.154) shifted the requirements coverage audit LEFT (complete 1 / approve 1 / resume), but the deploy decision point had no symmetric visibility — `validate` already surfaces the general code audit's staleness (`--explain`: "No audit on record — consider running aitri audit before shipping") yet said nothing about intent coverage, which is more load-bearing for "am I delivering what was asked?". The mechanical spine (`fr_coverage`) proves FR→test and structurally CANNOT catch a client need that never became an FR.
+
+- **`aitri validate`**, when the verdict is deployable, now prints an advisory if the requirements audit is not fresh for the current version of the requirements: "Intent-coverage audit not fresh … a silently dropped client need would NOT appear in fr_coverage … `aitri audit requirements`". Reads the same `requirementsAuditState` SSoT as the three rc.154 surfaces (content-hash freshness). Scoped to the ready-to-ship verdict only (when deploy is already blocked, the advisory is secondary noise). **Advisory, never a gate** — the audit is agent-performed; a blocking check would be presence-theater (ADR-072 reasoning). Two deliberate scope notes: (a) the code-audit precedent this mirrors is `--explain`-gated; this advisory intentionally goes on DEFAULT output because, unlike the unconditional operational info the rc.2 trim moved behind `--explain`, it is conditional and self-extinguishing (one audit per requirements-version silences it everywhere); (b) it reads the ROOT scope only — feature pipelines surface their own audit freshness at their `approve 1`/`complete 1` (validate has no per-feature intent line; recorded as a non-goal, revisit if a real multi-feature project ships a feature-level drop past it).
+- Note: the resume nudge was never "only at the beginning" — it fires in every session while Phase 1 is approved and the audit is stale, at any pipeline stage. This closes the one surface that lacked it: the deploy decision.
+
+`UPLAN-0703` · visible output change at `validate`; no schema change, no gate.
+
 ## [2.0.0-rc.155] — 2026-07-04 — the adversarial method ships as briefing blocks, not a command: `aitri challenge` panel-REJECTED (UPLAN-0703 Phase E, ADR-072)
 
 Phase E proposed `aitri challenge <phase>` — a new command + challenger persona + CHALLENGE_REPORT.md + approve surfacing. Per the repo's go/no-go calibration (structural → matrix + full adversarial panel), a three-seat panel ran BEFORE implementation (kill, GO, bar judge — each independently grounded in the code, every load-bearing claim verified by hand before ruling). **Verdict: the structural form does not survive its own repo's rules; the verified residue ships at ~2% of the cost.**

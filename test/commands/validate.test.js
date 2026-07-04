@@ -121,6 +121,55 @@ describe('cmdValidate() — all artifacts present and approved', () => {
   });
 });
 
+// D5 follow-up (rc.156): last-chance intent-coverage visibility at the deploy verdict.
+// fr_coverage proves FR→test; it cannot catch a client need that never became an FR —
+// validate surfaces that blind spot (advisory, never a gate) via the same
+// requirementsAuditState SSoT as complete 1 / approve 1 / resume.
+describe('cmdValidate() — intent-coverage advisory at the deploy verdict (D5 follow-up)', () => {
+  it('deployable + audit not fresh → prints the advisory with the audit command', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      const out = captureLog(() => cmdValidate({ dir, args: [] }));
+      assert.match(out, /Pipeline complete/, 'precondition: the seed is deployable');
+      assert.match(out, /Intent-coverage audit not fresh/, 'the advisory prints at the ship verdict');
+      assert.match(out, /aitri audit requirements/, 'it names the command');
+      assert.match(out, /fr_coverage/, 'it states WHY fr_coverage cannot catch the drop');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('deployable + audit FRESH (report + matching hash) → advisory absent', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir, {
+        coverageAuditLastAt: '2999-01-01T00:00:00.000Z',
+        coverageAuditReqHash: hashArtifact(ARTIFACTS['spec/01_REQUIREMENTS.json']),
+      });
+      writeFile(dir, 'spec/AUDIT_REPORT.md', '## Requirements Coverage\nAll covered.\n');
+      const out = captureLog(() => cmdValidate({ dir, args: [] }));
+      assert.match(out, /Pipeline complete/, 'precondition: still deployable');
+      assert.doesNotMatch(out, /Intent-coverage audit not fresh/, 'a fresh audit silences it');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('NOT deployable → advisory absent (scoped to the ready-to-ship verdict only)', () => {
+    // Adversarial-pass fix: verifyPassed:false exits early at allGood=false and never
+    // reaches the verdict section — a blocking bug keeps all artifacts green (allGood=true)
+    // while health.deployable=false, so THIS seed exercises the real blocked-verdict branch.
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      writeFile(dir, 'spec/BUGS.json', JSON.stringify({
+        bugs: [{ id: 'BUG-001', severity: 'critical', status: 'open', title: 'ship blocker' }],
+      }));
+      const out = captureLog(() => cmdValidate({ dir, args: [] }));
+      assert.match(out, /deploy is blocked/, 'precondition: the blocked-verdict branch actually renders');
+      assert.doesNotMatch(out, /Intent-coverage audit not fresh/,
+        'when deploy is already blocked the advisory is secondary noise');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('cmdValidate() — features with verify ran', () => {
   let dir;
   let output;
