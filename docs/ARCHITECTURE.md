@@ -102,6 +102,11 @@ lib/commands/             One file per command (`ls lib/commands/` is the source
                           backlog, review, bug, audit, reconcile, rehash, export
 lib/scope.js              scopeTokens() — single source of truth for
                           `aitri feature <verb> <name> <phase>` grammar
+lib/verify-parsers.js     Pure result parsers & derivations (UPLAN-0703 B9) — the ~660-line
+                          stack-agnostic parser matrix (node/vitest/pytest/playwright/go +
+                          regex TRX/JUnit-XML), result-file resolution, fr/ac coverage builders,
+                          density/coverage scanners. No side effects, no path back to verify.js;
+                          verify.js imports + re-exports so the `verify.js` API is unchanged
 lib/verify-display.js     formatVerifyCounts() — three-bucket P/F/Deferred
 lib/phases/index.js       PHASE_DEFS map + OPTIONAL_PHASES export + phase alias map
 lib/phases/phase1-5.js    Core phase definitions: briefings, extractContext(), validate()

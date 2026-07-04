@@ -7,6 +7,15 @@
 
 ---
 
+## [2.0.0-rc.152] — 2026-07-04 — extract the pure parser matrix; the verify-run banner stops over-claiming (UPLAN-0703 B9)
+
+- **New `lib/verify-parsers.js` — the ~660-line stack-agnostic parser matrix extracted from `verify.js`** (which was 2,157 lines): the seven runner-output parsers (node/vitest/pytest/playwright/go + the regex TRX/JUnit-XML parser that guards the deploy gate and has bitten before — rc.99 CDATA), result-file resolution, `buildFRCoverage`/`buildACCoverage`, and the content/density/coverage scanners. Pure functions — no `state.js`, no `child_process`, no pipeline mutation; `verify.js` imports and re-exports them, so every existing importer and test path is unchanged. Behavior-preserving refactor (the parser regexes now live where they can be reviewed independently of the 700-line command bodies).
+- **The `verify-run` output banner stops over-claiming.** "Results parsed from real runner output — agent self-reporting eliminated" → "…self-reported JSON is not accepted; stdout markers remain the trust floor." Honest ceiling: Aitri parses runner output rather than trusting an agent-written results JSON, but stdout scraping is a trust floor, not proof of a real run — the wording now says so (consistent with the rc.147 outward-truth pass).
+
+`UPLAN-0703` · no schema change, no API change (re-exports preserve the `verify.js` surface); the banner is the only observable output difference.
+
+---
+
 ## [2.0.0-rc.151] — 2026-07-04 — Phase 4 is plan-first with human checkpoints (UPLAN-0703 C8, ADR-071)
 
 Phase 4 was a monolith: one briefing = implement every FR, deliver a finished whole. Operator evidence from real projects: the human's first chance to correct arrived when correction was most expensive ("aitri construye todo de una … al final entrega algo quizá lleno de sorpresas"), and a new session re-entered the longest phase with no execution structure. Briefing-level fix — **no phase, no schema, no gate; NOT ADR-061 resurrected** (the history guard is the ADR's core: ADR-061's plan artifact had no consumer and per-slice verify stays structurally blocked; this protocol's consumers are the agent across sessions and the human during the build).
