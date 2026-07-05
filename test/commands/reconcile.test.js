@@ -310,6 +310,79 @@ describe('cmdReconcile() — B4 entering pending clears the stale verify verdict
       assert.ok(!('verifyPassedCleared' in ev), 'no clearing happened, so no clearing flag');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  it('rc.158: NEW files arriving while ALREADY pending re-clear a verify that predates them', () => {
+    // INTEG-0704 #1: the transition-only guard protected a verify against the SAME drift,
+    // but the drift can GROW while pending — pending(A) → verify green → B changes →
+    // re-run. That verify predates B; without the file-set comparison it survived and
+    // --resolve accepted a stale proof.
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion: '0.1.70', artifactsDir: 'spec',
+        verifyPassed: true, verifySummary: { total: 5, passed: 5, failed: 0, skipped: 0 },
+        reconcileState: { baseRef: pastRef, method: 'mtime', status: 'resolved' },
+      }));
+      writeFile(dir, 'src/a.js', 'drift batch 1');
+      const quietErr = () => { const o = process.stderr.write.bind(process.stderr); process.stderr.write = () => true; return () => { process.stderr.write = o; }; };
+      let restore = quietErr();
+      try { captureStdout(() => cmdReconcile({ dir, err: noopErr })); } finally { restore(); }
+      const cfg1 = loadConfig(dir);
+      assert.deepEqual(cfg1.reconcileState.pendingFiles, ['src/a.js'], 'the pending file set is recorded at entry');
+      // Fresh verify AFTER batch 1 — legitimately survives a same-drift re-run.
+      cfg1.verifyPassed = true;
+      cfg1.verifySummary = { total: 5, passed: 5, failed: 0, skipped: 0 };
+      saveConfig(dir, cfg1);
+      // Batch 2: a NEW file the verify never saw.
+      writeFile(dir, 'src/b.js', 'drift batch 2');
+      let stderr = '';
+      const origErr = process.stderr.write.bind(process.stderr);
+      process.stderr.write = (c) => { stderr += c; return true; };
+      try { captureStdout(() => cmdReconcile({ dir, err: noopErr })); }
+      finally { process.stderr.write = origErr; }
+      const cfg2 = loadConfig(dir);
+      assert.equal(cfg2.verifyPassed, false, 'a verify that PREDATES the new drift must not satisfy --resolve');
+      assert.ok(!cfg2.verifySummary, 'verifySummary cleared with it');
+      assert.match(stderr, /NEW off-pipeline change/);
+      assert.deepEqual(cfg2.reconcileState.pendingFiles, ['src/a.js', 'src/b.js'], 'the pending set is refreshed');
+      const cleared = (cfg2.events || []).filter(e => e.event === 'reconcile-pending' && e.verifyPassedCleared);
+      assert.equal(cleared.length, 2, 'the growth is a fresh transition — recorded like the first');
+      assert.equal(cleared[1].grew, 1, 'the growth event carries the new-file count');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('rc.158: pendingFiles is dropped when the drift resolves back to zero', () => {
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() + 60_000).toISOString();  // baseline in the FUTURE → no changes detected
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion: '0.1.70', artifactsDir: 'spec',
+        reconcileState: { baseRef: pastRef, method: 'mtime', status: 'pending', pendingFiles: ['src/a.js'] },
+      }));
+      captureStdout(() => cmdReconcile({ dir, err: noopErr }));
+      const config = loadConfig(dir);
+      assert.equal(config.reconcileState.status, 'resolved');
+      assert.ok(!('pendingFiles' in config.reconcileState), 'a resolved state carries no stale pending set');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('rc.158: a legacy pending state without pendingFiles backfills the set and never clears blind', () => {
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, 'src/a.js', 'pre-existing drift');
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion: '0.1.70', artifactsDir: 'spec',
+        verifyPassed: true, verifySummary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+        reconcileState: { baseRef: pastRef, method: 'mtime', status: 'pending' },  // pre-rc.158: no pendingFiles
+      }));
+      captureStdout(() => cmdReconcile({ dir, err: noopErr }));
+      const config = loadConfig(dir);
+      assert.equal(config.verifyPassed, true, 'cannot know whether the set grew — a fresh verify must survive');
+      assert.deepEqual(config.reconcileState.pendingFiles, ['src/a.js'], 'the set is backfilled for the next comparison');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 describe('cmdReconcile() — changes detected (mtime)', () => {

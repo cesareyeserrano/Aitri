@@ -844,6 +844,41 @@ describe('aggregateBugs() — bySeverity + openIds (2026-05-12)', () => {
       const snap = buildProjectSnapshot(dir);
       assert.deepEqual(snap.bugs.bySeverity, { critical: 0, high: 0, medium: 0, low: 0 });
       assert.deepEqual(snap.bugs.openIds, []);
+      assert.deepEqual(snap.bugs.parseErrors, [], 'no bug file anywhere → no parse errors (rc.158)');
+    } finally { cleanup(dir); }
+  });
+
+  it('rc.158: a corrupt BUGS.json is flagged in bugs.parseErrors instead of silently counting zero', () => {
+    // INTEG-0704 #2: the display surface degrades malformed → [] by design (rc.149 — the
+    // GATES refuse), but degrading silently left a machine consumer (Hub) unable to tell
+    // "no bugs" from "corrupt bug file" while health could read deployable.
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'root', artifactsDir: 'spec' });
+      writeSpec(dir, 'BUGS.json', '{ "bugs": [ { "id": "BG-001", broken');  // exists, unreadable
+
+      const featDir = path.join(dir, 'features', 'ok');
+      fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+      saveConfig(featDir, { projectName: 'ok', artifactsDir: 'spec' });
+      writeJsonSpec(featDir, 'BUGS.json', { bugs: [{ id: 'BG-010', title: 'real', severity: 'critical', status: 'open' }] });
+
+      const snap = buildProjectSnapshot(dir);
+      assert.deepEqual(snap.bugs.parseErrors, ['root'], 'the corrupt scope is named; readable scopes are not');
+      assert.equal(snap.bugs.byPipeline['root'], 0, 'counters still degrade to zero — the flag is the signal, not a guess');
+      assert.equal(snap.bugs.blocking, 1, 'readable pipelines keep counting');
+    } finally { cleanup(dir); }
+  });
+
+  it('rc.158: shape corruption (valid JSON, non-array collection) is flagged like syntax corruption; {} is not', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'root', artifactsDir: 'spec' });
+      writeJsonSpec(dir, 'BUGS.json', { bugs: 42 });   // parses fine, hides everything
+      let snap = buildProjectSnapshot(dir);
+      assert.deepEqual(snap.bugs.parseErrors, ['root'], 'a non-array collection hides bugs exactly like invalid JSON');
+      writeJsonSpec(dir, 'BUGS.json', {});             // absent collection key = legitimately empty
+      snap = buildProjectSnapshot(dir);
+      assert.deepEqual(snap.bugs.parseErrors, [], 'an empty object stays a legitimate empty list');
     } finally { cleanup(dir); }
   });
 

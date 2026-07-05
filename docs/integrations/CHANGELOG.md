@@ -18,6 +18,13 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.158 (2026-07-05) — `bugs.parseErrors` on `status --json`; reconcile closes the growing-drift stale-proof window (INTEG-0704 adversarial findings) — additive
+
+Both fixes come from the adversarial review of the rc.147–157 batch. All changes additive; no existing field changed shape.
+
+- **`status --json` `bugs.parseErrors`** (new, `string[]`, always present — `[]` when clean) — scopes (`"root"` / `"feature:<name>"`) whose `BUGS.json` EXISTS but failed to parse. The snapshot deliberately degrades a malformed bug file to zero counters (rc.149: the gates refuse; display must not crash), but it degraded SILENTLY — a machine consumer (Hub) could not tell "no bugs" from "corrupt bug file" while `health.deployable` read `true`. Consumers MUST treat non-empty `parseErrors` as "bug counters untrustworthy for those scopes" and surface it rather than render "0 bugs". The CLI text `status`/`resume` views now print the same warning. Old readers ignore the new field. See [STATUS_JSON.md](./STATUS_JSON.md).
+- **`.aitri.local` `reconcileState.pendingFiles`** (new, optional, `string[]` sorted) — the off-pipeline file set recorded when `aitri reconcile` enters (or refreshes) pending. Closes the growing-drift window: the rc.149 `verifyPassed` clear fired on the transition INTO pending only, so a verify done while pending survived even when NEW files changed afterward — `reconcile --resolve` then accepted a test-proof predating them. Now NEW files on a re-run are a fresh transition: `verifyPassed` clears again and the `reconcile-pending` event re-emits with an additional `grew: <count>` payload field (only when there was a verdict to clear — growth with `verifyPassed` already false updates the set silently). **Set-level protection, honestly scoped:** new content inside an already-pending file is not detected (ordering verify vs commits content-wise needs a verify-time ref binding — recorded residual, own design if a real project hits it). A shrunk set does not re-clear; a pre-rc.158 pending state backfills without clearing; the field is dropped on return to `resolved`. Per-machine (`.aitri.local`) — subproducts never read it; documented for completeness. See [SCHEMA.md](./SCHEMA.md).
+
 ## v2.0.0-rc.157 (2026-07-04) — `VALIDATE_JSON.md` contract doc; `nextActions` severity back inside its enum; full doc-audit corrections (INTEG-0704) — additive
 
 Contract-surface completion + a line-by-line audit of all five documents against the code (three independent verification passes: SCHEMA, ARTIFACTS, STATUS_JSON/README — every finding hand-verified before the fix). One code correction; everything else is documentation reconciled to long-shipped behavior.

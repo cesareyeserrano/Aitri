@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v2.0.0-rc.157+
+**Aitri version:** v2.0.0-rc.158+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -46,7 +46,12 @@ Exit code: `0` on success (even when the project has drift or blocking bugs — 
   // ── Snapshot-derived extensions (v0.1.77+) ───────────────────────────────
   "snapshotVersion": 1,
   "features": [ /* per-feature summaries — see "features" below */ ],
-  "bugs":    { "total": N, "open": N, "blocking": N, "bySeverity": { "critical": N, "high": N, "medium": N, "low": N }, "openIds": ["BG-001", "..."] },
+  "bugs":    { "total": N, "open": N, "blocking": N, "bySeverity": { "critical": N, "high": N, "medium": N, "low": N }, "openIds": ["BG-001", "..."], "parseErrors": ["root" /* | "feature:<name>" */] },
+  // bugs.parseErrors (additive, v2.0.0-rc.158+): scopes whose BUGS.json EXISTS but failed to
+  // parse. Their bugs are INVISIBLE to every counter above (the snapshot degrades by design,
+  // rc.149 — the verify/reconcile/validate --ci GATES refuse instead). Non-empty parseErrors
+  // means the bug counters (and any deployable verdict built on them) cannot be trusted for
+  // those scopes — a consumer MUST surface this rather than render "0 bugs". [] when clean.
   "backlog": { "open": N },
   "audit":   { "exists": bool, "stalenessDays": N | null },
   "tests":   { /* see "tests" below — v0.1.81+ */ },

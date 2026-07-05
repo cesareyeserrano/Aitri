@@ -7,6 +7,15 @@
 
 ---
 
+## [2.0.0-rc.158] — 2026-07-05 — the adversarial review of rc.147–157 closes its two real findings (INTEG-0704)
+
+Full adversarial review of the 2026-07-03/04 batch (verification spine B1–B9, state integrity B4–B8, approve/routing/audit Phase D + rc.156, prompt coherence C-series/rc.151/rc.155): **0 ship-blockers; 2 real-but-minor findings, both fixed here; 1 nit recorded (audit-briefing bug-dedup treats a malformed BUGS.json as empty — display-only).** Everything else held: run-binding has a single write+stamp path covering the all-manual seed; D1 records the approval before the checkpoint text; every `--show` path has a fallback; the drift diff degrades without blocking; the killed-runner path exits before any state write; all 8 Phase-4 template conditionals have producers.
+
+- **Finding 1 — reconcile: the drift set could GROW while pending without re-clearing `verifyPassed`.** The rc.149 clear fired on the transition into pending only ("same unchanged drift" rationale), so pending → verify (green) → MORE off-pipeline changes → `--resolve` accepted a test-proof that predated the new files. `reconcileState` now records the pending file set (`pendingFiles`, per-machine, additive); NEW files on a re-run are a fresh transition — `verifyPassed` clears, the `reconcile-pending` event re-emits with `grew: <count>` (when there was a verdict to clear). Set-level protection, honestly scoped: new content inside an already-pending file is not detected (recorded residual — content-level ordering needs a verify-time ref binding, its own design if a real project hits it). Shrunk drift does not re-clear; legacy pending states backfill without clearing.
+- **Finding 2 — a corrupt `BUGS.json` was invisible to machine consumers.** The snapshot degrades malformed → zero counters by design (rc.149: gates refuse, display must not crash) but degraded silently — Hub could not tell "no bugs" from "corrupt bug file" while `health.deployable` read true. New additive `status --json` field `bugs.parseErrors: string[]` names the unreadable scopes; `status` and `resume` text views print the warning ("its bugs are NOT counted"). Deploy-gate behavior deliberately unchanged (the rc.149 division of labor stands: gates refuse, display degrades — now visibly).
+
+`INTEG-0704` · additive `.aitri.local` field + additive `status --json` field + new warning lines; no gate behavior change.
+
 ## [2.0.0-rc.157] — 2026-07-04 — integration contract audited doc-by-doc against the code; `validate --json` gets its contract document (INTEG-0704)
 
 Pre-Hub-rebuild pass: the five `docs/integrations/` documents are the spec Hub's catch-up (last reviewed at 2.0.0-alpha.3) will be implemented against, so they were adversarially verified line-by-line against the code — three independent verification passes (SCHEMA, ARTIFACTS, STATUS_JSON/README), every load-bearing finding hand-verified before fixing.

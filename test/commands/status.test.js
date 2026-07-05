@@ -414,6 +414,22 @@ describe('cmdStatus --json bugs payload', () => {
     // New additive fields
     assert.deepEqual(result.bugs.bySeverity, { critical: 0, high: 0, medium: 1, low: 1 });
     assert.deepEqual(result.bugs.openIds,    ['BG-037', 'BG-039']);
+    assert.deepEqual(result.bugs.parseErrors, [], 'rc.158: readable file → empty parseErrors');
+  });
+
+  it('rc.158: a corrupt BUGS.json surfaces in --json bugs.parseErrors and warns on the text view', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.99' });
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'spec/BUGS.json'), '{ "bugs": [ broken');
+    const result = captureJson(() => cmdStatus({ dir, VERSION: '0.1.99', args: ['--json'] }));
+    assert.deepEqual(result.bugs.parseErrors, ['root'], 'the corrupt scope is named in the machine payload');
+    assert.equal(result.bugs.total, 0, 'counters degrade to zero as before — the flag is the only change');
+    let text = '';
+    const orig = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (chunk) => { text += chunk; return true; };
+    try { cmdStatus({ dir, VERSION: '0.1.99', args: [] }); } finally { process.stdout.write = orig; }
+    assert.match(text, /BUGS\.json unreadable \[root\]/, 'the text view degrades VISIBLY, not silently');
   });
 
   it('blocking bugs surface in bySeverity AND in legacy blocking counter', () => {
