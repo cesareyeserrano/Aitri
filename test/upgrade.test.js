@@ -912,6 +912,33 @@ describe('lib/upgrade/migrations/from-0.1.65 — STATE-MISSING: reconcileState',
       assert.equal(fs.readFileSync(path.join(specDir, '04_BUILD_REPORT.json'), 'utf8'), body, 'content must be unchanged');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  // Hub canary 2026-07-05: root rename left features/*/spec/ files under pre-rc.41
+  // names, breaking every rc.41+ reader of feature artifacts (feature.js reads
+  // 04_BUILD_REPORT.json by new name). ADR-030's A2 deferral covers feature .aitri
+  // STATE, not on-disk artifact names.
+  it('renames pre-rc.41 artifacts inside features/<name>/<artifactsDir>/ too', () => {
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1, 2, 3, 4] });
+      const featSpec = path.join(dir, 'features/myfeat/spec');
+      fs.mkdirSync(featSpec, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'features/myfeat/.aitri'),
+        JSON.stringify({ projectName: 'myfeat', artifactsDir: 'spec', approvedPhases: [1, 2, 3, 4, 5] }));
+      const manBody = JSON.stringify({ files: ['src/f.js'], test_runner: 'node --test' });
+      const trcBody = JSON.stringify({ requirement_compliance: [] });
+      fs.writeFileSync(path.join(featSpec, '04_IMPLEMENTATION_MANIFEST.json'), manBody);
+      fs.writeFileSync(path.join(featSpec, '05_PROOF_OF_COMPLIANCE.json'), trcBody);
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+      assert.ok(fs.existsSync(path.join(featSpec, '04_BUILD_REPORT.json')), 'feature manifest renamed');
+      assert.ok(fs.existsSync(path.join(featSpec, '05_TRACEABILITY.json')), 'feature traceability renamed');
+      assert.ok(!fs.existsSync(path.join(featSpec, '04_IMPLEMENTATION_MANIFEST.json')), 'old manifest name gone');
+      assert.ok(!fs.existsSync(path.join(featSpec, '05_PROOF_OF_COMPLIANCE.json')), 'old traceability name gone');
+      assert.equal(fs.readFileSync(path.join(featSpec, '04_BUILD_REPORT.json'), 'utf8'), manBody, 'content unchanged');
+      const featCfg = JSON.parse(fs.readFileSync(path.join(dir, 'features/myfeat/.aitri'), 'utf8'));
+      assert.deepEqual(featCfg.approvedPhases, [1, 2, 3, 4, 5], 'feature .aitri state untouched (A2 preserved)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 // ── Z2 (alpha.13): artifactHashes backfill ──────────────────────────────────
@@ -1840,6 +1867,32 @@ describe('lib/upgrade/migrations/from-0.1.65 — orphan IDEA.md classified ref h
       silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
 
       assert.equal(fs.existsSync(path.join(dir, 'IDEA.md')), false);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  // Hub canary 2026-07-05: the same frozen record under its pre-rc.41 name fell
+  // through to the narrative bucket, and the upgrade told the operator to EDIT
+  // frozen history. The classifier must recognize the old name; the rename
+  // migration then moves the file in the same run.
+  it('PRE-FLIGHT frozen: feature 05_PROOF_OF_COMPLIANCE.json (pre-rc.41 name) containing IDEA.md → no finding, absorb proceeds, file renamed', () => {
+    // The root scan iterates ROOT_NAMES (post-rename names only) and never
+    // dispatches an old-named root file; the exposure is the FEATURE spec scan,
+    // which reads every .json in features/<x>/spec/ — exactly the Hub canary path.
+    const dir = tmpDir();
+    try {
+      writeLegacyConfig(dir, { approvedPhases: [1] });
+      writeReqsArtifact(dir);
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), '# Brief\n');
+      const featSpec = path.join(dir, 'features/myfeat/spec');
+      fs.mkdirSync(featSpec, { recursive: true });
+      const body = JSON.stringify({ evidence: 'grep IDEA.md returns zero matches' }, null, 2);
+      fs.writeFileSync(path.join(featSpec, '05_PROOF_OF_COMPLIANCE.json'), body);
+
+      silence(() => runUpgrade({ dir, VERSION: '0.1.99' }));
+
+      assert.equal(fs.existsSync(path.join(dir, 'IDEA.md')), false, 'absorb must proceed — old-named frozen record is still frozen');
+      assert.ok(fs.existsSync(path.join(featSpec, '05_TRACEABILITY.json')), 'feature file renamed in the same run');
+      assert.equal(fs.readFileSync(path.join(featSpec, '05_TRACEABILITY.json'), 'utf8'), body, 'frozen content untouched');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

@@ -7,6 +7,15 @@
 
 ---
 
+## [2.0.0-rc.159] — 2026-07-05 — upgrade renames pre-rc.41 artifacts inside feature pipelines too (HUB-CANARY-0705)
+
+Surfaced by the first real `adopt --upgrade` of an rc.15-era project with feature sub-pipelines (Aitri Hub, 10 features). Two connected defects in the upgrade path, both from feature dirs keeping pre-rc.41 filenames:
+
+- **`diagnoseRenamedArtifacts` only renamed root artifacts.** `features/*/<artifactsDir>/` kept `04_IMPLEMENTATION_MANIFEST.json` / `05_PROOF_OF_COMPLIANCE.json`, which every rc.41+ reader of feature artifacts misses (`feature.js` reads `04_BUILD_REPORT.json` by new name) — a project upgrading with a feature in flight breaks in that feature's phase 4/5. Now walks features with the same layout-aware pattern as the venv diagnostic (featuresDir SSoT, per-feature `artifactsDir`). Feature `.aitri` STATE stays untouched — this is a partial trigger of ADR-030's re-open criterion 2 (recorded as an ADR-030 addendum): artifact file renames cascade; the state cascade stays deferred.
+- **`FROZEN_BASENAMES` only knew post-rename names.** A frozen record still under `05_PROOF_OF_COMPLIANCE.json` fell into the narrative bucket, so the upgrade told the operator to *edit* immutable evidence (the Hub's IDEA.md finding was this false positive). The classifier now recognizes the pre-rc.41 name; the rename lands in the same run.
+
+Tests: feature-dir rename (content + A2 state preservation) and old-named-frozen classification added to `test/upgrade.test.js`.
+
 ## [2.0.0-rc.158] — 2026-07-05 — the adversarial review of rc.147–157 closes its two real findings (INTEG-0704)
 
 Full adversarial review of the 2026-07-03/04 batch (verification spine B1–B9, state integrity B4–B8, approve/routing/audit Phase D + rc.156, prompt coherence C-series/rc.151/rc.155): **0 ship-blockers; 2 real-but-minor findings, both fixed here; 1 nit recorded (audit-briefing bug-dedup treats a malformed BUGS.json as empty — display-only).** Everything else held: run-binding has a single write+stamp path covering the all-manual seed; D1 records the approval before the checkpoint text; every `--show` path has a fallback; the drift diff degrades without blocking; the killed-runner path exits before any state write; all 8 Phase-4 template conditionals have producers.

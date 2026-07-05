@@ -774,6 +774,8 @@ The Ultron canary on alpha.6 caught the regression at handoff #1: literal copy-p
 1. A third-party adopter explicitly requests cascading because the current asymmetry blocks a concrete workflow they need (operator running `--upgrade` once at root and expecting features to follow).
 2. A future migration becomes load-bearing for feature-scope state in a way that the operator cannot reasonably trigger by entering each feature dir manually (e.g. a state field that drives a verify/approve gate in a way that fails silently when stale).
 
+**Addendum — 2026-07-05 (rc.159, HUB-CANARY-0705): criterion 2 triggered for on-disk artifact RENAMES only; `.aitri` state cascade stays deferred.** The rc.41 artifact rename (ADR-042, post-dating this ADR) became load-bearing for feature scope: rc.41+ code reads feature artifacts by NEW name (`feature.js` reads `04_BUILD_REPORT.json`), so a root upgrade that leaves `features/*/spec/` under pre-rc.41 names breaks that feature's phase 4/5 silently — and the operator cannot fix it by entering the feature dir, because `adopt --upgrade` is a root-scoped command. First real hit: Aitri Hub upgrade (rc.15 → rc.158, 10 features), which also exposed a second-order effect — the IDEA-ref classifier treated an old-named frozen record as editable narrative. `diagnoseRenamedArtifacts` now walks feature dirs (file renames only, content unchanged); feature `.aitri` state remains untouched, and the full A2 state cascade remains deferred under the same criteria.
+
 Without either, the asymmetry stays. The BACKLOG entry remains as a tracking pointer to this ADR, not as a pending work item.
 
 **Scope of this ADR:** decision-only. No code change. The BACKLOG entry for A2 is updated to reference this ADR; no other action.
