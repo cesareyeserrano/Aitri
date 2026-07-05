@@ -572,6 +572,14 @@ describe('health.deployable', () => {
       const reason = snap.health.deployableReasons.find(r => r.type === 'artifact_missing');
       assert.ok(reason, 'artifact_missing reason must be present');
       assert.match(reason.message, /01_REQUIREMENTS\.json/);
+      // The P2 next-action must stay inside the documented severity enum
+      // (STATUS_JSON.md: info|warn|critical) — rc.149 shipped an out-of-contract 'blocker' here.
+      const action = snap.nextActions.find(a => a.priority === 2 && a.command === 'aitri validate');
+      assert.ok(action, 'artifact_missing must surface a priority-2 next-action');
+      assert.equal(action.severity, 'critical');
+      for (const a of snap.nextActions)
+        assert.ok(['info', 'warn', 'critical'].includes(a.severity),
+          `nextActions severity '${a.severity}' is outside the documented enum (${a.command})`);
     } finally { cleanup(dir); }
   });
 

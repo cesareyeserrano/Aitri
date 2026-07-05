@@ -1,6 +1,6 @@
 # Aitri — Integration Model
 
-**Version:** v2.0.0-rc.156+
+**Version:** v2.0.0-rc.157+
 **Owner:** This document is the authoritative description of how the Aitri ecosystem is structured.
 
 ---
@@ -48,6 +48,8 @@ Subproducts (Hub, future tools)
 | Optional: Audit | `<project>/<artifactsDir>/AUDIT_REPORT.md` | On-demand audit findings: code audit (bugs, backlog, observations), plus optional "Requirements Coverage" (`audit requirements`, alias `audit coverage`) and "Security" (`audit security`) sections |
 | Feature pipelines | `<project>/<layoutRoot>/features/<name>/` | Sub-pipelines with same structure — `aitri/features/` for contained projects (rc.76+), `features/` for legacy flat ones (see `layoutRoot` in [SCHEMA.md](./SCHEMA.md)) |
 | Derived snapshot (CLI-only) | `aitri status --json` | Aggregated pipeline + features + health + priority-ordered next actions. See [STATUS_JSON.md](./STATUS_JSON.md). Requires the `aitri` binary on PATH — remote consumers must read `.aitri` + `<artifactsDir>/` directly. |
+| Deploy-readiness report (CLI-only) | `aitri validate --json` | Per-artifact exists/approved/drift + deploy verdict; `--ci` turns the verdict into the exit code for CI steps. See [VALIDATE_JSON.md](./VALIDATE_JSON.md). |
+| Derived export (CLI-only) | `aitri export traceability [--out <path>]` | Human-readable Markdown traceability matrix (requirement × TCs × test evidence × compliance, with claim-vs-evidence flags). Derived read-only from the artifacts above — not a new schema; content anchored to [ARTIFACTS.md](./ARTIFACTS.md). |
 
 ---
 
@@ -119,6 +121,7 @@ This alert is for **subproduct developers**, not end users — it signals that H
 | [SCHEMA.md](./SCHEMA.md) | Canonical schema of `.aitri` — all fields, types, defaults, semantics |
 | [ARTIFACTS.md](./ARTIFACTS.md) | Schema of each artifact file in `<artifactsDir>/` |
 | [STATUS_JSON.md](./STATUS_JSON.md) | Shape of `aitri status --json` (derived snapshot for CLI-colocated consumers) |
+| [VALIDATE_JSON.md](./VALIDATE_JSON.md) | Shape of `aitri validate --json` (per-artifact deploy-readiness report) + the `--ci` exit-code gate |
 | [CHANGELOG.md](./CHANGELOG.md) | History of breaking and non-breaking contract changes by Aitri version |
 
 ---
@@ -133,4 +136,4 @@ Aitri Core is a CLI with no UI. The visual identity of the ecosystem is defined 
 
 ## Maintenance rule
 
-When `.aitri` schema or any artifact schema changes in Aitri, the relevant document in this directory **must be updated in the same commit**. Partially enforced by `test/release-sync.test.js` (version headers of these four documents must match `package.json`, and every CHANGELOG.md entry heading must carry an `additive`/`breaking` marker); the **content** staying truthful is enforced by convention and review.
+When `.aitri` schema or any artifact schema changes in Aitri, the relevant document in this directory **must be updated in the same commit**. Partially enforced by `test/release-sync.test.js` (version headers of the five contract documents must match `package.json`, and every CHANGELOG.md entry heading must carry an `additive`/`breaking` marker); the **content** staying truthful is enforced by convention and review.

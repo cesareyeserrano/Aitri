@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v2.0.0-rc.156+
+**Aitri version:** v2.0.0-rc.157+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -22,7 +22,7 @@ It is the single surface that powers the CLI's `status`, `resume`, and `validate
 aitri status --json
 ```
 
-Exit code: `0` on success (even when the project has drift or blocking bugs — health signals are in the payload, not the exit code). Non-zero only when `dir` is not an Aitri project.
+Exit code: `0` on success (even when the project has drift or blocking bugs — health signals are in the payload, not the exit code). Non-zero when `dir` is not an Aitri project, or when the root `.aitri` is unreadable (malformed or merge-conflicted — the refuse-don't-reset rule, v2.0.0-rc.149+).
 
 ---
 
@@ -60,11 +60,11 @@ Exit code: `0` on success (even when the project has drift or blocking bugs — 
 
 ## `phases[]` (legacy)
 
-Root pipeline phase list. One entry per phase, plus a synthetic `"verify"` entry inserted after phase 4 when phase 4 is approved or verify has passed.
+Root pipeline phase list. One entry per phase, plus a synthetic `"verify"` entry inserted after phase 4 when phase 4 is approved or verify has passed. Optional phases (`discovery`, `ux`, `review`) appear with **string** keys, and only when their artifact exists or the phase is tracked — `driftPhases[]` can therefore carry those strings too.
 
 ```jsonc
 {
-  "key": 1,                            // number for core phases; "verify" for the synthetic entry
+  "key": 1,                            // number for core phases; string for optional phases; "verify" for the synthetic entry
   "name": "Requirements",
   "artifact": "01_REQUIREMENTS.json",
   "optional": false,
@@ -74,7 +74,7 @@ Root pipeline phase list. One entry per phase, plus a synthetic `"verify"` entry
 }
 ```
 
-The `"verify"` entry uses `status: "passed" | "not_run"` and may include a `verifySummary` field — the persisted `04_TEST_RESULTS.json#summary` object verbatim (canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Its `drift` is `true` when the results file on disk no longer matches the run-binding stamp (v2.0.0-rc.148+ — previously hardcoded `false`). It also carries an additive `resultsBinding` field: `"bound" | "mismatch" | "no-stamp" | "missing-file"` — the run-binding state of `04_TEST_RESULTS.json` vs `.aitri#verifyResultsHash`. `status` stays `"passed"` even on a `"mismatch"` (the flag is sticky); read `drift`/`resultsBinding` for the current disk truth (v2.0.0-rc.148+).
+The `"verify"` entry uses `status: "passed" | "not_run"` and may include a `verifySummary` field — the summary persisted in `.aitri#verifySummary` at verify time, NOT re-read from the results file (it matches the file's `#summary` unless the file was edited after the run — exactly the case `resultsBinding: "mismatch"` flags; canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Its `drift` is `true` when the results file on disk no longer matches the run-binding stamp (v2.0.0-rc.148+ — previously hardcoded `false`). It also carries an additive `resultsBinding` field: `"bound" | "mismatch" | "no-stamp" | "missing-file"` — the run-binding state of `04_TEST_RESULTS.json` vs `.aitri#verifyResultsHash`. `status` stays `"passed"` even on a `"mismatch"` (the flag is sticky); read `drift`/`resultsBinding` for the current disk truth (v2.0.0-rc.148+).
 
 ---
 
@@ -212,9 +212,9 @@ Priority-ordered list of suggested commands. Priority is a stable small integer 
 | Priority | Trigger |
 |---:|---|
 | 1 | Version mismatch or missing `aitriVersion` |
-| 2 | Drift on an approved phase (any pipeline) |
+| 2 | Drift on an approved phase (any pipeline), **or** an approved core artifact missing from disk (`artifact_missing`, v2.0.0-rc.149+ — emits `aitri validate` with severity `critical`) |
 | 3 | One or more critical/high bugs open, **or** unresolved upgrade findings (`upgradeFindings[]` non-empty on any pipeline — artifacts need agent re-authoring) |
-| 4 | `reconcileState.status === 'pending'` on root, **or** `reconcile.uncountedFiles > 0` (off-pipeline source changes detected at snapshot time) |
+| 4 | `reconcileState.status === 'pending'` on root, **or** `reconcile.uncountedFiles > 0` (off-pipeline source changes detected at snapshot time). **Suppressed while any critical/high bug is open** — `reconcile --resolve` refuses under blocking bugs, so the ladder directs to priority 3 first |
 | 5 | Phase 4 approved but verify not yet passed (any pipeline) |
 | 6 | Pending phase work (any pipeline) |
 | 7 | All approved + verify passed: `aitri validate` (deploy-readiness confirmation) when the audit is missing/stale, **or** per-pipeline `verify-run` refresh suggestions when the audit is fresh but a pipeline's verify is stale (>14 days) |

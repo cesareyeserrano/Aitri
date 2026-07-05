@@ -24,6 +24,7 @@ const INTEGRATION_DOCS = [
   'docs/integrations/README.md',
   'docs/integrations/ARTIFACTS.md',
   'docs/integrations/STATUS_JSON.md',
+  'docs/integrations/VALIDATE_JSON.md',
 ];
 
 describe('release sync guard', () => {

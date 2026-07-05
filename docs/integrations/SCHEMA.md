@@ -1,13 +1,13 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.0.0-rc.156+
+**Aitri version:** v2.0.0-rc.157+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
 
 ## File location
 
-`.aitri` can be either a flat JSON file or a directory (`.aitri/config.json`). Subproducts must handle both:
+`.aitri` can be either a flat JSON file or a directory (`.aitri/config.json`). Subproducts must handle both. (A transient `.aitri.lock` file may appear beside it mid-write — ignore it; it is the atomic-write lock, never state.)
 
 ```js
 const p = path.join(projectDir, '.aitri');
@@ -27,7 +27,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `currentPhase` | `number` | `0` | Active phase (0 = not started) |
 | `approvedPhases` | `array<number\|string>` | `[]` | Human-approved phases. May include `"discovery"`, `"ux"` |
 | `completedPhases` | `array<number\|string>` | `[]` | Agent-completed phases (pending human approval) |
-| `updatedAt` | `string` ISO 8601 | `null` | Timestamp of last `saveConfig` call |
+| `updatedAt` | `string` ISO 8601 | `null` | Timestamp of the last write that changed a **shared** field (since the ADR-045 split, `saveConfig` skips the write when nothing but `updatedAt` would change — so this only moves on real state changes, which is what makes it a useful change-detection signal) |
 
 ---
 
@@ -48,12 +48,12 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | Field | Type | Default when absent | Description |
 |---|---|---|---|
 | `artifactHashes` | `object<string, string>` | `{}` | `{ "1": "<sha256>", ... }` — SHA-256 of each artifact file. Written on `approve` and `complete` (v0.1.63+). Backfilled from on-disk artifacts by `adopt --upgrade` for projects whose approvedPhases is non-empty but the field is absent or empty (v2.0.0-alpha.13+) |
-| `driftPhases` | `array<string>` | absent in old projects | Phases in drift state. Set by `run-phase` when re-running an approved phase; cleared by `complete`/`approve` |
+| `driftPhases` | `array<number\|string>` | absent in old projects | Phases in drift state. Set by `run-phase` when re-running an approved phase; cleared by `complete`/`approve`. On disk, core phases are **numbers** (`saveConfig` canonicalises `"1"` → `1`, same as `approvedPhases`/`completedPhases`); optional phases stay strings (`"ux"`). Always compare with `String(phaseKey)` |
 | `cascadedPhases` | `array<string>` | absent until first cascade | Phases reset by a cascade invalidation (a real upstream re-approval/re-complete). Used by the next-action builder to recommend `run-phase` (re-derive with new context) rather than `complete` (re-validate) for these phases. Set by `cascadeInvalidate`; cleared per-phase by `complete`/`approve` (v2.0.0-rc.56+) |
 | `frSnapshots` | `object<string, array<string>>` | absent until first downstream approval | Per-phase snapshot of the `functional_requirements[].id` set the phase was approved against (key = phase as string). Written on `approve` of a downstream phase (not phase 1/discovery). When a cascade later resets that phase, `run-phase` diffs the current FR ids against this snapshot to show the agent which FRs were added/removed since — so the re-derivation is directed, not blind. Advisory only (the `fr_coverage` deploy gate is the hard enforcement). (v2.0.0-rc.64+) |
 | `events` | `array<Event>` | `[]` | Pipeline activity log (max 20, most recent last) |
-| `verifyPassed` | `boolean` | `false` | `true` if `aitri verify-complete` passed. Required to unlock Phase 5. Reset to `false` by `aitri verify-run` when latest results would not pass `verify-complete` — i.e. `passed === 0` with skips, OR any failures (v2.0.0-alpha.13+). Healthy results (passed > 0, failed === 0) leave the flag alone |
-| `verifySummary` | `object` | `null` | Last test run summary — the `04_TEST_RESULTS.json#summary` object persisted verbatim (canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Written by `verify-complete` on success **and** by `tc verify` (which re-syncs it so `aitri resume` shows updated numbers after a per-TC verification); cleared by `verify-run` when `verifyPassed` resets (v2.0.0-alpha.13+). **Presence is NOT proof that `verify-complete` passed** — `verifyPassed` is the authoritative deploy-gate flag; consumers must read `verifyPassed`, not the presence of `verifySummary` |
+| `verifyPassed` | `boolean` | `false` | `true` if `aitri verify-complete` passed. Required to unlock Phase 5. Reset to `false` by `aitri verify-run` when latest results would not pass `verify-complete` — i.e. `passed === 0` with skips, OR any failures, OR any `required` quality gate not passing (v2.0.0-alpha.13+; gate trigger v2.0.0-rc.21+). Healthy results (passed > 0, failed === 0, required gates green) leave the flag alone. Also cleared by `reconcile` on ENTERING pending (v2.0.0-rc.149+ — off-pipeline drift invalidates the verdict) and by a cascade invalidation that resets phase 4/5 (see the cascade note below the table) |
+| `verifySummary` | `object` | `null` | Last test run summary — the `04_TEST_RESULTS.json#summary` object persisted verbatim (canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Written by `verify-complete` on success **and** by `tc verify` (which re-syncs it so `aitri resume` shows updated numbers after a per-TC verification); cleared by `verify-run` when `verifyPassed` resets, by `reconcile` entering pending, and by a cascade invalidation touching phase 4/5 (v2.0.0-alpha.13+). **Presence is NOT proof that `verify-complete` passed** — `verifyPassed` is the authoritative deploy-gate flag; consumers must read `verifyPassed`, not the presence of `verifySummary` |
 | `verifyRanAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri verify-run` execution (set on every run, regardless of pass/fail). Drives test-staleness signals (v0.1.79+) |
 | `lastVerifyRun` | `object\|null` | `null` | Last `verify-run`'s counts, written on EVERY run regardless of pass/fail: `{ passed, failed, skipped, manual, at }`. Unlike `verifySummary` (only on verify-complete success), this persists the raw run result so the no-op-loop guard survives event-log eviction. Read this for "what did the last run produce" (v2.0.0-rc.25+) |
 | `verifyResultsHash` | `string\|null` | `null` | Canonical hash of the `04_TEST_RESULTS.json` content written by the last `verify-run` (re-stamped by `tc verify`). Binds the deploy gate to a real execution. **v2.0.0-rc.148+ (BREAKING): `verify-complete` now REQUIRES this stamp** — an absent stamp is rejected ("no verify-run recorded"), not just a mismatched one. Previously (rc.129–rc.147) an absent stamp was allowed (backward-compatible); that window is closed. `tc verify` holds the same line: it refuses a stamp-less file (fabrication guard) and a file whose hash no longer matches the stamp (laundering guard). A pre-rc.129 project with a real results file re-binds by running `verify-run` (or `verify-run --results <file>`) once |
@@ -70,11 +70,13 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `humanApprovalGate` | `boolean` | `false` (absent) | Opt-in. When `true`, `aitri approve <phase>` in non-interactive (agent) mode BLOCKS and requires a human to run it after review. Default unchanged — agent-mode approval proceeds (the summary + Human Review checklist always print regardless). Typically set on larger projects that want a human at every gate; small projects / MVPs run autonomously by default (v2.0.0-rc.12+) |
 | `reviewGate` | `boolean` | `false` (absent) | Opt-in. When `true`, a `FAIL` verdict in `04_CODE_REVIEW.md` BLOCKS `aitri verify-complete` (Phase 5). Default unchanged — the code-review verdict stays advisory (ADR-034 P1). Honor-system: the verdict is agent-written, so this makes a written `FAIL` binding; it does not judge review quality. Review remains optional — an absent `04_CODE_REVIEW.md` never blocks. `CONDITIONAL_PASS`/`PASS` do not block (v2.0.0-rc.23+) |
 
+**Cascade invalidation wipes the verify state.** When an upstream phase is genuinely re-approved/re-completed and the cascade resets phase 4 or 5, `cascadeInvalidate` deletes SIX fields in one write: `verifyPassed` (→ `false`), `verifySummary`, `reconcileState`, `lastVerifyRun`, `verifyRanAt`, `verifyResultsHash`. A consumer that sees all of them vanish after a re-approval is watching this, not corruption — nothing has been verified against the new upstream yet.
+
 ---
 
 ## lastSession schema (v0.1.70+)
 
-Written automatically by `complete`, `approve`, `verify-run`, `verify-complete`, `feature init`, and `checkpoint`.
+Written automatically by state-mutating commands: `complete`, `approve`, `verify-run`, `verify-complete`, `feature init`, `feature discard`, `rehash`, `reconcile --resolve`, and `checkpoint`.
 
 ```json
 {
@@ -116,7 +118,11 @@ Optional fields by type:
 - `"approved"` → includes `"afterDrift": true` when approved after detected drift (v0.1.60+), or `"ideaArchived": true` when approving Phase 1 archived the project's IDEA.md seed
 - `"upgrade_migration"` → see schema below (v2.0.0+)
 - `"rehash"` → includes `artifact`, `before_hash`, `after_hash` (v2.0.0-alpha.3+). Emitted by `aitri rehash <phase>` when an operator updates the stored hash for a phase whose artifact content has not changed from its committed state. No content drift — bookkeeping only.
-- `"verify-run"` / `"verify-complete"` → include `{ passed, failed }` counts (v2.0.0+)
+- `"verify-run"` → includes `{ passed, failed, skipped, manual }` counts; `"verify-complete"` → includes `{ passed, failed }` (v2.0.0+)
+- `"reconcile-resolved"` → includes `{ files, method, baseRefFrom, baseRefTo }` (or `{ files: 0, method, auto: true }` when auto-resolved with no changes)
+- `"verify-spec-complete"` → includes `{ stubs }` (count of placeholder TCs generated by `adopt verify-spec`)
+- `"layout_migrated"` → includes `{ container: "aitri" }`
+- `"approve_preflight_autofix"` → carries `phase: null` + `{ target, transform, before_hash, after_hash }`
 
 **Reader guidance:** unknown event types MUST be tolerated. New types are added without warning; a reader that filters the event log should use an allow-list of types it understands, not a deny-list.
 
@@ -177,7 +183,7 @@ Emitted once per migration applied by `aitri adopt --upgrade`. The event log is 
   "2":         "02_SYSTEM_DESIGN.md",
   "3":         "03_TEST_CASES.json",
   "4":         "04_BUILD_REPORT.json",
-  "4r":        "04_CODE_REVIEW.md",
+  "review":    "04_CODE_REVIEW.md",
   "5":         "05_TRACEABILITY.json"
 }
 ```
@@ -284,7 +290,7 @@ Projects that run `aitri adopt --upgrade` will have missing fields written to di
 | `.aitri` | **Shared** — everything except the three per-machine fields below: `projectName`, `aitriVersion`, `createdAt`, `updatedAt`, `artifactsDir`, `layoutRoot`, `currentPhase`, `approvedPhases`, `completedPhases`, `driftPhases`, `cascadedPhases`, `frSnapshots`, `rejections`, `artifactHashes`, `events[]`, `verifyPassed`/`verifySummary`/`verifyRanAt`/`lastVerifyRun`/`verifyResultsHash`, `auditLastAt`, `coverageAuditLastAt`, `coverageAuditReqHash`, `securityAuditLastAt`, `upgradeFindings`, and the opt-in flags (`strictAssertions`, `humanApprovalGate`, `reviewGate`). The split is a per-machine DENY-list — any new field is shared by default | **committed** |
 | `.aitri.local` | **Per-machine** — `lastSession` (`.at`, `.agent`, …), `sessionContext` (`.text`, `.at`) and `reconcileState` (`baseRef`, `method`, `status`, `lastRun`) | **gitignored** |
 
-`saveConfig` writes `.aitri` only when a shared field other than `updatedAt` changed, so committing it no longer creates per-command noise — the noise that previously pushed teams to gitignore the whole file now lives in `.aitri.local`. `loadConfig` merges both files; every reader still sees one config object. **v2.0.0-rc.149+: the read side enforces the same partition as the write side** — only the per-machine fields (`lastSession`, `sessionContext`, `reconcileState`) are read from `.aitri.local`; a SHARED key found there (hand edit, old CLI, restored backup) is ignored with a warning naming it, so it can never shadow the committed team state. Also rc.149+: a **malformed shared `.aitri` refuses** (with git-restore guidance and a `.aitri.bak` backup) instead of silently resetting to defaults — extending the rc.128 merge-conflict rule (G-4) to every parse failure; a malformed `.aitri.local` stays lenient (per-machine, re-establishable). (An old single-file `.aitri` with per-machine fields inline auto-migrates on its first save; `adopt --upgrade` also fixes the project's `.gitignore`. A pre-existing `.aitri/` *folder* uses `.aitri/config.json` + `.aitri/local.json` instead — supported as a fallback.)
+`saveConfig` writes `.aitri` only when a shared field other than `updatedAt` changed, so committing it no longer creates per-command noise — the noise that previously pushed teams to gitignore the whole file now lives in `.aitri.local`. `loadConfig` merges both files; every reader still sees one config object. **v2.0.0-rc.149+: the read side enforces the same partition as the write side** — only the per-machine fields (`lastSession`, `sessionContext`, `reconcileState`) are read from `.aitri.local`; a SHARED key found there (hand edit, old CLI, restored backup) is ignored with a warning naming it, so it can never shadow the committed team state. Also rc.149+: a **malformed shared `.aitri` refuses** instead of silently resetting to defaults — with git-restore guidance, plus a `.aitri.bak` backup on the generic-parse-failure branch (the merge-conflict branch refuses without writing one; git itself holds the recovery there) — extending the rc.128 merge-conflict rule (G-4) to every parse failure; a malformed `.aitri.local` stays lenient (per-machine, re-establishable). (An old single-file `.aitri` with per-machine fields inline auto-migrates on its first save; `adopt --upgrade` also fixes the project's `.gitignore`. A pre-existing `.aitri/` *folder* uses `.aitri/config.json` + `.aitri/local.json` instead — supported as a fallback.)
 
 ### Why committing `.aitri` matters (what the split preserves)
 

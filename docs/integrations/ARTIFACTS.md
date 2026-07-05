@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.156+
+**Aitri version:** v2.0.0-rc.157+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -113,7 +113,7 @@ Written by Phase 2 (Architect persona). Markdown document — no fixed JSON sche
 - Security Design
 - Performance & Scalability
 - Deployment Architecture
-- Risk Analysis (minimum 3 risks)
+- Risk Analysis (the template teaches 3–5 risks; the gate checks section presence, not a count)
 - Technical Risk Flags — must have content (declare `[RISK]` flags or write "None detected" with justification)
 
 Headers accept plain (`## Name`), integer (`## 1. Name`), or decimal (`## 1.1 Name`) prefixes.
@@ -167,9 +167,9 @@ Written by Phase 3 (QA persona). Test cases keyed to FRs, user stories, and acce
 - `scenario` must be: `happy_path` | `edge_case` | `negative`
 - Each TC must have: `requirement_id` (or `frs[]`) and `user_story_id`. `ac_id` is **conditional** (v2.0.0-rc.36+, ADR-041): required only when `01_REQUIREMENTS.json` provides structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, given, when, then }` objects — or the legacy `{ id, text }` / `{ id, description }`; only the `id` is the join key); when ACs are plain strings, `ac_id` is optional
 - `expected_result` must not be a placeholder (`"it works"`, `"passes"`, `"succeeds"`, etc.)
-- Each FR must have a minimum of 3 TCs, with at least one `happy_path` and one `negative` scenario (edge_case is encouraged but not enforced)
-- Each FR must have at least one TC with id ending in `h` (happy path) and one ending in `f` (failure)
-- Minimum 2 `e2e` test cases total
+- Each targeted requirement id — FR **or NFR** (the per-requirement rules bind whatever `requirement_id`/`frs` points at) — must have a minimum of 3 TCs, with at least one `happy_path` and one `negative` scenario (edge_case is encouraged but not enforced)
+- Each targeted requirement id must have at least one TC with id ending in `h` (happy path) and one ending in `f` (failure)
+- Minimum 2 critical-flow test cases total — **stack-aware since v2.0.0-rc.62 (TPA-7):** when the project has a UI FR (type `ux`/`visual`/`audio`), or requirements are unreadable, the 2 must be `e2e`; on a verified backend-only surface, `e2e` OR `integration` TCs count (API-level integration tests ARE the critical-flow coverage there — do not mislabel them `e2e`)
 - `requirement_id` must be a single id from `01_REQUIREMENTS.json` — either a functional requirement (`FR-xxx`) or a non-functional requirement (`NFR-xxx`). NFR ids are accepted as TC targets when the NFR is declared in `non_functional_requirements[]` (v2.0.0-alpha.9+). Comma-separated ids are rejected.
 - For multi-FR TCs, use `"frs": ["FR-001","FR-002"]` (string array) instead of a comma-separated `requirement_id`. `frs` is recognized by `aitri verify-run` (v0.1.90+) AND, since v2.0.0-rc.26, by `aitri complete 3` — a TC may carry `frs` instead of `requirement_id`, and `complete 3` buckets it into each targeted FR for the per-FR + FR-MUST coverage rules (it used to reject any TC without `requirement_id`, making the documented `frs` form uncompletable). When present, `frs` wins over `requirement_id` in both. Each TC must target at least one of `requirement_id` or a non-empty `frs[]`.
 - If `01_REQUIREMENTS.json` has structured AC ids: TC `ac_id` values are required and cross-checked against the ids in `user_stories[].acceptance_criteria` (the error lists the valid ids). If ACs are plain strings, `ac_id` is optional and any declared values are not validated (an informational note is emitted). All MUST requirements (FR or NFR, v2.0.0-rc.27+) must have at least one TC — where "MUST" also covers any NFR with `category: "Regression"` regardless of priority (v2.0.0-rc.104+).
@@ -218,7 +218,7 @@ Written by Phase 4 (Developer persona). Implementation tracking and test runner 
 **Validation rules (enforced by `aitri complete 4`):**
 - `quality_gates`, when present, must be an array; each entry needs a non-empty `command` string (or a numeric `threshold` for a coverage gate); `required` (if present) must be boolean; `timeout_ms` (if present) must be a positive number. Absent → non-blocking note nudging the agent to declare them.
 - `setup_commands` and `environment_variables` are optional. When present they must be arrays; when absent they are treated as `[]`. (v2.0.0-alpha.9+ — earlier versions required the keys to be present even when empty.)
-- At least one of `files_created` or `files_modified` must be a non-empty array — supports both greenfield (new files only) and modification/redesign work
+- At least one of `files_created` or `files_modified` must be a non-empty array — supports both greenfield (new files only) and modification/redesign work. Entries in both lists must be flat **string** paths — objects like `[{ "path": … }]` are rejected at the gate with a message naming the field (same guard as `test_files`; three independent adopters hit exactly that shape)
 - `technical_debt` field is required — use `[]` if no substitutions were made
 - Each `technical_debt` entry must have `fr_id` and a non-generic `substitution`. Optional `reason` (why the substitution was necessary) and `effort_to_fix` (`low`/`medium`/`high`) are additive, not validated — `aitri status`/`aitri resume` surface them in the debt digest, so a reader following this schema should carry them (v2.0.0-rc.141+ documented; the fields shipped earlier and were surfaced but undocumented)
 - `test_runner` is required (e.g. `"npm test"`, `"node --test tests/"`) — **except** in manual-verification mode (see below)
@@ -294,7 +294,7 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 }
 ```
 
-**`test_runner` / `exit_code`** — the exact command run and its exit code. **Manual-seed mode (v2.0.0-rc.95+):** when every TC is `automation: "manual"` (root scope), `verify-run` seeds the results without launching a runner, so **both are `null`** (nothing ran — they are not fabricated to `"npm test"`/`0`). A reader must accept `test_runner: null` and `exit_code: null` as well as their normal string/number forms. `fr_coverage` is recomputed when `aitri tc verify` records a result (rc.95+), so after manual verification it agrees with `summary` rather than reflecting only the verify-run snapshot.
+**`test_runner` / `exit_code`** — the exact command run and its exit code. **Manual-seed mode (v2.0.0-rc.95+):** when every TC is `automation: "manual"` (root scope), `verify-run` seeds the results without launching a runner, so **both are `null`** (nothing ran — they are not fabricated to `"npm test"`/`0`). A reader must accept `test_runner: null` and `exit_code: null` as well as their normal string/number forms. `fr_coverage` **and `ac_coverage`** are recomputed when `aitri tc verify` records a result (rc.95+ / rc.109+), so after manual verification they agree with `summary` rather than reflecting only the verify-run snapshot.
 
 **`runner_override`** (optional, v2.0.0-rc.117+, ADV-0622-36) — present **only** when `verify-run --cmd "<command>"` substituted the whole runner AND that command differs from `04_BUILD_REPORT.json#test_runner`. Shape `{ used, manifest_runner }`: the command actually run vs the manifest's declared runner. Surfaces that the deploy-gate evidence came from an operator-supplied command, not the committed manifest — informational, never a gate (`--cmd` is a legitimate escape hatch for venv/env-specific runners). Absent on a normal run.
 
@@ -304,9 +304,9 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 
 **`low_confidence_tcs`** (v2.0.0-rc.9+) — TCs whose test block contains ≤1 assertion (possible trivial test). Always present (possibly `[]`). Each entry: `{ tc_id, file, assertCount }`. Informational by default; becomes a hard gate in `verify-complete` only when the project sets `strictAssertions: true` in `.aitri` (see SCHEMA.md).
 
-**`quality_gates`** (optional, v2.0.0-rc.21+) — per-gate code-quality results, present only when the manifest declares `quality_gates`. A command-gate entry: `{ name, command, required, status: "pass"|"fail"|"error", exit_code: number|null, output?: string }` (`status: "error"` = tool not found / ENOENT). A coverage-gate entry: `{ name, threshold, measured: number|null, required, status }` (`status: "error"` when `measured` is null — coverage could not be parsed). A `required` gate that is not `pass` blocks `verify-complete` and resets `verifyPassed`. `output` (command gates) is the last ~600 chars of stdout+stderr. Tests verify behavior; these verify the code is well-built (lint/type-check/security/coverage). See ADR-037.
+**`quality_gates`** (optional, v2.0.0-rc.21+) — per-gate code-quality results, present only when the manifest declares `quality_gates`. A command-gate entry: `{ name, command, required, status: "pass"|"fail"|"error", exit_code: number|null, output?: string }` (`status: "error"` = tool not found / ENOENT, **or the gate was killed at its `timeout_ms`**). A coverage-gate entry: `{ name, threshold, measured: number|null, required, status, output?: string }` (`status: "error"` when `measured` is null — coverage could not be parsed; `output` then carries the explanation). A `required` gate that is not `pass` blocks `verify-complete` and resets `verifyPassed`. `output` (command gates) is the last ~600 chars of stdout+stderr. Tests verify behavior; these verify the code is well-built (lint/type-check/security/coverage). See ADR-037.
 
-**`summary` counts** (v2.0.0-rc.20+) — `passed`/`failed`/`skipped`/`manual` are all counted by per-result `status`, so `passed + failed + skipped + manual === total`. `skipped_e2e` + `skipped_no_marker` partition `skipped`. `manual` counts results still awaiting manual verification (status `manual`); a manual TC that a human verified via `aitri tc verify` carries its verdict (`pass`/`fail`) and is counted there, with `manual_verified` reporting how many manual TCs were verified. (Before rc.20 `manual` was a declared-manual count that overlapped `passed`/`failed`.)
+**`summary` counts** (v2.0.0-rc.20+) — `passed`/`failed`/`skipped`/`manual` are all counted by per-result `status`, so `passed + failed + skipped + manual === total`. `skipped_e2e` + `skipped_no_marker` partition `skipped`. `manual` counts results still awaiting manual verification (status `manual`); a manual TC that a human verified via `aitri tc verify` carries its verdict (`pass`/`fail`) and is counted there, with `manual_verified` reporting how many results carry `verified_manually: true` — that includes an *automated* TC recorded via `tc verify --evidence`, so it can exceed the count of declared-manual TCs. (Before rc.20 `manual` was a declared-manual count that overlapped `passed`/`failed`.)
 
 **This `summary` object is the canonical shape** — `verify-complete` persists it verbatim into `.aitri#verifySummary`, and `status --json` re-emits it as the synthetic `verify` phase entry's `verifySummary`. SCHEMA.md and STATUS_JSON.md reference this definition rather than redefining it.
 
@@ -344,7 +344,7 @@ Written by Phase 5 (DevOps persona). FR coverage proof linking requirements to t
   "requirement_compliance": [
     {
       "id": "FR-001",
-      "title": "string (optional) — the FR/NFR title echoed for readability; `aitri export traceability` renders it (falls back to `requirement`)",
+      "title": "string (optional) — the FR/NFR title echoed for readability. No Aitri command reads it today (`aitri export traceability` takes its title column from 01_REQUIREMENTS.json, not from this field) — it exists for human readers and external consumers of this file",
       "level": "placeholder | functionally_present | partial | complete | production_ready",
       "evidence": "string",
       "tc_ids": ["TC-001h", "TC-001f"]
@@ -358,7 +358,8 @@ Written by Phase 5 (DevOps persona). FR coverage proof linking requirements to t
 - `overall_status` must be: `compliant` | `partial` | `draft`
 - `level` must be: `placeholder` | `functionally_present` | `partial` | `complete` | `production_ready`
 - `level: "placeholder"` blocks the pipeline — placeholder implementations cannot be shipped
-- Entries use field `id` (not `fr_id`) — a common mistake; validation will report the mismatch
+- Entries use field `id` (not `fr_id`) — a common mistake. The naming hint is only surfaced alongside an invalid-`level` error; an entry keyed `fr_id` with a valid level fails as a generic "MUST requirement(s) not found in requirement_compliance"
+- **Run-binding tamper check (v2.0.0-rc.148+, UPLAN-0703 B3):** when `.aitri#verifyResultsHash` exists and `04_TEST_RESULTS.json` no longer matches it (edited after the last `verify-run`), `complete 5` refuses — the compliance proof cannot be validated over a tampered results file. Re-run `aitri verify-run`, then re-derive Phase 5. A stamp-less pre-rc.129 project is not blocked here (the deploy gate's B1 check owns that path)
 - If `01_REQUIREMENTS.json` is present: every requirement (FR or NFR, v2.0.0-rc.27+) with `priority: "MUST"` — or any NFR with `category: "Regression"` regardless of priority (v2.0.0-rc.104+) — must have an entry in `requirement_compliance`
 - **Claim-vs-evidence (v2.0.0-rc.13+):** if `04_TEST_RESULTS.json` is present, any entry with `level` `complete` or `production_ready` must have `fr_coverage` status `covered` for that FR. A high level over `partial`/`uncovered`/`manual` evidence is rejected — a *pending* `manual` (0 passing, unverified) is **not** acceptable evidence (verify it with `aitri tc verify` → `pass` → `covered`); the proof must not over-claim past the tests. (Conservative: only fires when the coverage entry exists and contradicts.) The Phase-5 gate (`phase5.js`) and the `aitri export traceability` renderer (`export.js`) share this rule from one SSoT (`lib/requirements.js` `HIGH_COMPLIANCE_LEVELS` / `EVIDENCE_OK_STATUSES`, AUDIT-0629-E) so the rendered matrix flags exactly what the gate rejects.
 
@@ -390,7 +391,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
       "fr": "FR-XXX | null",
       "tc_reference": "TC-XXX | null",
       "phase_detected": "number | null",
-      "detected_by": "manual | verify-run | playwright | review",
+      "detected_by": "manual | verify-run | playwright (the only values Aitri writes today; treat as an open string set — e.g. a review-originated bug registered by an agent may carry another label)",
       "evidence": "relative path to screenshot/video/log | null",
       "reported_by": "string | null",
       "created_at": "ISO8601",
@@ -407,14 +408,16 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
 ```
 
 **Lifecycle:** `open → fixed → verified → closed`
-- `fixed`: developer marks resolved (`aitri bug fix`) — optionally links a TC. If the project is a git repo, `fix_commit_sha` + `fix_at` are captured automatically.
-- `verified`: auto-set by `verify-run` when linked TC passes, or manually via `aitri bug verify`
-- `closed`: archived. If the project is a git repo, `close_commit_sha` + `close_at` are captured. When both `fix_commit_sha` and `close_commit_sha` are present and differ, `files_changed` records the diff (filtered through the shared `isAitriStatePath`: excludes the artifacts dir, the contained-layout container, `.aitri*`, `node_modules`, and feature sub-pipeline artifacts — rc.82; previously `spec/`+`.aitri` only).
+- `fixed`: developer marks resolved (`aitri bug fix`) — optionally links a TC. If the project is a git repo, `fix_commit_sha` + `fix_at` are captured automatically. **On a BLOCKING bug (critical/high, active), `bug fix` requires `--resolution "<text>"` or `--tc TC-NNN`** — de-blocking the deploy gate must carry evidence (v2.0.0-rc.149+, UPLAN-0703 B8).
+- `verified`: auto-set by `verify-run` when linked TC passes, or manually via `aitri bug verify`. `bug verify` on a bug that was never `fixed` refuses (v2.0.0-rc.149+; previously it verified anyway with a note).
+- `closed`: archived. If the project is a git repo, `close_commit_sha` + `close_at` are captured. When both `fix_commit_sha` and `close_commit_sha` are present and differ, `files_changed` records the diff (filtered through the shared `isAitriStatePath`: excludes the artifacts dir, the contained-layout container, `.aitri*`, `node_modules`, and feature sub-pipeline artifacts — rc.82; previously `spec/`+`.aitri` only). **On a blocking bug, `bug close` requires `--resolution`** — without it a bare `close` would bypass the fix-side evidence gate entirely (v2.0.0-rc.149+, B8).
+
+**Malformed-file rule (v2.0.0-rc.149+):** a `BUGS.json` that fails to parse **refuses** every bug command and every gate that reads bug state (`verify-complete`, `reconcile --resolve`, `validate --ci` — root and features) instead of being treated as an empty list. A parse failure previously dropped every blocking bug from the gates silently, and the next write would have overwritten the corrupt file. Unrecognized `severity`/`status` values (e.g. `P0`, `blocker`) warn once per file — non-blocking, but no longer silent.
 
 **Audit trail (v0.1.90+):** the fix/close SHA pair plus `files_changed` provides a non-honor-system record of which commit range resolved each bug. Missing if the project has no git repo or HEAD is unreadable — behaviour degrades silently, lifecycle still works.
 
 **Blocking rule:** bugs that are active (`status: "open"` or `"in_progress"`) with `severity: "critical"` or `"high"` block `verify-complete`, `reconcile --resolve`, and the deploy gate (aligned v2.0.0-rc.110+).
-**Playwright integration:** when Playwright runs in `verify-run` and a TC fails, `evidence` is auto-populated from `test-results/<folder>/screenshot.png` if the folder exists.
+**Playwright integration:** when Playwright runs in `verify-run` and a TC fails, `evidence` is auto-populated from the TC's `test-results/<folder>/` — the first `*.png` found, falling back to the first `*.webm` video — if the folder exists.
 
 ---
 
