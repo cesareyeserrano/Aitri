@@ -2,7 +2,7 @@
 
 > Published version history. Format: [version] — date — what shipped.
 > **Current scheme: `2.0.0-rc.N`** — a rolling pre-release channel, installed from GitHub by branch/SHA (`npm i -g github:cesareyeserrano/Aitri#<branch-or-sha>`). The npm registry is frozen at `0.1.25` and contract-incompatible with 2.x; publishing resumes at 2.0.0 stable. Breaking changes inside the rc channel are marked in `docs/integrations/CHANGELOG.md`.
-> **Promotion criterion (UPLAN-0703 A5):** 2.0.0 promotes to stable when (1) a third-party adopter has validated end-to-end — **met** (DSB-AT-POC, two rounds) — and (2) the last planned breaking window, UPLAN-0703 Phase B (verification-spine hardening), has landed. The promotion itself is executed by the maintainer.
+> **Promotion:** the 2.0.0-stable criteria (UPLAN-0703 A5) are met; the promotion itself is executed by the maintainer, on the maintainer's timing.
 > Older eras are preserved below for history: the `0.1.x` npm-published era, and the original `2.0.x` entries of 2026-03.
 
 ---
