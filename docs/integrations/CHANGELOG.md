@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.159 (2026-07-05) — `adopt --upgrade` renames pre-rc.41 artifact files inside `features/*/` on disk (HUB-CANARY-0705) — additive
+
+No schema or JSON-surface change. Consumer-relevant on-disk effect: the rc.41 artifact renames (`04_IMPLEMENTATION_MANIFEST.json` → `04_BUILD_REPORT.json`, `05_PROOF_OF_COMPLIANCE.json` → `05_TRACEABILITY.json`) now cascade to every `features/<name>/<artifactsDir>/` during `adopt --upgrade` (previously root-only, leaving feature artifacts under legacy names). A subproduct reading feature artifacts directly should read the NEW names, keeping the old names as a fallback for projects that have not re-run `adopt --upgrade`. Feature `.aitri` state files remain untouched (ADR-030 addendum).
+
 ## v2.0.0-rc.158 (2026-07-05) — `bugs.parseErrors` on `status --json`; reconcile closes the growing-drift stale-proof window (INTEG-0704 adversarial findings) — additive
 
 Both fixes come from the adversarial review of the rc.147–157 batch. All changes additive; no existing field changed shape.
