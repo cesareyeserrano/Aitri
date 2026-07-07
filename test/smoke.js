@@ -9,8 +9,15 @@ import { execSync }   from 'child_process';
 import fs             from 'fs';
 import os             from 'os';
 import path           from 'path';
+import { fileURLToPath } from 'url';
 import { describe, it, before, after } from 'node:test';
 import assert         from 'node:assert/strict';
+
+// Always exercise the WORKING-TREE binary, never a globally installed aitri.
+// The release flow runs test:all BEFORE `npm i -g .` — resolving `aitri` from
+// PATH would make this whole E2E layer validate the previous build.
+const BIN   = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'aitri.js');
+const AITRI = `"${process.execPath}" "${BIN}"`;
 
 // Contained layout (LAYOUT-1, rc.76+): init creates the root unit under aitri/product/.
 const UNIT = path.join('aitri', 'product');
@@ -69,12 +76,12 @@ const INVALID_REQUIREMENTS_FEW_FRS = JSON.stringify({
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function aitri(args, cwd) {
-  return execSync(`aitri ${args}`, { cwd, encoding: 'utf8' });
+  return execSync(`${AITRI} ${args}`, { cwd, encoding: 'utf8' });
 }
 
 function aitriShouldFail(args, cwd) {
   try {
-    execSync(`aitri ${args}`, { cwd, encoding: 'utf8', stdio: 'pipe' });
+    execSync(`${AITRI} ${args}`, { cwd, encoding: 'utf8', stdio: 'pipe' });
     throw new Error(`Expected aitri ${args} to fail, but it succeeded`);
   } catch (e) {
     if (e.message.startsWith('Expected')) throw e;
@@ -359,14 +366,14 @@ describe('Aitri CLI — Smoke Test', () => {
     // Modifying artifact after complete is now caught as drift — approve blocks in non-TTY
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-ux-warn-'));
     try {
-      execSync('aitri init', { cwd: dir, encoding: 'utf8' });
+      execSync(`${AITRI} init`, { cwd: dir, encoding: 'utf8' });
       fs.writeFileSync(path.join(dir, SPEC, '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
-      execSync('aitri complete 1', { cwd: dir, encoding: 'utf8' });
+      execSync(`${AITRI} complete 1`, { cwd: dir, encoding: 'utf8' });
       // Modify artifact after complete — drift gate must block approve in non-TTY
       fs.writeFileSync(path.join(dir, SPEC, '01_REQUIREMENTS.json'), '{not valid json}');
       let threw = false;
       try {
-        execSync('aitri approve 1 2>&1', { cwd: dir, encoding: 'utf8' });
+        execSync(`${AITRI} approve 1 2>&1`, { cwd: dir, encoding: 'utf8' });
       } catch (e) {
         threw = true;
         assert.match(e.stdout || '', /artifact changed after approval|human review required/i);
@@ -471,7 +478,7 @@ describe('Aitri CLI — run-phase smoke', () => {
 
   before(() => {
     rpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rp-'));
-    execSync('aitri init', { cwd: rpDir, encoding: 'utf8' });
+    execSync(`${AITRI} init`, { cwd: rpDir, encoding: 'utf8' });
     fs.writeFileSync(path.join(rpDir, UNIT, 'IDEA.md'), LONG_IDEA);
     fs.writeFileSync(path.join(rpDir, SPEC, '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
     fs.writeFileSync(path.join(rpDir, SPEC, '02_SYSTEM_DESIGN.md'), DESIGN_MD);
@@ -547,7 +554,7 @@ describe('Aitri CLI — complete 3 h/f naming gate', () => {
 
   before(() => {
     gateDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-tc-'));
-    execSync('aitri init', { cwd: gateDir, encoding: 'utf8' });
+    execSync(`${AITRI} init`, { cwd: gateDir, encoding: 'utf8' });
     // Ordering gate (§3.1): `complete 3` now requires Phases 1 & 2 completed. This
     // suite isolates the Phase-3 h/f gate, so seed the upstream as already done.
     const cfgPath = path.join(gateDir, '.aitri');
@@ -578,10 +585,10 @@ describe('Aitri CLI — resume + checkpoint smoke', () => {
 
   before(() => {
     rcDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-rc-'));
-    execSync('aitri init', { cwd: rcDir, encoding: 'utf8' });
+    execSync(`${AITRI} init`, { cwd: rcDir, encoding: 'utf8' });
     fs.writeFileSync(path.join(rcDir, SPEC, '01_REQUIREMENTS.json'), VALID_REQUIREMENTS);
-    execSync('aitri complete 1', { cwd: rcDir, encoding: 'utf8' });
-    execSync('aitri approve 1', { cwd: rcDir, encoding: 'utf8' });
+    execSync(`${AITRI} complete 1`, { cwd: rcDir, encoding: 'utf8' });
+    execSync(`${AITRI} approve 1`, { cwd: rcDir, encoding: 'utf8' });
   });
 
   after(() => fs.rmSync(rcDir, { recursive: true, force: true }));
@@ -614,7 +621,7 @@ describe('Aitri CLI — resume + checkpoint smoke', () => {
   });
 
   it('aitri resume is pipeable (stdout only, no stderr bleed)', () => {
-    const out = execSync('aitri resume 2>/dev/null', { cwd: rcDir, encoding: 'utf8' });
+    const out = execSync(`${AITRI} resume 2>/dev/null`, { cwd: rcDir, encoding: 'utf8' });
     assert.match(out, /AITRI SESSION RESUME/);
   });
 
@@ -759,7 +766,7 @@ describe('Aitri CLI — adopt smoke', () => {
     const migDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-adopt-layout-'));
     try {
       execSync('git init -q', { cwd: migDir });
-      execSync('aitri init', { cwd: migDir, encoding: 'utf8' });
+      execSync(`${AITRI} init`, { cwd: migDir, encoding: 'utf8' });
       // Rewrite to a FLAT config so the migration is applicable.
       const cfgPath = path.join(migDir, '.aitri');
       const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
@@ -853,7 +860,7 @@ describe('Aitri CLI — help smoke', () => {
 
   before(() => {
     helpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-help-smoke-'));
-    execSync('aitri init', { cwd: helpDir, encoding: 'utf8' });
+    execSync(`${AITRI} init`, { cwd: helpDir, encoding: 'utf8' });
   });
 
   after(() => { try { fs.rmSync(helpDir, { recursive: true, force: true }); } catch {} });
@@ -882,7 +889,7 @@ describe('Aitri CLI — bug smoke', () => {
 
   before(() => {
     bugDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-bug-smoke-'));
-    execSync('aitri init', { cwd: bugDir, encoding: 'utf8' });
+    execSync(`${AITRI} init`, { cwd: bugDir, encoding: 'utf8' });
   });
 
   after(() => { try { fs.rmSync(bugDir, { recursive: true, force: true }); } catch {} });
@@ -984,10 +991,10 @@ describe('Aitri CLI — review smoke', () => {
 
   before(() => {
     reviewDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-review-smoke-'));
-    execSync('aitri init', { cwd: reviewDir, encoding: 'utf8' });
+    execSync(`${AITRI} init`, { cwd: reviewDir, encoding: 'utf8' });
     fs.writeFileSync(path.join(reviewDir, SPEC, '01_REQUIREMENTS.json'), REVIEW_REQUIREMENTS);
-    execSync('aitri complete 1', { cwd: reviewDir, encoding: 'utf8' });
-    execSync('aitri approve 1', { cwd: reviewDir, encoding: 'utf8' });
+    execSync(`${AITRI} complete 1`, { cwd: reviewDir, encoding: 'utf8' });
+    execSync(`${AITRI} approve 1`, { cwd: reviewDir, encoding: 'utf8' });
   });
 
   after(() => { try { fs.rmSync(reviewDir, { recursive: true, force: true }); } catch {} });

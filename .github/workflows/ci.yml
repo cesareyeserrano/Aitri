@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
     branches: [main]
 
@@ -31,3 +31,11 @@ jobs:
 
       - name: Run full test suite
         run: npm run test:all
+
+      # Coverage floor on lib/ + bin/ (tests excluded). One matrix leg is enough;
+      # the floors (90 lines / 80 branches) sit below the current ~95/84 so a real
+      # dip fails loudly without flaking on noise. Aitri offers consumer projects
+      # a coverage quality_gate — this is the same gate, dogfooded.
+      - name: Coverage floor (lines 90 / branches 80)
+        if: matrix.node-version == 24
+        run: npm run test:coverage
