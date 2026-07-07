@@ -50,6 +50,14 @@ describe('isMustRequirement() (REG-GATE-0621)', () => {
     assert.equal(isMustRequirement({ id: 'NFR-002', category: 'Security' }), false);
   });
 
+  it('new enum values CI/CD and Observability carry no MUST side-effect (E2E-PIPELINE-0706)', () => {
+    // Regression stays the ONLY load-bearing category — the enum extension is
+    // display/briefing-only and must not trip the hard-MUST machinery.
+    assert.equal(isMustRequirement({ id: 'NFR-010', category: 'CI/CD' }), false);
+    assert.equal(isMustRequirement({ id: 'NFR-011', category: 'Observability' }), false);
+    assert.equal(isMustRequirement({ id: 'NFR-012', category: 'CI/CD', priority: 'MUST' }), true);
+  });
+
   it('is false for an undefined/empty requirement (no crash)', () => {
     assert.equal(isMustRequirement(undefined), false);
     assert.equal(isMustRequirement({}), false);

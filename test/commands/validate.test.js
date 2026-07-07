@@ -734,6 +734,41 @@ describe('cmdValidate() — IDEA.md gate accepts original_brief absorption (alph
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('JSON mode: allValid=true for a completed project whose brief was absorbed (E2E-PIPELINE-0706)', () => {
+    // Pre-rc.160, allValid required literal `exists` on every required entry —
+    // a permanent false-negative for EVERY project past approve 1 (IDEA.md is
+    // deleted at absorption by design). The predicate now honors `absorbed`.
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      fs.unlinkSync(path.join(dir, 'IDEA.md'));
+      const reqsPath = path.join(dir, 'spec/01_REQUIREMENTS.json');
+      const reqs     = JSON.parse(fs.readFileSync(reqsPath, 'utf8'));
+      reqs.original_brief = 'Some narrative.';
+      const updated  = JSON.stringify(reqs);
+      fs.writeFileSync(reqsPath, updated, 'utf8');
+      const cfgPath = path.join(dir, '.aitri');
+      const cfg     = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+      cfg.artifactHashes['1'] = hashArtifact(updated);
+      fs.writeFileSync(cfgPath, JSON.stringify(cfg));
+
+      const json = JSON.parse(captureStdout(() => cmdValidate({ dir, args: ['--json'] })));
+      assert.equal(json.allValid, true,
+        'absorbed brief counts as satisfied — allValid must not be a permanent false-negative');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('JSON mode: allValid=false when the brief is neither on disk nor absorbed', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      fs.unlinkSync(path.join(dir, 'IDEA.md'));
+      // original_brief never populated — the gate must still fail.
+      const json = JSON.parse(captureStdout(() => cmdValidate({ dir, args: ['--json'] })));
+      assert.equal(json.allValid, false, 'a genuinely missing brief still fails allValid');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('JSON mode: file on disk → exists=true, approved=true, no absorbed flag', () => {
     const dir = tmpDir();
     try {

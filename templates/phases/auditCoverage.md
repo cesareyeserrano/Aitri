@@ -76,7 +76,7 @@ Use exactly this heading:
 ### Requirements Coverage
 Each gap:
   **[GAP-N]** `[UNCOVERED|PARTIAL]` — the client need (quote the source line)
-  - Source: `00_DISCOVERY.md` / `original_brief` / `IDEA.md` — the exact line
+  - Source: `00_DISCOVERY.md` / `original_brief` / "the seed brief" — quote the exact line. Refer to the seed as "the seed brief", not by filename: after approve 1 it is archived and its content lives in `01_REQUIREMENTS.json#original_brief`
   - Status: UNCOVERED (no FR covers it) | PARTIAL (FR-id covers X, missing Y)
   - Action: re-open Phase 1 to add an FR, OR record an explicit out-of-scope decision with a one-line reason
 

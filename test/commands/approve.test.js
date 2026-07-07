@@ -217,6 +217,28 @@ describe('cmdApprove() — alpha.27 pre-flight scan on first-approve of phase 1'
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('does NOT block when the only seed mention lives in AUDIT_REPORT.md (AUDIT-REF-0706)', () => {
+    // The recommended pre-approval flow is `audit requirements` → `approve 1`;
+    // the auditor legitimately cites the seed while it still exists. That
+    // point-in-time record must not make the recommended flow self-blocking.
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'IDEA.md', ideaContent);
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', reqContent);
+      writeFile(dir, 'spec/AUDIT_REPORT.md', '## Coverage\n- Source: `IDEA.md` — the exact line\n');
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1] }));
+
+      captureAll(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+
+      assert.ok(!fs.existsSync(path.join(dir, 'IDEA.md')), 'absorb proceeds — IDEA.md archived');
+      const updated = JSON.parse(fs.readFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), 'utf8'));
+      assert.equal(updated.original_brief, ideaContent, 'brief absorbed');
+      const c = loadConfig(dir);
+      assert.ok((c.approvedPhases || []).includes(1), 'phase 1 approved');
+      assert.ok(fs.existsSync(path.join(dir, 'spec/AUDIT_REPORT.md')), 'report left untouched');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('BLOCK message lists narrative refs grouped by file with field paths', () => {
     const dir = tmpDir();
     try {

@@ -153,6 +153,32 @@ describe('persona/template drift canaries (C3 — known-drifted vocabulary must 
       'the unconditional 375px mandate was a stack assumption (principle 4) — kiosk/TUI/desktop products');
     assert.match(out, /fixed-medium surface/, 'the conditional carve-out must be present');
   });
+
+  it('phase 3 and 4 briefings state the ONLY sources of TC credit (VERIFY-TC-VISIBILITY-0706)', () => {
+    // A TC verified only through a quality_gates command is judged by exit
+    // code and never parsed — invisible until verify-complete blocks. The
+    // briefings must say so up front, in both the planning and build phases.
+    for (const n of [3, 4]) {
+      assert.match(renderPhase(n), /judged by exit code/,
+        `phase ${n} must state quality gates are never parsed for TC ids`);
+    }
+    const p3 = renderPhase(3);
+    assert.match(p3, /credited ONLY from/, 'phase 3 must carry the credit-channel rule');
+    assert.match(p3, /One TC id per test title/,
+      'phase 3 must warn that a multi-id title credits only the first');
+    assert.match(renderPhase(4), /ONLY sources of TC credit/, 'phase 4 must carry the credit-channel rule');
+  });
+
+  it('phase 1 NFR category enum names the operational categories it mandates (E2E-PIPELINE-0706)', () => {
+    // The briefing demands Observability + CI/CD coverage; pre-rc.160 the enum
+    // forbade naming them, steering agents to Regression — the one value with
+    // hard-MUST gate side-effects.
+    const out = renderPhase(1);
+    assert.match(out, /Performance\|Security\|Reliability\|Scalability\|Usability\|Observability\|CI\/CD\|Regression/,
+      'the enum must carry the operational categories');
+    assert.match(out, /do NOT file them under `Regression`/,
+      'the Regression reservation must be stated next to the operational block');
+  });
 });
 
 describe('Phase 4 plan-first protocol (C8/ADR-071)', () => {

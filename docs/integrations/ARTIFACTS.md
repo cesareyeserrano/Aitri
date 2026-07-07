@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.159+
+**Aitri version:** v2.0.0-rc.160+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -58,7 +58,7 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
   "non_functional_requirements": [
     {
       "id": "NFR-001",
-      "category": "string (e.g. Performance, Security, Reliability, Scalability, Usability, Regression)",
+      "category": "string (e.g. Performance, Security, Reliability, Scalability, Usability, Observability, CI/CD, Regression)",
       "requirement": "string",
       "acceptance_criteria": "string"
     }

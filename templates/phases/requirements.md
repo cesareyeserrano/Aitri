@@ -108,7 +108,7 @@ Schema: { project_name, project_summary,
     id:"US-001", requirement_id:"FR-001", as_a:"...", i_want:"...", so_that:"...",
     acceptance_criteria:[{id:"AC-001", given:"concrete system state", when:"exact action or input", then:"verifiable assertion with specific value"}]
   }],
-  non_functional_requirements: [{id:"NFR-001", category:"Performance|Security|Reliability|Scalability|Usability|Regression", requirement, acceptance_criteria}],
+  non_functional_requirements: [{id:"NFR-001", category:"Performance|Security|Reliability|Scalability|Usability|Observability|CI/CD|Regression", requirement, acceptance_criteria}],
   no_go_zone: ["item — what is explicitly out of scope and why"],
   constraints:[], technology_preferences:[],
   idea_provenance: { problem:"confirmed|assumed", users:"confirmed|assumed", baseline:"confirmed|assumed", success_metric:"confirmed|assumed", no_go_zone:"confirmed|assumed" },
@@ -187,6 +187,7 @@ Fold these into project_summary (they inform the FRs; no consumer reads a separa
       NFR minimum (API / endpoints with path or input parameters that read filesystem, DB, or execute commands): accepted values are restricted to a whitelist of allowed directories or resources — blocking `..` alone is insufficient
     **Healthcheck** — applies to: any project with Docker or server deployment
       NFR minimum: GET /health returns 200 when the process is alive
+    Use `category: "Observability"` / `category: "CI/CD"` for those NFRs — do NOT file them under `Regression` (Regression is reserved for Must-Not-Break commitments and is enforced as a hard MUST with the full happy/edge/negative TC set). A CI/CD NFR's observable lives in the workflow file — write its acceptance_criteria as structural assertions on that file (presence, triggers, the exact test command), which is what Phase 3 can test.
 - Every MUST FR must have a type (UX|persistence|security|reporting|logic)
 - acceptance_criteria must be measurable by type (examples assume a responsive web surface — for a fixed-medium product (kiosk, TUI, desktop-fixed, embedded) state the equivalent metric at ITS declared medium instead of importing mobile viewports):
     UX         → "passes mobile viewport at 375px", "animation completes in ≤200ms", "contrast ≥4.5:1"

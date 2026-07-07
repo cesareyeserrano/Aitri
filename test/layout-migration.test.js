@@ -431,6 +431,41 @@ describe('rc.82 hardening — classifier scope/layout awareness', () => {
   });
 });
 
+describe('AUDIT-REF-0706 — AUDIT_REPORT.md seed citations are legitimate, not blockers', () => {
+  it('root scope: IDEA.md mention in AUDIT_REPORT.md yields no narrative ref', async () => {
+    const { classifyIdeaReferences } = await import('../lib/upgrade/idea-ref-classifier.js');
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/AUDIT_REPORT.md', '## Coverage\n- Source: `IDEA.md` — line 3\n');
+      const r = classifyIdeaReferences(dir, { artifactsDir: 'spec' });
+      assert.equal(r.narrative.length, 0, 'point-in-time advisory record must not block');
+      assert.equal(r.frozenCount, 0, 'skip is silent — legitimate citations are not counted');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('feature scope: FEATURE_IDEA.md mention in a feature AUDIT_REPORT.md yields no narrative ref', async () => {
+    const { classifyIdeaReferences } = await import('../lib/upgrade/idea-ref-classifier.js');
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/AUDIT_REPORT.md', 'Gap traced to FEATURE_IDEA.md line 2.');
+      const r = classifyIdeaReferences(dir, { artifactsDir: 'spec' }, { featureScope: true });
+      assert.equal(r.narrative.length, 0, 'feature audit report is the same advisory record');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('other narrative artifacts still block (the gate is intact)', async () => {
+    const { classifyIdeaReferences } = await import('../lib/upgrade/idea-ref-classifier.js');
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/AUDIT_REPORT.md', 'cites IDEA.md legitimately');
+      writeFile(dir, 'spec/02_SYSTEM_DESIGN.md', 'runtime doc references IDEA.md');
+      const r = classifyIdeaReferences(dir, { artifactsDir: 'spec' });
+      assert.equal(r.narrative.length, 1, 'design doc ref still narrative');
+      assert.equal(r.narrative[0].file, 'spec/02_SYSTEM_DESIGN.md');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe("rc.82 hardening — '.' alias keeps the historical spec/ exclusion", () => {
   it("isAitriStatePath excludes literal spec/ for artifactsDir '.'", async () => {
     const { isAitriStatePath } = await import('../lib/reconcile-patterns.js');

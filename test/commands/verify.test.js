@@ -1231,6 +1231,80 @@ describe('cmdVerifyRun() — Z1 verifyPassed invalidation', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('VERIFY-TC-VISIBILITY-0706 — warns on a multi-TC-id title; only the FIRST id is credited', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-multiid-'));
+    try {
+      seedProject(dir, {
+        testCases: [
+          { id: 'TC-050h', title: 'a', requirement_id: 'FR-001', expected_result: 'r' },
+          { id: 'TC-051h', title: 'b', requirement_id: 'FR-001', expected_result: 'r' },
+        ],
+        runnerScript: `console.log('✔ TC-050h + TC-051h: combined test');\n`,
+      });
+      let stderr = '';
+      const origErr = process.stderr.write; const origLog = console.log;
+      process.stderr.write = (c) => { stderr += c; return true; }; console.log = () => {};
+      try {
+        cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } });
+      } finally { process.stderr.write = origErr; console.log = origLog; }
+
+      assert.match(stderr, /carries 2 planned TC ids \(TC-050h, TC-051h\)/,
+        'the silent drop must become a loud warning');
+      assert.match(stderr, /TC-051h was\s+not credited anywhere else in this run/);
+      // Pin the crediting semantics the warning describes: first pass, second skip.
+      const results = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8')).results;
+      const byId = Object.fromEntries(results.map(r => [r.tc_id, r.status]));
+      assert.equal(byId['TC-050h'], 'pass', 'first id in the title is credited');
+      assert.equal(byId['TC-051h'], 'skip', 'second id deliberately drops to skip');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('VERIFY-TC-VISIBILITY-0706 — no warning when the second TC is credited by its own test line', () => {
+    // A combined title plus a separate per-TC test: nothing drops, so a warning
+    // claiming otherwise would be a lie that trains operators to ignore it.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-multiid-credited-'));
+    try {
+      seedProject(dir, {
+        testCases: [
+          { id: 'TC-050h', title: 'a', requirement_id: 'FR-001', expected_result: 'r' },
+          { id: 'TC-051h', title: 'b', requirement_id: 'FR-001', expected_result: 'r' },
+        ],
+        runnerScript:
+          `console.log('✔ TC-050h + TC-051h: combined test');\n` +
+          `console.log('✔ TC-051h: solo test');\n`,
+      });
+      let stderr = '';
+      const origErr = process.stderr.write; const origLog = console.log;
+      process.stderr.write = (c) => { stderr += c; return true; }; console.log = () => {};
+      try {
+        cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } });
+      } finally { process.stderr.write = origErr; console.log = origLog; }
+      assert.doesNotMatch(stderr, /planned TC ids/, 'a fully-credited line must not warn');
+      const results = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8')).results;
+      const byId = Object.fromEntries(results.map(r => [r.tc_id, r.status]));
+      assert.equal(byId['TC-050h'], 'pass');
+      assert.equal(byId['TC-051h'], 'pass');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('VERIFY-TC-VISIBILITY-0706 — no warning when the extra id on a line is not a planned TC', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-multiid-noise-'));
+    try {
+      seedProject(dir, {
+        testCases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
+        // TC-999 is not in the plan — nothing drops, so nothing should warn.
+        runnerScript: `console.log('✔ TC-001: ok (see also TC-999 in the legacy suite)');\n`,
+      });
+      let stderr = '';
+      const origErr = process.stderr.write; const origLog = console.log;
+      process.stderr.write = (c) => { stderr += c; return true; }; console.log = () => {};
+      try {
+        cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } });
+      } finally { process.stderr.write = origErr; console.log = origLog; }
+      assert.doesNotMatch(stderr, /test title carries/, 'unplanned ids must not produce noise');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('does not link TC-001h to TC-001H result via the case-insensitive fallback (C2)', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-c2-'));
     try {

@@ -1,6 +1,28 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { extractTCId, isCanonicalTCId, suggestCanonicalTCId } from '../lib/tc-id.js';
+import { extractTCId, extractAllTCIds, isCanonicalTCId, suggestCanonicalTCId } from '../lib/tc-id.js';
+
+describe('extractAllTCIds() — VERIFY-TC-VISIBILITY-0706', () => {
+  it('returns [] for a line with no ids and a single-element array for one id', () => {
+    assert.deepEqual(extractAllTCIds('no ids here'), []);
+    assert.deepEqual(extractAllTCIds('✔ TC-050h: combined'), ['TC-050h']);
+  });
+
+  it('returns all distinct ids in order of appearance', () => {
+    assert.deepEqual(extractAllTCIds('✔ TC-050h + TC-051h: combined test'), ['TC-050h', 'TC-051h']);
+  });
+
+  it('dedupes a repeated id and normalizes underscores like extractTCId', () => {
+    assert.deepEqual(extractAllTCIds('TC_FE_001h and TC-FE-001h again'), ['TC-FE-001h']);
+  });
+
+  it('first element always agrees with extractTCId (the crediting parser)', () => {
+    for (const line of ['✔ TC-050h + TC-051h', 'test_TC_NS_001h then TC-002', 'nothing']) {
+      const all = extractAllTCIds(line);
+      assert.equal(all[0] ?? null, extractTCId(line), line);
+    }
+  });
+});
 
 describe('isCanonicalTCId()', () => {
   it('accepts plain and namespaced canonical ids', () => {

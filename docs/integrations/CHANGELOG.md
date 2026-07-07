@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.160 (2026-07-07) — `allValid` honors the absorbed brief; NFR category vocabulary gains Observability/CI-CD (E2E-PIPELINE-0706, AUDIT-REF-0706) — additive
+
+- **`validate --json` `allValid` derivation fixed** — now `(exists || absorbed) && approved && !drift` per required entry. Pre-rc.160 it required literal `exists`, and `IDEA.md` is archived at approve 1 by design, so `allValid` was a **permanent false-negative for every project past approve 1** (100% of completed projects; a shipped consumer misread it). No field changed shape — the fix honors the `absorbed` field documented since alpha.22. Consumer impact: `allValid` flips `false → true` on completed projects — the corrective direction; `deployable` remains the deploy verdict. See [VALIDATE_JSON.md](./VALIDATE_JSON.md).
+- **`01_REQUIREMENTS.json` NFR `category` example vocabulary extended** with `Observability` and `CI/CD` ([ARTIFACTS.md](./ARTIFACTS.md)). The field remains a free string (no enum enforced); `Regression` remains the only load-bearing value (hard-MUST rule unchanged). Display-safe for consumers rendering category as a string.
+- Consumer-relevant behavior notes (no schema impact): seed-filename mentions in `AUDIT_REPORT.md` no longer block `approve 1` (the report is a point-in-time advisory record); `verify-run` prints a stderr warning when one runner-output line carries multiple planned TC ids whose extras were credited nowhere else (a single line credits only its first id).
+
 ## v2.0.0-rc.159 (2026-07-05) — `adopt --upgrade` renames pre-rc.41 artifact files inside `features/*/` on disk (HUB-CANARY-0705) — additive
 
 No schema or JSON-surface change. Consumer-relevant on-disk effect: the rc.41 artifact renames (`04_IMPLEMENTATION_MANIFEST.json` → `04_BUILD_REPORT.json`, `05_PROOF_OF_COMPLIANCE.json` → `05_TRACEABILITY.json`) now cascade to every `features/<name>/<artifactsDir>/` during `adopt --upgrade` (previously root-only, leaving feature artifacts under legacy names). A subproduct reading feature artifacts directly should read the NEW names, keeping the old names as a fallback for projects that have not re-run `adopt --upgrade`. Feature `.aitri` state files remain untouched (ADR-030 addendum).

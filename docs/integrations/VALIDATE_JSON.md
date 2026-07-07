@@ -1,6 +1,6 @@
 # `aitri validate --json` — Machine-Readable Deploy-Readiness Report
 
-**Aitri version:** v2.0.0-rc.159+
+**Aitri version:** v2.0.0-rc.160+
 **Stability:** Additive-only. The legacy shape (used by early Hub) is preserved indefinitely.
 **Scope:** Single-machine CLI consumers (CI steps, local dashboards). For remote (GitHub-URL) consumers, read `.aitri` + artifacts directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -34,7 +34,7 @@ Exit codes:
   // ── Legacy fields (stable; early-Hub contract) ────────────────────────────
   "project":  "string",                // project name (from .aitri)
   "dir":      "string",                // absolute path
-  "allValid": boolean,                 // every REQUIRED artifact: exists && approved && !drift
+  "allValid": boolean,                 // every REQUIRED artifact: (exists || absorbed) && approved && !drift
   "artifacts": [ /* per-artifact entries — see below */ ],
   "deployFiles": {                     // presence booleans for conventional deploy files at project root
     "Dockerfile": bool, "docker-compose.yml": bool, "DEPLOYMENT.md": bool, ".env.example": bool
@@ -81,7 +81,7 @@ One entry per root-pipeline artifact. Array order: `IDEA.md` first, then any **p
   "resultsBinding": "bound | mismatch | no-stamp | missing-file" }  // additive, v2.0.0-rc.148+
 ```
 
-`allValid` is derived from the `required` entries only: every one must have `exists && approved && !drift`. Note `allValid` is artifact-level and is **not** the deploy verdict — `deployable` also folds in blocking bugs, reconcile state, version mismatch, and feature pipelines. A consumer gating a pipeline should read `deployable`; `allValid`/`artifacts[]` explain the artifact-side detail.
+`allValid` is derived from the `required` entries only: every one must have `(exists || absorbed) && approved && !drift`. An absorbed brief counts as satisfied (v2.0.0-rc.160+): `IDEA.md` is archived (moved to `archive/`) at approve 1 by design, so the pre-rc.160 `exists`-only derivation reported `allValid: false` for **every** project past approve 1 — treat `allValid: false` from older versions as unreliable on completed projects. Note `allValid` is artifact-level and is **not** the deploy verdict — `deployable` also folds in blocking bugs, reconcile state, version mismatch, and feature pipelines. A consumer gating a pipeline should read `deployable`; `allValid`/`artifacts[]` explain the artifact-side detail.
 
 ---
 

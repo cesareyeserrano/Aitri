@@ -171,6 +171,11 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
        path for any stack the stdout convention does not fit.
     3. EVIDENCE — if neither fits, record each result against a file:
        aitri tc verify <TC> --result pass|fail --evidence <path>.
+    These three channels (plus the auto-detected e2e runner) are the ONLY sources of TC credit.
+    A quality_gates command is judged by exit code — its output is never parsed for TC ids. If some
+    tests live under a separate runner (e.g. component tests via their own npm script declared as a
+    gate), either fold them into test_runner (one command that runs everything), point --results at
+    their JUnit-XML output, or their TCs will report as skipped and block verify-complete.
   test_runner_timeout_ms (optional): a per-project ceiling in ms for how long the whole test run may
     take before verify-run kills it as hung (default 900000 = 15 min). It is a hang-catcher, not a
     speed target — leave it out unless your suite legitimately runs long (large integration/e2e/.NET
