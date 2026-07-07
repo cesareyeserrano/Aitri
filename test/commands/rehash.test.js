@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { execSync } from 'child_process';
+import { execSync, execFileSync } from 'child_process';
 import { initFlatProject } from '../fixtures.js';
 import { cmdRehash } from '../../lib/commands/rehash.js';
 import { loadConfig, saveConfig, hashArtifact } from '../../lib/state.js';
@@ -75,15 +75,6 @@ function seedDriftedProject(dir) {
   cfg.artifactHashes  = { '1': 'stale-'.padEnd(64, '0') };
   saveConfig(dir, cfg);
   return { artPath, content };
-}
-
-function answerYes(fn) {
-  // Fake TTY + "y\n" on stdin. isTTY check is the primary gate; readStdinSync
-  // reads from fd 0. Simplest cross-platform path: make isTTY return true,
-  // then substitute readStdinSync via a module alias — since that's invasive,
-  // we leave the TTY gate tests to integration (PTY) and focus here on gates
-  // that short-circuit before the stdin read.
-  return fn();
 }
 
 describe('cmdRehash — refusal gates (no TTY needed)', () => {
@@ -214,34 +205,58 @@ describe('cmdRehash — refusal gates (no TTY needed)', () => {
   });
 });
 
-describe('cmdRehash — successful rehash (simulating TTY approval)', () => {
-  // Simulate an operator that answered "y" at the prompt by patching
-  // process.stdin.isTTY + stubbing readStdinSync via dynamic import shim is
-  // invasive; instead we directly exercise the post-gate write path and
-  // verify the expected state mutations happen. The gates above cover the
-  // refusal paths.
+describe('cmdRehash — confirm-and-write path (real command, TTY simulated)', () => {
+  // T3 (TEST-HARDENING): exercise the REAL post-gate path — dispatcher, all
+  // gates, the fd-0 stdin read, and the saveConfig write — in a child process.
+  // Only `process.stdin.isTTY` is simulated (a prelude sets it before importing
+  // the binary); a real PTY cannot be allocated with Node built-ins alone.
+  // Everything after the isTTY check is production code reading a real pipe.
 
-  it('mutates config correctly when all gates pass (direct write simulation)', () => {
+  const BIN_URL = new URL('../../bin/aitri.js', import.meta.url).href;
+  const PRELUDE = `process.stdin.isTTY = true; await import(${JSON.stringify(BIN_URL)});`;
+
+  function runRehashWithAnswer(dir, answer) {
+    // argv under `node -e`: [execPath, 'dummy', 'rehash', 'requirements'] —
+    // the dummy pads argv[1] so the dispatcher's [,, cmd, ...args] lines up.
+    return execFileSync(process.execPath,
+      ['--input-type=module', '-e', PRELUDE, 'dummy', 'rehash', 'requirements'],
+      { cwd: dir, input: answer, encoding: 'utf8' });
+  }
+
+  it('operator answers "y": hash updated, event appended, approval state untouched', () => {
     const dir = tmpDir();
     try {
       const { content } = seedDriftedProject(dir);
-      // Simulate what cmdRehash would do after the operator confirms:
-      // this mirrors the post-prompt write block.
-      const cfg = loadConfig(dir);
-      const current = hashArtifact(content);
-      cfg.artifactHashes = { ...cfg.artifactHashes, '1': current };
-      cfg.events = [...(cfg.events || []), {
-        event: 'rehash', phase: '1', at: new Date().toISOString(),
-        artifact: '01_REQUIREMENTS.json', before_hash: 'stale-'.padEnd(64, '0'), after_hash: current,
-      }];
-      saveConfig(dir, cfg);
+      const out = runRehashWithAnswer(dir, 'y\n');
+      assert.match(out, /rehashed|Drift cleared/i, 'success message must be printed');
 
       const after = loadConfig(dir);
-      assert.equal(after.artifactHashes['1'], current, 'hash must be updated to current');
+      assert.equal(after.artifactHashes['1'], hashArtifact(content), 'hash must be updated to current');
       assert.deepEqual(after.approvedPhases, [1], 'approvedPhases preserved');
       assert.deepEqual(after.completedPhases, [1], 'completedPhases preserved');
       const rehashEvents = (after.events || []).filter(e => e.event === 'rehash');
       assert.equal(rehashEvents.length, 1, 'rehash event appended');
+      assert.equal(rehashEvents[0].before_hash, 'stale-'.padEnd(64, '0'));
+      assert.equal(rehashEvents[0].after_hash, hashArtifact(content));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('operator answers "n": exits 1 and writes nothing', () => {
+    const dir = tmpDir();
+    try {
+      seedDriftedProject(dir);
+      let failed = false;
+      try { runRehashWithAnswer(dir, 'n\n'); }
+      catch (e) {
+        failed = true;
+        assert.equal(e.status, 1, 'cancelled rehash must exit 1');
+        assert.match(String(e.stderr), /cancelled/i);
+      }
+      assert.ok(failed, 'rehash must exit non-zero when the operator declines');
+
+      const after = loadConfig(dir);
+      assert.ok(after.artifactHashes['1'].startsWith('stale-'), 'hash untouched after decline');
+      assert.equal((after.events || []).filter(e => e.event === 'rehash').length, 0, 'no rehash event');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
