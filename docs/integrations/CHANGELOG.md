@@ -18,6 +18,14 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.161 (2026-07-07) — `status --json` gains `lastSession` + per-pipeline `quality_gates`/`ac_coverage` (HUB-CATCHUP-0705) — additive
+
+Three additive `status --json` surfaces, each with a demonstrated consumer already waiting in the Hub codebase (its collector reads `.aitri.local` inline as an acknowledged SCHEMA.md deviation; its FR-047 projection shipped as technical debt blocked on these fields). No existing field changed shape.
+
+- **`lastSession`** (top-level, `{at, agent, event, files_touched?, context?} | null`) — the root pipeline's last session marker, sourced from per-machine `.aitri.local`. This is the sanctioned same-machine read: a colocated consumer (Hub local collector) should use it and retire any direct `.aitri.local` read. Remote consumers: reflects the invoking machine only. See [STATUS_JSON.md](./STATUS_JSON.md).
+- **`tests.perPipeline[].quality_gates`** (`[{name, status, required, threshold?, measured?}] | null`) — projection of the pipeline's `04_TEST_RESULTS.json#quality_gates`; command strings and captured output stay in the artifact. `null` when the results file is absent, unparseable, or carries no gates — distinguishable from `[]`. The artifact fields predate rc.161 (only the projection is new), so results files from older verify-runs emit them too — do NOT read `null` as "old Aitri version".
+- **`tests.perPipeline[].ac_coverage`** (pass-through, unchanged artifact shape, `| null`) — AC-level coverage per pipeline, same absent-tolerant semantics.
+
 ## v2.0.0-rc.160 (2026-07-07) — `allValid` honors the absorbed brief; NFR category vocabulary gains Observability/CI-CD (E2E-PIPELINE-0706, AUDIT-REF-0706) — additive
 
 - **`validate --json` `allValid` derivation fixed** — now `(exists || absorbed) && approved && !drift` per required entry. Pre-rc.160 it required literal `exists`, and `IDEA.md` is archived at approve 1 by design, so `allValid` was a **permanent false-negative for every project past approve 1** (100% of completed projects; a shipped consumer misread it). No field changed shape — the fix honors the `absorbed` field documented since alpha.22. Consumer impact: `allValid` flips `false → true` on completed projects — the corrective direction; `deployable` remains the deploy verdict. See [VALIDATE_JSON.md](./VALIDATE_JSON.md).

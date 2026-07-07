@@ -541,3 +541,156 @@ describe('cmdStatus — stale verify display', () => {
     assert.equal(/Next: aitri verify-run/.test(out), false, 'no calendar-driven verify-run nudge');
   });
 });
+
+// ── HUB-CATCHUP-0705 (rc.161) — lastSession + verify quality surfaces ─────────
+// Additive status --json fields with a demonstrated consumer: Hub reads
+// .aitri.local inline (its acknowledged SCHEMA.md deviation) because the
+// payload lacked lastSession, and its FR-047 projection is blocked on
+// quality_gates/ac_coverage reaching the snapshot. These tests pin the
+// additive contract: present when the data exists, null when it does not.
+
+describe('cmdStatus --json — lastSession (rc.161)', () => {
+  it('emits the root lastSession when present in per-machine state', () => {
+    const dir = tmpDir();
+    try {
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.161' });
+      const cfg = loadConfig(dir);
+      cfg.lastSession = { at: '2026-07-07T10:00:00.000Z', agent: 'claude', event: 'approve 1' };
+      saveConfig(dir, cfg);
+
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.0.0-rc.161', args: ['--json'] }));
+      assert.deepEqual(result.lastSession, {
+        at: '2026-07-07T10:00:00.000Z', agent: 'claude', event: 'approve 1',
+      });
+      // ADR-045 split: the field must have come from .aitri.local, not shared .aitri.
+      const shared = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+      assert.ok(!('lastSession' in shared), 'lastSession must stay out of the shared .aitri');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('emits lastSession: null when no session marker exists (absent-tolerant)', () => {
+    const dir = tmpDir();
+    try {
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.161' });
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.0.0-rc.161', args: ['--json'] }));
+      assert.equal(result.lastSession, null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('cmdStatus --json — quality_gates + ac_coverage pass-through (rc.161)', () => {
+  const RESULTS_WITH_SURFACES = JSON.stringify({
+    executed_at: '2026-07-07T10:00:00.000Z',
+    summary: { total: 2, passed: 2, failed: 0, skipped: 0, manual: 0 },
+    results: [
+      { tc_id: 'TC-001h', status: 'pass' },
+      { tc_id: 'TC-002h', status: 'pass' },
+    ],
+    fr_coverage: { 'FR-001': { status: 'covered', tests_passing: 2 } },
+    quality_gates: [
+      { name: 'lint', command: 'eslint .', required: true, status: 'pass', exit_code: 0, output: 'clean' },
+      { name: 'coverage', threshold: 80, measured: 92, required: true, status: 'pass' },
+      { name: 'audit', command: 'npm audit', required: false, status: 'fail', exit_code: 1 },
+    ],
+    ac_coverage: [
+      { ac_id: 'AC-001', fr_id: 'FR-001', tests_passing: 2, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' },
+    ],
+  }, null, 2);
+
+  function seedResults(dir, content) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), content);
+  }
+
+  it('projects quality_gates (name/status/required + coverage fields, no command/output) per pipeline', () => {
+    const dir = tmpDir();
+    try {
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.161' });
+      seedResults(dir, RESULTS_WITH_SURFACES);
+
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.0.0-rc.161', args: ['--json'] }));
+      const root = result.tests.perPipeline.find(p => p.scope === 'root');
+      assert.ok(root, 'root pipeline entry must exist');
+      assert.deepEqual(root.quality_gates, [
+        { name: 'lint', status: 'pass', required: true },
+        { name: 'coverage', status: 'pass', required: true, threshold: 80, measured: 92 },
+        { name: 'audit', status: 'fail', required: false },
+      ]);
+      for (const g of root.quality_gates) {
+        assert.ok(!('command' in g) && !('output' in g), 'command/output stay in the artifact');
+      }
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('passes ac_coverage through unchanged', () => {
+    const dir = tmpDir();
+    try {
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.161' });
+      seedResults(dir, RESULTS_WITH_SURFACES);
+
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.0.0-rc.161', args: ['--json'] }));
+      const root = result.tests.perPipeline.find(p => p.scope === 'root');
+      assert.deepEqual(root.ac_coverage, [
+        { ac_id: 'AC-001', fr_id: 'FR-001', tests_passing: 2, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' },
+      ]);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('emits null for both when the results file lacks them (absent-tolerant)', () => {
+    const dir = tmpDir();
+    try {
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.161' });
+      seedResults(dir, JSON.stringify({
+        executed_at: '2026-07-07T10:00:00.000Z',
+        summary: { total: 1, passed: 1, failed: 0 },
+        results: [{ tc_id: 'TC-001h', status: 'pass' }],
+      }));
+
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.0.0-rc.161', args: ['--json'] }));
+      const root = result.tests.perPipeline.find(p => p.scope === 'root');
+      assert.equal(root.quality_gates, null);
+      assert.equal(root.ac_coverage, null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('emits null for both when no results file exists at all', () => {
+    const dir = tmpDir();
+    try {
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.161' });
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.0.0-rc.161', args: ['--json'] }));
+      const root = result.tests.perPipeline.find(p => p.scope === 'root');
+      assert.equal(root.quality_gates, null);
+      assert.equal(root.ac_coverage, null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('cmdStatus --json — rc.161 shape guards (adversarial findings)', () => {
+  it('degrades a hand-corrupted non-object lastSession to null, never leaking it', () => {
+    const dir = tmpDir();
+    try {
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.161' });
+      fs.writeFileSync(path.join(dir, '.aitri.local'), JSON.stringify({ lastSession: 'corrupted-string' }));
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.0.0-rc.161', args: ['--json'] }));
+      assert.equal(result.lastSession, null, 'non-object lastSession must not enter the contract');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('projects truthy non-boolean required as true — agreeing with the verify-complete gate', () => {
+    // verify-complete blocks on truthy `required` (verify.js). A hand-edited
+    // required: 1 must not read "advisory" here while the CLI refuses on it.
+    const dir = tmpDir();
+    try {
+      initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0-rc.161' });
+      fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(dir, 'spec', '04_TEST_RESULTS.json'), JSON.stringify({
+        summary: { total: 1, passed: 1, failed: 0 },
+        results: [{ tc_id: 'TC-001h', status: 'pass' }],
+        quality_gates: [{ name: 'lint', required: 1, status: 'fail' }],
+      }));
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.0.0-rc.161', args: ['--json'] }));
+      const root = result.tests.perPipeline.find(p => p.scope === 'root');
+      assert.equal(root.quality_gates[0].required, true);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

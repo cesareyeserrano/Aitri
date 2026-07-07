@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v2.0.0-rc.160+
+**Aitri version:** v2.0.0-rc.161+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -45,6 +45,14 @@ Exit code: `0` on success (even when the project has drift or blocking bugs — 
 
   // ── Snapshot-derived extensions (v0.1.77+) ───────────────────────────────
   "snapshotVersion": 1,
+  // lastSession (additive, v2.0.0-rc.161+, HUB-CATCHUP-0705): the root pipeline's
+  // last session marker — { "at": "ISO", "agent": "string|null", "event": "string",
+  // "files_touched"?: [...], "context"?: "string" } — or null when absent.
+  // It lives in per-machine .aitri.local; this field is how a SAME-MACHINE consumer
+  // (Hub local collector) reads it without touching .aitri.local directly (which
+  // SCHEMA.md discourages). Remote consumers: the field reflects the machine that
+  // ran the command, never a teammate's session.
+  "lastSession": { "at": "ISO", "agent": "string | null", "event": "string" } /* | null */,
   "features": [ /* per-feature summaries — see "features" below */ ],
   "bugs":    { "total": N, "open": N, "blocking": N, "bySeverity": { "critical": N, "high": N, "medium": N, "low": N }, "openIds": ["BG-001", "..."], "parseErrors": ["root" /* | "feature:<name>" */] },
   // bugs.parseErrors (additive, v2.0.0-rc.158+): scopes whose BUGS.json EXISTS but failed to
@@ -152,7 +160,22 @@ Aggregated test counts across root + all feature sub-pipelines. Each pipeline's 
       "passed": N | null,                // null when verify has not run on this pipeline
       "failed": N | null,
       "total":  N | null,
-      "ran":    boolean                  // true when this pipeline has a verify.summary
+      "ran":    boolean,                 // true when this pipeline has a verify.summary
+      // Additive (v2.0.0-rc.161+, HUB-CATCHUP-0705). Sourced from the pipeline's
+      // 04_TEST_RESULTS.json ON DISK; null when the file is absent, unparseable, or
+      // the field was not written (no gates declared, no structured ACs). The fields
+      // themselves predate rc.161 — results files from older verify-runs emit them too.
+      // Cross-check the verify entry's `resultsBinding` before trusting these on a
+      // drifted pipeline: a post-run rewrite of the results file changes them while
+      // the stamped counts (passed/failed/total) stay.
+      "quality_gates": [                 // projection — command strings + captured output stay in the artifact
+        { "name": "string | null", "status": "pass | fail | error | null", "required": boolean,
+          "threshold": N /* coverage gates only */, "measured": N /* coverage gates only */ }
+      ] /* | null */,
+      "ac_coverage": [                   // pass-through, unchanged from the artifact (ARTIFACTS.md shape)
+        { "ac_id": "AC-001", "fr_id": "FR-001", "tests_passing": N, "tests_failing": N,
+          "tests_skipped": N, "tests_manual": N, "status": "covered | partial | uncovered | untested" }
+      ] /* | null */
     }
   ],
   "stalenessDays": N | null              // days since root pipeline's verifyRanAt (null until v0.1.79+ has run verify-run)
@@ -162,6 +185,7 @@ Aggregated test counts across root + all feature sub-pipelines. Each pipeline's 
 Semantics:
 - `totals.total === 0` when no pipeline has run verify yet. Consumers should treat `totals` as a floor, not a truth — pipelines without verify contribute zero.
 - `perPipeline[].ran === false` identifies pipelines whose tests have not been executed at all.
+- `perPipeline[].quality_gates` / `ac_coverage` are `null` (never `[]`) when the underlying results file does not carry them — a consumer can distinguish "no data" (`null`) from "ran with zero entries" (`[]`).
 - The CLI's text `status` and `resume` views surface `totals` as a `Σ all pipelines` line when at least one feature has a verify summary — Hub-style consumers can mirror that.
 
 ---

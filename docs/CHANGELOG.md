@@ -7,6 +7,22 @@
 
 ---
 
+## [2.0.0-rc.161] — 2026-07-07 — `status --json` exposes `lastSession` + per-pipeline `quality_gates`/`ac_coverage` (HUB-CATCHUP-0705)
+
+The `status --json` additions the Hub filed as HUB-CATCHUP-0705, shipped now that the demand is demonstrated in its code rather than speculative: the Hub collector reads `.aitri.local` inline as an acknowledged SCHEMA.md deviation ("Core feedback filed to expose lastSession"), and its FR-047 quality-surfaces projection shipped as technical debt blocked solely on Core exposing the fields.
+
+- **`lastSession`** (top-level, additive): the root pipeline's `{at, agent, event, files_touched?, context?}` from per-machine `.aitri.local`, `null` when absent. Sanctioned same-machine read — retires the Hub's direct `.aitri.local` access.
+- **`tests.perPipeline[].quality_gates`**: projection (name/status/required + coverage threshold/measured) of each pipeline's `04_TEST_RESULTS.json#quality_gates`; command strings + captured output stay in the artifact. `null` ≠ `[]`: null means "no data", empty array means "ran with zero entries".
+- **`tests.perPipeline[].ac_coverage`**: pass-through of the artifact's AC-level coverage, unchanged, `null` when absent.
+
+Deliberately NOT shipped: a coverage-audit freshness stamp (the Hub deferred its own re-hash workaround "until a real project mis-reports" — trigger recorded, not built on speculation).
+
+Earlier the same day (no bump, commit-tagged TEST-HARDENING-0707): the three executable-spec gaps closed — a full-lifecycle E2E (`init` → 5 phases → verify-run → verify-complete → `validate` "Pipeline complete" against the real binary, the only test proving the phases compose), the rehash confirm-and-write path now executed for real in a child process (replacing a direct-write simulation that was theater) plus `read-stdin` EAGAIN coverage, and the dispatcher tested as a process (routing defaults, exit codes, known-error translations, stray-$HOME capture warning). An adversarial pass ran 4 mutations against production code; all four failed the new tests.
+
+An independent adversarial pass ran over the diff pre-release; its real findings (a doc parenthetical implying `null` ⇒ old Aitri version — false, the artifact fields predate rc.161; `required` projected with `=== true` while the verify-complete gate reads truthy; unguarded `lastSession` pass-through of a hand-corrupted `.aitri.local`) were fixed pre-commit and pinned by tests.
+
+`HUB-CATCHUP-0705` / `TEST-HARDENING-0707` · 8 new contract tests (suite 2027 → 2062 across the window) · STATUS_JSON.md updated, integrations CHANGELOG `— additive`.
+
 ## [2.0.0-rc.160] — 2026-07-07 — Hub-session + E2E-pipeline feedback batch: the recommended audit→approve flow stops self-blocking; TC-credit channels become explicit; `allValid` stops lying on completed projects
 
 Four verified findings from real consumer sessions (Aitri Hub 2026-07-05/06, expense-cli E2E dogfooding), each fixed at its root. An independent adversarial pass ran over the combined diff before release; its two real findings (a warning that could overclaim, manual TCs in the warn set) were fixed pre-commit.
