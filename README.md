@@ -6,7 +6,7 @@
 
 ```bash
 # current line of development (2.0.0-rc channel) — install from GitHub:
-npm install -g github:cesareyeserrano/Aitri#feat/upgrade-protocol
+npm install -g github:cesareyeserrano/Aitri
 
 # for a reproducible install, pin a commit SHA instead:
 npm install -g github:cesareyeserrano/Aitri#<sha>
