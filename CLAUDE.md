@@ -69,16 +69,16 @@ Use **only** for architectural decisions with cross-cutting impact (new command,
 
 The decision matrix + an adversarial panel are for STRUCTURAL bets, not every change. **Route first, then size the response** — most over-framing is a small fix wearing a subsystem's shape:
 
-- **Verified defect** (reproducible from the code, or a real project degraded today) → the evidence is already in. Find the leanest fix + a test. **Just do it — no panel.**
+- **Verified defect** (reproducible from the code, or a real project degraded today) → the evidence is already in. **Fix it at the root so it cannot recur — a single source + a pin that forbids the regression — then test it. Just do it — no panel, no permission.** A root fix that happens to be large but mechanical (migrate every call site behind one module, sweep every duplicate) still just gets done; size is not a reason to slice it.
 - **Clarification / doc / cosmetic** → just do it.
 - **Structural** (new command, artifact field, schema, invariant, persona, phase, blocking gate) → decision matrix + a full adversarial panel (kill + GO + bar). These are what the schema-evolution + matrix rules exist for.
 - **Imagined** (the value cannot be established from code/logic/a concrete case) → do not build; name the speculation. A panel here only confirms it is speculative.
 
 Two guards:
-- **Smallest thing first.** Before designing, ask "what is the smallest change that resolves the *verified* problem?" Start there; escalate to a subsystem only when the small thing demonstrably can't.
+- **Smallest scope that resolves the ROOT — not the smallest diff.** Once a problem is verified, the target is the least change that removes its *cause* and makes recurrence impossible (single source of truth + a pin), even when that means touching many sites. A partial slice that leaves the root alive and defers the rest as "churn" is the wrong default — it is not the small thing, it is an unfinished thing. Only shrink scope when the smaller change genuinely closes the cause; never shrink a sound root fix into a cosmetic one to keep the diff small, and never turn a verified root fix into a question for the user when the evidence and the fix are both already in hand.
 - **Scale the adversarial to blast-radius + reversibility.** Reversible + small (doc, advisory, a flag default) → own judgment + a test, maybe one skeptic. Structural + hard-to-reverse → full panel. Don't run a 5-agent panel on a doc fix; don't ship a schema change on a hunch.
 
-**Meta-guard:** a run of NO-GOs is a signal to **re-frame smaller**, not "everything is bad." A go/no-go that almost always says NO is as miscalibrated as a yes-man — reflexive NO is the same defect as reflexive yes.
+**Meta-guard — over-caution is a defect, symmetric to over-confidence.** These brakes exist to stop *design-by-imagination and unverified structural bets*, NOT to slow down verified work. A run of NO-GOs, slicing a clean root fix into a timid partial, or asking permission to do *less* when the problem is verified and the fix is sound — all three are the same miscalibration as a yes-man. Rigor means decisive root-cause action once the evidence is in, and skepticism reserved for what is actually speculative. When you catch yourself minimizing scope or asking to confirm a fix you've already verified, that hesitation is the thing to correct — bias to solving it properly.
 
 ## Operational modes
 

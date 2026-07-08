@@ -7,6 +7,16 @@
 
 ---
 
+## [2.0.0-rc.163] — 2026-07-08 — CLI UX Batch 2.1: color gating + `lib/format.js`; the glyph "sweep" investigated and scoped to what's real (UX-PRO-0707)
+
+Batch 2 opens with the one tier-1 defect in 2.1 — **ANSI color emitted unconditionally**. `help.js` was the sole color emitter and checked neither `stdout.isTTY` nor `NO_COLOR`, so piped and agent-read help carried escape codes (the output an agent or CI actually consumes). Fixed at the root with a single source of truth.
+
+- **New `lib/format.js`** — owns Aitri's output vocabulary: the `useColor()` predicate (`isTTY && !NO_COLOR`, no-color.org compliant), the emoji status consts (`OK`/`FAIL`/`WARN`/`INFO`), `divider()`, and stderr `warn()/error()`. Generalizes the existing `verify-display.js` precedent.
+- **`help.js` color is gated** — every ANSI code is `''` off-TTY/under `NO_COLOR`, so the banner and section headers render as plain text; the "industry document type in cyan" prose (which lied once color was stripped) is corrected. Pins: `NO_COLOR=1 aitri help` and piped `aitri help` both emit **zero** escape codes; `status --json` stdout stays byte-clean.
+- **Stream discipline** — `complete --check`'s validation-failure diagnostic moved from stdout to stderr (matches its sibling paths); a lone text `⚠` outlier in `status` bugs-line aligned to the `⚠️` used everywhere else in that command.
+
+**Scoped by evidence, not by the plan's line count.** The plan's 2.1 called for a ~294-site glyph sweep; reading the code showed most of it targets non-problems: `✅/❌` is already consistent; `verify.js`/`verify-display.js` use `✓/✗/⊘` as a **deliberate** verdict-vs-item hierarchy (documented), not a collision; `verify-parsers.js` glyphs **match foreign runner output** (node:test/Vitest/Jest/Playwright) and must stay raw. Forcing those through `format.js` would erase a design choice and break result parsing. The only real-but-cosmetic remainder — the cross-file `⚠` text↔emoji split (~112 sites, output-changing, test-breaking) — is deferred with a tombstone; it is polish, not a defect. No schema/artifact/`.aitri` contract change. Suite 2087 green (+9).
+
 ## [2.0.0-rc.162] — 2026-07-08 — CLI UX Batch 1: six verified defects on the undesigned edges (UX-PRO-0707)
 
 First batch of the pre-v2.0-stable UX overhaul (`UX-PRO-0707`): six verified defects, each closing a place where a typo or an out-of-project invocation misled the operator or an agent. Evidence base: four independent adversarial UX reviews of rc.161, each confirmed against source. Each fix ships with a dedicated test; a follow-up adversarial pass on the batch surfaced two more low-severity edges, both fixed and pinned.
