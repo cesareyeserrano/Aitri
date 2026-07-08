@@ -490,6 +490,16 @@ describe('cmdApprove() — successful approval (non-TTY)', () => {
     assert.ok(output.includes('APPROVED'), 'should include APPROVED');
     assert.ok(output.includes('requirements'), 'should include alias');
   });
+
+  // 3.1 (UX-PRO-0707): agent-mode approval is RECORDED but not human-validated — the headline
+  // must say so, not read as an unqualified human APPROVED. The approval still happens (default
+  // is agent/CI/sandbox-friendly; the hard stop is opt-in via humanApprovalGate).
+  it('qualifies the agent-mode APPROVED line as human-confirmation-pending', () => {
+    assert.match(output, /APPROVED \(recorded by agent — human confirmation pending\)/,
+      'agent-mode success line must not read as human-confirmed');
+    assert.ok(loadConfig(dir).approvedPhases.includes(1),
+      'the approval is still recorded — agent/sandbox approval stays a supported flow');
+  });
 });
 
 describe('cmdApprove() — accepts numeric phase', () => {

@@ -619,18 +619,21 @@ describe('cmdRunPhase() — absorbed brief (alpha.26)', () => {
 });
 
 describe('cmdRunPhase() — unknown phase', () => {
-  it('throws usage error', () => {
+  it('echoes the bad input and lists names + numbers (UX-PRO-0707 3.3 #7)', () => {
     const dir = tmpDir();
     writeFile(dir, '.aitri', minimalConfig());
     try {
+      let captured = '';
+      const err = (msg) => { captured = msg; throw new Error(msg); };
       assert.throws(
         () => captureAll(() =>
           cmdRunPhase({
-            dir, args: ['nonexistent'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR,
+            dir, args: ['nonexistent'], flagValue: makeFlagValue(), err, rootDir: ROOT_DIR,
           })
         ),
-        /Usage/
       );
+      assert.match(captured, /Unknown phase "nonexistent"/, 'echoes the bad input');
+      assert.match(captured, /requirements\(1\)/, 'lists names with numbers');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

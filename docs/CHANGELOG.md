@@ -7,6 +7,14 @@
 
 ---
 
+## [2.0.0-rc.165] — 2026-07-08 — CLI UX Batch 3 (part 1): honest agent-mode approval + branding + usage echo (UX-PRO-0707)
+
+- **3.1 — agent-mode `approve` tells the truth.** Non-TTY approval printed an unqualified `✅ Phase X APPROVED` even though no human validated it (the ⏸ CHECKPOINT below said "review pending" — the headline contradicted it). The headline is now `✅ Phase X APPROVED (recorded by agent — human confirmation pending)`, and the help text spells out the agent-mode behavior. **Design decision (per maintainer): the hard stop stays opt-in (`humanApprovalGate: true`), default-off.** Agent/CI/sandbox approval is a *supported* flow, not a defect — flipping the default to a hard gate would break the very sandbox/test path where an agent legitimately drives a full pipeline (Aitri's own suite included). The fix is honesty, not prohibition.
+- **3.4 — branding.** The "Designed by César Augusto Reyes" line no longer prints on every `help` invocation (no professional CLI signs its help screen); the credit lives in `package.json`'s `author` field. The ASCII banner stays (identity; already gated so it never pollutes piped/agent output).
+- **3.3 #7 — `run-phase <bad>` echoes the bad input.** It printed a generic usage line that didn't name what you typed and listed only phase *names* while help promises "name or number both work". Now: `Unknown phase "9". Name or number both work: requirements(1) … deploy(5) · ux · discovery · review`.
+
+Remaining 3.3 status/resume polish (audit nag from minute zero, the post-`validate` "finish line", the false security advisory on a declared-exclusion NFR, per-FR warning spam, drip-feed validation, …) lands in a focused part 2. No schema/artifact/`.aitri` contract change. Suite 2092 green.
+
 ## [2.0.0-rc.164] — 2026-07-08 — CLI UX Batch 2.2–2.3: two-level help + gate errors that name the real next step (UX-PRO-0707)
 
 Two operator-guidance fixes; the other two Batch-2 items were investigated and found already-handled.
