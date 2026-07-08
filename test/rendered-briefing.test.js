@@ -294,4 +294,24 @@ describe('optional phases print a Human Review checklist (C5)', () => {
     const disc = extractHumanReview('phases/phaseDiscovery');
     assert.ok(disc && /solutioneering/i.test(disc), 'approve discovery must print a real checklist');
   });
+
+  // UX-PRO-0707 1.3: the checklist used to blank-strip {{MIN_NGZ}}, printing "≥ explicit"
+  // — the floor number silently lost. approve now passes the scopeFloors values through.
+  it('extractHumanReview renders supplied placeholders (MIN_NGZ) instead of blanking them', () => {
+    const withData = extractHumanReview('phases/requirements', { MIN_NGZ: '3' });
+    assert.match(withData, /no_go_zone has ≥3 explicit/, 'the floor number must render into the checklist');
+    assert.doesNotMatch(withData, /\{\{/, 'no unrendered placeholder tokens may remain');
+  });
+
+  // The general pin: after passing the data approve passes, NO Human Review checklist may
+  // contain an unrendered {{…}} — catches the whole class, not just MIN_NGZ.
+  it('no approve checklist leaks an unrendered {{…}} once approve-time data is supplied', () => {
+    const data = { MIN_FR: '3', MIN_NFR: '2', MIN_NGZ: '3', SCOPE_VERB: '', SCOPE_ARG: '' };
+    for (const tmpl of ['phases/requirements', 'phases/architecture', 'phases/tests',
+                        'phases/build', 'phases/deploy', 'phases/phaseUX', 'phases/phaseDiscovery',
+                        'phases/phaseReview']) {
+      const cl = extractHumanReview(tmpl, data);
+      if (cl) assert.doesNotMatch(cl, /\{\{/, `${tmpl} checklist leaked an unrendered placeholder`);
+    }
+  });
 });

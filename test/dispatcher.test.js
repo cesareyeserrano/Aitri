@@ -55,26 +55,39 @@ describe('dispatcher — routing and defaults', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('unknown command prints help and exits 0 (current contract: default → help)', () => {
-    // Pinning current behavior: a typo'd command is answered with help, exit 0.
-    // If this ever becomes exit-non-zero (scriptability), this test must change
-    // together with a version bump — it is an observable-output contract.
+  it('unknown command errors on stderr with a suggestion and exits 1 (UX-PRO-0707 1.1)', () => {
+    // A typo'd command is an error, not a help request: exit 1 on stderr, no help dump.
+    // This closes the scriptability hole where `aitri verfy-complete` "passed" (exit 0).
     const dir = tmp('aitri-disp-unknown-');
     try {
-      const { code, stdout } = run(['frobnicate'], dir);
-      assert.equal(code, 0);
-      assert.match(stdout, /█████/);
+      const { code, stdout, stderr } = run(['statsu'], dir);
+      assert.equal(code, 1, 'unknown command must exit non-zero');
+      assert.match(stderr, /Unknown command: "statsu"/, 'stderr names the bad input');
+      assert.match(stderr, /Did you mean "status"\?/, 'suggests the nearest command');
+      assert.doesNotMatch(stdout, /█████/, 'must NOT dump the help banner to stdout');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('--version prints exactly the version line and exits 0', () => {
-    const dir = tmp('aitri-disp-ver-');
+  it('a far-off token errors without a misleading suggestion (UX-PRO-0707 1.1)', () => {
+    const dir = tmp('aitri-disp-faroff-');
     try {
-      const { code, stdout } = run(['--version'], dir);
-      assert.equal(code, 0);
-      assert.match(stdout.trim(), /^Aitri v\d+\.\d+\.\d+(?:-[\w.]+)?$/);
+      const { code, stderr } = run(['xyzzy'], dir);
+      assert.equal(code, 1);
+      assert.match(stderr, /Unknown command: "xyzzy"/);
+      assert.doesNotMatch(stderr, /Did you mean/, 'nothing close → no suggestion line');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  for (const flag of ['--version', '-v', 'version']) {
+    it(`${flag} prints exactly the version line and exits 0 (UX-PRO-0707 1.1)`, () => {
+      const dir = tmp('aitri-disp-ver-');
+      try {
+        const { code, stdout } = run([flag], dir);
+        assert.equal(code, 0);
+        assert.match(stdout.trim(), /^Aitri v\d+\.\d+\.\d+(?:-[\w.]+)?$/);
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    });
+  }
 
   it('commands resolve the project from a subdirectory (upward .aitri search)', () => {
     const dir = tmp('aitri-disp-sub-');
@@ -126,6 +139,51 @@ describe('dispatcher — known-error translation (no raw stack traces)', () => {
       assert.doesNotMatch(stderr, NO_STACK);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  it('run-phase outside a project: guidance + exit 1, no stack, NO phantom .aitri (UX-PRO-0707 1.2)', () => {
+    const dir = tmp('aitri-disp-rpnoproj-');
+    try {
+      const { code, stderr } = run(['run-phase', '1'], dir);
+      assert.equal(code, 1, 'must exit 1 in a non-project dir');
+      assert.match(stderr, /isn't an Aitri project yet/, 'routes through the not-a-project guidance');
+      assert.doesNotMatch(stderr, NO_STACK, 'must not leak a Node stack trace');
+      assert.doesNotMatch(stderr, /is short \(0 words\)/, 'no contradictory short-seed warning');
+      assert.ok(!fs.existsSync(path.join(dir, '.aitri')), 'must NOT create a phantom .aitri');
+      assert.ok(!fs.existsSync(path.join(dir, '.aitri.local')), 'must NOT create a phantom .aitri.local');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('run-phase in a half-created feature (no .aitri) gives feature-scoped guidance (UX-PRO-0707 1.2 adversarial)', () => {
+    // An orphan feature dir (FEATURE_IDEA.md written, .aitri not — crash mid `feature init`)
+    // must point at `feature init`, NOT the project-level `aitri init`.
+    const dir = tmp('aitri-disp-orphanfeat-');
+    try {
+      run(['init'], dir);
+      const featDir = path.join(dir, 'aitri', 'features', 'halfmade');
+      fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(featDir, 'FEATURE_IDEA.md'), '## Feature\n');
+      const { code, stderr } = run(['feature', 'run-phase', 'halfmade', '1'], dir);
+      assert.equal(code, 1);
+      assert.match(stderr, /aitri feature init halfmade/, 'feature-scoped guidance');
+      assert.doesNotMatch(stderr, NO_STACK, 'no stack trace');
+      assert.ok(!fs.existsSync(path.join(featDir, '.aitri')), 'no phantom .aitri written into the orphan');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('run-phase 1 with .aitri but no IDEA.md: actionable message, no stack, no "0 words" warning (UX-PRO-0707 1.2)', () => {
+    const dir = tmp('aitri-disp-noidea-');
+    try {
+      run(['init'], dir);
+      for (const f of ['IDEA.md', path.join('product', 'IDEA.md'), path.join('aitri', 'product', 'IDEA.md')]) {
+        fs.rmSync(path.join(dir, f), { force: true });
+      }
+      const { code, stderr } = run(['run-phase', '1'], dir);
+      assert.equal(code, 1);
+      assert.match(stderr, /Missing required file: IDEA\.md/, 'names the missing seed');
+      assert.doesNotMatch(stderr, NO_STACK, 'must not leak a Node stack trace');
+      assert.doesNotMatch(stderr, /is short \(0 words\)/, 'suppresses the contradictory short-seed warning when the file is absent');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 describe('dispatcher — stray $HOME capture warning (C2)', () => {
@@ -143,6 +201,22 @@ describe('dispatcher — stray $HOME capture warning (C2)', () => {
       assert.equal(code, 0, 'status still runs against the resolved project');
       assert.match(stderr, /resolved to the project at \$HOME/, 'capture note expected');
       assert.match(stderr, /aitri init/, 'note must point at the fix');
+    } finally { fs.rmSync(fakeHome, { recursive: true, force: true }); }
+  });
+
+  it('version/help aliases do NOT emit the $HOME capture note (UX-PRO-0707 1.1 adversarial)', () => {
+    // The new -v/version/--help/-h aliases are pure-info like their canonical forms and must
+    // share the C2 exemption — otherwise they warn where --version/help stay silent.
+    const fakeHome = fs.realpathSync(tmp('aitri-disp-homeinfo-'));
+    try {
+      run(['init'], fakeHome);
+      const work = path.join(fakeHome, 'work', 'sub');
+      fs.mkdirSync(work, { recursive: true });
+      for (const flag of ['-v', 'version', '--help', '-h']) {
+        const { stderr } = run([flag], work, { HOME: fakeHome });
+        assert.doesNotMatch(stderr, /resolved to the project at \$HOME/,
+          `${flag} must not emit the stray-$HOME capture note`);
+      }
     } finally { fs.rmSync(fakeHome, { recursive: true, force: true }); }
   });
 

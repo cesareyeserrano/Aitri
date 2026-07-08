@@ -234,6 +234,51 @@ describe('cmdReject() — optional phase (discovery)', () => {
   });
 });
 
+// ── Message honesty on an already-approved phase (UX-PRO-0707 1.6) ───────────
+
+describe('cmdReject() — approved phase: truthful advisory message, no phantom reset', () => {
+  it('says the phase REMAINS approved and does not claim a reset', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1], completedPhases: [1] }));
+      const out = captureStdout(() =>
+        cmdReject({
+          dir,
+          args:      ['requirements', '--feedback', 'tighten scope'],
+          flagValue: makeFlagValue({ '--feedback': 'tighten scope' }),
+          err:       noopErr,
+        })
+      );
+      assert.match(out, /REMAINS approved/, 'must state the phase stays approved');
+      assert.doesNotMatch(out, /🔄 Phase requirements rejected\./,
+        'must NOT print the reset-implying "rejected" line for an approved phase');
+      assert.match(out, /edit the phase artifact/,
+        'must say what actually re-opens the phase (edit → re-run)');
+      // Still advisory: the rejection IS recorded either way.
+      const config = loadConfig(dir);
+      assert.ok(config.rejections[1], 'rejection feedback still recorded');
+      assert.deepEqual(config.approvedPhases, [1], 'approval untouched (advisory)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('non-approved phase keeps the plain "rejected" message (regression guard)', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1] }));
+      const out = captureStdout(() =>
+        cmdReject({
+          dir,
+          args:      ['requirements', '--feedback', 'x'],
+          flagValue: makeFlagValue({ '--feedback': 'x' }),
+          err:       noopErr,
+        })
+      );
+      assert.match(out, /Phase requirements rejected/);
+      assert.doesNotMatch(out, /REMAINS approved/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── Feature-context emission (alpha.6) ───────────────────────────────────────
 
 describe('cmdReject() — feature-context Rerun hint carries `feature <name> ` prefix', () => {

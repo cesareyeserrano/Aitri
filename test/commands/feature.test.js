@@ -138,6 +138,33 @@ describe('aitri feature init', () => {
       fs.rmSync(emptyDir, { recursive: true, force: true });
     }
   });
+
+  // UX-PRO-0707 1.4: a name with spaces passed the traversal guard but broke every
+  // follow-up command Aitri printed (`feature run-phase my feature 1` reparses to name="my").
+  it('rejects a feature name with spaces and suggests the slugified form', () => {
+    const proj = makeProjectDir();
+    try {
+      const { fn: err, thrown } = makeErr();
+      assert.throws(
+        () => cmdFeature({ dir: proj, args: ['init', 'my feature'], err, rootDir: ROOT_DIR }),
+        /Invalid feature name/
+      );
+      assert.match(thrown[0], /letters, digits, dot, dash, underscore/, 'names the allowed charset');
+      assert.match(thrown[0], /aitri feature init my-feature/, 'suggests the slugified name');
+      assert.ok(!fs.existsSync(path.join(proj, 'features', 'my feature')),
+        'no directory is created for the rejected name');
+    } finally { fs.rmSync(proj, { recursive: true, force: true }); }
+  });
+
+  it('accepts a valid slug-safe name (regression guard for 1.4)', () => {
+    const proj = makeProjectDir();
+    try {
+      const { fn: err } = makeErr();
+      captureStdout(() => cmdFeature({ dir: proj, args: ['init', 'add.export_v2-1'], err, rootDir: ROOT_DIR }));
+      assert.ok(fs.existsSync(path.join(proj, 'features', 'add.export_v2-1')),
+        'a dot/dash/underscore/digit name must still be accepted');
+    } finally { fs.rmSync(proj, { recursive: true, force: true }); }
+  });
 });
 
 // ── feature list ──────────────────────────────────────────────────────────────

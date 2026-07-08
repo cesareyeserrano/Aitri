@@ -58,6 +58,21 @@ describe('loadConfig()', () => {
     fs.rmSync(dir, { recursive: true });
   });
 
+  it('UX-PRO-0707 1.5: recovery hint points at git, NOT at .aitri.bak (a copy of the corruption)', () => {
+    // .aitri.bak is a byte copy of the broken file — restoring from it restores the corruption.
+    // The message must steer to git and mark the .bak inspection-only.
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, '.aitri'), '{broken');
+    try {
+      loadConfig(dir);
+      assert.fail('should have thrown');
+    } catch (e) {
+      assert.match(e.message, /git checkout -- \.aitri/, 'must steer to the git restore');
+      assert.match(e.message, /copy of the BROKEN file|do NOT restore from it/,
+        'must warn the .bak holds the corruption, not a good version');
+    } finally { fs.rmSync(dir, { recursive: true }); }
+  });
+
   it('G-4: refuses (throws) on unresolved git merge conflict markers instead of resetting', () => {
     const dir = tmpDir();
     // A routine team merge of the committed .aitri left conflict markers — invalid JSON.

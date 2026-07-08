@@ -168,8 +168,9 @@ describe('Aitri CLI — Smoke Test', () => {
   });
 
   it('aitri reject 1 records feedback and prints re-run command', () => {
+    // Phase 1 is approved here → advisory message (UX-PRO-0707 1.6).
     const out = aitri('reject 1 --feedback "Need more security FRs"', tmpDir);
-    assert.match(out, /rejected/i);
+    assert.match(out, /Rejection feedback recorded|REMAINS approved/i);
     assert.match(out, /run-phase requirements/);
   });
 
@@ -224,8 +225,10 @@ describe('Aitri CLI — Smoke Test', () => {
   });
 
   it('aitri reject discovery records feedback', () => {
+    // discovery was approved above → reject is advisory and must say so truthfully
+    // (UX-PRO-0707 1.6): feedback recorded, phase REMAINS approved, points at re-run.
     const out = aitri('reject discovery --feedback "Add more out of scope items"', tmpDir);
-    assert.match(out, /rejected/i);
+    assert.match(out, /Rejection feedback recorded|REMAINS approved/i);
     assert.match(out, /run-phase discovery/);
   });
 

@@ -7,6 +7,19 @@
 
 ---
 
+## [2.0.0-rc.162] — 2026-07-08 — CLI UX Batch 1: six verified defects on the undesigned edges (UX-PRO-0707)
+
+First batch of the pre-v2.0-stable UX overhaul (`UX-PRO-0707`): six verified defects, each closing a place where a typo or an out-of-project invocation misled the operator or an agent. Evidence base: four independent adversarial UX reviews of rc.161, each confirmed against source. Each fix ships with a dedicated test; a follow-up adversarial pass on the batch surfaced two more low-severity edges, both fixed and pinned.
+
+- **Unknown command is now an error, not a help dump.** `aitri statsu` printed the full help to stdout and exited **0** — a scriptability hole in a tool that gates (a typo'd `aitri verfy-complete` "passed" in CI). It now prints `❌ Unknown command: "statsu"` to **stderr**, a zero-dep Levenshtein "Did you mean …?" suggestion, and exits **1**. Added `-v`/`version` aliases for `--version` and explicit `help`/`--help`/`-h` cases (help was previously reached only via the removed default fallthrough). *(Unknown **flags** are still tolerated — recorded as a tombstone; flag validation is a larger surface awaiting a real trigger.)*
+- **`run-phase` outside a project no longer leaves a phantom `.aitri`.** In an empty dir it wrote `.aitri`/`.aitri.local` (via a `saveConfig` that ran before the briefing threw) and then dumped a raw Node stack trace; the next bare `aitri` misdiagnosed the corruption it had just created. It now refuses before any write with the standard not-a-project guidance (feature-scoped guidance in feature scope), no stack trace, no phantom. The `Missing required file:` throw is translated cleanly at the dispatcher, and the contradictory "IDEA.md is short (0 words)" warning is suppressed when the seed file is absent (missing ≠ short).
+- **Approve checklist renders its floor number.** The requirements checklist printed `no_go_zone has ≥ explicit …` — `{{MIN_NGZ}}` was blank-stripped. `extractHumanReview` now renders supplied placeholders (validator floors + scope tokens), so approve prints `≥3` (the scope floor) and no unrendered `{{…}}` survives in any checklist.
+- **`feature init` rejects shell-fragile names.** `feature init "my feature"` succeeded, then every follow-up command it printed (`feature run-phase my feature 1`) reparsed to `name="my"` and failed. Names are now restricted to `[A-Za-z0-9._-]` with a slugified suggestion; the existing traversal guard is unchanged.
+- **Corrupt-`.aitri` recovery hint no longer points at a backup of the corruption.** `.aitri.bak` is a byte copy of the *broken* file; the message steered users to restore from it. It now steers to `git checkout -- .aitri` and marks the `.bak` inspection-only.
+- **`reject` on an approved phase tells the truth.** It printed `🔄 Phase … rejected` implying a state change, while `status` still showed ✅ Approved and the suggested rerun did nothing (idempotent re-read). On an approved phase it now says the phase REMAINS approved, records the feedback as advisory, and states what actually re-opens it. `reject` stays advisory and un-gated (invariant) — message-only fix.
+
+No schema, artifact-chain, or `.aitri` contract change (integration doc headers bumped for version-sync only). Suite: 2078 green (+14).
+
 ## [2.0.0-rc.161] — 2026-07-07 — `status --json` exposes `lastSession` + per-pipeline `quality_gates`/`ac_coverage` (HUB-CATCHUP-0705)
 
 The `status --json` additions the Hub filed as HUB-CATCHUP-0705, shipped now that the demand is demonstrated in its code rather than speculative: the Hub collector reads `.aitri.local` inline as an acknowledged SCHEMA.md deviation ("Core feedback filed to expose lastSession"), and its FR-047 quality-surfaces projection shipped as technical debt blocked solely on Core exposing the fields.

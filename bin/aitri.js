@@ -40,7 +40,7 @@ import { cmdRehash }       from '../lib/commands/rehash.js';
 import { cmdExport }       from '../lib/commands/export.js';
 import { homedirCaptureNote } from '../lib/state.js';
 
-const VERSION   = '2.0.0-rc.161';
+const VERSION   = '2.0.0-rc.162';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir   = path.dirname(__dirname);
 const cwd       = process.cwd();
@@ -84,8 +84,9 @@ const dir = cmd === 'init'   ? resolveInitDir()
 
 // C2: signal when the upward search captured a stray ~/.aitri instead of a
 // project here. Skip commands that do not resolve a project: `init` creates one;
-// `--version`/`help` are pure info and would only add noise.
-if (cmd !== 'init' && cmd !== '--version' && cmd !== 'help') {
+// version/help (and all their aliases) are pure info and would only add noise.
+const NON_RESOLVING = new Set(['init', '--version', '-v', 'version', 'help', '--help', '-h']);
+if (!NON_RESOLVING.has(cmd)) {
   const captureNote = homedirCaptureNote(cwd, dir);
   if (captureNote) console.error(`⚠️  ${captureNote}`);
 }
@@ -95,6 +96,41 @@ const flagValue = (flag) => {
   if (i === -1 || i + 1 >= args.length) return null;
   return args[i + 1];
 };
+
+// Known command names — the single list the unknown-command guard suggests from.
+// Kept next to the switch below; a new command must appear in both.
+const COMMANDS = [
+  'init', 'run-phase', 'complete', 'approve', 'reject', 'verify', 'verify-run',
+  'verify-complete', 'status', 'resume', 'checkpoint', 'feature', 'adopt', 'wizard',
+  'validate', 'backlog', 'review', 'bug', 'reconcile', 'audit', 'tc', 'rehash',
+  'export', 'help', '--version',
+];
+
+// Zero-dep Levenshtein for "did you mean" on a typo'd command.
+function levenshtein(a, b) {
+  const m = a.length, n = b.length;
+  const row = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    let prev = row[0];
+    row[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const tmp = row[j];
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = tmp;
+    }
+  }
+  return row[n];
+}
+
+// Nearest known command, or null when nothing is close enough to be a useful hint.
+function nearestCommand(input) {
+  let best = null, bestDist = Infinity;
+  for (const c of COMMANDS) {
+    const d = levenshtein(input, c);
+    if (d < bestDist) { bestDist = d; best = c; }
+  }
+  return bestDist <= Math.max(2, Math.floor(input.length / 3)) ? best : null;
+}
 
 const err = (msg) => {
   console.error(`❌ ${msg}`);
@@ -128,14 +164,28 @@ switch (cmd) {
   case 'tc':               cmdTC(ctx);              break;
   case 'rehash':           cmdRehash(ctx);          break;
   case 'export':           cmdExport(ctx);          break;
-  case '--version':        console.log(`Aitri v${VERSION}`); break;
+  case 'help':
+  case '--help':
+  case '-h':               cmdHelp(ctx);            break;
+  case '--version':
+  case '-v':
+  case 'version':          console.log(`Aitri v${VERSION}`); break;
   // No command given: if we're inside an Aitri project, run status;
-  // otherwise fall through to help. An unknown command always shows help.
+  // otherwise fall through to help.
   case undefined:
     if (fs.existsSync(path.join(dir, '.aitri'))) cmdStatus(ctx);
     else                                          cmdHelp(ctx);
     break;
-  default:                 cmdHelp(ctx);            break;
+  // An unknown command is an error, not a help request: exit non-zero on stderr so a
+  // typo'd `aitri verfy-complete` in a script/CI fails loudly instead of silently
+  // "passing" (exit 0 + help dump was a scriptability hole in a tool that gates).
+  default: {
+    const suggestion = nearestCommand(cmd);
+    console.error(`❌ Unknown command: "${cmd}"`);
+    if (suggestion) console.error(`   Did you mean "${suggestion}"?`);
+    console.error(`   Run 'aitri help' for the list of commands.`);
+    process.exit(1);
+  }
 }
 } catch (e) {
   // A command run outside an Aitri project (resume/status/validate call
@@ -156,6 +206,13 @@ switch (cmd) {
   // A malformed `.aitri` (any parse failure — B6/ADR-070 extends G-4): same refuse-with-
   // guidance treatment; the message carries the restore instructions.
   if (/\.aitri is not valid JSON/.test(e?.message || '')) {
+    console.error(`❌ ${e.message}`);
+    process.exit(1);
+  }
+  // A phase briefing that needs a seed/input file it cannot find (e.g. run-phase 1 with
+  // no IDEA.md) throws from buildBriefing. The message already carries the fix — print it
+  // cleanly instead of leaking the Node stack trace that read like a crash.
+  if (/^Missing required file:/.test(e?.message || '')) {
     console.error(`❌ ${e.message}`);
     process.exit(1);
   }
