@@ -7,6 +7,17 @@
 
 ---
 
+## [2.0.0-rc.164] — 2026-07-08 — CLI UX Batch 2.2–2.3: two-level help + gate errors that name the real next step (UX-PRO-0707)
+
+Two operator-guidance fixes; the other two Batch-2 items were investigated and found already-handled.
+
+- **2.2 — two-level `help`.** `aitri help <command>` used to ignore its argument and print the whole 137-line reference. Now the bare `aitri help` is a **short overview** (banner + where-to-start + the main loop + phase table + pointers, ~62 lines), `aitri help --all` is the **full reference** (superset of the old output), and `aitri help <command>` prints **just the section that documents that command** (e.g. `help init` → SETUP, `help verify-run` → TESTING GATE). Unknown topic → the overview with a note. `templates/AGENTS.md` updated to point agents at `aitri help --all` for the full surface.
+- **2.3 — gate errors point at the ACTUAL next step.** `aitri verify-run` with the pipeline at an early phase used to say `Run: aitri approve 4` — which itself fails, starting a 4-hop backwards chain (`approve 4` → `complete 4` → … → discover `run-phase architecture`). It now reads the real next action from `buildProjectSnapshot()` (the next-action SSoT — no duplicated ladder): `Build (Phase 4) must be approved before verify-run. Next: aitri run-phase architecture (…)`. Feature scope keeps a scope-correct `aitri feature status <name>` pointer.
+
+**Investigated, not built (evidence, not line count):** *2.4 (unify the PIPELINE-INSTRUCTION footer)* — `templates/AGENTS.md` already tells agents to "follow the next-action Aitri prints at the end of each command" and enumerates the `PIPELINE INSTRUCTION` / `⏸ PIPELINE CHECKPOINT` / branch variants; the premise ("agents miss 3 of 4 footers") does not hold. Unifying the emitter would erase the *meaningful* INSTRUCTION-vs-CHECKPOINT distinction (proceed vs stop-for-human) — a regression, not a fix. *2.5 (persist briefings to disk)* — the core need (re-read a briefing without re-running) is already met by the idempotent re-read (re-running a completed/approved unchanged phase re-prints without resetting state); adding a `briefings/` artifact dir with no consumer is the "for completeness" anti-pattern. Both tombstoned with triggers.
+
+No schema/artifact/`.aitri` contract change. Suite 2090 green (+3 net; help tests restructured to the two-level contract, verify gate tests updated).
+
 ## [2.0.0-rc.163] — 2026-07-08 — CLI UX Batch 2.1: color gating + `lib/format.js`; the glyph "sweep" investigated and scoped to what's real (UX-PRO-0707)
 
 Batch 2 opens with the one tier-1 defect in 2.1 — **ANSI color emitted unconditionally**. `help.js` was the sole color emitter and checked neither `stdout.isTTY` nor `NO_COLOR`, so piped and agent-read help carried escape codes (the output an agent or CI actually consumes). Fixed at the root with a single source of truth.

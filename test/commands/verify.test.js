@@ -1097,8 +1097,8 @@ console.log('✔ TC-001 — runner ran in this cwd');
   });
 });
 
-describe('cmdVerifyRun() — feature-context emits prefixed approve hint on missing Phase 4', () => {
-  it('feature scope: error message points to `aitri feature approve foo 4`', () => {
+describe('cmdVerifyRun() — missing Phase 4 gate points at the REAL next step (UX-PRO-0707 2.3)', () => {
+  it('feature scope: scope-correct pointer, never a cross-wired root command', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-vr-fctx-'));
     try {
       fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
@@ -1113,16 +1113,17 @@ describe('cmdVerifyRun() — feature-context emits prefixed approve hint on miss
           featureRoot: '/parent', scopeName: 'foo',
         });
       } catch { /* expected */ }
-      assert.ok(captured.includes('aitri feature approve foo 4'),
-        `expected feature-prefixed approve hint, got: ${captured}`);
+      assert.match(captured, /Build \(Phase 4\) must be approved/, 'names the gate');
+      assert.match(captured, /aitri feature status foo/,
+        `feature scope must give a scope-correct pointer, got: ${captured}`);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
-  it('root scope: error message points to `aitri approve 4` (regression guard)', () => {
+  it('root scope: names a real next command, never the failing "approve 4" chain', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-vr-rctx-'));
     try {
       fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
-        projectName: 'R', artifactsDir: 'spec',
+        projectName: 'R', artifactsDir: 'spec', aitriVersion: '2.0.0-rc.163',
         approvedPhases: [], completedPhases: [],
       }));
       let captured = '';
@@ -1131,9 +1132,12 @@ describe('cmdVerifyRun() — feature-context emits prefixed approve hint on miss
         cmdVerifyRun({ dir, args: [], flagValue: () => null, err });
       } catch { /* expected */ }
       assert.ok(!/aitri feature \w+ /.test(captured),
-        'root context must not emit feature-prefixed command');
-      assert.ok(captured.includes('aitri approve 4'),
-        `expected root-style approve hint, got: ${captured}`);
+        'root context must not emit a feature-prefixed command');
+      assert.match(captured, /Build \(Phase 4\) must be approved/, 'names the gate');
+      // The whole point of 2.3: it must NOT tell you to "approve 4" (which itself fails
+      // when the pipeline is earlier) — it names the actual next step from the snapshot.
+      assert.doesNotMatch(captured, /Run: aitri approve 4\b/, 'must not resurrect the backwards chain');
+      assert.match(captured, /Next: aitri \S/, 'must name a concrete next command');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

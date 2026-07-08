@@ -3,7 +3,7 @@
 This project is managed with **Aitri** — an SDLC pipeline CLI.
 All agents (Claude, Codex, Gemini, GitHub Copilot, etc.) must follow these rules.
 
-For the full command surface and flags, run `aitri help`. This document covers the **rules** — what to run, when, and why — not every command's syntax.
+For the full command surface and flags, run `aitri help --all` (bare `aitri help` is a short overview; `aitri help <command>` details one command). This document covers the **rules** — what to run, when, and why — not every command's syntax.
 
 **Project layout — THIS project's paths (rendered for its layout, use them literally):** seed brief `{{IDEA_FILE}}` · supporting assets `{{IDEA_CONTEXT_DIR}}/` · artifacts `{{SPEC_DIR}}/` · features `{{FEATURES_DIR}}/<name>/` · narrative backlog `{{BACKLOG_FILE}}`. Aitri's briefings always print layout-correct paths too. Two similar names, two different things: `.aitri` (dotted file at the project root) is the STATE; an `aitri/` folder (if this project has one) is the CONTENT container.
 
