@@ -7,6 +7,16 @@
 
 ---
 
+## [2.0.0-rc.167] — 2026-07-08 — CLI UX Batch 3 (3.2): `init` on an existing project is honest (UX-PRO-0707)
+
+Closes the last verified defect in the UX plan. `aitri init` re-run on a mid-pipeline project printed `✅ Aitri initialized` + the full new-user onboarding + exit 0, as if fresh — and after Phase 1 absorbed the seed (IDEA.md archived), it **recreated a template IDEA.md** next to a pipeline that will never read it.
+
+- Re-init (`.aitri` already present) now reports `ℹ️ Already an Aitri project … pipeline state untouched` and points at `aitri resume`, instead of the fresh-install headline + onboarding.
+- The seed is **not recreated** once it is absorbed (01_REQUIREMENTS.json exists) — it says `Seed already absorbed … not recreated`.
+- Preserved: the legitimate re-init side effects still run (agent-instruction-file refresh, `.gitignore`/backlog scaffolding, version-tracking with no downgrade) — only the misleading messaging and the phantom seed recreation are gone.
+
+No schema/artifact/`.aitri` contract change. Suite 2098 green.
+
 ## [2.0.0-rc.166] — 2026-07-08 — CLI UX Batch 3 (part 2): status/resume noise + honesty nits (UX-PRO-0707)
 
 Five status/resume/complete noise-and-honesty fixes; four heavier items deferred with triggers.

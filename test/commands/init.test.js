@@ -71,6 +71,39 @@ describe('aitri init — version tracking', () => {
   });
 });
 
+// 3.2 (UX-PRO-0707): re-init of an existing project must not claim a fresh install nor
+// dump new-user onboarding, and must not recreate an already-absorbed seed.
+describe('aitri init — re-init of an existing project is honest (UX-PRO-0707 3.2)', () => {
+  it('reports "Already an Aitri project" + resume, not a fresh-install onboarding', () => {
+    const dir = tmpDir();
+    try {
+      captureLog(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' }));   // fresh
+      const out = captureLog(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' })); // re-init
+      assert.match(out, /Already an Aitri project/, 're-init must not claim a fresh install');
+      assert.doesNotMatch(out, /Aitri initialized/, 'must not print the fresh-install headline');
+      assert.doesNotMatch(out, /What to do now/, 'must not dump new-user onboarding');
+      assert.match(out, /aitri resume/, 'points at resume');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('does not recreate the seed once it is absorbed into 01_REQUIREMENTS.json', () => {
+    const dir = tmpDir();
+    try {
+      captureLog(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' }));
+      const cfg = loadConfig(dir);
+      const artDir = path.join(dir, cfg.artifactsDir || '');
+      fs.mkdirSync(artDir, { recursive: true });
+      fs.writeFileSync(path.join(artDir, '01_REQUIREMENTS.json'), '{"functional_requirements":[]}');
+      // simulate absorption: the seed has been archived away
+      for (const f of ['IDEA.md', path.join('aitri', 'product', 'IDEA.md')]) fs.rmSync(path.join(dir, f), { force: true });
+      const out = captureLog(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' }));
+      assert.match(out, /Seed already absorbed/, 'says the seed was not recreated');
+      assert.ok(!fs.existsSync(path.join(dir, 'aitri', 'product', 'IDEA.md')),
+        'a fresh template seed must NOT be recreated next to an absorbed pipeline');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('aitri init — context folder (rc.37; contained under aitri/product/ since rc.76)', () => {
   it('creates aitri/product/idea_context/ (not idea/) with a README', () => {
     const dir = tmpDir();
