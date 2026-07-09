@@ -3,9 +3,9 @@
  *
  * The genuine tier-1 defect 2.1 fixed: color was emitted UNCONDITIONALLY (help.js was
  * the only ANSI emitter and checked neither isTTY nor NO_COLOR), so piped/agent-read
- * output carried escape codes. format.js owns the single color-on predicate; these pins
- * keep help colorless off-TTY and keep --json stdout byte-clean, and lock format's
- * vocabulary so the emoji status glyphs have one source.
+ * output carried escape codes. format.js owns the single color-on predicate + SGR emitter;
+ * these pins keep help colorless off-TTY and keep --json stdout byte-clean. The source-wide
+ * "no ANSI literals outside format.js" pin lives in test/format-pin.test.js.
  */
 
 import { describe, it } from 'node:test';
@@ -15,7 +15,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
-import { OK, FAIL, WARN, INFO, useColor, paint, divider } from '../lib/format.js';
+import { useColor, sgr, divider } from '../lib/format.js';
 
 const BIN = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'aitri.js');
 const ESC = /\x1b\[/;
@@ -29,13 +29,6 @@ function run(args, cwd, envOverrides = {}) {
 const tmp = (p) => fs.mkdtempSync(path.join(os.tmpdir(), p));
 
 describe('format — unit', () => {
-  it('status vocabulary is the emoji single source', () => {
-    assert.equal(OK, '✅');
-    assert.equal(FAIL, '❌');
-    assert.equal(WARN, '⚠️');
-    assert.equal(INFO, 'ℹ️');
-  });
-
   it('useColor() is false when NO_COLOR is set', () => {
     const prev = process.env.NO_COLOR;
     process.env.NO_COLOR = '1';
@@ -49,12 +42,12 @@ describe('format — unit', () => {
     assert.ok(useColor() === false || process.stdout.isTTY);
   });
 
-  it('paint() returns the string unchanged when color is off', () => {
+  it('sgr() returns the empty string when color is off', () => {
     const prev = process.env.NO_COLOR;
     process.env.NO_COLOR = '1';
     try {
-      assert.equal(paint('1', 'hello'), 'hello');
-      assert.doesNotMatch(paint('38;5;75', 'x'), ESC);
+      assert.equal(sgr('1'), '');
+      assert.equal(sgr('38;5;75'), '');
     } finally { if (prev === undefined) delete process.env.NO_COLOR; else process.env.NO_COLOR = prev; }
   });
 

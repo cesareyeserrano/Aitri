@@ -555,6 +555,23 @@ describe('cmdApprove() — missing artifact', () => {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('early-phase approve names the real next step, not the dead-end "complete N" chain (UX-PRO-0707 2.3 follow-up)', () => {
+    // approve build at phase 1 used to say "Complete phase 4 first" — but complete 4 then
+    // says "save the artifact first", guiding the user to hand-write a Phase-4 artifact.
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ aitriVersion: '2.0.0-rc.168' }));
+    try {
+      let captured = '';
+      const err = (msg) => { captured = msg; throw new Error(msg); };
+      try { cmdApprove({ dir, args: ['build'], err }); } catch { /* expected */ }
+      assert.match(captured, /Artifact missing/, 'names the gate');
+      assert.doesNotMatch(captured, /Complete phase 4 first/, 'must not resurrect the backwards chain');
+      assert.match(captured, /Next: aitri \S/, 'must name a concrete reachable command');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('cmdApprove() — unknown phase', () => {

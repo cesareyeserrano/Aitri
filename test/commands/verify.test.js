@@ -1142,6 +1142,41 @@ describe('cmdVerifyRun() — missing Phase 4 gate points at the REAL next step (
   });
 });
 
+describe('cmdVerifyComplete() — missing results points at the REAL next step (UX-PRO-0707 2.3 follow-up)', () => {
+  it('root scope, early pipeline: names the snapshot step, not the refusing verify-run', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-vc-early-'));
+    try {
+      fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+        projectName: 'R', artifactsDir: 'spec', aitriVersion: '2.0.0-rc.168',
+        approvedPhases: [], completedPhases: [],
+      }));
+      let captured = '';
+      const err = (msg) => { captured = msg; throw new Error(msg); };
+      try { cmdVerifyComplete({ dir, err }); } catch { /* expected */ }
+      assert.match(captured, /04_TEST_RESULTS\.json not found/, 'names the missing gate input');
+      // The old hint said "Run: aitri verify-run" — which itself refuses before Phase 4
+      // is approved. The hint must name the snapshot's reachable step instead.
+      assert.doesNotMatch(captured, /Run: aitri verify-run/, 'must not point at a command that refuses');
+      assert.match(captured, /Next: aitri \S/, 'must name a concrete reachable command');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('feature scope: keeps the scope-correct verify-run pointer', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-vc-feat-'));
+    try {
+      fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+        projectName: 'F', artifactsDir: 'spec',
+        approvedPhases: [], completedPhases: [],
+      }));
+      let captured = '';
+      const err = (msg) => { captured = msg; throw new Error(msg); };
+      try { cmdVerifyComplete({ dir, err, featureRoot: '/parent', scopeName: 'foo' }); } catch { /* expected */ }
+      assert.match(captured, /aitri feature verify-run foo/,
+        `feature scope must keep a scope-correct pointer, got: ${captured}`);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 // ── Z1 (alpha.13): verify-run invalidates stale verifyPassed ─────────────────
 //
 // Defect: re-running verify-run with degraded results (all-skip or any failure)

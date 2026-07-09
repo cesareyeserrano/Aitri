@@ -600,6 +600,25 @@ describe('Phase 1 — buildBriefing() re-run mode (01_REQUIREMENTS.json exists)'
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
+
+  it('the "Create …" hint names the layout-resolved seed path, not the bare filename (UX-PRO-0707 follow-up)', () => {
+    // Contained projects (LAYOUT-1) keep the seed at aitri/product/IDEA.md — "Create IDEA.md"
+    // alone reads as project root and a literal follower creates it in the wrong place.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-phase1-seedpath-'));
+    try {
+      assert.throws(
+        () => PHASE_DEFS[1].buildBriefing({ dir, inputs: {}, feedback: null, config: { layoutRoot: 'aitri' } }),
+        /Create aitri\/product\/IDEA\.md/,
+      );
+      // Legacy flat layout keeps the root-level name.
+      assert.throws(
+        () => PHASE_DEFS[1].buildBriefing({ dir, inputs: {}, feedback: null, config: {} }),
+        /Create IDEA\.md/,
+      );
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
 });
 
 // ── D2: Tier-A seed-input provenance gate ───────────────────────────────────

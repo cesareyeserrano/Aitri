@@ -232,3 +232,29 @@ describe('dispatcher — stray $HOME capture warning (C2)', () => {
     } finally { fs.rmSync(root, { recursive: true, force: true }); }
   });
 });
+
+// ── COMMANDS ↔ switch parity (UX-PRO-0707 follow-up) ─────────────────────────
+//
+// bin/aitri.js keeps the suggestion list (COMMANDS) next to the switch with a
+// comment saying "a new command must appear in both" — but nothing enforced it.
+// Drift is asymmetric and silent: a case missing from COMMANDS degrades "did you
+// mean" quietly; a COMMANDS entry with no case makes the CLI suggest a command
+// that then errors as unknown.
+describe('dispatcher — COMMANDS suggestion list stays in parity with the switch', () => {
+  it('every COMMANDS entry routes, and every named case is suggestable', () => {
+    const src = fs.readFileSync(BIN, 'utf8');
+    const listMatch = src.match(/const COMMANDS = \[([\s\S]*?)\];/);
+    assert.ok(listMatch, 'COMMANDS list must exist in bin/aitri.js');
+    const commands = [...listMatch[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    const cases = [...src.matchAll(/^\s*case '([^']+)':/gm)].map((m) => m[1]);
+    // Pure synonyms live on the case side only — suggesting them adds noise, not routes.
+    const ALIASES = new Set(['--help', '-h', '-v', 'version']);
+    for (const c of commands) {
+      assert.ok(cases.includes(c), `COMMANDS entry "${c}" has no switch case — it would be suggested, then error`);
+    }
+    for (const c of cases) {
+      if (ALIASES.has(c)) continue;
+      assert.ok(commands.includes(c), `case "${c}" missing from COMMANDS — typos near it get no suggestion`);
+    }
+  });
+});

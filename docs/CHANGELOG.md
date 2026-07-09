@@ -7,6 +7,19 @@
 
 ---
 
+## [2.0.0-rc.168] — 2026-07-09 — UX-PRO-0707 validation pass: adversarial findings fixed
+
+An independent validation session reproduced every rc.162–167 fix in sandboxes (all held) and ran an adversarial review of the diff. The confirmed findings — all in the honesty/dead-end-guidance dimension the overhaul itself targets — are fixed at the root:
+
+- **Gate errors route through the snapshot everywhere, not just `verify-run`.** The 2.3 fix left two adjacent gates emitting dead-end steps at an early pipeline: `verify-complete` said `Run: aitri verify-run` (which itself refuses before Phase 4 is approved) and `approve <later-phase>` said `Complete phase N first` (which then says "save the artifact first"). The snapshot next-action helper now lives in `lib/snapshot.js` (`topNextAction`, the SSoT) and all three gates consume it; feature scope keeps its scope-correct pointers.
+- **`format.js` stops promising a pin that didn't exist.** Its rc.163 header cited `test/format-pin.test.js` — which was never written — and most of its exports (`OK/FAIL/WARN/INFO/paint/warn/error`) had zero consumers. Now: `help.js`'s ANSI literals move into `format.js` (`sgr()` — color emission is genuinely single-sourced), the dead exports are deleted, and `test/format-pin.test.js` exists and forbids ANSI escape literals anywhere in `lib/`+`bin/` outside `format.js`. The emoji-glyph sweep stays deliberately out (tombstoned in the plan).
+- **Re-init no longer moves the user's root `IDEA.md` silently.** The rename into the container also happens on re-init but was only reported on fresh installs — the 3.2 branch printed "state untouched" while relocating a file. It now reports the move.
+- **Bare `run-phase` reads as usage.** It printed `Unknown phase "undefined"` — the JS literal leaked into output.
+- **The missing-seed hint names the real location.** `Create IDEA.md` now reads `Create aitri/product/IDEA.md` on contained layouts (a literal follower created it at the project root, where Phase 1 never looks).
+- Nits: `help help` shows the overview instead of the unknown-topic note; the dispatcher's `COMMANDS` suggestion list is now parity-pinned against the switch (the "must appear in both" comment had no enforcement); the bilingual `no aplica` exclusion idiom in `audit.js` carries its inline justification.
+
+Deliberately unchanged (validated as designed): unknown *flags* stay tolerated (existing tombstone, includes `help --al`), `feature init` on an unapproved parent proceeds with `[ASSUMPTION]` warnings, and `verify-run`'s snapshot hint can name a cross-scope action when that genuinely is the top item (SSoT honesty). No schema/artifact/`.aitri` contract change. Suite 2108 green.
+
 ## [2.0.0-rc.167] — 2026-07-08 — CLI UX Batch 3 (3.2): `init` on an existing project is honest (UX-PRO-0707)
 
 Closes the last verified defect in the UX plan. `aitri init` re-run on a mid-pipeline project printed `✅ Aitri initialized` + the full new-user onboarding + exit 0, as if fresh — and after Phase 1 absorbed the seed (IDEA.md archived), it **recreated a template IDEA.md** next to a pipeline that will never read it.

@@ -126,6 +126,13 @@ describe('cmdHelp() — per-command (help <command>)', () => {
     assert.match(out, /PIPELINE/, 'routes to the pipeline section that documents review');
   });
 
+  it('help help shows the overview, not the unknown-topic note (UX-PRO-0707 follow-up)', () => {
+    // help is a real command; its own usage IS the overview's "More:" block.
+    const out = topic('help');
+    assert.doesNotMatch(out, /No dedicated help/, 'help is a known command');
+    assert.match(out, /aitri help --all/, 'shows how to use help itself');
+  });
+
   it('help <unknown> falls back to the overview with a note', () => {
     const out = topic('frobnicate');
     assert.match(out, /No dedicated help for "frobnicate"/);

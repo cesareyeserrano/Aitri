@@ -525,6 +525,36 @@ describe('cmdRunPhase() — accepts numeric phase', () => {
   });
 });
 
+describe('cmdRunPhase() — bare invocation reads as usage (UX-PRO-0707 follow-up)', () => {
+  it('no phase argument → usage line, never the JS literal `Unknown phase "undefined"`', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    try {
+      let captured = '';
+      const err = (msg) => { captured = msg; throw new Error(msg); };
+      try {
+        cmdRunPhase({ dir, args: [], flagValue: makeFlagValue(), err, rootDir: ROOT_DIR });
+      } catch { /* expected */ }
+      assert.match(captured, /Usage: aitri run-phase <phase>/, 'bare run-phase is a usage error');
+      assert.doesNotMatch(captured, /undefined/, 'the JS literal must not leak into output');
+      assert.match(captured, /requirements\(1\)/, 'still lists the valid phases');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('a wrong phase still reads as Unknown phase "<arg>"', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig());
+    try {
+      let captured = '';
+      const err = (msg) => { captured = msg; throw new Error(msg); };
+      try {
+        cmdRunPhase({ dir, args: ['banana'], flagValue: makeFlagValue(), err, rootDir: ROOT_DIR });
+      } catch { /* expected */ }
+      assert.match(captured, /Unknown phase "banana"/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
 describe('cmdRunPhase() — missing input file', () => {
   it('throws when IDEA.md is missing for phase 1', () => {
     const dir = tmpDir();

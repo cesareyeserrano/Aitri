@@ -1,5 +1,14 @@
 # UX-PRO-0707 — Validation handoff
 
+> **VALIDATED 2026-07-09** (independent session). Every §1 claim reproduced in sandboxes and
+> held (Batch 1: 8/8 · Batch 2: 3/3 · Batch 3 via dedicated tests + deep review of 3.1);
+> invariants and the "no contract change" claim confirmed by an adversarial diff review.
+> The findings that survived verification (all honesty/dead-end-guidance class: the
+> `format.js` phantom pin, the silent root-IDEA move on re-init, `verify-complete`/`approve`
+> gates still emitting dead-end steps, `Unknown phase "undefined"`, the pathless seed hint)
+> were fixed at the root in **rc.168** — see `docs/CHANGELOG.md`. Suite 2108 green.
+> This file has served its purpose and is safe to delete.
+
 > **Purpose:** let a FRESH session (or a different agent) independently validate the CLI UX
 > overhaul without prior context. Everything needed is here. Scoped + dated — safe to delete
 > once validation is signed off.

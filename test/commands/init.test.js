@@ -86,6 +86,22 @@ describe('aitri init — re-init of an existing project is honest (UX-PRO-0707 3
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('re-init reports the root-IDEA absorption instead of moving the file silently', () => {
+    // The rename of a root IDEA.md into the container (documented pre-init flow) also
+    // happens on re-init — it used to print only "state untouched" while moving the file.
+    const dir = tmpDir();
+    try {
+      captureLog(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' }));   // fresh, contained
+      fs.rmSync(path.join(dir, 'aitri', 'product', 'IDEA.md'), { force: true });
+      fs.writeFileSync(path.join(dir, 'IDEA.md'), '# my real brief\n');
+      const out = captureLog(() => cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.0.0' })); // re-init
+      assert.match(out, /moved from project root/, 'the move must be reported, not silent');
+      assert.equal(fs.readFileSync(path.join(dir, 'aitri', 'product', 'IDEA.md'), 'utf8'),
+        '# my real brief\n', 'the user brief is kept verbatim in the container');
+      assert.ok(!fs.existsSync(path.join(dir, 'IDEA.md')), 'root copy is gone (moved, not duplicated)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('does not recreate the seed once it is absorbed into 01_REQUIREMENTS.json', () => {
     const dir = tmpDir();
     try {
