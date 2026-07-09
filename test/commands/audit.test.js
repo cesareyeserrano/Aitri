@@ -562,6 +562,34 @@ describe('buildSecurityNfrSummary()', () => {
     fs.writeFileSync(path.join(specDir, '01_REQUIREMENTS.json'), 'not json {{{');
     assert.equal(buildSecurityNfrSummary(dir, { artifactsDir: 'spec' }), null);
   });
+
+  // 3.3 #3 (UX-PRO-0707): a security NFR that DECLARES itself not-applicable is an exclusion
+  // decision, not a promise — it must not drive the adversarial-audit nudge.
+  it('drops a security NFR that declares itself not-applicable → null (no nudge)', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      non_functional_requirements: [
+        { id: 'NFR-001', category: 'Security', requirement: 'Not applicable: offline single-user tool, no network, no secrets, no PII' },
+      ],
+    });
+    assert.equal(buildSecurityNfrSummary(dir, { artifactsDir: 'spec' }), null,
+      'a declared-exclusion security NFR must not trigger the security nudge');
+  });
+
+  it('keeps a real security NFR even alongside a declared-exclusion one', () => {
+    const dir = tmpDir();
+    writeAitri(dir, { artifactsDir: 'spec' });
+    writeArtifact(dir, '01_REQUIREMENTS.json', {
+      non_functional_requirements: [
+        { id: 'NFR-001', category: 'Security', requirement: 'N/A — no attack surface' },
+        { id: 'NFR-002', category: 'Security', requirement: 'all endpoints require auth and rate-limiting' },
+      ],
+    });
+    const result = buildSecurityNfrSummary(dir, { artifactsDir: 'spec' });
+    assert.match(result, /NFR-002/, 'a genuine security NFR still counts');
+    assert.doesNotMatch(result, /NFR-001/, 'the excluded one is dropped');
+  });
 });
 
 describe('buildQualityGatesSummary()', () => {

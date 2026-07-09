@@ -995,7 +995,29 @@ describe('audit freshness', () => {
       const snap = buildProjectSnapshot(dir);
       assert.equal(snap.audit.exists, false);
       assert.equal(snap.audit.stalenessDays, null);
-      assert.ok(snap.nextActions.some(a => a.command === 'aitri audit'));
+    } finally { cleanup(dir); }
+  });
+
+  // 3.3 #1 (UX-PRO-0707): the "run evaluative audit" advisory must NOT nag from minute zero —
+  // there is nothing to audit before the pipeline produces a phase. It appears once there is.
+  it('no "aitri audit" advisory on a fresh project (no phase done)', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'x', artifactsDir: 'spec' });
+      const snap = buildProjectSnapshot(dir);
+      assert.ok(!snap.nextActions.some(a => a.command === 'aitri audit'),
+        'audit nag is suppressed until there is pipeline progress');
+    } finally { cleanup(dir); }
+  });
+
+  it('"aitri audit" advisory returns once a phase is completed', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'x', artifactsDir: 'spec', completedPhases: [1] });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.audit.exists, false);
+      assert.ok(snap.nextActions.some(a => a.command === 'aitri audit'),
+        'once there is progress, the missing-audit advisory is legitimate');
     } finally { cleanup(dir); }
   });
 

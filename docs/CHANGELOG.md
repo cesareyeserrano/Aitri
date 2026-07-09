@@ -7,6 +7,18 @@
 
 ---
 
+## [2.0.0-rc.166] — 2026-07-08 — CLI UX Batch 3 (part 2): status/resume noise + honesty nits (UX-PRO-0707)
+
+Five status/resume/complete noise-and-honesty fixes; four heavier items deferred with triggers.
+
+- **#1 — no audit nag from minute zero.** `resume`/`status` suggested `aitri audit` ("No AUDIT_REPORT.md") on an empty project before anything existed to audit. The advisory is now suppressed until the pipeline has produced a completed/approved phase; it returns unchanged once there is progress.
+- **#3 — no false security nudge.** `resume` suggested the adversarial security audit whenever a security-category NFR existed — including when that NFR *declares itself* not-applicable ("Not applicable: offline single-user tool, no network, no secrets, no PII"). A security NFR whose text opens with the exclusion idiom (`not applicable` / `N/A` / `does not apply`) is now treated as the exclusion decision it is; a genuine security NFR alongside it still nudges.
+- **#5 — one line, not N.** `complete 2` printed one full-sentence warning per unreferenced MUST FR (5 near-identical paragraphs). Now one line: `3 MUST FRs not referenced by id in 02_SYSTEM_DESIGN.md: FR-001, FR-002, FR-003 — …`.
+- **#9 — `complete 4` says the tests were not run.** Completing Build validates the build *report*, not the suite — it can pass while the declared runner is failing. It now prints: `Note: \`npm test\` is NOT run here — this validates the build report, not the tests. aitri verify-run executes it and gates the deploy.`
+- **#7 (recap, shipped rc.165) — `run-phase <bad>` echoes the bad input** and lists names with numbers.
+
+Deferred (tombstoned in the plan, each with a trigger): #2 the post-`validate` "finish line" (touches the deployable/validate next-action ladder — canary-scarred loop history; needs a persisted "validated" signal), #4 the untouched-template-IDEA next action (needs template-vs-content detection), #6 the `resume` layout reorder (Next Action above advisories — resume-order test churn), #8 batching drip-feed validation into one report (validator refactor). No schema/artifact/`.aitri` contract change. Suite 2096 green.
+
 ## [2.0.0-rc.165] — 2026-07-08 — CLI UX Batch 3 (part 1): honest agent-mode approval + branding + usage echo (UX-PRO-0707)
 
 - **3.1 — agent-mode `approve` tells the truth.** Non-TTY approval printed an unqualified `✅ Phase X APPROVED` even though no human validated it (the ⏸ CHECKPOINT below said "review pending" — the headline contradicted it). The headline is now `✅ Phase X APPROVED (recorded by agent — human confirmation pending)`, and the help text spells out the agent-mode behavior. **Design decision (per maintainer): the hard stop stays opt-in (`humanApprovalGate: true`), default-off.** Agent/CI/sandbox approval is a *supported* flow, not a defect — flipping the default to a hard gate would break the very sandbox/test path where an agent legitimately drives a full pipeline (Aitri's own suite included). The fix is honesty, not prohibition.
