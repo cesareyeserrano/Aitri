@@ -7,6 +7,15 @@
 
 ---
 
+## [2.0.0-rc.169] — 2026-07-09 — UX phase emits an advisory visual preview (FB-UX-MOCKUP-0708)
+
+The UX briefing now instructs a `UX_PREVIEW.html` next to the spec — a self-contained visual manual of the spec (token swatches with reasons, type scale at size, spacing/radii, computed AA contrast badges, light/dark panels side by side, one banner-bound illustrative strip) so the human approves look & feel at the UX gate, where correction costs a feedback sentence instead of a build refactor. Advisory: no gate, no schema, not hashed (ADR-073; the BUILD_PLAN.md class).
+
+- Hard rule pinned by test: the preview RENDERS the spec, never extends it — every value traces to the Design Tokens table (adversarial finding: a component-states preview would fork the source of truth).
+- Single skip: products with no graphical surface (CLI/TUI/library/service). With client-provided mockups it becomes a transcription read-back — compare against your own design before approving.
+- On feedback re-runs the briefing mandates regenerating the preview from the updated spec.
+- Docs: ARTIFACTS.md optional-artifacts row + integrations CHANGELOG (additive); Delivery Summary + Human Review lines; `templates/AGENTS.md` audited; pins in `test/rendered-briefing.test.js`.
+
 ## [2.0.0-rc.168] — 2026-07-09 — UX-PRO-0707 validation pass: adversarial findings fixed
 
 An independent validation session reproduced every rc.162–167 fix in sandboxes (all held) and ran an adversarial review of the diff. The confirmed findings — all in the honesty/dead-end-guidance dimension the overhaul itself targets — are fixed at the root:

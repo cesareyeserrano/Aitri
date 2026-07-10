@@ -18,6 +18,13 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.169 (2026-07-09) — new optional working file `UX_PREVIEW.html` (FB-UX-MOCKUP-0708) — additive
+
+The UX phase briefing now instructs an advisory visual preview: `UX_PREVIEW.html` in the artifacts dir, generated alongside `01_UX_SPEC.md` when the product has a graphical surface (skipped for CLI/TUI/library/service). Same class as `BUILD_PLAN.md`: agent-authored, no schema, nothing validates it, not hashed, no `.aitri` change. No existing field or artifact changed shape.
+
+- Readers may render or link it as a design preview; the design contract remains `01_UX_SPEC.md` — the preview may be stale after hand-edits to the spec (no freshness state exists by design; re-evaluate only if a real consumer reports stale-preview confusion).
+- Row added to the optional-artifacts table in [ARTIFACTS.md](./ARTIFACTS.md).
+
 ## v2.0.0-rc.161 (2026-07-07) — `status --json` gains `lastSession` + per-pipeline `quality_gates`/`ac_coverage` (HUB-CATCHUP-0705) — additive
 
 Three additive `status --json` surfaces, each with a demonstrated consumer already waiting in the Hub codebase (its collector reads `.aitri.local` inline as an acknowledged SCHEMA.md deviation; its FR-047 projection shipped as technical debt blocked on these fields). No existing field changed shape.

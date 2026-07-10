@@ -315,3 +315,55 @@ describe('optional phases print a Human Review checklist (C5)', () => {
     }
   });
 });
+
+describe('UX phase advisory visual preview (FB-UX-MOCKUP-0708)', () => {
+  // The preview is advisory (no gate, not hashed, nothing downstream reads it) — so the
+  // ONLY structural protection is this template pin: the briefing must instruct it, bound
+  // by the rules that keep it from forking the source of truth.
+  it('the rendered UX briefing carries the preview instruction with its guardrails', () => {
+    const briefing = renderPhase('ux');
+    assert.match(briefing, /UX_PREVIEW\.html/, 'preview output missing from the briefing');
+    assert.match(briefing, /spec\/UX_PREVIEW\.html/, 'ARTIFACTS_BASE must render into the preview path');
+    // The anti-fork hard rule (adversarial finding: a preview that extends the spec
+    // detonates at Phase 4 — stakeholder approved the preview, developer built the spec).
+    assert.match(briefing, /RENDERS the spec, it never extends it/i, 'renders-not-extends rule missing');
+    assert.match(briefing, /source row in the spec'?s Design Tokens/i, 'every rendered value must trace to the tokens table');
+    // The only skip: no graphical surface. Provided-design projects still generate it.
+    assert.match(briefing, /CLI\/TUI, library, service\/API/i, 'the no-graphical-surface skip must be explicit');
+    assert.match(briefing, /This is the only skip/i, 'skip must be single-condition (owner call 2026-07-09)');
+    // Provided-design role: transcription read-back, compared against the client mockups.
+    assert.match(briefing, /transcription read-back/i, 'provided-design read-back role missing');
+    // Staleness rule (adversarial finding: on re-runs the agent edits only the affected
+    // spec section — without this line the preview silently goes stale).
+    assert.match(briefing, /REGENERATE the preview from the updated spec/i, 're-run regeneration rule missing');
+    // Stack-agnostic guard (principle 4): the medium must not imply the product's stack.
+    assert.match(briefing, /does not imply the product is a web app/i, 'stack-agnostic guard missing');
+    // Self-containment: the human is told to open this file in a browser.
+    assert.match(briefing, /ZERO external requests/i, 'self-containment rule missing');
+    // Non-binding banner on the one permitted in-context strip.
+    assert.match(briefing, /ILLUSTRATIVE — non-binding; the spec is the contract/, 'illustrative banner missing');
+    // The two surfaces an agent skimming to the Instructions actually acts on: the
+    // imperative step, and the Delivery Summary line where a skip reason is recorded.
+    // (The generic /spec\/UX_PREVIEW\.html/ pin above is satisfied by EITHER — each
+    // needs its own pin or one can silently vanish.)
+    assert.match(briefing, /Generate spec\/UX_PREVIEW\.html \(advisory output above\), or record the skip reason/,
+      'the Instructions step for the preview is missing');
+    assert.match(briefing, /Preview:\s+\[UX_PREVIEW\.html — open it in a browser to SEE the design \| not generated — reason\]/,
+      'the Delivery Summary Preview line (the skip-recording surface) is missing');
+  });
+
+  it('the approve-time checklist covers the preview (match-the-tokens + no external URLs)', () => {
+    const cl = extractHumanReview('phases/phaseUX');
+    assert.match(cl, /UX_PREVIEW\.html/, 'approve ux checklist must reference the preview');
+    assert.match(cl, /no external URLs/i, 'the self-containment check is the human\'s to make');
+  });
+
+  // C3 division rule: the persona carries the NORM (renders-not-extends, spec is the
+  // contract); the template carries the MECHANICS (content list, skip condition, roles).
+  it('persona/template division holds for the preview', () => {
+    const src = persona('ux');
+    assert.match(src, /never extends the spec/i, 'the persona must carry the renders-not-extends norm');
+    assert.ok(!src.includes('contrast-ratio badges'), 'content mechanics must NOT live in the persona (C3)');
+    assert.ok(!src.includes('side by side'), 'layout mechanics must NOT live in the persona (C3)');
+  });
+});
