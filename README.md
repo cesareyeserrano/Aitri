@@ -14,6 +14,8 @@ npm install -g github:cesareyeserrano/Aitri#<sha>
 
 > **Do not `npm install -g aitri`.** The npm registry is frozen at `0.1.25` — roughly 150 releases old and contract-incompatible with everything documented here. Publishing resumes when 2.0.0 promotes to stable (promotion criterion: `docs/CHANGELOG.md` header).
 
+> **Agent shells and PATH.** If you use a Node version manager (nvm, asdf, volta), the global `aitri` binary lives under its versioned prefix and is only on `PATH` in shells that load the manager. Non-login shells — which coding agents often spawn — may not, and the agent will report it doesn't know the `aitri` command. Verify with the shell your agent uses: `command -v aitri`. If it doesn't resolve, invoke it by absolute path (`which aitri` in your own terminal prints it) or make the manager load in non-login shells.
+
 AI agents write code fast — and that's the problem. The spec lives in a chat that scrolls away, the code drifts from the original intent, and "done" means "the agent stopped," not "this was reviewed." Aitri puts the structure back: development becomes a pipeline of phases, each producing a **versioned artifact** — requirements, design, tests, build, traceability — that **must pass an explicit review-and-approve step before the next phase unlocks**.
 
 It works with **any agent that reads stdout** — Claude Code, Codex, Gemini CLI, Opencode, or a plain shell. Aitri never calls a model or writes code itself: it generates the briefing your agent acts on, then validates and gates what comes back.
