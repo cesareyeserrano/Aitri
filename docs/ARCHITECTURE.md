@@ -56,6 +56,7 @@ Each row is an era, not an exhaustive list — the authoritative dated record st
 | rc.151–152 | **Phase 4 plan-first + the parser matrix extracted** — a fresh build writes/maintains `BUILD_PLAN.md` (working file, AUDIT_REPORT class — NOT in the artifact chain), presents the plan before code, implements per-cluster with checkpoints at boundaries; debug re-entry renders neither. `lib/verify-parsers.js` extracted from verify.js (~660 lines of pure parse/derive — the seven runner parsers + TRX/JUnit + coverage builders), re-exported so no importer moved | ADR-071 / UPLAN-0703 C8+B9 |
 | rc.153–154 | **The human gate becomes a real review; one owner for routing** — agent-mode `approve` emits a PIPELINE CHECKPOINT (approval recorded, human review pending) instead of the literal-obedience imperative; `approve <phase> --show` renders the full artifact; drift re-approval shows the bounded git diff. UX-routing type-check deduped into `lib/requirements.js#hasUxRequiringFr` (the ADV-0622-29 divergence class closed); intent-coverage audit shifted LEFT (`complete 1`/`approve 1`/`resume` + rc.156 the deploy verdict) with content-hash freshness (`coverageAuditReqHash` — mtime was broken three ways) | UPLAN-0703 D |
 | rc.157–158 | **Integration contract audited doc-by-doc; the adversarial review closes its findings** — the five `docs/integrations/` docs verified line-by-line against code (new fifth contract doc `VALIDATE_JSON.md` for `validate --json`/`--ci`; `"4r"`→`"review"` artifact-map fix; `nextActions` severity pinned to its enum). Then the full rc.147–157 adversarial review: 0 ship-blockers; reconcile gains `pendingFiles` (drift GROWTH while pending re-clears `verifyPassed` — set-level, content-growth recorded residual) and `status --json` gains `bugs.parseErrors` (a corrupt `BUGS.json` is no longer silently zero to Hub; gates already refused — rc.149 division of labor unchanged) | INTEG-0704 |
+| rc.162–168 | **The undesigned edges become designed (UX-PRO-0707)** — the CLI's happy paths were above average, its edges below the `gh`/`cargo` bar. Structural residue of the overhaul: **`lib/format.js`** — color emission single-sourced (`useColor`/`sgr`) so piped/agent-read output never carries ANSI, enforced by `test/format-pin.test.js` (an escape literal anywhere else in `lib/`+`bin/` fails the suite); **`snapshot.js#topNextAction`** — the next-action ladder promoted to an SSoT the phase gates read, so a refused gate (`verify-run`, `verify-complete`, `approve`) names a *reachable* step instead of a command that refuses in turn; **honest agent-mode `approve`** (headline says "recorded by agent — human confirmation pending"; the hard stop stays opt-in `humanApprovalGate`, because agent/CI/sandbox approval is a supported flow, not a defect); **two-level `help`**; **`init` on an existing project** stops claiming a fresh install. Six verified defects (rc.162) → systemic color/help/gates (rc.163–164) → honesty + status/resume noise (rc.165–167) → an independent validation session's adversarial findings fixed at the root (rc.168). No schema/artifact-chain/`.aitri` contract change across the whole range | UX-PRO-0707 (2026-07-07/09) |
 | rc.134–136 | **Harness-frame re-audit (AUDIT-0629)** — re-audited the codebase under the corrected "rigor-harness" identity. Four verified edge defects fixed (deploy-gate severity/status **case-fold false-pass**; `tc verify --evidence` **laundering trail** `downgraded_from`; `feature ..` **path-traversal** writing the wrong `.aitri`; null-`events[]` **crash** in snapshot + upgrade), then `export` made to **reuse** the Phase-5 evidence/MUST predicates it had drifted from (one SSoT in `requirements.js`), then the **blocking-bug predicate consolidated** into `bug.js` `isActiveBug`/`isBlockingBug` shared by the root + feature gates. Recurring root cause = a predicate reimplemented inline then drifted → see **Shared predicate SSoTs** above. Each fix adversarially reviewed before ship | AUDIT-0629 (2026-06-29/30) |
 
 ---
@@ -111,6 +112,13 @@ lib/verify-parsers.js     Pure result parsers & derivations (UPLAN-0703 B9) — 
                           density/coverage scanners. No side effects, no path back to verify.js;
                           verify.js imports + re-exports so the `verify.js` API is unchanged
 lib/verify-display.js     formatVerifyCounts() — three-bucket P/F/Deferred
+lib/format.js             useColor() / sgr() / divider() — the ONLY place that emits ANSI escape
+                          codes (color on an interactive TTY with NO_COLOR unset; '' otherwise, so
+                          piped/agent-read output stays escape-free). Pinned by
+                          test/format-pin.test.js: an escape literal anywhere else in lib/ or bin/
+                          fails the suite. Status glyphs are deliberately NOT centralized here
+                          (verify-parsers matches a foreign runner's ✓/✗; verify-display contrasts
+                          count markers against the verdict badge — both documented designs)
 lib/phases/index.js       PHASE_DEFS map + OPTIONAL_PHASES export + phase alias map
 lib/phases/phase1-5.js    Core phase definitions: briefings, extractContext(), validate()
 lib/phases/phaseUX.js     Optional UX phase
@@ -129,6 +137,9 @@ lib/state.js              loadConfig / saveConfig (merges .aitri + .aitri.local)
                           writeLastSession / writeSessionContext / writeFrSnapshot / detectAgent /
                           hasDrift / cascadeInvalidate — single point of .aitri I/O (invariant)
 lib/snapshot.js           buildProjectSnapshot() — unified source for status / resume / validate
+                          topNextAction() — the same next-action ladder, read by the phase gates
+                          (verify-run, verify-complete, approve) so a refused gate names a REACHABLE
+                          step instead of a command that refuses in turn
 lib/context-assets.js     listAssets() / visualAssets() — idea_context/feature_context helpers
 lib/upgrade/              adopt --upgrade reconciliation protocol (diagnose + per-version migrations)
 lib/agent-files.js        writeAgentFiles() — multi-agent instruction file generation
@@ -165,6 +176,8 @@ are the canonical definitions — import them, never re-derive:
 | Bug active / blocking? | `lib/commands/bug.js` `isActiveBug()` / `isBlockingBug()` (+ `bugStatus` / `bugSeverity`) | `getBlockingBugs` (feature gate), `snapshot.aggregateBugs` (root gate) |
 | Behavioral change for reconcile/snapshot? | `lib/reconcile-patterns.js` `isBehavioralFile()` | reconcile, snapshot |
 | Results file bound to its run? (`bound`/`mismatch`/`no-stamp`/`missing-file`) | `lib/state.js` `verifyResultsBinding()` | snapshot/health, validate, status, phase5 (ADR-069) |
+| What is the operator's next step? | `lib/snapshot.js` `topNextAction()` (over `buildProjectSnapshot().nextActions`) | verify-run gate, verify-complete gate, approve gate (UX-PRO-0707) |
+| Is color on? / how is an ANSI code emitted? | `lib/format.js` `useColor()` / `sgr()` | help.js today; every future emitter (pinned by `test/format-pin.test.js`) |
 
 A *general* mechanical detector of semantic re-implementation is not buildable; the real catch is the
 **independent adversarial pass on changes** (it is what surfaced AUDIT-0629-E/F). This registry + the
