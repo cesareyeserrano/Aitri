@@ -18,6 +18,13 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.171 (2026-07-10) — `04_TEST_RESULTS.json` gains `e2e_exit_code`/`e2e_runner` (FB-VERIFY-BLINDSPOTS-0710) — additive
+
+Two optional fields, present only when the e2e auto-run fired (playwright.config detected, non-manual run): **`e2e_exit_code`** (number) and **`e2e_runner`** (string, currently always `"playwright"`). The exit code previously lived only inside the raw-output markdown — an e2e test failing outside the TC-id naming was invisible to every structured reader. Informational, never a gate. Absent = no auto-run, not success. No existing field changed shape.
+
+- Readers: treat `e2e_exit_code !== 0` with `summary.failed === 0` as "unnamed e2e failure or setup error — review raw Playwright output".
+- Advisory-only companions in the same release (no schema impact): a double-execution nudge at `verify-run` when a declared quality_gate also runs Playwright, and a `verify-complete` advisory listing manual overrides of prior runner verdicts (`downgraded_from` on results entries AND on mark-manual'd TCs in `03_TEST_CASES.json`). Behavioral note for readers: verify-run's preservation of manually-verified results now carries `downgraded_from` forward on re-runs (previously dropped — a results entry may now retain the stamp across runs, which is the intended provenance).
+
 ## v2.0.0-rc.170 (2026-07-10) — `BUILD_PLAN.md` content shape: epics (US groups) replace FR clusters (PLAN-EPIC-0708) — additive
 
 Doc-only for consumers: `BUILD_PLAN.md` remains an unvalidated working file with no schema (nothing changed in any contract), but its instructed content shape changed — the grouping unit is now the **epic** (a group of user stories, with FR/TC ids as derived references and a per-epic `done` = its TCs green), replacing the free-form "FR clusters". A reader that renders BUILD_PLAN.md as build progress may want to recognize the `## Epic <N>` / `Delivers:` / `Makes pass:` skeleton; plans written before rc.170 have no stable shape.

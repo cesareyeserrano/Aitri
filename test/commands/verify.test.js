@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, hasMutationGate, hasUISurfaceFRs, hasAppExecutingGate, gatesWithShellOperators, resolveWinBin } from '../../lib/commands/verify.js';
+import { parseRunnerOutput, parsePlaywrightOutput, parseVitestOutput, parsePytestOutput, parseGoOutput, parseTrxResults, parseJUnitXmlResults, parseXmlResults, resolveResultFiles, buildFRCoverage, buildACCoverage, scanTestContent, scanAssertionDensity, parseCoverageOutput, injectCoverageFlag, extractTCId, cmdVerifyRun, cmdVerifyComplete, runQualityGates, hasMutationGate, hasPlaywrightGate, hasUISurfaceFRs, hasAppExecutingGate, gatesWithShellOperators, resolveWinBin } from '../../lib/commands/verify.js';
 import { cmdStatus } from '../../lib/commands/status.js';
 import { hashArtifact, hashResultsFile } from '../../lib/state.js';
 
@@ -3262,5 +3262,221 @@ describe('cmdVerifyRun() — smoke-gap nudge (SMOKE-RUN-0625)', () => {
       seedSmoke(dir, { frType: 'logic' });
       assert.doesNotMatch(captureStderr(dir), NUDGE);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('e2e blind spots (FB-VERIFY-BLINDSPOTS-0710)', () => {
+  // The consumer episode: a pw failure with no TC id was invisible (exit code lived only
+  // in the raw-output markdown), the double-run red drove the agent to DELETE the e2e
+  // gate, and 3 evidence-overrides reached deploy unseen. Three fixes, all advisory —
+  // these tests pin each surface.
+
+  describe('hasPlaywrightGate()', () => {
+    it('detects playwright in the command or the name, case-insensitively', () => {
+      assert.equal(hasPlaywrightGate([{ name: 'e2e', command: 'npx playwright test' }]), true);
+      assert.equal(hasPlaywrightGate([{ name: 'Playwright-smoke', command: './run-e2e.sh' }]), true);
+      assert.equal(hasPlaywrightGate([{ name: 'lint', command: 'eslint .' }]), false);
+      assert.equal(hasPlaywrightGate([]), false);
+      assert.equal(hasPlaywrightGate(undefined), false);
+      assert.equal(hasPlaywrightGate([null]), false);
+    });
+  });
+
+  // Integration through the real auto-run: a PATH-shimmed `npx` stands in for Playwright
+  // (prints no TC-id lines, exits as scripted). Unix-only — resolveWinBin looks for
+  // npx.cmd on Windows and a .sh shim would not resolve.
+  const unixIt = process.platform === 'win32' ? it.skip : it;
+
+  function seedPw(dir, { gates } = {}) {
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+      projectName: 'p', artifactsDir: 'spec',
+      approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have', type: 'logic' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', type: 'unit', expected_result: 'r' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+      files_created: ['runner.js'], test_runner: 'node runner.js',
+      ...(gates ? { quality_gates: gates } : {}),
+    }));
+    // Main runner: prints the TC pass so the run is not all-skip.
+    fs.writeFileSync(path.join(dir, 'runner.js'), 'console.log("\\u2714 TC-001 passes");');
+    fs.writeFileSync(path.join(dir, 'playwright.config.js'), 'module.exports = {};');
+    // The npx shim: a failing e2e run with NO TC-id lines — the invisible case.
+    const shimDir = path.join(dir, 'shim');
+    fs.mkdirSync(shimDir);
+    fs.writeFileSync(path.join(shimDir, 'npx'), '#!/bin/sh\necho "1 failed - unnamed e2e spec"\nexit 1\n');
+    fs.chmodSync(path.join(shimDir, 'npx'), 0o755);
+    return shimDir;
+  }
+
+  function runWithShim(dir, shimDir) {
+    let stderr = '';
+    const origPath = process.env.PATH;
+    const origWrite = process.stderr.write; const origLog = console.log;
+    process.env.PATH = `${shimDir}:${origPath}`;
+    process.stderr.write = (c) => { stderr += c; return true; }; console.log = () => {};
+    try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } }); }
+    finally {
+      process.env.PATH = origPath;
+      process.stderr.write = origWrite; console.log = origLog;
+    }
+    return stderr;
+  }
+
+  unixIt('stores e2e_exit_code + e2e_runner structurally and prints the unexplained-e2e-exit note', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-e2e-exit-'));
+    try {
+      const shim = seedPw(dir);
+      const stderr = runWithShim(dir, shim);
+      const results = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8'));
+      assert.equal(results.e2e_exit_code, 1, 'the auto-run exit code must be a structured field');
+      assert.equal(results.e2e_runner, 'playwright');
+      assert.match(stderr, /the Playwright e2e run exited 1 \(failure\) but no failing TCs were parsed/,
+        'the divergence note must cover the e2e runner, not only the main one');
+      // No pw gate declared → the double-run nudge must stay silent.
+      assert.doesNotMatch(stderr, /executes twice per verify-run/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  unixIt('absent auto-run → no e2e fields (additive contract: old shape untouched)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-e2e-none-'));
+    try {
+      const shim = seedPw(dir);
+      fs.rmSync(path.join(dir, 'playwright.config.js'));
+      runWithShim(dir, shim);
+      const results = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8'));
+      assert.ok(!('e2e_exit_code' in results), 'no auto-run → field absent, not null');
+      assert.ok(!('e2e_runner' in results));
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  unixIt('declared Playwright gate + auto-run → the double-execution nudge fires (with the timeout asymmetry)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-e2e-dual-'));
+    try {
+      const shim = seedPw(dir, { gates: [{ name: 'e2e', command: 'npx playwright test' }] });
+      const stderr = runWithShim(dir, shim);
+      assert.match(stderr, /executes twice per verify-run/, 'the double-run nudge must fire');
+      assert.match(stderr, /5-minute timeout/, 'the gate-vs-runner timeout asymmetry must be named');
+      assert.match(stderr, /Do NOT just delete the gate/, 'the guidance must protect the blocking half');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  describe('cmdVerifyComplete() — downgraded_from override advisory', () => {
+    function seedComplete(dir, { overridden }) {
+      fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+      fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+        projectName: 'p', artifactsDir: 'spec',
+        approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+      }));
+      fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+        functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have' }],
+      }));
+      fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+        test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
+      }));
+      fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+        files_created: [{ path: 'x.js' }], test_runner: 'node --test',
+      }));
+      fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
+        executed_at: new Date().toISOString(),
+        test_runner: 'node --test', exit_code: 0,
+        results: [overridden
+          ? { tc_id: 'TC-001', status: 'pass', downgraded_from: 'fail', evidence: 'spec/04_TEST_RESULTS.json' }
+          : { tc_id: 'TC-001', status: 'pass' }],
+        fr_coverage: [{ fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' }],
+        summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+      }));
+      stampResults(dir);
+    }
+
+    function captureCompleteStderr(dir) {
+      let stderr = '';
+      const origWrite = process.stderr.write; const origLog = console.log;
+      process.stderr.write = (c) => { stderr += c; return true; }; console.log = () => {};
+      try { cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } }); }
+      finally { process.stderr.write = origWrite; console.log = origLog; }
+      return stderr;
+    }
+
+    it('surfaces an override (fail → pass) at the deploy gate, advisory-only', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-ovr-fire-'));
+      try {
+        seedComplete(dir, { overridden: true });
+        const stderr = captureCompleteStderr(dir);   // does not throw — never a block
+        assert.match(stderr, /1 result\(s\) reached the deploy gate carrying a manual override/,
+          'the override advisory must fire');
+        assert.match(stderr, /TC-001 — now "pass", overrode a prior "fail" result/);
+        assert.match(stderr, /Not blocking/);
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    });
+
+    it('stays silent when no result carries downgraded_from', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-ovr-clean-'));
+      try {
+        seedComplete(dir, { overridden: false });
+        assert.doesNotMatch(captureCompleteStderr(dir), /manual override/);
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    });
+
+    it('also surfaces mark-manual conversions (the stamp lives on the TC, not in results)', () => {
+      // The equally cheap laundering route: runner fail -> mark-manual -> hand-verified pass.
+      // The next verify-run seeds the TC as plain "manual", so a results-only read misses it.
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-ovr-manual-'));
+      try {
+        seedComplete(dir, { overridden: false });
+        fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+          test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r', automation: 'manual', downgraded_from: 'fail' }],
+        }));
+        const stderr = captureCompleteStderr(dir);
+        assert.match(stderr, /TC-001 — converted to manual after a prior "fail" result/,
+          'mark-manual conversions must be surfaced too');
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    });
+  });
+
+  describe('cmdVerifyRun() — the preservation block carries downgraded_from forward', () => {
+    // Adversarial finding: the ordinary loop (override -> fix something else -> verify-run
+    // again) re-seeded the verified entry WITHOUT its downgraded_from stamp — the
+    // verify-complete advisory was silently defeated by the exact workflow it watches.
+    it('a re-run preserves the override stamp alongside the verified status', () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-ovr-rerun-'));
+      try {
+        fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+        fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({
+          projectName: 'p', artifactsDir: 'spec',
+          approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+        }));
+        fs.writeFileSync(path.join(dir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+          functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have', type: 'logic' }],
+        }));
+        fs.writeFileSync(path.join(dir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+          test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', type: 'unit', expected_result: 'r' }],
+        }));
+        fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+          files_created: ['runner.js'], test_runner: 'node runner.js',
+        }));
+        fs.writeFileSync(path.join(dir, 'runner.js'), '');   // fresh run detects nothing -> skip
+        fs.writeFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), JSON.stringify({
+          executed_at: new Date().toISOString(), test_runner: 'node runner.js', exit_code: 0,
+          results: [{ tc_id: 'TC-001', status: 'pass', verified_manually: true, verified_at: new Date().toISOString(), downgraded_from: 'fail' }],
+          fr_coverage: [{ fr_id: 'FR-001', tests_passing: 1, tests_failing: 0, tests_skipped: 0, tests_manual: 0, status: 'covered' }],
+          summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+        }));
+        const origWrite = process.stderr.write; const origLog = console.log;
+        process.stderr.write = () => true; console.log = () => {};
+        try { cmdVerifyRun({ dir, args: [], flagValue: () => null, err: () => {} }); }
+        catch { /* downstream may err; the results file is already written */ }
+        finally { process.stderr.write = origWrite; console.log = origLog; }
+        const rewritten = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_TEST_RESULTS.json'), 'utf8'));
+        const entry = rewritten.results.find(r => r.tc_id === 'TC-001');
+        assert.equal(entry.status, 'pass', 'the human verification survives the re-run (pre-existing behavior)');
+        assert.equal(entry.downgraded_from, 'fail', 'the override stamp must travel WITH the overridden verdict');
+      } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+    });
   });
 });

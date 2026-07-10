@@ -7,6 +7,16 @@
 
 ---
 
+## [2.0.0-rc.171] — 2026-07-10 — verify blind spots closed: e2e exit visibility, double-run nudge, override advisory (FB-VERIFY-BLINDSPOTS-0710)
+
+A consumer-project episode (Next.js + Playwright) exposed three verify blind spots: the agent deleted a red e2e gate, made 3 skip→pass overrides with circular `--evidence`, and a failing unnamed e2e test was invisible outside the raw output. All three closed advisory-only — no new gate, honoring the "Aitri keys on parsed TCs" contract:
+
+- **`e2e_exit_code` + `e2e_runner`** (additive fields in `04_TEST_RESULTS.json`): the Playwright auto-run's exit code is now structured, and verify-run prints the same unexplained-exit note the main runner already had (pw exit ≠ 0 with zero parsed failing TCs = an unnamed e2e failure or setup error).
+- **Double-execution nudge:** a declared Playwright quality_gate + the auto-run = the suite runs twice, and the gate's 5-min default timeout (vs the runner's 15) turns long suites into a misleading `error`. The nudge names the trap and the honest fixes — raise `timeout_ms` or scope the gate, never delete it (the auto-run never blocks on unnamed failures; a required gate does).
+- **Override advisory at verify-complete:** manual overrides of a prior runner verdict are now listed at the deploy gate — both kinds: results carrying `downgraded_from` (`tc verify` overrides) AND test cases converted to manual after a runner verdict (`tc mark-manual` stamps the TC in `03_TEST_CASES.json`, which a results-only read would miss). Print-only, mirroring the low-confidence pattern; previously neither stamp had a reader at any decision surface. The verify-run preservation block now also carries `downgraded_from` forward on re-runs (adversarial finding: the ordinary override-then-rerun loop silently erased the stamp — the advisory would have been defeated by the exact workflow it watches).
+- Rejected (recorded in the analysis): suppressing the auto-run (only source of e2e TC crediting), a circular-evidence path guard (theater — the agent just points elsewhere), escalating advisory-gate `error` (contradicts the `required:false` contract).
+- Tests: `hasPlaywrightGate` unit pins + PATH-shim integration through the real auto-run (unix) + verify-complete advisory pins. Docs: ARTIFACTS.md field docs + integrations CHANGELOG (additive).
+
 ## [2.0.0-rc.170] — 2026-07-10 — BUILD_PLAN.md: epics of user stories, verifiable boundaries, one vocabulary (PLAN-EPIC-0708)
 
 The Phase-4 plan stops being free-form filler: the briefing now mandates a fixed per-epic skeleton where the **epic groups the user stories it delivers** (`Delivers:` first; FR/TC ids as derived references only; NFRs are never a grouping axis, but every TC — including NFR and US-less-FR TCs — must land in exactly one epic's `Makes pass`), ordered by dependency with a one-line rationale. The drifting vocabulary is gone: "cluster" → **epic**, "layer roadmap" → **build steps** (the collision that made agents write "capa"/"item"/"punto"). ADR-074; ADR-071's working-file status unchanged (no gate, no schema, not hashed).
