@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.170 (2026-07-10) — `BUILD_PLAN.md` content shape: epics (US groups) replace FR clusters (PLAN-EPIC-0708) — additive
+
+Doc-only for consumers: `BUILD_PLAN.md` remains an unvalidated working file with no schema (nothing changed in any contract), but its instructed content shape changed — the grouping unit is now the **epic** (a group of user stories, with FR/TC ids as derived references and a per-epic `done` = its TCs green), replacing the free-form "FR clusters". A reader that renders BUILD_PLAN.md as build progress may want to recognize the `## Epic <N>` / `Delivers:` / `Makes pass:` skeleton; plans written before rc.170 have no stable shape.
+
+- ARTIFACTS.md optional-artifacts row updated (wording only). No `.aitri` change, no artifact schema change.
+
 ## v2.0.0-rc.169 (2026-07-09) — new optional working file `UX_PREVIEW.html` (FB-UX-MOCKUP-0708) — additive
 
 The UX phase briefing now instructs an advisory visual preview: `UX_PREVIEW.html` in the artifacts dir, generated alongside `01_UX_SPEC.md` when the product has a graphical surface (skipped for CLI/TUI/library/service). Same class as `BUILD_PLAN.md`: agent-authored, no schema, nothing validates it, not hashed, no `.aitri` change. No existing field or artifact changed shape.

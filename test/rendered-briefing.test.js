@@ -191,17 +191,47 @@ describe('Phase 4 plan-first protocol (C8/ADR-071)', () => {
     });
   }
 
-  it('a FRESH build carries the full protocol: plan file, present-before-code, per-cluster roadmap, checkpoints, resume rule', () => {
+  it('a FRESH build carries the full protocol: plan file, present-before-code, per-epic build steps, checkpoints, resume rule', () => {
     const out = renderBuild();
     assert.match(out, /Plan-First Build Protocol/);
     assert.match(out, /BUILD_PLAN\.md/);
     assert.match(out, /Present the plan to the user in conversation before implementing/i);
-    assert.match(out, /Within EACH cluster follow the layer roadmap/i, 'the roadmap is per-cluster, not whole-project');
-    assert.match(out, /When a human operator is present.*pause and present progress/is);
+    assert.match(out, /Within EACH epic follow the build steps/i, 'the build steps are per-epic, not whole-project');
+    assert.match(out, /When a human operator is present.*pause and present/is);
     assert.match(out, /autonomous\/CI run.*record.*continue/is, 'the checkpoint must not stall an unattended run');
     assert.match(out, /read BUILD_PLAN\.md FIRST/i, 'session resume reads the plan first');
     assert.match(out, /cascade-invalidates/i, 'spec-change routing states the honest cost');
     assert.match(out, /never resume from this briefing \+ the old BUILD_PLAN\.md/i, 'stale-briefing guard after upstream re-open');
+  });
+
+  // PLAN-EPIC-0708: one vocabulary + US-as-deliverable + verifiable boundaries. The plan
+  // is honor-system end to end, so the ONLY structural protection is these template pins.
+  it('the plan groups USER STORIES into epics with a fixed skeleton (PLAN-EPIC-0708)', () => {
+    const out = renderBuild();
+    // The grouping axis is the US (owner-confirmed 2026-07-10) — never "cluster the FRs".
+    assert.match(out, /Group the \*\*user stories\*\* into \*\*epics\*\*/, 'US is the grouping axis');
+    // The fixed skeleton, field by field — renaming these run-to-run was the reported defect.
+    assert.match(out, /## Epic <N> — <feature-area name>/, 'skeleton heading missing');
+    assert.match(out, /Delivers:\s+US-0xx/, 'Delivers (the US — the deliverable) missing from the skeleton');
+    assert.match(out, /Makes pass:\s+TC-0xx/, 'Makes pass (the epic done criterion) missing from the skeleton');
+    assert.match(out, /Why here:/, 'per-epic ordering rationale missing');
+    // FR/TC are derived references; the plan must still cover the WHOLE TC set (US-less
+    // FRs' and NFRs' TCs get an explicit home — the adversarial pass showed the pure
+    // US-derivation chain strands them until the end, the exact mode this protocol kills).
+    assert.match(out, /DERIVED references/i, 'FR/TC must be reference-only, never restated');
+    assert.match(out, /every TC id in `03_TEST_CASES\.json` appears in exactly one epic/i, 'full-TC-set coverage rule missing');
+    assert.match(out, /NFRs are never a grouping axis/i, 'NFR grouping exclusion missing');
+    // Chronology: the epic writes its own TCs' test code — done cannot presuppose tests exist.
+    assert.match(out, /Writing the test code for the epic'?s TCs is PART of the epic/i, 'test authorship must live inside the epic');
+    // Verifiable partial delivery: done has an operative definition, evidence not narrative.
+    assert.match(out, /`done` only when its `Makes pass` TCs run green/i, 'the epic done criterion missing');
+    assert.match(out, /test run OUTPUT/i, 'the boundary must present evidence, not a summary');
+    // Proportionality: epics come from the product; small increment = ONE epic, no ceremony.
+    assert.match(out, /epic count comes from the product, not from the protocol/i, 'proportionality rule missing');
+    assert.match(out, /Do not manufacture granularity/i, 'anti-ceremony guard missing');
+    // The drifting vocabulary is gone from the rendered briefing (the acceptance grep, as a pin).
+    assert.ok(!/\bcluster\b/i.test(out), 'the old "cluster" vocabulary must not render');
+    assert.ok(!/layer roadmap/i.test(out), 'the old "layer roadmap" vocabulary must not render');
   });
 
   it('a DEBUG re-entry renders NEITHER the protocol nor the plan instructions (minimal-fix protocol instead)', () => {
@@ -221,11 +251,13 @@ describe('Phase 4 plan-first protocol (C8/ADR-071)', () => {
     assert.match(out, /TC-001h \(FR-001\)/, 'the TC id list is intact');
   });
 
-  it('developer persona and build template agree on the per-cluster roadmap (C3 rule)', () => {
+  it('developer persona and build template agree on the per-epic build steps (C3 rule)', () => {
     const src = persona('developer');
-    assert.ok(!src.includes('Work in three phases'), 'the whole-project three-phase roadmap contradicts the per-cluster protocol');
+    assert.ok(!src.includes('Work in three phases'), 'the whole-project three-phase roadmap contradicts the per-epic protocol');
     assert.ok(!src.includes('Follow the 3-phase roadmap'), 'same — the persona and template render into one prompt');
-    assert.ok(src.includes('cluster'), 'the persona carries the per-cluster judgment');
+    assert.ok(src.includes('epic'), 'the persona carries the per-epic judgment');
+    assert.ok(!src.includes('cluster'), 'the old vocabulary must not survive in the persona (it rendered as "capa"/"item")');
+    assert.ok(!src.includes('layers'), 'same — "layers" is what a Spanish-speaking agent renders as "capa"');
   });
 });
 

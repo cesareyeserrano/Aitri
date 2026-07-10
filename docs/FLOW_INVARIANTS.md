@@ -128,15 +128,21 @@ comes from the seed via coverage_map, never from the floor), and the **persona/t
   (only if `ADOPTION_AUDIT.md`); AUDIT-0630-B visual-reference pointer (only if UX spec — surfaces images +
   `.html` WITH paths as "open these"). All three fire correctly and coexist (`+=`, non-clobbering).
 - **Gate:** no `complete`-time content gate; the real gate is the downstream verification spine.
-- **Plan-first protocol (rc.151, C8/ADR-071):** a FRESH build briefing carries the Plan-First Build
-  Protocol — `BUILD_PLAN.md` (working file in the artifacts dir, NOT in the chain, never validated),
-  plan presented to the human before code, cluster-by-cluster implementation with the skeleton→
-  persistence→hardening roadmap applied PER CLUSTER, checkpoint at each cluster boundary (pause when a
-  human is present; record-and-continue when autonomous), spec-changing corrections routed through the
-  pipeline (with the honest cascade cost stated), fresh `run-phase 4` after any upstream re-open. A
-  DEBUG re-entry renders NEITHER the protocol nor the plan instructions (minimal-fix protocol instead)
-  — the two must never render together. Honor-system by design (Aitri cannot force a mid-phase pause);
-  escalation trigger recorded in ADR-071, NOT ADR-061 resurrection (no phase, no schema, no gate).
+- **Plan-first protocol (rc.151, C8/ADR-071; epics + verifiable boundaries rc.170, ADR-074):** a FRESH
+  build briefing carries the Plan-First Build Protocol — `BUILD_PLAN.md` (working file in the artifacts
+  dir, NOT in the chain, never validated), plan presented to the human before code. The plan groups the
+  USER STORIES into epics (fixed skeleton: `Delivers:` US ids / `FRs:` / `Makes pass:` / build steps /
+  status / `Why here:`; FR/TC as derived id references; every TC in the Test Authorship Lock lands in
+  exactly one epic's `Makes pass` — US-less FRs' and NFRs' TCs get an explicit home). Epic-by-epic
+  implementation with skeleton→persistence→hardening applied PER EPIC; an epic is `done` only when its
+  `Makes pass` TCs run green (the epic writes its own TCs' test code), and the boundary checkpoint
+  presents the test run OUTPUT (pause when a human is present; record-and-continue when autonomous).
+  Epic count comes from the product — a small increment is ONE epic, zero intermediate ceremony.
+  Spec-changing corrections routed through the pipeline (with the honest cascade cost stated), fresh
+  `run-phase 4` after any upstream re-open. A DEBUG re-entry renders NEITHER the protocol nor the plan
+  instructions (minimal-fix protocol instead) — the two must never render together. Honor-system by
+  design (Aitri cannot force a mid-phase pause or verify a boundary); escalation trigger recorded in
+  ADR-071/ADR-074, NOT ADR-061 resurrection (no phase, no schema, no gate).
 - **Conformance 2026-07-02: PASS with one residual** (FIND-1 below — readable `.md`/`.txt` design refs
   surface nowhere at build; images/`.html`/`.pdf` do).
 

@@ -7,6 +7,15 @@
 
 ---
 
+## [2.0.0-rc.170] — 2026-07-10 — BUILD_PLAN.md: epics of user stories, verifiable boundaries, one vocabulary (PLAN-EPIC-0708)
+
+The Phase-4 plan stops being free-form filler: the briefing now mandates a fixed per-epic skeleton where the **epic groups the user stories it delivers** (`Delivers:` first; FR/TC ids as derived references only; NFRs are never a grouping axis, but every TC — including NFR and US-less-FR TCs — must land in exactly one epic's `Makes pass`), ordered by dependency with a one-line rationale. The drifting vocabulary is gone: "cluster" → **epic**, "layer roadmap" → **build steps** (the collision that made agents write "capa"/"item"/"punto"). ADR-074; ADR-071's working-file status unchanged (no gate, no schema, not hashed).
+
+- **Verifiable partial deliveries (the owner-defined value):** an epic is `done` only when its `Makes pass` TCs run green, and the boundary checkpoint presents the test run OUTPUT — evidence, not a narrative summary — so the human acts on real results early.
+- **Proportionality:** the epic count comes from the product — a small increment is ONE epic (six-line plan, zero intermediate ceremony); explicit "do not manufacture granularity" guard.
+- Rejected and recorded in ADR-074: `epic` schema field (no consumer), per-epic mechanical verify (ADR-061 territory — tombstoned with the Umbraco-Phase-4 trigger), elevating the plan to a validated artifact.
+- Docs: ARTIFACTS.md BUILD_PLAN row wording + integrations CHANGELOG (additive, doc-only); `templates/AGENTS.md` Phase-4 bullet rewritten; pins updated/added in `test/rendered-briefing.test.js` (US-axis skeleton, done-criterion, proportionality, no-cluster canaries).
+
 ## [2.0.0-rc.169] — 2026-07-09 — UX phase emits an advisory visual preview (FB-UX-MOCKUP-0708)
 
 The UX briefing now instructs a `UX_PREVIEW.html` next to the spec — a self-contained visual manual of the spec (token swatches with reasons, type scale at size, spacing/radii, computed AA contrast badges, light/dark panels side by side, one banner-bound illustrative strip) so the human approves look & feel at the UX gate, where correction costs a feedback sentence instead of a build refactor. Advisory: no gate, no schema, not hashed (ADR-073; the BUILD_PLAN.md class).

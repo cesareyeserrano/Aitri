@@ -86,17 +86,25 @@ Tests not matching TC-XXX: naming are auto-classified as skip — verify-complet
 ## Plan-First Build Protocol (mandatory on a fresh build — debug re-entry skips it)
 Phase 4 is the longest phase, and "build everything, then show a finished whole" is its failure mode: the human's first chance to correct arrives when correction is most expensive, and a new session re-enters the phase with no execution structure. Work in visible increments instead:
 
-1. **Before writing any code, write `{{ARTIFACTS_BASE}}/BUILD_PLAN.md`** — a WORKING file, not a pipeline artifact (nothing validates it; it exists for you and the human). **If BUILD_PLAN.md already exists (a feedback iteration or a resumed session), UPDATE it — do not rewrite it from scratch or reset done clusters to pending; adjust only what the feedback/new context changes.**
-   - Cluster the FRs into coherent implementation units (by feature area / dependency order), each cluster listing its FR ids and the TC ids it will make pass.
-   - Order the clusters and state the rationale in one line each (what unblocks what).
-   - Give every cluster a status line: `pending` / `in-progress` / `done`.
-2. **Present the plan to the user in conversation before implementing** — a short summary: the clusters, the order, why (on a feedback iteration, present only what changed and which clusters it re-opens). This is an advisory checkpoint (no Aitri gate); incorporate their corrections into BUILD_PLAN.md before starting.
-3. **Implement cluster by cluster.** Within EACH cluster follow the layer roadmap: skeleton → persistence/integrations → hardening. The roadmap is per-cluster — a cluster is not done at "skeleton"; the product is not built as one project-wide skeleton pass.
-4. **At each cluster boundary, update the cluster's status in BUILD_PLAN.md, then checkpoint:**
-   - **When a human operator is present in the conversation:** pause and present progress — what was built, how to see/run it (a command, a URL, a test), and what comes next. Incorporate corrections before continuing.
-   - **In an autonomous/CI run:** record the same progress note in BUILD_PLAN.md and continue — do not stall waiting for input that cannot come.
-   - **Correction routing:** an implementation-level correction (within the approved spec) → apply it and note it in the plan. A correction that CHANGES the spec (new behavior, changed requirement, dropped scope) → do NOT silently absorb it: route it through the pipeline (`aitri run-phase requirements` or `aitri feature init`). Be honest about the cost: re-opening Phase 1 cascade-invalidates ux/2/3/4/5 — approvals and hashes are wiped and each phase re-runs/re-approves before the build resumes. **After ANY upstream re-open, re-run `aitri {{SCOPE_VERB}}run-phase{{SCOPE_ARG}} 4` for a fresh briefing — never resume from this briefing + the old BUILD_PLAN.md** (a Phase-3 re-run can change the TC set; stale cluster/TC keys silently diverge).
-5. **On resuming a session mid-build: read BUILD_PLAN.md FIRST** — it is the execution state this briefing does not carry. Continue from the first non-`done` cluster.
+1. **Before writing any code, write `{{ARTIFACTS_BASE}}/BUILD_PLAN.md`** — a WORKING file, not a pipeline artifact (nothing validates it; it exists for you and the human). **If BUILD_PLAN.md already exists (a feedback iteration or a resumed session), UPDATE it — do not rewrite it from scratch or reset done epics to pending; adjust only what the feedback/new context changes.**
+   Group the **user stories** into **epics** — each epic is one coherent, shippable slice of the product (a feature area), defined by the US it delivers. The FRs and TCs on an epic are DERIVED references (each US's `requirement_id` → its FRs → their TCs), listed by id only — the plan never restates their content (the artifacts hold it). **Cover the whole TC set:** a TC unreachable through any US — a US-less FR's TC, an NFR's TC — still needs a home: assign it to the epic it naturally belongs with (or the final epic). The plan is complete when every TC id in `03_TEST_CASES.json` appears in exactly one epic's `Makes pass`; a TC in no epic is a TC nobody schedules until the end. NFRs are never a grouping axis (they hang off no US), but their TCs are scheduled like any other. Use THIS exact skeleton for every epic, in this order, with these field names — do not rename them run to run:
+
+     ## Epic <N> — <feature-area name>   [status: pending | in-progress | done]
+       Delivers:    US-0xx, US-0yy          (the user stories this epic ships — the deliverable)
+       FRs:         FR-0xx, FR-0yy          (derived from each US's requirement_id)
+       Makes pass:  TC-0xx, TC-0yy          (those FRs' test cases — the epic's done criterion)
+       Build steps: skeleton → persistence/integrations → hardening
+       Why here:    <one line — what this epic unblocks / why it is ordered here>
+
+   - Order the epics by dependency (what unblocks what); the one-line "Why here" states the rationale.
+   - **The epic count comes from the product, not from the protocol.** A small increment (a feature pipeline, a handful of US) is ONE epic — its plan is a six-line note and there are no intermediate boundaries. Do not manufacture granularity to look thorough.
+2. **Present the plan to the user in conversation before implementing** — a short summary: the epics, the order, the US each delivers, why (on a feedback iteration, present only what changed and which epics it re-opens). This is an advisory checkpoint (no Aitri gate); incorporate their corrections into BUILD_PLAN.md before starting.
+3. **Implement epic by epic.** Within EACH epic follow the build steps: skeleton → persistence/integrations → hardening. The steps are per-epic — an epic is not done at "skeleton"; the product is not built as one project-wide skeleton pass.
+4. **An epic is `done` only when its `Makes pass` TCs run green.** Writing the test code for the epic's TCs is PART of the epic (no new TC ids — the set is `03_TEST_CASES.json`'s, per the test-authorship rules in this briefing); run them with the project's test runner — the one you will declare in the manifest — before flipping the status. At each epic boundary, update the epic's status in BUILD_PLAN.md, then checkpoint:
+   - **When a human operator is present in the conversation:** pause and present the boundary as a verifiable partial delivery — the test run OUTPUT for the epic's TCs (not a narrative summary), how to see/run what was built, and what comes next. This is where the human acts on real results early instead of discovering at the end what should have been adjusted. Incorporate corrections before continuing.
+   - **In an autonomous/CI run:** record the same evidence note (TC run result included) in BUILD_PLAN.md and continue — do not stall waiting for input that cannot come.
+   - **Correction routing:** an implementation-level correction (within the approved spec) → apply it and note it in the plan. A correction that CHANGES the spec (new behavior, changed requirement, dropped scope) → do NOT silently absorb it: route it through the pipeline (`aitri run-phase requirements` or `aitri feature init`). Be honest about the cost: re-opening Phase 1 cascade-invalidates ux/2/3/4/5 — approvals and hashes are wiped and each phase re-runs/re-approves before the build resumes. **After ANY upstream re-open, re-run `aitri {{SCOPE_VERB}}run-phase{{SCOPE_ARG}} 4` for a fresh briefing — never resume from this briefing + the old BUILD_PLAN.md** (a Phase-3 re-run can change the TC set; stale epic/TC keys silently diverge).
+5. **On resuming a session mid-build: read BUILD_PLAN.md FIRST** — it is the execution state this briefing does not carry. Continue from the first non-`done` epic.
 {{/IF_PLAN_FIRST}}
 
 ## Code Standards (mandatory)
@@ -245,8 +253,8 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
 {{#IF_PLAN_FIRST}}
 ## Instructions
 1. Write {{ARTIFACTS_BASE}}/BUILD_PLAN.md and present the plan to the user (Plan-First Build Protocol above) — before any code
-2. Implement cluster by cluster; within each cluster: skeleton → persistence/integrations → hardening
-3. At each cluster boundary: update BUILD_PLAN.md, checkpoint with the human when present (record-and-continue when autonomous)
+2. Implement epic by epic; within each epic: skeleton → persistence/integrations → hardening
+3. At each epic boundary: run the epic's `Makes pass` TCs (green = done), update BUILD_PLAN.md, checkpoint with the human when present — test output first (record-and-continue when autonomous)
 4. Add @aitri-trace headers to key functions
 5. Verify Technical Definition of Done checklist
 6. Save manifest (with technical_debt) to: {{ARTIFACTS_BASE}}/04_BUILD_REPORT.json
@@ -266,7 +274,7 @@ After saving all files + 04_BUILD_REPORT.json, present this report to the user:
 
 ```
 ─── Phase 4 Complete — Implementation ────────────────────────
-{{#IF_PLAN_FIRST}}Build plan:      BUILD_PLAN.md — [N] clusters, all done · checkpoints presented: [N] (the full trail for approve 4)
+{{#IF_PLAN_FIRST}}Build plan:      BUILD_PLAN.md — [N] epics, all done (each with its Makes-pass TCs green) · checkpoints presented: [N] (the full trail for approve 4)
 {{/IF_PLAN_FIRST}}Files created:   [N] — [list src files]
 Test files:      [N] — framework: [framework from System Design] · command: [test_runner]
 @aitri-trace:    [N] functions tagged
