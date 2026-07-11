@@ -147,6 +147,7 @@ describe('cmdComplete() — D5 audit recommendation scoping', () => {
     '## System Architecture', 'API gateway, service layer, datastore — each independently deployable.', '',
     '## Data Model', 'Users(id, email), Sessions(id, user_id, token). Normalized to 3NF with indexes.', '',
     '## API Design', 'POST /login returns a token. All other endpoints require a bearer token.', '',
+    '## Implementation Approach', 'FR-001: Login. Method: bcrypt compare + signed JWT. I/O: {email,password} → {token}. Failure: 401 on mismatch, 503 on datastore outage.', '',
     '## Security Design', 'TLS 1.3 everywhere. Short-lived JWTs with rotation. Input validated at the gateway.', '',
     '## Performance & Scalability', 'p99 < 200ms target. Horizontal scaling behind a load balancer with cached hot reads.', '',
     '## Deployment Architecture', 'Containerized service behind a reverse proxy. Rolling deploys gated by health checks.', '',
@@ -429,6 +430,10 @@ Indexes on Users.email and Sessions.token for lookup performance.
 ## API Design
 POST /login returns a token. GET /dashboard returns the view.
 POST /export returns CSV. All endpoints require a valid bearer token except /login.
+
+## Implementation Approach
+FR-001: Login. Method: bcrypt compare + signed JWT. I/O: {email,password} → {token}. Failure: 401 on mismatch.
+FR-002: Export. Method: streamed CSV serialization. I/O: filter params → text/csv. Failure: 422 on bad filter.
 
 ## Security Design
 TLS 1.3 everywhere. Tokens are short-lived JWTs with rotation.

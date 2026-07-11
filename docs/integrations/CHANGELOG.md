@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.172 — 2026-07-11 — 02_SYSTEM_DESIGN.md gains a required "Implementation Approach" section — additive
+
+`aitri complete 2` now also requires a `## Implementation Approach` section in `02_SYSTEM_DESIGN.md` (per-MUST-FR: method, I/O contract, failure behavior — ADR-075, RSRCH-ADOPT-0711 W1). Reader impact: none mechanical — the artifact stays a markdown document with no fixed JSON schema; readers that enumerate the required-section list (display/checklists) should add the new name. Producer impact: designs written by rc.172+ templates carry the section; `adopt --upgrade`'s TPA-6 gate re-check will flag pre-rc.172 approved designs as "would be REJECTED" (advisory, approvals unchanged).
+
 ## v2.0.0-rc.171 (2026-07-10) — `04_TEST_RESULTS.json` gains `e2e_exit_code`/`e2e_runner` (FB-VERIFY-BLINDSPOTS-0710) — additive
 
 Two optional fields, present only when the e2e auto-run fired (playwright.config detected, non-manual run): **`e2e_exit_code`** (number) and **`e2e_runner`** (string, currently always `"playwright"`). The exit code previously lived only inside the raw-output markdown — an e2e test failing outside the TC-id naming was invisible to every structured reader. Informational, never a gate. Absent = no auto-run, not success. No existing field changed shape.

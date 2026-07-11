@@ -266,6 +266,24 @@ describe('Phase 4 plan-first protocol (C8/ADR-071)', () => {
 // a real gap (Phase 2), the Phase-3 sweep carries the rc.132 method standard, Phase 1
 // deliberately gets NOTHING (audit requirements + coverage_map IS its challenge), and the
 // reviewer persona no longer makes the false independence claim.
+// RSRCH-ADOPT-0711 W1 (ADR-075): the per-MUST-FR Implementation Approach section is the
+// top measured code-gen quality lever (algorithmic detail 57% / I-O format 44%, arXiv
+// 2601.13118) forced at the source. Pin the briefing instruction so a template edit cannot
+// silently drop it — the gate (phase2.js validate) pins the artifact side.
+describe('Implementation Approach briefing pin (RSRCH-ADOPT-0711 W1)', () => {
+  it('Phase 2 briefing instructs the per-MUST-FR Implementation Approach section', () => {
+    const out = renderPhase(2);
+    assert.match(out, /## Implementation Approach/, 'section instruction must be present');
+    assert.match(out, /For EVERY MUST FR/i, 'the per-MUST-FR mandate');
+    assert.match(out, /Method.*algorithm|algorithm.*Method/is, 'the named-method requirement');
+    assert.match(out, /I\/O contract/i, 'the I/O contract requirement');
+    assert.match(out, /Failure behavior/i, 'the failure-behavior requirement');
+    assert.match(out, /not pseudo-code/i, 'the over-specification stop (spec-as-source anti-pattern)');
+    assert.match(out, /self-evident from Data Model/i, 'the explicit-skip escape hatch for pure CRUD');
+    assert.match(out, /All 10 required sections/, 'Human Review count updated with the new section');
+  });
+});
+
 describe('adversarial-pass briefing blocks (ADR-072 — challenge command rejected)', () => {
   it('Phase 2 briefing carries the adversarial-pass block with design attack vectors', () => {
     const out = renderPhase(2);

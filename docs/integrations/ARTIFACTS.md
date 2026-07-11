@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.171+
+**Aitri version:** v2.0.0-rc.172+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -110,6 +110,7 @@ Written by Phase 2 (Architect persona). Markdown document — no fixed JSON sche
 - System Architecture — component diagram or description
 - Data Model
 - API Design
+- Implementation Approach — per-MUST-FR realization: method, I/O contract, failure behavior (added rc.172, ADR-075; pure-CRUD FRs may state "self-evident from Data Model")
 - Security Design
 - Performance & Scalability
 - Deployment Architecture

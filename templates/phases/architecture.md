@@ -53,11 +53,12 @@ Required sections — use these EXACT names as `##` level-2 headers (aitri {{SCO
 2. `## System Architecture` — ASCII/Mermaid diagram + components
 3. `## Data Model` — schema with field constraints; for frontend-only apps: localStorage/file structure. For a change to an existing system: the **preservation contract** — the existing schema/data that must NOT change — plus only the delta this work introduces.
 4. `## API Design` — for backend apps: all endpoints (method, path, auth, request/response, errors); for frontend-only apps: internal module/package API (exported function and class signatures in the language's idiomatic style). For a change to an existing system: document the **contract being preserved** (the public surface that must stay compatible) and only the endpoints/signatures that change.
-5. `## Security Design` — auth, input validation, security headers, XSS/injection mitigations
-6. `## Performance & Scalability` — caching, query optimization, size bounds
-7. `## Deployment Architecture` — **state the deployment model explicitly** (containerized / binary or native / package or library / serverless / static host); environments; CI/CD. Phase 5 reads this to decide what to package — do NOT default to containers unless the stack and FRs call for them.
-8. `## Risk Analysis` — top 3-5 risks + mitigation; ADRs belong here
-9. `## Technical Risk Flags` — output of stack × requirements analysis (see instructions below)
+5. `## Implementation Approach` — per-MUST-FR realization: method, I/O contract, failure behavior (see instructions below)
+6. `## Security Design` — auth, input validation, security headers, XSS/injection mitigations
+7. `## Performance & Scalability` — caching, query optimization, size bounds
+8. `## Deployment Architecture` — **state the deployment model explicitly** (containerized / binary or native / package or library / serverless / static host); environments; CI/CD. Phase 5 reads this to decide what to package — do NOT default to containers unless the stack and FRs call for them.
+9. `## Risk Analysis` — top 3-5 risks + mitigation; ADRs belong here
+10. `## Technical Risk Flags` — output of stack × requirements analysis (see instructions below)
 
 ## Technical Risk Flag Analysis (MANDATORY)
 Before writing any section, analyze the chosen stack against ALL FRs (especially MUST) and ALL NFRs.
@@ -99,6 +100,27 @@ For every significant tech choice, write an ADR using this format:
 Minimum ADRs: one per significant technology choice the stack ACTUALLY involves — e.g. data storage, UI/frontend approach, state management, deployment target — including ONLY those that apply. (A CLI, library, or embedded project has no frontend ADR; an in-memory tool has no database ADR. Do not invent a decision for a layer the project does not have.)
 Rule: each ADR must evaluate ≥2 options — a single-option ADR is not a real decision. (ADR content is human-reviewed at approve; `complete 2` does not parse ADRs, so this is a discipline the reviewer enforces, not the gate. Write them honestly.)
 
+## Implementation Approach
+The developer implements from this document — a design that only maps an FR to a component
+makes them **guess the method**, and guessed methods are where implementations silently
+diverge from intent. For EVERY MUST FR, write one entry stating HOW it will be realized:
+  - **Method**: the chosen algorithm/technique/mechanism (name it; "standard logic" is vague)
+  - **I/O contract**: inputs → outputs with concrete formats (types, shapes, units, encodings)
+  - **Failure behavior**: what this FR does on invalid input / unavailable dependency / partial
+    result. This is per-FR behavior — component-level failure (what breaks, user impact,
+    recovery) lives in `## Failure Blast Radius`; do not restate it here.
+
+Format:
+  FR-XXX: <title>
+  Method: <named algorithm/technique/mechanism>
+  I/O: <input shape> → <output shape>
+  Failure: <behavior on invalid input / unavailable dependency / partial result>
+
+One short entry per FR — this is direction, not pseudo-code; do NOT restate the implementation
+line-by-line (over-specification writes the program twice). A pure-CRUD FR whose approach is
+fully self-evident from the Data Model may say exactly that ("self-evident from Data Model") —
+an explicit skip, never a silent one.
+
 ## Failure Blast Radius
 For each critical component (database, auth layer, external APIs, background jobs), document:
   - What breaks if this component fails
@@ -114,6 +136,7 @@ Format:
 ## Traceability Checklist
 Before completing this phase, verify:
   [ ] Every FR-* in requirements is addressed by at least one component
+  [ ] Implementation Approach has an entry (or explicit self-evident note) for every MUST FR
   [ ] Every NFR-* has a corresponding design decision (caching, rate limiting, TLS, etc.)
   [ ] Every ADR has ≥2 options
   [ ] no_go_zone items from Phase 1 are not present in the architecture
@@ -169,7 +192,8 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 2   →   aitri {{SCOPE_VERB}}ap
 Before you report this design complete, if your environment supports independent subagents, consider spawning one told to **refute** the design you just wrote — not to validate it. Point it at 02_SYSTEM_DESIGN.md plus the requirements, with these attack vectors: find the MUST FR that has no home in any component or flow (join every FR to the design element that realizes it — the one with no join is the dropped one); the unstated assumption the design silently depends on (an implicit data shape, an implicit service, an implicit scale); the contradiction with the UX spec or a context asset; the NFR promise (latency, security, availability) the design never answers; the invented constraint — a technology or pattern no FR/NFR asked for. **Self-review shares the blind spot that wrote the design; an independent pass does not.** Then verify the adversary's load-bearing claims against the actual documents yourself before acting on them. This costs extra tokens and is the operator's call: skip it for a trivial design, but do not skip it when the design carries real blast-radius (many MUST FRs, security surface, a stack decision that is expensive to reverse). Advisory — Aitri cannot run or gate on it; a design defect caught here costs a markdown edit, the same defect caught at build costs a re-implementation.
 
 ## Human Review — Before approving phase 2
-  [ ] All 9 required sections are present with exact header names (Executive Summary, System Architecture, Data Model, API Design, Security Design, Performance & Scalability, Deployment Architecture, Risk Analysis, Technical Risk Flags)
+  [ ] All 10 required sections are present with exact header names (Executive Summary, System Architecture, Data Model, API Design, Implementation Approach, Security Design, Performance & Scalability, Deployment Architecture, Risk Analysis, Technical Risk Flags)
+  [ ] Implementation Approach: every MUST FR has a real method/I-O/failure entry — not boilerplate; an FR marked "self-evident from Data Model" genuinely is
   [ ] Technical Risk Flags: read each [RISK] flag — do you accept the mitigation proposed? If severity is critical or high, have a plan before proceeding
   [ ] Tech stack is compatible with constraints and technology_preferences from requirements
   [ ] Every significant decision has an ADR with ≥2 options evaluated

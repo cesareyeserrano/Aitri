@@ -17,6 +17,9 @@ const validP2 = () => [
   '## API Design',
   'POST /auth/login — returns JWT',
   '',
+  '## Implementation Approach',
+  'FR-001: Login. Method: bcrypt compare + JWT issue. I/O: {email,password} → {token}. Failure: 401 on mismatch, 503 on DB down.',
+  '',
   '## Security Design',
   'JWT HS256, bcrypt cost 12, rate limiting 100 req/min',
   '',
@@ -63,6 +66,18 @@ describe('Phase 2 — validate()', () => {
     assert.throws(() => PHASE_DEFS[2].validate(content), /missing required sections/);
   });
 
+  // RSRCH-ADOPT-0711 W1 (ADR-075): per-MUST-FR method/I-O/failure is a required section —
+  // a design that only maps FR→component leaves Phase 4 guessing the method.
+  it('throws when Implementation Approach is missing', () => {
+    const content = validP2().replace('## Implementation Approach', '## Approach Notes');
+    assert.throws(() => PHASE_DEFS[2].validate(content), /missing required sections[\s\S]*## Implementation Approach/);
+  });
+
+  it('accepts a numbered Implementation Approach header', () => {
+    const content = validP2().replace('## Implementation Approach', '## 5. Implementation Approach');
+    assert.doesNotThrow(() => PHASE_DEFS[2].validate(content));
+  });
+
   it('[regression] passes with numbered headers (## 1. Executive Summary style)', () => {
     const numbered = validP2()
       .replace('## Executive Summary',   '## 1. Executive Summary')
@@ -86,6 +101,7 @@ describe('Phase 2 — validate()', () => {
       '## System Architecture', 'Tiny.',
       '## Data Model', 'Minimal.',
       '## API Design', 'Basic.',
+      '## Implementation Approach', 'FR-001: self-evident from Data Model.',
       '## Security Design', 'None.',
       '## Performance & Scalability', 'N/A.',
       '## Deployment Architecture', 'N/A.',

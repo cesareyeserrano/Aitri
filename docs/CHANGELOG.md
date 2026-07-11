@@ -7,6 +7,15 @@
 
 ---
 
+## [2.0.0-rc.172] — 2026-07-11 — Phase 2 requires a per-MUST-FR Implementation Approach (RSRCH-ADOPT-0711 W1, ADR-075)
+
+Deep-research adoption, item 1 of 5. The strongest verified empirical result on code-generation prompt quality (arXiv 2601.13118: the prompt changes that turn always-failing generated code into passing code are Algorithmic Details 57% / I-O format 44% / exceptions — persona is not among them) forced at the source artifact:
+
+- `02_SYSTEM_DESIGN.md` gains a required `## Implementation Approach` section (5th in the list, now 10 sections total) — per MUST FR: **Method** (named algorithm/technique), **I/O contract** (inputs → outputs, concrete formats), **Failure behavior**. Two template guardrails: "direction, not pseudo-code" (anti-over-specification) and an explicit-skip escape hatch for pure-CRUD FRs ("self-evident from Data Model") — an explicit skip, never a silent one.
+- Mechanically enforced: `aitri complete 2` rejects a design without the section (`lib/phases/phase2.js` required-sections list; header tolerates plain/numbered/decimal forms). Template section list renumbered to 10; Traceability + Human Review checklists extended; `templates/AGENTS.md` Phase-2 bullet updated.
+- **Upgrade note:** `adopt --upgrade`'s TPA-6 gate re-check will flag pre-rc.172 approved designs as "would be REJECTED — missing ## Implementation Approach". Advisory — approvals unchanged; fix is `run-phase 2 → edit → complete → approve`. Not a regression: it is the designed surfacing of gate evolution.
+- ADR-075 (this gate) + ADR-076 (same research thread: zero-dep re-litigated and KEPT by owner; Anthropic-Skills export evaluated and DEFERRED with trigger). Pins: `test/phases/phase2.test.js` (reject/accept + numbered form), `test/rendered-briefing.test.js` (briefing instructs the section, guardrails included). Contract: `docs/integrations/ARTIFACTS.md` + integrations CHANGELOG (additive).
+
 ## [2.0.0-rc.171] — 2026-07-10 — verify blind spots closed: e2e exit visibility, double-run nudge, override advisory (FB-VERIFY-BLINDSPOTS-0710)
 
 A consumer-project episode (Next.js + Playwright) exposed three verify blind spots: the agent deleted a red e2e gate, made 3 skip→pass overrides with circular `--evidence`, and a failing unnamed e2e test was invisible outside the raw output. All three closed advisory-only — no new gate, honoring the "Aitri keys on parsed TCs" contract:
