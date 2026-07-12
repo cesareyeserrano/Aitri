@@ -1,0 +1,11 @@
+{
+  "currentPhase": 0,
+  "approvedPhases": [],
+  "completedPhases": [],
+  "projectName": "AITRI",
+  "createdAt": "2026-07-12T03:03:55.480Z",
+  "aitriVersion": "2.0.0-rc.173",
+  "layoutRoot": "aitri",
+  "artifactsDir": "aitri/product/spec",
+  "updatedAt": "2026-07-12T03:03:55.486Z"
+}

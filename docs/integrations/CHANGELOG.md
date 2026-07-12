@@ -18,6 +18,10 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0-rc.173 — 2026-07-11 — Phase 1 gains a proportional US/AC depth floor (REQ-RICHNESS-0711) — additive
+
+`aitri complete 1` now also requires: every MUST FR has ≥1 linked user story, and every user story linked to a MUST FR has ≥1 `acceptance_criteria` entry (ADR-077). Reader impact: **none** — the `01_REQUIREMENTS.json` JSON shape is unchanged (no new field); this is a required *population* of existing fields (`user_stories[]`, `user_stories[].acceptance_criteria`), so any reader keeps working. Producer impact: pre-rc.173 approved requirements with a MUST FR lacking a story, or a story lacking an AC, are flagged by `adopt --upgrade`'s TPA-6 gate re-check as "would be REJECTED" (advisory, approvals unchanged). Presence is enforced, not form — plain-string ACs satisfy the gate.
+
 ## v2.0.0-rc.172 — 2026-07-11 — 02_SYSTEM_DESIGN.md gains a required "Implementation Approach" section — additive
 
 `aitri complete 2` now also requires a `## Implementation Approach` section in `02_SYSTEM_DESIGN.md` (per-MUST-FR: method, I/O contract, failure behavior — ADR-075, RSRCH-ADOPT-0711 W1). Reader impact: none mechanical — the artifact stays a markdown document with no fixed JSON schema; readers that enumerate the required-section list (display/checklists) should add the new name. Producer impact: designs written by rc.172+ templates carry the section; `adopt --upgrade`'s TPA-6 gate re-check will flag pre-rc.172 approved designs as "would be REJECTED" (advisory, approvals unchanged).

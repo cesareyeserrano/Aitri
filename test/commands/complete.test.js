@@ -44,7 +44,13 @@ const VALID_REQUIREMENTS = JSON.stringify({
     { id: 'FR-005', title: 'Totals',    priority: 'NICE',   type: 'logic',     acceptance_criteria: ['correct sum returned'],          description: 'Calc' },
   ],
   user_stories: [
-    { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I access data' },
+    { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I access data',
+      acceptance_criteria: [{ id: 'AC-001', given: 'a registered user', when: 'correct credentials are submitted', then: 'a session token is returned (200)' },
+                            { id: 'AC-002', given: 'a registered user', when: 'an invalid token is submitted', then: 'status is 401' }] },
+    { id: 'US-002', requirement_id: 'FR-002', as_a: 'user', i_want: 'to see my dashboard', so_that: 'I review my data',
+      acceptance_criteria: [{ id: 'AC-003', given: 'an authenticated user', when: 'the dashboard opens', then: 'the main view renders' }] },
+    { id: 'US-003', requirement_id: 'FR-003', as_a: 'user', i_want: 'to export data', so_that: 'I use it elsewhere',
+      acceptance_criteria: [{ id: 'AC-004', given: 'a user with ≥1 record', when: 'an export is requested', then: 'a valid CSV is generated' }] },
   ],
   non_functional_requirements: [
     { id: 'NFR-001', category: 'Performance', requirement: 'p99 < 200ms',  acceptance_criteria: 'load test' },

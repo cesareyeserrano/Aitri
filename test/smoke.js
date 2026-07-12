@@ -36,7 +36,13 @@ const VALID_REQUIREMENTS = JSON.stringify({
     { id: 'FR-005', title: 'Totals',     priority: 'NICE',   type: 'logic',       acceptance_criteria: ['returns correct sum'],            description: 'Calculation' },
   ],
   user_stories: [
-    { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I can access data' },
+    { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I can access data',
+      acceptance_criteria: [{ id: 'AC-001', given: 'a registered user', when: 'correct credentials are submitted', then: 'a session token is returned (200)' },
+                            { id: 'AC-002', given: 'a registered user', when: 'an invalid token is submitted', then: 'status is 401' }] },
+    { id: 'US-002', requirement_id: 'FR-002', as_a: 'user', i_want: 'to see my dashboard', so_that: 'I can review my data',
+      acceptance_criteria: [{ id: 'AC-003', given: 'an authenticated user', when: 'the dashboard opens', then: 'records render at the 375px viewport' }] },
+    { id: 'US-003', requirement_id: 'FR-003', as_a: 'user', i_want: 'to export CSV', so_that: 'I can use it elsewhere',
+      acceptance_criteria: [{ id: 'AC-004', given: 'a user with ≥1 record', when: 'an export is requested', then: 'a valid CSV file is generated' }] },
   ],
   non_functional_requirements: [
     { id: 'NFR-001', category: 'Performance', requirement: 'p99 < 200ms',    acceptance_criteria: 'load test at 100 RPS' },
@@ -977,7 +983,12 @@ describe('Aitri CLI — review smoke', () => {
       { id: 'FR-005', title: 'Totals',     priority: 'COULD',  type: 'logic',     acceptance_criteria: ['returns correct sum'],          description: 'Calc' },
     ],
     user_stories: [
-      { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I can access data' },
+      { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I can access data',
+        acceptance_criteria: ['returns 401 on an invalid token'] },
+      { id: 'US-002', requirement_id: 'FR-002', as_a: 'user', i_want: 'to see my dashboard', so_that: 'I review my data',
+        acceptance_criteria: ['renders at the 375px viewport'] },
+      { id: 'US-003', requirement_id: 'FR-003', as_a: 'user', i_want: 'to export CSV', so_that: 'I use it elsewhere',
+        acceptance_criteria: ['generates a valid CSV file'] },
     ],
     non_functional_requirements: [
       { id: 'NFR-001', category: 'Performance', requirement: 'p99 < 200ms', acceptance_criteria: 'load test at 100 RPS' },

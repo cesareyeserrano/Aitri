@@ -7,6 +7,21 @@
 
 ---
 
+## [2.0.0-rc.173] — 2026-07-11 — Phase 1 proportional US/AC depth floor: thin requirements no longer pass silently (REQ-RICHNESS-0711, ADR-077)
+
+Owner-verified from real use: `01_REQUIREMENTS.json` came out thin — shallow FRs, weak user stories, thin ACs, and (as a pure downstream symptom) few test cases. Root-cause: `complete 1` gated only *structure*, never *depth* — `user_stories: []` passed, a MUST FR with no story was a warning only, and no rule required a story to carry an acceptance criterion. Four changes, one release:
+
+- **Gate (A):** every MUST FR must have ≥1 linked user story (the old warning is now a throw); every user story linked to a MUST FR must have ≥1 acceptance criterion. Proportional — SHOULD/NICE FRs are exempt, feature scope obeys the same rule. **Presence is gated, not form** — a plain string, `{id,text}`, or `{id,given,when,then}` all satisfy it; Given/When/Then is the target the prompt pushes, never gated (form-gating would reject legitimate one-line metric ACs and tip into presence-theater). Runs after the FR-level content checks so a malformed FR surfaces its specific error first.
+- **Prompt (B):** `requirements.md` Depth Protocol now leads with the gate and the thin-story→thin-test rationale; the Rules mark the US/AC floor as enforced.
+- **Persona (D):** `pm.js` gains a decompose-deep heuristic (a lone one-line AC is a smell of under-decomposition — decompose by persona, by state, by happy/edge/negative).
+- **Reference (C):** the canonical `validP1()` and the pipeline fixtures now model rich requirements (multiple stories with G/W/T ACs), resetting the "good enough" anchor.
+
+**Honest ceiling (not overstated):** Aitri cannot mechanically measure "rich *enough* vs the seed" — the only oracle is the same model that wrote the artifact. The gate enforces presence/structure; the rest is nudge. This is why the fix is "nudge + proportional floor," not a ratio gate (which prior art — ADR-060's light coverage_map, the C4 sizing deferral, ADR-061's withdrawal — had already circumscribed as theater).
+
+**Upgrade note:** `adopt --upgrade` flags pre-rc.173 approved requirements with a MUST FR missing a story or a story missing an AC as "would be REJECTED" (advisory; approvals unchanged; fix = `run-phase 1 → enrich → complete → approve`).
+
+ADR-077. Pins: `phase1.test.js` (A1/A2 reject + accept + MUST-only exemption + plain-string presence), `rendered-briefing.test.js` (briefing states the enforced floor). Contract: `integrations/ARTIFACTS.md` + CHANGELOG (additive — JSON shape unchanged). Suite 2129 green.
+
 ## [2.0.0-rc.172] — 2026-07-11 — Phase 2 requires a per-MUST-FR Implementation Approach (RSRCH-ADOPT-0711 W1, ADR-075)
 
 Deep-research adoption, item 1 of 5. The strongest verified empirical result on code-generation prompt quality (arXiv 2601.13118: the prompt changes that turn always-failing generated code into passing code are Algorithmic Details 57% / I-O format 44% / exceptions — persona is not among them) forced at the source artifact:

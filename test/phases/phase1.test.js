@@ -23,7 +23,19 @@ const validP1 = () => JSON.stringify({
     { id: 'FR-005', title: 'Calc total', priority: 'NICE',   type: 'logic',       acceptance_criteria: ['returns correct sum'] },
   ],
   user_stories: [
-    { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I can access data' },
+    { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I can access data',
+      acceptance_criteria: [
+        { id: 'AC-001', given: 'a registered user with a valid password', when: 'they submit correct credentials', then: 'a session token is returned and status is 200' },
+        { id: 'AC-002', given: 'a registered user', when: 'they submit an invalid password', then: 'status is 401 and no token is issued' },
+      ] },
+    { id: 'US-002', requirement_id: 'FR-002', as_a: 'user', i_want: 'to see my dashboard', so_that: 'I can review my data',
+      acceptance_criteria: [
+        { id: 'AC-003', given: 'an authenticated user with data', when: 'they open the dashboard', then: 'their records render at the 375px viewport' },
+      ] },
+    { id: 'US-003', requirement_id: 'FR-003', as_a: 'user', i_want: 'to export my data', so_that: 'I can use it elsewhere',
+      acceptance_criteria: [
+        { id: 'AC-004', given: 'an authenticated user with ≥1 record', when: 'they request an export', then: 'a valid CSV with a header row is generated' },
+      ] },
   ],
   non_functional_requirements: [
     { id: 'NFR-001', category: 'Performance', requirement: 'p99 < 200ms' },
@@ -196,6 +208,61 @@ describe('Phase 1 — validate()', () => {
       /structured acceptance criterion .* has an empty "id"/);
   });
 
+  // REQ-RICHNESS-0711 A1/A2 (ADR-077): the proportional US/AC floor. A MUST FR must have a
+  // linked user story, and a MUST-linked story must carry ≥1 acceptance criterion — closing
+  // the `user_stories: []` / empty-story hole that let thin requirements pass silently.
+  it('[A1] throws when a MUST FR has no linked user story', () => {
+    const d = JSON.parse(validP1());
+    d.user_stories = d.user_stories.filter(us => us.requirement_id !== 'FR-002'); // FR-002 is MUST
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /MUST FR\(s\) with no linked user story:.*FR-002/);
+  });
+
+  it('[A1] throws when user_stories is empty but MUST FRs exist', () => {
+    const d = JSON.parse(validP1());
+    d.user_stories = [];
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /MUST FR\(s\) with no linked user story/);
+  });
+
+  it('[A1] SHOULD/NICE FRs do NOT require a user story (proportional, MUST-only)', () => {
+    // validP1 has FR-004 (SHOULD) and FR-005 (NICE) with no stories, and it passes — the
+    // exemption is load-bearing. Assert it explicitly so a future tightening is a conscious choice.
+    const d = JSON.parse(validP1());
+    assert.equal(d.functional_requirements.find(f => f.id === 'FR-004').priority, 'SHOULD');
+    assert.equal(d.user_stories.some(us => us.requirement_id === 'FR-004'), false);
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
+  it('[A2] throws when a MUST-linked user story has no acceptance_criteria', () => {
+    const d = JSON.parse(validP1());
+    delete d.user_stories[0].acceptance_criteria; // US-001 → FR-001 (MUST)
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /User story\(ies\) linked to a MUST FR with no acceptance_criteria:.*US-001/);
+  });
+
+  it('[A2] throws when a MUST-linked user story has an empty acceptance_criteria array', () => {
+    const d = JSON.parse(validP1());
+    d.user_stories[1].acceptance_criteria = []; // US-002 → FR-002 (MUST)
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /no acceptance_criteria:.*US-002/);
+  });
+
+  it('[A2] a plain-string acceptance criterion satisfies the presence gate (form is not gated)', () => {
+    const d = JSON.parse(validP1());
+    d.user_stories[0].acceptance_criteria = ['returns 200 for a valid login']; // string form, not G/W/T
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
+  it('[A2] a non-array acceptance_criteria (malformed) does NOT satisfy the presence gate', () => {
+    // `.length` on a non-empty string is truthy — require an actual array so a malformed
+    // `acceptance_criteria: "text"` cannot pass the gate (ACs are a list by schema).
+    const d = JSON.parse(validP1());
+    d.user_stories[0].acceptance_criteria = 'returns 200 for a valid login'; // string, not an array
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /no acceptance_criteria:.*US-001/);
+  });
+
   it('does NOT enforce AC ids when ACs are plain strings or absent (additive)', () => {
     const d = JSON.parse(validP1());
     d.user_stories[0].acceptance_criteria = ['plain string criterion', 'another'];
@@ -254,6 +321,10 @@ describe('Phase 1 — validate()', () => {
   it('passes when audio MUST FR has metric in acceptance_criteria', () => {
     const d = JSON.parse(validP1());
     d.functional_requirements.push({ id: 'FR-006', title: 'Sound design', priority: 'MUST', type: 'audio', acceptance_criteria: ['audio plays within 100ms of trigger'] });
+    // FR-006 is MUST → the A1/A2 floor requires a linked story with an AC (add it here so this
+    // test exercises the audio-metric rule, not the story gate).
+    d.user_stories.push({ id: 'US-006', requirement_id: 'FR-006', as_a: 'user', i_want: 'audio feedback', so_that: 'actions feel responsive',
+      acceptance_criteria: [{ id: 'AC-006', given: 'a triggered action', when: 'the sound cue fires', then: 'audio plays within 100ms of the trigger' }] });
     assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
   });
 
@@ -350,39 +421,23 @@ describe('Phase 1 — validate()', () => {
     assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
   });
 
-  it('[user-story] warning fires on stderr when MUST FR has no linked user story', () => {
+  // REQ-RICHNESS-0711 A1 (ADR-077) hardened the old MUST-FR-without-story stderr warning into
+  // a blocking gate — a thin requirement no longer passes with a warning. The reject/accept
+  // behaviour is covered by the [A1]/[A2] cases above; this pins that it is a throw, not a
+  // silent stderr warning, so the hardening cannot regress to advisory unnoticed.
+  it('[A1] the MUST-FR-without-story rule is a gate (throws), not a stderr warning', () => {
     const d = JSON.parse(validP1());
-    // FR-002 and FR-003 are MUST but have no user story (US-001 only links FR-001)
+    d.user_stories = d.user_stories.filter(us => us.requirement_id !== 'FR-003'); // FR-003 is MUST
     const stderrChunks = [];
     const origWrite = process.stderr.write.bind(process.stderr);
     process.stderr.write = (chunk) => { stderrChunks.push(chunk); return true; };
+    let threw = false;
     try {
       PHASE_DEFS[1].validate(JSON.stringify(d));
-    } finally {
+    } catch { threw = true; } finally {
       process.stderr.write = origWrite;
     }
-    const out = stderrChunks.join('');
-    assert.match(out, /MUST FR\(s\) have no linked user story/);
-    assert.match(out, /FR-002/);
-    assert.match(out, /FR-003/);
-  });
-
-  it('[user-story] no warning when all MUST FRs have linked user stories', () => {
-    const d = JSON.parse(validP1());
-    d.user_stories.push(
-      { id: 'US-002', requirement_id: 'FR-002', as_a: 'user', i_want: 'see dashboard', so_that: 'I can view data' },
-      { id: 'US-003', requirement_id: 'FR-003', as_a: 'user', i_want: 'export data', so_that: 'I can share it' },
-    );
-    const stderrChunks = [];
-    const origWrite = process.stderr.write.bind(process.stderr);
-    process.stderr.write = (chunk) => { stderrChunks.push(chunk); return true; };
-    try {
-      PHASE_DEFS[1].validate(JSON.stringify(d));
-    } finally {
-      process.stderr.write = origWrite;
-    }
-    const out = stderrChunks.join('');
-    assert.ok(!out.includes('MUST FR(s) have no linked user story'), 'no warning when all MUST FRs are covered');
+    assert.ok(threw, 'a MUST FR without a story must block complete 1, not merely warn');
   });
 
   it('[ASSUMPTION] warning is emitted on stderr when FR title contains [ASSUMPTION]', () => {

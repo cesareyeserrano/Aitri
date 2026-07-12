@@ -46,8 +46,16 @@ const REQUIREMENTS = JSON.stringify({
     { id: 'FR-004', title: 'Export',  priority: 'SHOULD', type: 'reporting',   acceptance_criteria: ['generates valid CSV file'],      description: 'Export' },
     { id: 'FR-005', title: 'Totals',  priority: 'NICE',   type: 'logic',       acceptance_criteria: ['returns correct total'],         description: 'Totals' },
   ],
+  // Plain-string ACs (no ids): satisfy the REQ-RICHNESS A2 presence gate without creating
+  // ac_id/ac_coverage obligations the downstream Phase-3 TC fixture doesn't trace to (the
+  // gate accepts any AC form — structured G/W/T is the target, not a requirement).
   user_stories: [
-    { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I can access data' },
+    { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I can access data',
+      acceptance_criteria: ['returns 401 on an invalid token'] },
+    { id: 'US-002', requirement_id: 'FR-002', as_a: 'user', i_want: 'to compute a sum', so_that: 'I get the business total',
+      acceptance_criteria: ['returns the correct sum for the input set'] },
+    { id: 'US-003', requirement_id: 'FR-003', as_a: 'user', i_want: 'my data to persist', so_that: 'it survives a restart',
+      acceptance_criteria: ['saved data is still present after a restart'] },
   ],
   non_functional_requirements: [
     { id: 'NFR-001', category: 'Performance', requirement: 'p99 < 200ms',  acceptance_criteria: 'load test at 100 RPS' },

@@ -179,6 +179,17 @@ describe('persona/template drift canaries (C3 — known-drifted vocabulary must 
     assert.match(out, /do NOT file them under `Regression`/,
       'the Regression reservation must be stated next to the operational block');
   });
+
+  // REQ-RICHNESS-0711 B (ADR-077): the briefing must state the proportional US/AC floor so the
+  // agent knows depth is enforced, not just encouraged — pins the gate declaration + the
+  // thin-story→thin-test rationale against a future template edit dropping it.
+  it('phase 1 briefing states the US/AC floor is enforced and ties it to test richness', () => {
+    const out = renderPhase(1);
+    assert.match(out, /every MUST FR must have ≥1 linked user story/i, 'the A1 floor stated');
+    assert.match(out, /enforced: `complete 1` blocks a MUST FR with no story/i, 'A1 named as a gate, not a nudge');
+    assert.match(out, /blocks a MUST-linked story with none/i, 'A2 named as a gate');
+    assert.match(out, /thin stories and one-line ACs produce thin tests downstream/i, 'the rationale that motivates depth');
+  });
 });
 
 describe('Phase 4 plan-first protocol (C8/ADR-071)', () => {

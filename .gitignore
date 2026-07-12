@@ -8,7 +8,6 @@ node_modules/
 .env.*.local
 
 # Aitri project config (per-project, not global)
-.aitri
 
 # Aitri internal dev docs (private — not for public repo)
 docs/Aitri_Design_Notes/
@@ -43,3 +42,7 @@ coverage/
 *.swp
 *.swo
 *.code-workspace
+
+# Aitri — per-machine state (the shared .aitri IS committed)
+.aitri.local
+.aitri.lock
