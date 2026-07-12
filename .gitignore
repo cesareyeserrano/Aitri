@@ -7,7 +7,16 @@ node_modules/
 .env.local
 .env.*.local
 
-# Aitri project config (per-project, not global)
+# Aitri state + generated agent files — this repo DEVELOPS Aitri, it is NOT
+# managed with Aitri (see CLAUDE.md). A stray `aitri init` here must never be
+# committed: ignore its state and the per-agent instruction files it renders.
+.aitri
+.aitri.local
+.aitri.lock
+/AGENTS.md
+/GEMINI.md
+/.codex/
+/.github/copilot-instructions.md
 
 # Aitri internal dev docs (private — not for public repo)
 docs/Aitri_Design_Notes/
@@ -42,7 +51,3 @@ coverage/
 *.swp
 *.swo
 *.code-workspace
-
-# Aitri — per-machine state (the shared .aitri IS committed)
-.aitri.local
-.aitri.lock
