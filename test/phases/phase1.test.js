@@ -269,6 +269,82 @@ describe('Phase 1 — validate()', () => {
     assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
   });
 
+  // REQ-RICHNESS-0711 addendum (rc.174): the two silent-pass residuals the post-ship
+  // adversarial pass found in ADR-077's own promise — (1) `priority` was never validated,
+  // so a miscased "must" dodged EVERY MUST gate; (2) A2 / the FR-level AC check gated
+  // array LENGTH, so a content-free element ([''], [{}], [null]) satisfied "presence".
+  it('[rc.174] throws on a miscased FR priority (it would dodge the whole MUST-gate family)', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[0].priority = 'must';
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /Invalid priority value\(s\): FR-001: "must"/);
+  });
+
+  it('[rc.174] throws on an FR with no priority at all', () => {
+    const d = JSON.parse(validP1());
+    delete d.functional_requirements[4].priority;
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /Invalid priority value\(s\): FR-005: null/);
+  });
+
+  it('[rc.174] throws on a non-canonical NFR priority, but NFR priority stays optional', () => {
+    const d = JSON.parse(validP1());
+    d.non_functional_requirements[0].priority = 'Must'; // miscased — would dodge Phase-5 compliance
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /Invalid priority value\(s\): NFR-001: "Must"/);
+    // absence is fine (validP1 NFRs carry none — a Regression NFR is MUST by category)
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(validP1()));
+  });
+
+  it('[rc.174] accepts a canonical NFR priority when present', () => {
+    const d = JSON.parse(validP1());
+    d.non_functional_requirements[0].priority = 'MUST';
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
+  it('[rc.174/A2] content-free AC elements do NOT satisfy the story presence gate', () => {
+    for (const noise of [[''], ['   '], [{}], [null]]) {
+      const d = JSON.parse(validP1());
+      d.user_stories[0].acceptance_criteria = noise; // US-001 → FR-001 (MUST)
+      assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+        /no acceptance_criteria:.*US-001/, `noise ${JSON.stringify(noise)} must not pass`);
+    }
+  });
+
+  it('[rc.174/A2] one contentful AC among empty ones passes (presence, not form)', () => {
+    const d = JSON.parse(validP1());
+    d.user_stories[0].acceptance_criteria = ['   ', { id: 'AC-001', given: 'a registered user', when: 'they log in', then: 'a session token is returned' }];
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
+  it('[rc.174/A2] the legacy { id, text } and { id, description } AC forms count as contentful', () => {
+    // The integrations contract (ARTIFACTS.md "Structured AC ids") still accepts both legacy
+    // join forms — rejecting them as content-free would false-reject a contract-valid artifact.
+    for (const legacy of [{ id: 'AC-001', text: 'returns 401 on invalid token' },
+                          { id: 'AC-001', description: 'returns 401 on invalid token' }]) {
+      const d = JSON.parse(validP1());
+      d.user_stories[0].acceptance_criteria = [legacy];
+      assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+        `legacy form ${Object.keys(legacy).join('/')} must satisfy the presence gate`);
+    }
+  });
+
+  it('[rc.174] a MUST FR whose acceptance_criteria are all content-free is rejected', () => {
+    const d = JSON.parse(validP1());
+    d.functional_requirements[2].acceptance_criteria = ['']; // FR-003, MUST, reporting
+    assert.throws(() => PHASE_DEFS[1].validate(JSON.stringify(d)),
+      /MUST FRs missing acceptance_criteria.*FR-003/);
+  });
+
+  it('[rc.174] an object-form FR-level AC no longer crashes the assumptions filter (TypeError)', () => {
+    // Pre-existing: `.includes` on a non-string AC threw a raw TypeError. hasContentfulAC now
+    // formally admits object ACs at the FR level, so the crash was one step away — read via
+    // acContent instead. (FR-level ACs are strings by the template; this pins graceful handling.)
+    const d = JSON.parse(validP1());
+    d.functional_requirements[0].acceptance_criteria = [{ id: 'AC-X', text: 'returns 401 on invalid token' }];
+    assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d)));
+  });
+
   it('throws when MUST FR is missing type', () => {
     const d = JSON.parse(validP1());
     delete d.functional_requirements[0].type;

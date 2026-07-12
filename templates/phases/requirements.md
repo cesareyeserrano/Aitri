@@ -175,8 +175,9 @@ Fold these into project_summary (they inform the FRs; no consumer reads a separa
   - If honest decomposition lands BELOW the floor, split coarse multi-behavior FRs into their real distinct behaviors (error paths, persistence, validation are usually separate behaviors hiding in one sentence) — never invent unrelated requirements to clear the gate
 - Every MUST FR must have ≥1 linked user story — **enforced: `complete 1` blocks a MUST FR with no story.** For projects with multiple personas, write one story per persona that interacts with that FR (the gate floor is 1; genuine richness is usually more)
 - **Shape acceptance_criteria for the Three-Amigos test gate (enforced later at Phase 3).** At Phase 3, every MUST FR needs ≥3 test cases covering a **happy path**, an **edge case**, and a **negative/failure** scenario (the gate requires a TC id ending `h` AND one ending `f`). So write each MUST FR's acceptance_criteria to support all three — at minimum one positive (expected behaviour) AND one negative/boundary (rejection, error, limit, empty/duplicate input). An FR whose ACs are **all positive** (e.g. a plain list/create) or **all negative** (e.g. a permission check) cannot satisfy the Phase-3 gate and forces a Phase-1 re-open + cascade — shape it correctly now. MUST FRs of type security, persistence, logic, or reporting especially need an explicit failure AC.
-- Every user story linked to a MUST FR must have ≥1 acceptance_criteria entry — **enforced: `complete 1` blocks a MUST-linked story with none.** Given/When/Then is the target form (the gate accepts any AC, but G/W/T is what Phase 3 tests best)
+- Every user story linked to a MUST FR must have ≥1 acceptance_criteria entry — **enforced: `complete 1` blocks a MUST-linked story with none.** Given/When/Then is the target form (the gate accepts any AC, but G/W/T is what Phase 3 tests best). The entry must carry actual content — an empty string or empty object does not count
   Given: concrete system state | When: exact action or input | Then: verifiable assertion with specific value
+- Priority values are exact-case `MUST` / `SHOULD` / `NICE` — **enforced: `complete 1` blocks any other value, and an FR with no priority at all.** Priority is the key every MUST gate filters on (type, acceptance criteria, user-story floor, the Phase-3 test floor, the Phase-5 compliance proof); a miscased `"must"` would silently exempt the FR from all of them. NFR priority may be omitted (`category: "Regression"` is MUST by category)
 - user_personas: infer from IDEA.md — who uses this product, their tech level, goal, and pain point
   If IDEA.md doesn't specify, use the most likely real user (not "general user")
 - NFRs: cover ALL applicable operational categories below — the categories drive the count, not the ≥{{MIN_NFR}} floor. If a category does not apply, declare it explicitly with a reason (do NOT silently omit):
@@ -239,7 +240,7 @@ After saving 01_REQUIREMENTS.json, present this report to the user:
 
 ```
 ─── Phase 1 Complete — Requirements ─────────────────────────
-Functional Requirements:  [N] MUST · [N] SHOULD · [N] COULD
+Functional Requirements:  [N] MUST · [N] SHOULD · [N] NICE
 Non-functional:           [N]
 User stories:             [N] ([N] MUST FRs covered)
 North Star KPI:           [value]

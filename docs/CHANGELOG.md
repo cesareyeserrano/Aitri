@@ -7,6 +7,15 @@
 
 ---
 
+## [2.0.0-rc.174] — 2026-07-12 — Phase 1 enforces the canonical priority vocabulary + contentful ACs (REQ-RICHNESS-0711 addendum, ADR-077 Addendum 1)
+
+A post-ship adversarial review of rc.173 found two silent-pass residuals inside the gate's own promise ("thin requirements no longer pass silently") — both closed at the root, in `lib/phases/phase1.js` via shared `lib/phases/phase1-checks.js` definitions:
+
+- **Priority vocabulary enforced (`PRIORITIES`):** every FR must carry a `priority` that is exactly `MUST`/`SHOULD`/`NICE`. Priority is the join key the entire MUST-gate family filters on with exact-match — the type/metric/vagueness/US-AC checks at Phase 1, the 3× TC floor at Phase 3, the compliance proof at Phase 5 — so a miscased `"must"` (or a priority-less FR) silently exempted the requirement from *every* MUST gate while looking prioritized. NFR priority stays optional (a `category: "Regression"` NFR is MUST by category — unchanged), but must be canonical when present. The gate immediately caught real drift: the template's own completion summary and a smoke fixture used MoSCoW's `COULD` — both fixed to `NICE`. **Migration:** artifacts carrying `COULD` hard-block on the next `complete 1` — rename to `NICE`; express `WON'T` as a `no_go_zone` item.
+- **Contentful ACs (`hasContentfulAC`):** an `acceptance_criteria` entry — FR-level or story-level (rc.173's A2) — must carry actual content in any accepted form (plain string / `{id,text}` / `{id,description}` / `{id,given,when,then}`). `[""]`, `[{}]`, `[null]` satisfied the old length-only checks while carrying nothing a Phase-3 test could assert. Presence stays the bar; form stays ungated (the ADR-061 line). Note: `normalizeAC()` was deliberately NOT reused — it `String()`-coerces, so `{}` becomes `"object object"` and would false-pass.
+
+Upgrade: `adopt --upgrade` TPA-6 flags pre-rc.174 approved requirements with an off-vocabulary priority or content-free ACs as "would be REJECTED" (advisory; approvals unchanged). Briefing states the enforced vocabulary; `templates/AGENTS.md` Phase-1 bullet extended. Also fixed in the same pass: the assumptions filter read ACs with a raw `.includes`, crashing with a TypeError on an object-form FR-level AC (pre-existing; now read via `acContent`). Pins: `phase1.test.js` (+9: miscased/missing FR priority, non-canonical + canonical + absent NFR priority, content-free AC noise matrix, contentful-among-empty, FR-level `[""]`, legacy `{id,text}`/`{id,description}` accepted, object-AC no-crash), `rendered-briefing.test.js` (+1). Suite 2140 green.
+
 ## [2.0.0-rc.173] — 2026-07-11 — Phase 1 proportional US/AC depth floor: thin requirements no longer pass silently (REQ-RICHNESS-0711, ADR-077)
 
 Owner-verified from real use: `01_REQUIREMENTS.json` came out thin — shallow FRs, weak user stories, thin ACs, and (as a pure downstream symptom) few test cases. Root-cause: `complete 1` gated only *structure*, never *depth* — `user_stories: []` passed, a MUST FR with no story was a warning only, and no rule required a story to carry an acceptance criterion. Four changes, one release:

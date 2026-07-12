@@ -980,7 +980,7 @@ describe('Aitri CLI — review smoke', () => {
       { id: 'FR-002', title: 'Dashboard',  priority: 'MUST',   type: 'ux',        acceptance_criteria: ['renders at 375px viewport'],   description: 'View' },
       { id: 'FR-003', title: 'Export CSV', priority: 'MUST',   type: 'reporting', acceptance_criteria: ['generates valid CSV file'],     description: 'Export' },
       { id: 'FR-004', title: 'Save data',  priority: 'SHOULD', type: 'persistence', acceptance_criteria: ['data survives restart'],       description: 'Persist' },
-      { id: 'FR-005', title: 'Totals',     priority: 'COULD',  type: 'logic',     acceptance_criteria: ['returns correct sum'],          description: 'Calc' },
+      { id: 'FR-005', title: 'Totals',     priority: 'NICE',   type: 'logic',     acceptance_criteria: ['returns correct sum'],          description: 'Calc' },
     ],
     user_stories: [
       { id: 'US-001', requirement_id: 'FR-001', as_a: 'user', i_want: 'to login', so_that: 'I can access data',

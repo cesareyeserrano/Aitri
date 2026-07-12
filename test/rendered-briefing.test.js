@@ -190,6 +190,17 @@ describe('persona/template drift canaries (C3 — known-drifted vocabulary must 
     assert.match(out, /blocks a MUST-linked story with none/i, 'A2 named as a gate');
     assert.match(out, /thin stories and one-line ACs produce thin tests downstream/i, 'the rationale that motivates depth');
   });
+
+  // REQ-RICHNESS-0711 addendum (rc.174): the briefing must state the canonical priority
+  // vocabulary as enforced — priority is the join key the whole MUST-gate family filters
+  // on, and a briefing that doesn't name the rule leaves the agent to discover it by
+  // gate rejection.
+  it('phase 1 briefing states the exact-case priority vocabulary is enforced', () => {
+    const out = renderPhase(1);
+    assert.match(out, /Priority values are exact-case `MUST` \/ `SHOULD` \/ `NICE`/i, 'the vocabulary stated');
+    assert.match(out, /blocks any other value, and an FR with no priority at all/i, 'named as a gate, not a nudge');
+    assert.match(out, /silently exempt the FR/i, 'the dodge rationale that motivates the rule');
+  });
 });
 
 describe('Phase 4 plan-first protocol (C8/ADR-071)', () => {
