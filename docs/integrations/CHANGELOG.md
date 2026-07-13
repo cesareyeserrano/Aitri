@@ -18,6 +18,15 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.0.0 — 2026-07-13 — Stable promotion of rc.174; no contract change — additive
+
+The v2 line is promoted to stable (ADR-078). No schema, artifact, event, or command
+change relative to rc.174 — subproducts gating on `INTEGRATION_LAST_REVIEWED` can
+treat `2.0.0` as equal to `2.0.0-rc.174`. Version headers across the five contract
+docs now read `v2.0.0+`. Also fixed in the same commit: the `01_REQUIREMENTS.json`
+schema literal in ARTIFACTS.md still showed the MoSCoW `COULD | WONT` vocabulary —
+stale against the rc.174 gate (exact `MUST | SHOULD | NICE`); doc-only correction.
+
 ## v2.0.0-rc.174 — 2026-07-12 — Phase 1 enforces the canonical priority vocabulary and contentful ACs (REQ-RICHNESS-0711 addendum) — additive
 
 `aitri complete 1` now also requires: every FR carries a `priority` that is exactly `"MUST"`, `"SHOULD"`, or `"NICE"` (NFR priority stays optional, but must be canonical when present — a `category: "Regression"` NFR is MUST by category, no priority needed), and an `acceptance_criteria` entry — FR-level or story-level — must carry actual content (an empty string or empty object no longer satisfies the rc.173 presence floor). Closes the two silent-pass residuals a post-ship adversarial review found in ADR-077's own promise: a miscased `"must"` dodged every MUST gate (phases 1/3/5 all filter exact-match), and `[""]`/`[{}]` passed the length-only AC check. Reader impact: **none** — no shape change; a vocabulary/population constraint on existing fields. Producer impact: pre-rc.174 approved requirements with an off-vocabulary priority or content-free ACs are flagged by `adopt --upgrade`'s TPA-6 gate re-check as "would be REJECTED" (advisory, approvals unchanged). **Migration note:** MoSCoW's `COULD`/`WON'T` now hard-block on the next `complete 1` — rename `COULD` to `NICE` (and express `WON'T` as a `no_go_zone` item). Real artifacts plausibly carry `COULD`: Aitri's own completion-summary template and a smoke fixture did until this release. The legacy `{ id, text }` / `{ id, description }` AC forms remain accepted and count as contentful.

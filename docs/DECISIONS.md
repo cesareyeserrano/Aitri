@@ -1839,6 +1839,18 @@ These convert "recorded not asserted" from slogan to mechanism. The remaining tw
 
 **Impact:** none (decision record). **Value:** prevents re-litigating both questions from scratch; the next "should Aitri take a dep / speak Skills" starts from this evidence. **Trade-off:** none today; the Skills deferral forgoes a measured accuracy gain until the trigger fires — accepted to protect model-agnosticism.
 
+## ADR-078 — 2026-07-13 — Promote 2.0.0-rc.174 to 2.0.0 stable
+
+**Status:** Active — executed by the maintainer 2026-07-13 (explicit instruction, after two earlier aborts on 2026-07-11/12).
+
+**Context.** The promotion gate — do NOT promote a breaking major on author-owned canaries alone; at least one third-party adopter validating end-to-end — is met by DSB-AT-POC (Inchcape, .NET + React, GitHub Copilot CLI): round 1 at the rc.34/36 era (ADR-040) and round 2 on rc.64 (8→20 features, deployable, strong end-to-end result), each producing fix batches recorded in the changelog. Before cutting: rc.172–174's new blocking gates were adversarially verified by three independent passes (both SHIP-SOUND; the two silent-pass residuals found were closed in rc.174), and the stray `aitri init` scaffolding that leaked into rc.173 was removed with a recurrence pin (REPO-HYGIENE-0712).
+
+**Objection recorded (the log exists for this).** The gate's folded residual — "promotion wants diverse third-party adopters, not only web" (see the REG-study closure note) — remains OPEN: the only third-party validation is one web stack, and the rc.65–174 delta (including two breaking ADRs 069/070 and the rc.172–174 content gates) has zero third-party exposure. Weighed and accepted: no adopter is in the pipeline, so waiting is indefinite — the over-caution defect, not rigor; the unexposed gates' failure mode is bounded (over-rejection → visible friction → patch), not silent corruption; and the gate's letter, as written and committed, is satisfied. The residual transfers forward: it is the first thing a post-stable adopter report should close.
+
+**Decision.** Bump rc.174 → 2.0.0 (version string + five contract-doc headers only; zero code change), fast-forward merge `feat/upgrade-protocol` into `main`, tag `v2.0.0`, delete the feature branch. npm-registry publishing is a separate maintainer decision, not bundled here.
+
+**Trade-off.** Stable status lands on gates with no external soak; accepted per the objection analysis above. Reversal path if a false-reject epidemic appears: loosen the specific gate in a patch release — gate loosening is reader-compatible.
+
 ## ADR-077 — 2026-07-11 — Phase 1 gains a proportional US/AC floor — every MUST FR needs a story, every MUST-linked story needs an acceptance criterion (REQ-RICHNESS-0711)
 
 **Status:** ACCEPTED — implemented as `lib/phases/phase1.js` validate() (A1: MUST-FR-without-story hardened from a warning to a throw; A2: MUST-linked-story-without-AC), `templates/phases/requirements.md` (Depth Protocol states the gate + thin-story→thin-test rationale; Rules mark A1/A2 enforced), `lib/personas/pm.js` REASONING (decompose-deep heuristic), rich `validP1()` + canonical fixtures. Pinned in `test/phases/phase1.test.js` (A1/A2 reject + accept + MUST-only exemption + plain-string presence) and `test/rendered-briefing.test.js`. rc.173. Work item `REQ-RICHNESS-0711`.

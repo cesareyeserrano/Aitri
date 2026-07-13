@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.0.0-rc.174+
+**Aitri version:** v2.0.0+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -23,7 +23,7 @@ Written by Phase 1 (PM persona). Flat structure — no epics or nested feature h
     {
       "id": "FR-001",
       "title": "string",
-      "priority": "MUST | SHOULD | COULD | WONT",
+      "priority": "MUST | SHOULD | NICE — exact-case, enforced since v2.0.0-rc.174 (an off-vocabulary value blocks complete 1; express won't-do items in no_go_zone)",
       "type": "string (e.g. security, ux, visual, logic, reporting, persistence, constraint)",
       "description": "string",
       "acceptance_criteria": [

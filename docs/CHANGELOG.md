@@ -1,11 +1,21 @@
 # Aitri — Changelog
 
 > Published version history. Format: [version] — date — what shipped.
-> **Current scheme: `2.0.0-rc.N`** — a rolling pre-release channel, installed from GitHub by branch/SHA (`npm i -g github:cesareyeserrano/Aitri#<branch-or-sha>`). The npm registry is frozen at `0.1.25` and contract-incompatible with 2.x; publishing resumes at 2.0.0 stable. Breaking changes inside the rc channel are marked in `docs/integrations/CHANGELOG.md`.
-> **Promotion:** the 2.0.0-stable criteria (UPLAN-0703 A5) are met; the promotion itself is executed by the maintainer, on the maintainer's timing.
-> Older eras are preserved below for history: the `0.1.x` npm-published era, and the original `2.0.x` entries of 2026-03.
+> **Current scheme: stable semver from `2.0.0`** (promoted 2026-07-13, ADR-078). Install from GitHub main (`npm i -g github:cesareyeserrano/Aitri`); npm-registry publishing (frozen at the contract-incompatible `0.1.25`) resumes at the maintainer's call. Contract changes are marked additive/breaking in `docs/integrations/CHANGELOG.md`.
+> Older eras are preserved below for history: the `2.0.0-rc.N` pre-release channel (rc.1–rc.174), the `0.1.x` npm-published era, and the original `2.0.x` entries of 2026-03.
 
 ---
+
+## [2.0.0] — 2026-07-13 — Stable promotion of the v2 line (ADR-078)
+
+`2.0.0-rc.174` promoted to `2.0.0` stable — no code change; the version string, the five
+`docs/integrations/` headers, and this preamble are the whole diff. Basis recorded in
+ADR-078: the promotion gate (≥1 third-party adopter validating end-to-end) is met by
+DSB-AT-POC (.NET + React, two rounds — ADR-040 and the rc.64-round fixes); rc.172–174's
+new gates were adversarially verified (three independent passes, findings closed in
+rc.174); release hygiene restored (REPO-HYGIENE-0712). Known-open residual, accepted
+and recorded: non-web third-party breadth remains unvalidated — closable only by a
+future adopter, not by waiting. Suite 2140 green at cut.
 
 ## [2.0.0-rc.174] — 2026-07-12 — Phase 1 enforces the canonical priority vocabulary + contentful ACs (REQ-RICHNESS-0711 addendum, ADR-077 Addendum 1)
 
