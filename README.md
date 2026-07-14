@@ -2,17 +2,14 @@
 
 **The harness that makes agentic engineering rigorous — your agent's work becomes a reviewable, gated pipeline, so you ship software you actually reviewed, not whatever the agent happened to produce.**
 
-![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen) ![license](https://img.shields.io/badge/license-Apache_2.0-blue) ![channel](https://img.shields.io/badge/channel-2.0.0--rc_(pre--release)-orange)
+![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen) ![license](https://img.shields.io/badge/license-Apache_2.0-blue) ![CI](https://github.com/cesareyeserrano/Aitri/actions/workflows/ci.yml/badge.svg?branch=main) ![npm](https://img.shields.io/npm/v/aitri?label=npm)
 
 ```bash
-# current line of development (2.0.0-rc channel) — install from GitHub:
+npm install -g aitri
+
+# or, to track main directly:
 npm install -g github:cesareyeserrano/Aitri
-
-# for a reproducible install, pin a commit SHA instead:
-npm install -g github:cesareyeserrano/Aitri#<sha>
 ```
-
-> **Do not `npm install -g aitri`.** The npm registry is frozen at `0.1.25` — roughly 150 releases old and contract-incompatible with everything documented here. Publishing resumes when 2.0.0 promotes to stable (promotion criterion: `docs/CHANGELOG.md` header).
 
 > **Agent shells and PATH.** If you use a Node version manager (nvm, asdf, volta), the global `aitri` binary lives under its versioned prefix and is only on `PATH` in shells that load the manager. Non-login shells — which coding agents often spawn — may not, and the agent will report it doesn't know the `aitri` command. Verify with the shell your agent uses: `command -v aitri`. If it doesn't resolve, invoke it by absolute path (`which aitri` in your own terminal prints it) or make the manager load in non-login shells.
 
