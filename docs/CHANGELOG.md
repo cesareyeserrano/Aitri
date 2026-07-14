@@ -1,10 +1,20 @@
 # Aitri — Changelog
 
 > Published version history. Format: [version] — date — what shipped.
-> **Current scheme: stable semver from `2.0.0`** (promoted 2026-07-13, ADR-078). Install from GitHub main (`npm i -g github:cesareyeserrano/Aitri`); npm-registry publishing (frozen at the contract-incompatible `0.1.25`) resumes at the maintainer's call. Contract changes are marked additive/breaking in `docs/integrations/CHANGELOG.md`.
+> **Current scheme: stable semver from `2.0.0`** (promoted 2026-07-13, ADR-078); **the npm-published line starts at `2.0.1`** — the registry already held an abandoned, contract-incompatible `2.0.0` from the original 2026-03 attempt (see below), and npm never permits reusing a published version number. `git`/GitHub Releases are tagged `v2.0.0` (the real stable-promotion point); the installed CLI reports `2.0.1`+ once installed from npm. Install from GitHub main (`npm i -g github:cesareyeserrano/Aitri`) or from the npm registry (`npm i -g aitri`). Contract changes are marked additive/breaking in `docs/integrations/CHANGELOG.md`.
 > Older eras are preserved below for history: the `2.0.0-rc.N` pre-release channel (rc.1–rc.174), the `0.1.x` npm-published era, and the original `2.0.x` entries of 2026-03.
 
 ---
+
+## [2.0.1] — 2026-07-14 — npm-registry version bump (2.0.0 was occupied by a legacy publish)
+
+No behavior change. `npm publish` of `2.0.0` was rejected: the registry already carries a
+`2.0.0` from the abandoned 2026-03 attempt (see the "original 2.0.x entries of 2026-03"
+section below) — contract-incompatible with this line, and npm permanently forbids
+reusing a version number regardless of registry state. `git`/GitHub Releases keep the
+`v2.0.0` tag as the actual stable-promotion point (ADR-078); the npm-published package
+— and the version the installed CLI reports — starts at `2.0.1`. Version string + the
+five `docs/integrations/` headers are the whole diff. Suite 2140 green.
 
 ## [2.0.0] — 2026-07-13 — Stable promotion of the v2 line (ADR-078)
 
