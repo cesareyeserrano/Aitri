@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # Aitri ships zero npm dependencies (see package.json) — this only watches
+  # the third-party GitHub Actions the CI workflow pulls in (checkout,
+  # setup-node), the actual supply-chain surface here.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
