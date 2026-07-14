@@ -4,6 +4,10 @@
 
 ![node](https://img.shields.io/badge/node-%3E%3D18-brightgreen) ![license](https://img.shields.io/badge/license-Apache_2.0-blue) ![CI](https://github.com/cesareyeserrano/Aitri/actions/workflows/ci.yml/badge.svg?branch=main) ![npm](https://img.shields.io/npm/v/aitri?label=npm)
 
+AI agents write code fast — and that's the problem. The spec lives in a chat that scrolls away, the code drifts from the original intent, and "done" means "the agent stopped," not "this was reviewed." Aitri puts the structure back: development becomes a pipeline of phases, each producing a **versioned artifact** — requirements, design, tests, build, traceability — that **must pass an explicit review-and-approve step before the next phase unlocks**.
+
+It works with **any agent that reads stdout** — Claude Code, Codex, Gemini CLI, Opencode, or a plain shell. Aitri never calls a model or writes code itself: it generates the briefing your agent acts on, then validates and gates what comes back.
+
 ```bash
 npm install -g aitri
 
@@ -11,27 +15,17 @@ npm install -g aitri
 npm install -g github:cesareyeserrano/Aitri
 ```
 
-> **Agent shells and PATH.** If you use a Node version manager (nvm, asdf, volta), the global `aitri` binary lives under its versioned prefix and is only on `PATH` in shells that load the manager. Non-login shells — which coding agents often spawn — may not, and the agent will report it doesn't know the `aitri` command. Verify with the shell your agent uses: `command -v aitri`. If it doesn't resolve, invoke it by absolute path (`which aitri` in your own terminal prints it) or make the manager load in non-login shells.
+## Contents
 
-AI agents write code fast — and that's the problem. The spec lives in a chat that scrolls away, the code drifts from the original intent, and "done" means "the agent stopped," not "this was reviewed." Aitri puts the structure back: development becomes a pipeline of phases, each producing a **versioned artifact** — requirements, design, tests, build, traceability — that **must pass an explicit review-and-approve step before the next phase unlocks**.
-
-It works with **any agent that reads stdout** — Claude Code, Codex, Gemini CLI, Opencode, or a plain shell. Aitri never calls a model or writes code itself: it generates the briefing your agent acts on, then validates and gates what comes back.
-
-### What you get
-
-- **Gated phases** — every artifact must pass schema validation (`complete`) and an explicit `approve` step before the pipeline moves on. **By default an agent may run `approve`** — it is instructed to present the review checkpoint to you first, but that relay is on the agent's honor. Set `"humanApprovalGate": true` in `.aitri` to make every approval a hard interactive stop only a human at a terminal can pass.
-- **Specs as contracts** — each phase's output is the typed handoff to the next; editing an approved artifact behind Aitri's back is detected as *drift*, and re-approving after drift always requires a human.
-- **A real test gate** — code can't reach deployment until your tests run, pass, and every MUST requirement traces to a passing test.
-- **Traceability, written down and checkable** — requirement → test → result, recorded in artifacts you can audit.
-
-### What is mechanical vs. what is attested
-
-Aitri enforces in two different ways, and is honest about which is which:
-
-- **Mechanical (Aitri executes and gates):** artifact schemas, phase ordering, the MUST-requirement→passing-test join (`verify-complete`), drift hashes on approved artifacts, and your project's declared quality gates (lint, type-check, security scan) judged by exit code.
-- **Attested (the agent writes, you review):** the content of requirements, the quality of tests, build-report declarations, audit self-reports, and — in default agent mode — the approve relay itself.
-
-The harness makes drops and drift **visible and catchable, not impossible**. The review checkpoints exist so a human catches what the mechanics cannot.
+- [How It Works](#how-it-works)
+- [Quick Start](#quick-start)
+- [Command Reference](#command-reference)
+- [Phase Reference](#phase-reference)
+- [Optional Phases](#optional-phases)
+- [Resuming a Session](#resuming-a-session)
+- [Drift Detection](#drift-detection)
+- [Working with AI Agents](#working-with-ai-agents)
+- [Customizing Best Practices](#customizing-best-practices)
 
 ---
 
@@ -47,9 +41,7 @@ aitri approve <N>     →   you review + approve → the next phase unlocks
 
 A phase never unlocks without an explicit `approve`. Who runs it is your configuration choice: by default your agent may, relaying the review checkpoint to you; with `"humanApprovalGate": true` in `.aitri`, only a human at a terminal can.
 
----
-
-## Pipeline
+That loop repeats across a fixed pipeline. Each artifact is the handoff contract to the next phase:
 
 | Phase | Persona | Artifact |
 | :--- | :--- | :--- |
@@ -63,11 +55,20 @@ A phase never unlocks without an explicit `approve`. Who runs it is your configu
 | ✦ Verify _(required gate)_ | — | `04_TEST_RESULTS.json` |
 | **5 — Deployment** | DevOps Engineer | `05_TRACEABILITY.json` |
 
-Each artifact is the handoff contract to the next phase. Optional phases enrich the pipeline but never block it. New projects keep all artifacts under `aitri/product/spec/` (the contained layout — see Quick Start); projects from before the contained layout keep them in a root `spec/` until they opt into migration.
+Optional phases enrich the pipeline but never block it. New projects keep all artifacts under `aitri/product/spec/` (the contained layout — see Quick Start); projects from before the contained layout keep them in a root `spec/` until they opt into migration.
+
+**Aitri enforces in two different ways, and is honest about which is which:**
+
+- **Mechanical (Aitri executes and gates):** artifact schemas, phase ordering, the MUST-requirement→passing-test join (`verify-complete`), drift hashes on approved artifacts, and your project's declared quality gates (lint, type-check, security scan) judged by exit code.
+- **Attested (the agent writes, you review):** the content of requirements, the quality of tests, build-report declarations, audit self-reports, and — in default agent mode — the approve relay itself.
+
+The harness makes drops and drift **visible and catchable, not impossible**. The review checkpoints exist so a human catches what the mechanics cannot.
 
 ---
 
 ## Quick Start
+
+> **Agent shells and PATH.** If you use a Node version manager (nvm, asdf, volta), the global `aitri` binary lives under its versioned prefix and is only on `PATH` in shells that load the manager. Non-login shells — which coding agents often spawn — may not, and the agent will report it doesn't know the `aitri` command. Verify with the shell your agent uses: `command -v aitri`. If it doesn't resolve, invoke it by absolute path (`which aitri` in your own terminal prints it) or make the manager load in non-login shells.
 
 ```bash
 mkdir my-app && cd my-app
@@ -116,6 +117,8 @@ aitri approve 5
 ---
 
 ## Command Reference
+
+The tables below are a stable, browsable snapshot. `aitri help --all` is the live, exhaustive source (flags, edge cases) straight from the installed CLI.
 
 ### Setup
 
@@ -214,14 +217,14 @@ Bring an existing project into the Aitri pipeline — either to stabilize/instit
 **Artifact:** `01_REQUIREMENTS.json`
 **Reads:** `IDEA.md`, `00_DISCOVERY.md` (if present)
 
-Produces functional requirements (FRs), non-functional requirements (NFRs), user stories, and constraints. Every MUST-priority FR includes acceptance criteria specific enough to write a test against. Aitri validates FR count, AC specificity, and schema on `complete`.
+Produces functional requirements (FRs), non-functional requirements (NFRs), user stories, and constraints. Every MUST-priority FR includes acceptance criteria specific enough to write a test against, and at least one linked user story with its own acceptance criteria. Aitri validates FR count, AC specificity, priority vocabulary, and schema on `complete`.
 
 ### Phase 2 — Architecture
 
 **Artifact:** `02_SYSTEM_DESIGN.md`
 **Reads:** `01_REQUIREMENTS.json`, `01_UX_SPEC.md` (if present)
 
-Tech stack with justifications, data model, API design, security design, performance strategy, deployment architecture, and risk analysis.
+Tech stack with justifications, data model, API design, an implementation approach per MUST FR (method, I/O contract, failure behavior), security design, performance strategy, deployment architecture, and risk analysis.
 
 ### Phase 3 — Test Design
 
