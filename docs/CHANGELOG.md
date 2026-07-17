@@ -6,7 +6,12 @@
 
 ---
 
-## [2.0.2] — 2026-07-17 — field-feedback pack: coverage-gate diagnosis fix, checkpoint legibility, UX-preview warn, W3–W5 prompt hardening
+## [2.0.2-rc.1] — 2026-07-17 — field-feedback pack: coverage-gate diagnosis fix, checkpoint legibility, UX-preview warn, W3–W5 prompt hardening
+
+**Canary — installed locally for owner field-validation; promotes to `2.0.2` on publish**
+(same discipline as the rc→stable promotion of 2.0.0, ADR-078: an unvalidated build does
+not carry the final number, so a project that stamps `aitriVersion` during testing can
+never collide with the published 2.0.2). Findings during validation ship as rc.2, rc.3…
 
 One release, four work items from field feedback on 2.0.1 plus the RSRCH-ADOPT-0711
 remainder (owner GO 2026-07-17: single version pack). Patch: every item here closes a gap
