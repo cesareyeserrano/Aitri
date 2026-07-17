@@ -1881,7 +1881,7 @@ Two adjacent closures in the same pass: the assumptions filter crashed with a ra
 
 ## ADR-079 — 2026-07-17 — Persona ROLE drops expertise claims; the coverage caveat lands at authoring; briefing pins make both mechanical (RSRCH-ADOPT-0711 W3+W4+W5)
 
-**Status:** ACCEPTED — shipped 2.1.0. Work items `W3 PERSONA-ROLE-EVIDENCE-0711`, `W4 COVERAGE-SIGNAL-0711`, `W5 PROMPT-EVAL-PINS-0711` (spec: `_research-adoption-design-0711.md`; one combined ADR at ship time per its §3). Closes the RSRCH-ADOPT-0711 executable thread — W2 stays owner-deferred (2026-07-11).
+**Status:** ACCEPTED — shipped 2.0.2. Work items `W3 PERSONA-ROLE-EVIDENCE-0711`, `W4 COVERAGE-SIGNAL-0711`, `W5 PROMPT-EVAL-PINS-0711` (spec: `_research-adoption-design-0711.md`; one combined ADR at ship time per its §3). Closes the RSRCH-ADOPT-0711 executable thread — W2 stays owner-deferred (2026-07-11).
 
 **Context:** the RSRCH-ADOPT-0711 evidence review (3-0-verified sources) found: (a) expert personas do not improve objective accuracy (EMNLP 2024 Findings — 162 roles, 4 families; Wharton arXiv 2512.05858 — 6 models, GPQA/MMLU-Pro), can degrade factual accuracy (PRISM arXiv 2603.18507), and trade clarity for jargon (arXiv 2605.29420) — yet 9 of 13 Aitri personas opened "You are a Senior X". What IS load-bearing in a ROLE is pipeline position + downstream audience. (b) `tests.md` told the agent "nothing keys off coverage_goal" without saying WHY line coverage is a weak target (does not predict fault detection — Just ASE 2020; 70% of high-priority Google bugs sat in covered code — ICSE 2021).
 
@@ -1891,7 +1891,7 @@ Two adjacent closures in the same pass: the assumptions filter crashed with a ra
 
 ## ADR-073 — Addendum 1 — 2026-07-17 — `complete ux` warns on a silently-skipped preview (FB-UXPREVIEW-SKIPPED-0715)
 
-The base decision made `UX_PREVIEW.html` advisory — prompt-only, nothing Aitri-executed notices its absence — and accepted that ceiling. The field falsified the honor system twice: on a 2.0.1 project the preview was silently not delivered and the owner had to request it (second observed skip). Shipped in 2.1.0, smallest Aitri-executed nudge that closes the *silent* part without a gate:
+The base decision made `UX_PREVIEW.html` advisory — prompt-only, nothing Aitri-executed notices its absence — and accepted that ceiling. The field falsified the honor system twice: on a 2.0.1 project the preview was silently not delivered and the owner had to request it (second observed skip). Shipped in 2.0.2, smallest Aitri-executed nudge that closes the *silent* part without a gate:
 
 1. **The briefing declares the preview a deliverable** (top-level instruction step, not a side note) with a mechanical skip contract: the only valid skip (no graphical surface) is recorded BOTH in the Delivery Summary and as `Preview: not generated — <reason>` inside `01_UX_SPEC.md` — the artifact `complete ux` can actually read (the Delivery Summary is ephemeral chat output).
 2. **`complete ux` warns — never blocks** — when `UX_PREVIEW.html` is absent and the spec records no skip reason. The hard gate stays rejected per the base ADR's own trade-off (false-fires on CLI/library/service products); the warn converts a silent skip into a visible one, which is the exact class of fix this system prefers (catchable-by-comparison over impossible).

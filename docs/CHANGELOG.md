@@ -6,11 +6,12 @@
 
 ---
 
-## [2.1.0] — 2026-07-17 — field-feedback pack: coverage-gate diagnosis fix, checkpoint legibility, UX-preview warn, W3–W5 prompt hardening
+## [2.0.2] — 2026-07-17 — field-feedback pack: coverage-gate diagnosis fix, checkpoint legibility, UX-preview warn, W3–W5 prompt hardening
 
 One release, four work items from field feedback on 2.0.1 plus the RSRCH-ADOPT-0711
-remainder (owner GO 2026-07-17: single version pack). MINOR: the `complete ux` warn is new
-observable behavior.
+remainder (owner GO 2026-07-17: single version pack). Patch: every item here closes a gap
+in existing behavior (a misleading message, a silently-skipped advisory, unclear wording) —
+none adds a new command, flag, gate, or artifact field.
 
 **FB-COVERAGE-GATE-0715 — `verify-complete` no longer misdiagnoses an errored coverage gate** (field report, T-Ledger). A threshold coverage gate whose runner could not be instrumented went `error` and the blocker claimed the tool was "not found (declared but not installed)" — though it WAS installed — and labeled the gate "(undefined)". The blocker now prints each errored gate's own cause: coverage errors state "coverage not measured" + the command-mode escape hatch (`{name:"coverage", command:"...", required:true}`, exit-code gated); timeout kills surface the timeout note; only a genuine ENOENT keeps the not-installed diagnosis. Root causes documented in `templates/phases/build.md` + help: threshold mode cannot instrument an `npm run` wrapper (no runner token to match) or a `&&` chain (the flag lands on the tail command) — declare command-mode coverage for those. +2 tests.
 
