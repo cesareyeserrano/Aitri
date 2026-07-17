@@ -42,7 +42,7 @@ Required sections (in order):
 ## Advisory output: `{{ARTIFACTS_BASE}}/UX_PREVIEW.html` — the spec, visible
 > A reviewer cannot evaluate `#0F172A` as a color or judge a type scale from numbers. Alongside the spec, generate ONE self-contained `UX_PREVIEW.html` — a **visual manual of the spec** the human opens in a browser at the approve gate. Advisory: `complete ux` does not check it and nothing downstream reads it.
 
-**Generate it ONLY if the product renders in a browser or a GUI toolkit.** For a product with no graphical surface (CLI/TUI, library, service/API) SKIP it and state the reason in the Delivery Summary — an HTML preview of a terminal or an API misrepresents the medium. This is the only skip.
+**Generate it ONLY if the product renders in a browser or a GUI toolkit.** For a product with no graphical surface (CLI/TUI, library, service/API) SKIP it — an HTML preview of a terminal or an API misrepresents the medium. This is the only skip. A skip is recorded in TWO places: the Delivery Summary's `Preview:` line, and a line `Preview: not generated — <reason>` inside 01_UX_SPEC.md itself (so `complete ux` can tell a deliberate skip from a forgotten deliverable — it warns when the file is absent and no recorded reason exists).
 
 **Hard rule — the preview RENDERS the spec, it never extends it:** every value shown must have a source row in the spec's Design Tokens. The developer implements the spec, never this file. HTML here is only the rendering medium for design approval — it does not imply the product is a web app.
 
@@ -75,7 +75,11 @@ Role by case:
 ## Instructions
 1. Generate complete 01_UX_SPEC.md
 2. Save to: {{ARTIFACTS_BASE}}/01_UX_SPEC.md
-3. Generate {{ARTIFACTS_BASE}}/UX_PREVIEW.html (advisory output above), or record the skip reason
+3. Generate {{ARTIFACTS_BASE}}/UX_PREVIEW.html (advisory output above). This is a DELIVERABLE of the
+   phase, not an optional extra — the human approves look & feel from it. The ONLY valid skip is a
+   product with no graphical surface; record a skip in the Delivery Summary's `Preview:` line AND as
+   `Preview: not generated — <reason>` inside 01_UX_SPEC.md. `complete ux` warns when the file is
+   absent and no recorded reason exists.
 4. Present the Delivery Summary below to the user
 5. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} ux
 

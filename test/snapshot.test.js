@@ -1461,7 +1461,33 @@ describe('nextActions ordering', () => {
         const action = snap.nextActions.find(a => a.priority === 5);
         assert.ok(action);
         assert.equal(action.command, 'aitri verify-run');
-        assert.equal(action.reason, 'Phase 4 approved — run verify next');
+        assert.equal(action.reason, 'Phase 4 approved — Aitri now re-runs the tests independently (the build report is agent-attested)');
+      } finally { cleanup(dir); }
+    });
+
+    // FB-APPROVE-VERIFY-LEGIBILITY-0715: at phase 4 the approve recommendation must state
+    // it is build-phase review (not final sign-off) and that Aitri re-verifies after.
+    it('recommends approve 4 with the build-phase (not product) clarification', () => {
+      const dir = tmpDir();
+      try {
+        saveConfig(dir, {
+          projectName: 'p', artifactsDir: 'spec',
+          approvedPhases:  [1, 2, 3],
+          completedPhases: [1, 2, 3, 4],
+        });
+        writeJsonSpec(dir, '01_REQUIREMENTS.json', {
+          project_name: 'p',
+          functional_requirements:     [{ id: 'FR-001', priority: 'MUST', type: 'logic', title: 't', acceptance_criteria: ['AC1'] }],
+          non_functional_requirements: [], user_stories: [],
+        });
+        writeSpec(dir, '02_SYSTEM_DESIGN.md', '# d\n');
+        writeJsonSpec(dir, '03_TEST_CASES.json', { test_cases: [] });
+        writeJsonSpec(dir, '04_BUILD_REPORT.json', { files_created: ['x'], technical_debt: [] });
+        const snap = buildProjectSnapshot(dir);
+        const action = snap.nextActions.find(a => /approve (4|build)\b/.test(a.command));
+        assert.ok(action, 'approve 4 must be recommended when phase 4 is completed-unapproved');
+        assert.match(action.reason, /approve the BUILD PHASE/);
+        assert.match(action.reason, /re-runs the tests independently after/);
       } finally { cleanup(dir); }
     });
 
@@ -1641,7 +1667,7 @@ describe('detectUncountedChanges()', () => {
   it('excludes non-behavioral files (allowlist) — Ultron canary regression', () => {
     // Regression guard for the cycle reported on Ultron 2026-04-27:
     // a one-line go.mod toolchain bump was counted as off-pipeline drift,
-    // forcing a 70KB Senior Code Reviewer briefing for trivial maintenance.
+    // forcing a 70KB Code Reviewer briefing for trivial maintenance.
     // After the allowlist filter, build/dep manifests + docs do not count.
     const dir = tmpDir();
     try {

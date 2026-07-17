@@ -6,6 +6,24 @@
 
 ---
 
+## [2.1.0] — 2026-07-17 — field-feedback pack: coverage-gate diagnosis fix, checkpoint legibility, UX-preview warn, W3–W5 prompt hardening
+
+One release, four work items from field feedback on 2.0.1 plus the RSRCH-ADOPT-0711
+remainder (owner GO 2026-07-17: single version pack). MINOR: the `complete ux` warn is new
+observable behavior.
+
+**FB-COVERAGE-GATE-0715 — `verify-complete` no longer misdiagnoses an errored coverage gate** (field report, T-Ledger). A threshold coverage gate whose runner could not be instrumented went `error` and the blocker claimed the tool was "not found (declared but not installed)" — though it WAS installed — and labeled the gate "(undefined)". The blocker now prints each errored gate's own cause: coverage errors state "coverage not measured" + the command-mode escape hatch (`{name:"coverage", command:"...", required:true}`, exit-code gated); timeout kills surface the timeout note; only a genuine ENOENT keeps the not-installed diagnosis. Root causes documented in `templates/phases/build.md` + help: threshold mode cannot instrument an `npm run` wrapper (no runner token to match) or a `&&` chain (the flag lands on the tail command) — declare command-mode coverage for those. +2 tests.
+
+**FB-APPROVE-UX-0715 / FB-APPROVE-VERIFY-LEGIBILITY-0715 — human checkpoints get a shared grammar** (owner feedback, two projects). Every `approve` prints a `⏸ HUMAN CHECKPOINT` block with labeled sections — WHAT YOU ARE REVIEWING (artifact + summary) and WHAT APPROVING MEANS (a per-gate meaning line). The phase-4 meaning states the field confusion directly: you are approving the BUILD PHASE, not the final product — the report's test results are agent-attested; `verify-run` re-executes the suite independently and `verify-complete` is the deploy gate. The same clarification lands in the post-approve next-action context and in `status`/`resume`'s next-action reasons. +2 tests, 2 pins updated.
+
+**FB-UXPREVIEW-SKIPPED-0715 — `complete ux` warns on a silently-skipped preview** (ADR-073 Addendum 1). `UX_PREVIEW.html` stays advisory, but its absence is no longer invisible: the UX briefing declares it a deliverable with a mechanical skip contract (`Preview: not generated — <reason>` inside `01_UX_SPEC.md`), and `complete ux` warns — never blocks — when the file is absent and no recorded reason exists. Hard gate stays rejected (ADR-073 trade-off: would false-fire on no-GUI products). +3 tests.
+
+**RSRCH-ADOPT-0711 W3+W4+W5 — prompt hardening, evidence-based** (ADR-079). W3: persona ROLE strings drop the "Senior" expertise claim (function-in-pipeline + downstream audience is the payload; expertise personas measurably don't improve accuracy — EMNLP-2024-Findings-888, arXiv 2512.05858); rule codified in `lib/personas/README.md` with a negative canary on exported ROLE strings. W4: the Phase-3 briefing states next to `coverage_goal` that line coverage does not predict fault detection and points at the mutation score. W5: rendered-briefing pins for W1/W3/W4 (W2 stays owner-deferred — no pin for unshipped content). Closes the RSRCH-ADOPT-0711 executable thread.
+
+A pre-ship adversarial pass on the pack found one REAL adjacent defect, fixed in the same release: a quality gate whose spawn fails for a non-kill reason (EACCES on a non-executable script) was diagnosed as a timeout ("did not finish within…") — the same misattribution class the coverage fix closes. `runQualityGates` now distinguishes kill (signal/ETIMEDOUT/ENOBUFS → timeout note) from could-not-start (error code surfaced), and the blocker carries it through. Also folded: non-string `output` guard in the blocker, measured/threshold detail on coverage gate lines, a pin on the new phase-4 approve reason. +2 tests.
+
+`templates/AGENTS.md` audited and updated in the same commit (preview-deliverable contract, approve-4 meaning, coverage-gate command-mode rule). No artifact/`.aitri` schema change. Suite 2151 green.
+
 ## [2.0.1] — 2026-07-14 — npm-registry version bump (2.0.0 was occupied by a legacy publish)
 
 No behavior change. `npm publish` of `2.0.0` was rejected: the registry already carries a

@@ -209,6 +209,12 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
     Coverage gate: declare {name:"coverage", threshold:80} (a numeric threshold instead of a command).
       verify-run measures line coverage (stack-aware: node/go/pytest/jest/vitest — the coverage tool
       must be in the project's deps) and the gate passes when measured ≥ threshold. required defaults true.
+      Threshold mode only works when test_runner IS the runner invocation itself. If test_runner is an
+      npm-script wrapper ("npm run test:full" — Aitri cannot see inside the script) or chains runners
+      ("vitest run && playwright test" — the coverage flag would land on the wrong command), Aitri cannot
+      instrument it: declare the coverage gate in COMMAND mode instead — {name:"coverage",
+      command:"<your coverage command>", required:true} — configure the tool's own threshold so it exits
+      non-zero below it, and Aitri gates by exit code like any other gate.
     Mutation gate (fake-pass protection): a passing test can still be FAKE — mocks or weak assertions
       let code "pass" without exercising real behavior, so a suite can be green while the feature is
       dead. A mutation tool breaks your real code on purpose and re-runs the tests; a surviving mutant

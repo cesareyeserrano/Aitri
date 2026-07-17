@@ -2808,6 +2808,27 @@ describe('runQualityGates() + verify-run/complete integration (ADR-037)', () => 
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  // Adversarial finding on the FB-COVERAGE-GATE-0715 fix: a gate whose spawn fails for a
+  // non-kill reason (EACCES on a non-executable script) was diagnosed as a timeout —
+  // the same misattribution class the fix closes. The note must state the real cause.
+  it('a gate that cannot start (EACCES) reports "could not start", not a timeout (unix-only)', { skip: process.platform === 'win32' }, () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-qa-eacces-'));
+    try {
+      fs.writeFileSync(path.join(dir, 'gate.sh'), '#!/bin/sh\nexit 0\n');
+      fs.chmodSync(path.join(dir, 'gate.sh'), 0o644); // present but not executable
+      seedQA(dir, [{ name: 'smoke', command: './gate.sh', required: true }]);
+      silent(() => cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } }));
+      const g = readResults(dir).quality_gates[0];
+      assert.equal(g.status, 'error');
+      assert.match(g.output || '', /gate could not start: EACCES/);
+      assert.doesNotMatch(g.output || '', /did not finish within/, 'must not misdiagnose as timeout');
+      let msg = '';
+      try { silent(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); }
+      catch (e) { msg = e.message; }
+      assert.match(msg, /gate could not start: EACCES/, 'the real cause surfaces at the blocker');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('an advisory (required:false) failing gate does NOT block verify-complete', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-qa-adv-'));
     try {
@@ -2860,6 +2881,47 @@ describe('coverage as a declared quality_gate (ADR-037 follow-up)', () => {
     try { return fn(); } finally { console.log = ol; process.stderr.write = oe; }
   };
   const run = (dir) => silent(() => cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); } }));
+
+  // FB-COVERAGE-GATE-0715 (field report): a threshold gate whose runner produced no
+  // parseable coverage went `error`, and the blocker claimed "tool was not found
+  // (declared but not installed)" — though the tool WAS installed — and labeled the
+  // gate "(undefined)" (no command on a threshold gate). The blocker must surface the
+  // gate's own cause and the command-mode escape hatch instead.
+  it('coverage not measurable → error gate; blocker states the real cause, not "not installed"', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-cov-err-'));
+    try {
+      seedCov(dir, 80, null);
+      // runner prints the TC pass but NO parseable coverage line
+      fs.writeFileSync(path.join(dir, 'runner.js'), `console.log('✔ TC-001 — ran');\n`);
+      run(dir);
+      const g = readResults(dir).quality_gates.find(x => x.name === 'coverage');
+      assert.equal(g.status, 'error');
+      assert.match(g.output || '', /coverage not measured/);
+      let msg = '';
+      try { silent(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); }
+      catch (e) { msg = e.message; }
+      assert.match(msg, /coverage not measured/, 'the gate\'s own cause must surface');
+      assert.match(msg, /command mode/i, 'the command-mode escape hatch must be offered');
+      assert.match(msg, /\(threshold 80%\)/, 'a threshold gate is labeled by threshold, not "(undefined)"');
+      assert.doesNotMatch(msg, /declared but not installed/, 'the misdiagnosis must be gone for coverage errors');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('a command gate whose binary is missing still reports "not installed" (scoped, not banned)', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-cov-enoent-'));
+    try {
+      seedCov(dir, 80, '88');
+      const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), 'utf8'));
+      manifest.quality_gates = [{ name: 'lint', command: 'definitely-not-a-real-binary-xyz .', required: true }];
+      fs.writeFileSync(path.join(dir, 'spec/04_BUILD_REPORT.json'), JSON.stringify(manifest));
+      run(dir);
+      let msg = '';
+      try { silent(() => cmdVerifyComplete({ dir, err: (m) => { throw new Error(m); } })); }
+      catch (e) { msg = e.message; }
+      assert.match(msg, /tool was not found \(declared but not installed\)/,
+        'ENOENT keeps the not-installed diagnosis — per gate, not universal');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
 
   it('coverage below threshold → fail gate, blocks verify-complete', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-cov-fail-'));

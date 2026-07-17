@@ -418,8 +418,13 @@ describe('UX phase advisory visual preview (FB-UX-MOCKUP-0708)', () => {
     // imperative step, and the Delivery Summary line where a skip reason is recorded.
     // (The generic /spec\/UX_PREVIEW\.html/ pin above is satisfied by EITHER — each
     // needs its own pin or one can silently vanish.)
-    assert.match(briefing, /Generate spec\/UX_PREVIEW\.html \(advisory output above\), or record the skip reason/,
+    // FB-UXPREVIEW-SKIPPED-0715: the step is a stated DELIVERABLE with a mechanical
+    // skip-recording contract (`Preview: not generated — <reason>` inside the spec) that
+    // `complete ux` reads to warn on a silent skip.
+    assert.match(briefing, /Generate spec\/UX_PREVIEW\.html \(advisory output above\)\. This is a DELIVERABLE/,
       'the Instructions step for the preview is missing');
+    assert.match(briefing, /Preview: not generated — <reason>` inside 01_UX_SPEC\.md/,
+      'the in-spec skip-recording contract (what complete ux greps) is missing');
     assert.match(briefing, /Preview:\s+\[UX_PREVIEW\.html — open it in a browser to SEE the design \| not generated — reason\]/,
       'the Delivery Summary Preview line (the skip-recording surface) is missing');
   });
@@ -437,5 +442,37 @@ describe('UX phase advisory visual preview (FB-UX-MOCKUP-0708)', () => {
     assert.match(src, /never extends the spec/i, 'the persona must carry the renders-not-extends norm');
     assert.ok(!src.includes('contrast-ratio badges'), 'content mechanics must NOT live in the persona (C3)');
     assert.ok(!src.includes('side by side'), 'layout mechanics must NOT live in the persona (C3)');
+  });
+});
+
+// RSRCH-ADOPT-0711 W3 (persona-role evidence): ROLE states function-in-pipeline and
+// downstream audience — never an expertise claim. Expert personas measurably do not
+// improve accuracy and can degrade clarity (EMNLP-2024-Findings-888, arXiv 2512.05858).
+// The pin's contract is the exported ROLE string ONLY — CONSTRAINTS/REASONING may
+// legitimately mention seniority in other senses (they don't today, but the rule is
+// scoped to ROLE, per lib/personas/README.md).
+describe('persona ROLE carries no expertise claim (RSRCH-ADOPT-0711 W3)', () => {
+  it('no persona ROLE matches senior/world-class/expert', async () => {
+    const personaDir = path.join(ROOT, 'lib', 'personas');
+    const files = fs.readdirSync(personaDir).filter(f => f.endsWith('.js'));
+    assert.ok(files.length >= 12, `persona modules found: ${files.length}`);
+    for (const f of files) {
+      const mod = await import(path.join(personaDir, f));
+      if (typeof mod.ROLE !== 'string') continue;
+      assert.doesNotMatch(mod.ROLE, /\b(senior|world-class|expert)\b/i,
+        `${f} ROLE must state function-in-pipeline, not an expertise claim`);
+    }
+  });
+});
+
+// RSRCH-ADOPT-0711 W4 (coverage signal): line coverage does not predict fault detection
+// (Just ASE 2020; ICSE 2021 — 70% of high-priority bugs sat in covered code). The Phase 3
+// briefing states it next to coverage_goal so the target is authored with the caveat.
+describe('coverage-signal sentence in Phase 3 briefing (RSRCH-ADOPT-0711 W4)', () => {
+  it('Phase 3 briefing carries the line-coverage caveat and the mutation-score pointer', () => {
+    const out = renderPhase(3);
+    assert.match(out, /line coverage does not predict fault detection/i, 'the caveat sentence');
+    assert.match(out, /mutation score is the honest signal/i, 'the mutation pointer');
+    assert.match(out, /coverage_goal/, 'anchored next to the coverage_goal schema literal');
   });
 });
