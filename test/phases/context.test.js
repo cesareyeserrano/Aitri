@@ -381,3 +381,76 @@ describe('extractRequirementsForCompliance()', () => {
     assert.equal(extractRequirementsForCompliance(raw), raw);
   });
 });
+
+// GOVERNANCE-0717 G1: anchored section extraction for parent-standards injection.
+describe('extractSections()', () => {
+  const spec = `# UX Spec
+
+## User Flows
+flow content
+
+## Design Tokens
+- background: #FFF (reason: light)
+
+### Sub-detail
+kept inside
+
+## Component Inventory
+| IndicatorCard | ... |
+
+## Nielsen Compliance
+h1 stuff
+`;
+
+  it('extracts named ## sections including their subsections, in the order given', async () => {
+    const { extractSections } = await import('../../lib/phases/context.js');
+    const out = extractSections(spec, ['Design Tokens', 'Component Inventory']);
+    assert.match(out, /^## Design Tokens/m);
+    assert.match(out, /### Sub-detail/, 'deeper headings stay inside the section');
+    assert.match(out, /^## Component Inventory/m);
+    assert.match(out, /IndicatorCard/);
+    assert.doesNotMatch(out, /User Flows|Nielsen/, 'unnamed sections are excluded');
+  });
+
+  it('is anchored: a heading mentioned in prose or at another level does not match', async () => {
+    const { extractSections } = await import('../../lib/phases/context.js');
+    const tricky = 'text mentions ## Design Tokens inline\n### Design Tokens\ndemoted\n';
+    assert.equal(extractSections(tricky, ['Design Tokens']), '');
+  });
+
+  it('returns empty string when nothing matches, and supports other heading levels', async () => {
+    const { extractSections } = await import('../../lib/phases/context.js');
+    assert.equal(extractSections(spec, ['Nonexistent']), '');
+    const audit = '#### Conventions Observed\ncards use X\n\n#### Next Section\nother\n';
+    const out = extractSections(audit, ['Conventions Observed'], 4);
+    assert.match(out, /cards use X/);
+    assert.doesNotMatch(out, /Next Section/);
+  });
+
+  it('a section at EOF extracts to the end', async () => {
+    const { extractSections } = await import('../../lib/phases/context.js');
+    const out = extractSections(spec, ['Nielsen Compliance']);
+    assert.match(out, /h1 stuff/);
+  });
+});
+
+// Adversarial finding on extractSections: a section must terminate at same-level OR
+// SHALLOWER headings (standard markdown semantics) — a same-level-only terminator
+// swallowed everything after a deep section, including Priority-Action text.
+describe('extractSections() — shallower-heading termination', () => {
+  it('a level-4 section stops at a following ### or ## heading', async () => {
+    const { extractSections } = await import('../../lib/phases/context.js');
+    const audit = '#### Conventions Observed\ncards use X\n\n### Adoption Plan\nSWALLOWED_A\n\n## Big Section\nSWALLOWED_B\n';
+    const out = extractSections(audit, ['Conventions Observed'], 4);
+    assert.match(out, /cards use X/);
+    assert.doesNotMatch(out, /SWALLOWED_A|SWALLOWED_B/, 'shallower headings terminate the section');
+  });
+
+  it('a level-2 section stops at a following # heading but keeps ### subsections', async () => {
+    const { extractSections } = await import('../../lib/phases/context.js');
+    const md = '## Design Tokens\ntok\n### Sub\nkept\n# Appendix\nSWALLOWED\n';
+    const out = extractSections(md, ['Design Tokens']);
+    assert.match(out, /kept/, 'deeper subsections stay inside');
+    assert.doesNotMatch(out, /SWALLOWED/, 'a # heading terminates a ## section');
+  });
+});

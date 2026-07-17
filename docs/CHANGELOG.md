@@ -6,12 +6,77 @@
 
 ---
 
+## [2.1.0-rc.1] — 2026-07-17 — feature increments inherit the parent product's standards (GOVERNANCE-0717) — canary, joins the field-feedback pack below
+
+**Canary — installed locally for owner field-validation; the combined pack (this + the
+2.0.2-rc.1 entry below, which it absorbs — 2.0.2 will never publish) promotes as `2.1.0`
+on publish.** Same discipline as ADR-078: an unvalidated build does not carry the final
+number. Findings during validation ship as rc.2, rc.3…
+
+The big thread from the 2026-07-17 field feedback: product standards did not govern
+feature increments — an adopted dashboard's standardized components were rebuilt
+differently by every feature. Design panel-validated (scope + kill + mechanics;
+`docs/Aitri_Design_Notes/_governance-design-0717.md`), shipped as G1–G4 (ADR-080):
+
+- **G1 — feature spec phases inherit the parent standards.** Feature `ux` briefings
+  inject the root `01_UX_SPEC.md`'s Design Tokens + Component Inventory (anchored
+  section extraction — `lib/phases/context.js#extractSections`; per-block 24KB cap →
+  loud OPEN-this pointer; staleness warning when root ux has drifted), with the mandate:
+  reuse inventory components, check the codebase before inventing one, justify any
+  deviation in writing. Feature phase-2 briefings inject the root `02_SYSTEM_DESIGN.md`'s
+  System Architecture + Implementation Approach ("conform or justify" — section-anchored,
+  never `head()`: the first lines are decisions, not standards). The UX authority ladder
+  gains the slot in BOTH carriers (persona + template): provided design → visual FRs →
+  **parent standard** → archetype → inferred context. New approve-ux checklist line:
+  deviations from the parent standard are justified (n/a at root).
+- **G1 fallback (the motivating adopted case):** no root UX spec → the adoption audit's
+  `#### Conventions Observed` section injects as the standard instead — without it,
+  objective-scoped adoptions that never ran root ux would get zero standards injection.
+- **G2 — `adopt scan` captures conventions.** ADOPTION_AUDIT.md gains `#### Conventions
+  Observed` (UI tokens/components/patterns + code structure/naming, with file refs),
+  explicitly EXCLUDING anything flagged in Priority Actions — conventions are standards
+  to follow, not defects to copy.
+- **G3 — corrections get a named destination (no automated routing).** AGENTS.md: a
+  mid-feature correction lands in the feature's spec; promotion to a product-wide
+  standard is a deliberate human amendment of the root spec (which re-opens downstream
+  phases) — if that cost blocks a wanted standard, the agent says so out loud. The
+  automated amendment mandate was CUT by the panel (cascade economics punish compliance);
+  a standing CONVENTIONS registry is deferred with an observable trigger (recurring
+  reuse-corrections across the next 2–3 features).
+- **G4 — adjacent verified defect (found by the panel):** the completed-pipeline re-run
+  guard covered only phases 1–5, while `CASCADE_DOWNSTREAM['ux']=[2,3,4,5,'review']` — a
+  non-TTY re-run of a drifted approved ux wiped core approvals + verify state with no
+  confirmation. The guard now covers every phase whose cascade hits the approved pipeline
+  (`lib/state.js#cascadeDownstreamOf`).
+
+A pre-ship adversarial pass on the implementation found 5 REAL findings, all fixed in the
+same rc: (1) the promised absent-standards stderr note had been silently dropped — added;
+(2) a nonconforming root spec (no pinned headers) killed BOTH the injection and the audit
+fallback — now falls through; (3) `extractSections` terminated only at same-level headings
+— a deep section swallowed everything after it (including the Priority-Action text G2
+excludes); now terminates at same-or-shallower, standard markdown semantics; (4) the G4
+guard over-blocked a FIRST-EVER retrofit ux run with a false "would clear its approval"
+message — the guard now covers only re-runs of tracked phases (a fresh run destroys
+nothing at run-phase time); (5) the adopted case got zero ARCHITECTURE standards (the
+conventions fallback was ux-only, while the audit section explicitly captures code
+standards) — the fallback now serves feature phase 2 too. Plus: staleness warning
+symmetry for a drifted root design, BOM-tolerant audit read, stale-prefix inside the cap,
+regex-escaped section names, defensive copy from `cascadeDownstreamOf`.
+
+Honest ceiling unchanged (ADR-066 class): injection ≠ compliance — the standards now
+reach the agent loudly and the deviations are checkable at the approve gate; obedience
+stays honor-system. +20 tests (extractSections unit incl. terminator semantics,
+feature-scope injection incl. fallbacks/staleness/cap/root-unaffected/loud-absence,
+phase-2 section-anchoring + adopted-case conventions, G4 guard both directions, ladder +
+adopt-template pins). `templates/AGENTS.md` audited (new standards-inheritance bullet).
+No artifact/`.aitri` schema change (briefing content + one new audit SECTION — the audit
+is a free-form md artifact). Suite 2171 green.
+
 ## [2.0.2-rc.1] — 2026-07-17 — field-feedback pack: coverage-gate diagnosis fix, checkpoint legibility, UX-preview warn, W3–W5 prompt hardening
 
-**Canary — installed locally for owner field-validation; promotes to `2.0.2` on publish**
-(same discipline as the rc→stable promotion of 2.0.0, ADR-078: an unvalidated build does
-not carry the final number, so a project that stamps `aitriVersion` during testing can
-never collide with the published 2.0.2). Findings during validation ship as rc.2, rc.3…
+**Superseded label — absorbed into the 2.1.0 canary above (2.0.2 will never publish);
+kept for the record of what this slice contained.** Findings during validation ship as
+rc.2, rc.3…
 
 One release, four work items from field feedback on 2.0.1 plus the RSRCH-ADOPT-0711
 remainder (owner GO 2026-07-17: single version pack). Patch: every item here closes a gap

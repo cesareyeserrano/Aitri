@@ -108,6 +108,18 @@ This section comes first so the human sees the most important issues immediately
 - Dependency management: lockfile present? deps pinned?
 - Health check endpoints, observability, logging
 
+#### Conventions Observed
+
+The project's established standards — what future code (especially feature increments) should MATCH. Read the actual code and record:
+- **UI standards** (if the product has a graphical surface): the design tokens in use (colors, type, spacing — actual values, not impressions), the recurring components and their structure (cards, tables, panels — name them and where they live), layout conventions.
+- **Code standards**: module/folder structure, naming conventions, recurring patterns (error handling, data access, state management, API shape).
+
+Two rules keep this section honest:
+- **Conventions are standards to follow, NOT defects to copy.** EXCLUDE anything flagged in Priority Actions — a flagged anti-pattern is a defect to fix. If something is both widespread and flagged, it lives under Priority Actions only.
+- Record what the code DOES, with file references — not what a style guide claims. An unwritten convention the code follows consistently is exactly what this section exists to capture.
+
+Aitri injects this section into feature sub-pipeline briefings as the parent product's standard when the root project has no approved UX spec — write it so a feature author who has never seen the codebase would build a conforming increment.
+
 ---
 
 ### File 2: `{{PROJECT_DIR}}/IDEA.md`

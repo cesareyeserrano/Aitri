@@ -46,6 +46,18 @@ An architecture that omits a data field or endpoint the UX requires is a design 
 
 {{UX_SPEC}}
 {{/IF_UX_SPEC}}
+{{#IF_PARENT_ARCHITECTURE}}
+## Parent architecture — conform or justify
+This feature extends an EXISTING system. The root project's approved architecture sections below (as present) are the standard: where this feature touches an area they cover, follow their module structure, patterns, naming, and conventions — an increment couples into the product's architecture, it does not found a parallel one. A deviation (a new pattern, a different structure) requires an explicit justification in this design document; an unjustified deviation is a defect the human rejects at the approve gate.
+
+{{PARENT_ARCHITECTURE}}
+{{/IF_PARENT_ARCHITECTURE}}
+{{#IF_PARENT_CONVENTIONS}}
+## Parent product conventions — the standards this feature must match (from the adoption audit)
+The root project has no approved system design; the conventions below were observed in the EXISTING code at adoption and are the product's de-facto standard — module structure, naming, recurring patterns. Conform to them where this feature touches them; check the codebase for the established pattern before inventing one. A deviation requires an explicit justification in this design document.
+
+{{PARENT_CONVENTIONS}}
+{{/IF_PARENT_CONVENTIONS}}
 {{CONTEXT_ASSETS}}
 ## Output: `{{ARTIFACTS_BASE}}/02_SYSTEM_DESIGN.md`
 Required sections — use these EXACT names as `##` level-2 headers (aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 2 validates by exact match):

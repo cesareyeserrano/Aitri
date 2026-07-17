@@ -476,3 +476,41 @@ describe('coverage-signal sentence in Phase 3 briefing (RSRCH-ADOPT-0711 W4)', (
     assert.match(out, /coverage_goal/, 'anchored next to the coverage_goal schema literal');
   });
 });
+
+// GOVERNANCE-0717 G1: the authority ladder now includes the parent product standard
+// (between feature visual FRs and the archetype), amended in BOTH carriers (persona +
+// template) in the same change — a block outside the ladder would reproduce ADR-065's
+// inversion in mirror image (kill-review condition).
+describe('parent-standards authority ladder (GOVERNANCE-0717 G1)', () => {
+  it('the ux briefing ladder places the parent standard after visual FRs, before the archetype', () => {
+    const out = renderPhase('ux');
+    // Template leg (Design Tokens derivation order)
+    assert.match(out, /\(1\) explicit visual FRs, \(2\) the \*\*parent product standard\*\*/,
+      'template ladder must slot the parent standard at (2)');
+    assert.match(out, /\(3\) archetype defaults, \(4\) product context/,
+      'archetype and inferred context must be demoted below the parent standard');
+    // Persona leg (same ladder, same order)
+    assert.match(out, /\(2\) the PARENT PRODUCT STANDARD when the briefing carries one/,
+      'persona ladder must carry the same slot');
+    assert.match(out, /outranks anything/i, 'the standard-outranks-invention rationale is present');
+  });
+
+  it('the approve-ux checklist carries the deviation-justification line', () => {
+    const cl = extractHumanReview('phases/phaseUX');
+    assert.match(cl, /deviation from the parent product standard/i);
+    assert.match(cl, /reused, not re-invented/i);
+  });
+});
+
+// GOVERNANCE-0717 G2: the adoption audit captures conventions-to-follow, explicitly
+// excluding Priority-Action defects (a neutral record would instruct features to match
+// anti-patterns the same audit says to fix — kill-review finding).
+describe('adopt scan captures Conventions Observed (GOVERNANCE-0717 G2)', () => {
+  it('the scan template specs the section with the defect-exclusion rule', () => {
+    const scan = fs.readFileSync(path.join(ROOT, 'templates', 'adopt', 'scan.md'), 'utf8');
+    assert.match(scan, /#### Conventions Observed/, 'section is a #### heading (the fallback extraction anchor)');
+    assert.match(scan, /EXCLUDE anything flagged in Priority Actions/, 'the defect-exclusion rule');
+    assert.match(scan, /standards to follow, NOT defects to copy/i);
+    assert.match(scan, /feature sub-pipeline/i, 'the section states its downstream consumer');
+  });
+});
