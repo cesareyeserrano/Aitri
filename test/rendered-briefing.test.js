@@ -307,6 +307,20 @@ describe('Implementation Approach briefing pin (RSRCH-ADOPT-0711 W1)', () => {
   });
 });
 
+// RSRCH-ADOPT-0711 W2 (FR-TRIGGER-RESPONSE-0711): specification ambiguity is the top
+// agentic failure mode (MAST taxonomy); EARS ("When <trigger>, the system shall
+// <response>") is the industry counter. The GWT ACs are already EARS-adjacent — this pins
+// the FR-statement rule so a template edit cannot silently drop it. Advisory phrasing
+// rule only: NO validator change (a regex-EARS gate was rejected as ceremony).
+describe('FR trigger→response description rule pin (RSRCH-ADOPT-0711 W2)', () => {
+  it('Phase 1 briefing carries the trigger→response FR description rule', () => {
+    const out = renderPhase(1);
+    assert.match(out, /FR description rule/, 'the rule heading must be present');
+    assert.match(out, /When <trigger>, the\s+system shall <response>/, 'the EARS shape');
+    assert.match(out, /names no trigger is untestable prose/, 'the tell that makes it actionable');
+  });
+});
+
 describe('adversarial-pass briefing blocks (ADR-072 — challenge command rejected)', () => {
   it('Phase 2 briefing carries the adversarial-pass block with design attack vectors', () => {
     const out = renderPhase(2);

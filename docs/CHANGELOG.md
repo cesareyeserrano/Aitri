@@ -6,6 +6,23 @@
 
 ---
 
+## [2.1.0-rc.5] — 2026-07-18 — FR statements carry trigger → response (RSRCH-ADOPT-0711 W2, FR-TRIGGER-RESPONSE-0711) — canary
+
+Closes W2, the last open item of the RSRCH-ADOPT-0711 research batch (W1 rc.172, W3–W5
+rc.1) — un-parked by the owner. Specification ambiguity is the top agentic failure mode
+(MAST taxonomy); EARS ("When <trigger>, the system shall <response>") is the industry
+counter, and Aitri's Given/When/Then ACs were already EARS-adjacent — the gap was only the
+FR statement itself, free prose until now.
+
+`templates/phases/requirements.md` gains the FR description rule as an ADJACENT note next
+to the schema literal (never inside the compact schema string): behavioral FRs state
+trigger → response; a description that names no trigger is untestable prose; failure
+behavior stays in the acceptance_criteria (points at the Three-Amigos shaping rule, no
+duplication) and HOW stays in Phase 2. Advisory phrasing rule only — NO validator change
+(a regex-EARS gate was evaluated and rejected as ceremony; the vagueness gate already
+exists). Pinned in `test/rendered-briefing.test.js` per the W5 pattern so a template edit
+cannot silently drop it. No artifact/`.aitri` schema change.
+
 ## [2.1.0-rc.4] — 2026-07-18 — coverage-gate dry-run at `complete 4` (FB-COVERAGE-GATE-0715 part 3) — canary
 
 Closes the deferred part 3 of the coverage-gate thread — its evidence arrived with the

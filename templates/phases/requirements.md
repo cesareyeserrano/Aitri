@@ -116,6 +116,11 @@ Schema: { project_name, project_summary,
   idea_gaps: ["<field>: why it was assumed and what to confirm with the owner"],
   coverage_map: [{need:"<a distinct need from the seed>", disposition:"FR-001 | NFR-001 | out_of_scope"}] }
 
+**FR description rule:** behavioral FRs state trigger → response — "When <trigger>, the
+system shall <response>". A description that names no trigger is untestable prose. State
+WHAT here (trigger + response); the observable failure behavior belongs in the
+acceptance_criteria (see the Three-Amigos shaping rule below), and HOW belongs to Phase 2.
+
 ## Seed-Input Provenance Contract (D2 — enforced on a fresh Phase 1)
 
 `idea_provenance` is **required on a fresh seed** (the first Phase 1, before approval).
