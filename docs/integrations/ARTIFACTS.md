@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.1.0-rc.2+
+**Aitri version:** v2.1.0-rc.3+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -305,7 +305,7 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 
 **`e2e_exit_code` / `e2e_runner`** (optional, v2.0.0-rc.171+, FB-VERIFY-BLINDSPOTS-0710) — the auto-run e2e runner's exit code (number) and which runner it was (currently always `"playwright"`), present **only** when the e2e auto-run fired (a `playwright.config.{js,ts}` was detected and the run was not manual-seeded). Previously the exit code appeared only inside the raw-output markdown, so an e2e test failing *outside* the TC-id naming was invisible to every structured reader. Informational, never a gate — Aitri keys pass/fail on parsed TCs (the same symmetry as the main runner's unexplained-exit note). A reader should treat `e2e_exit_code !== 0` with `summary.failed === 0` as "an unnamed e2e failure or setup error occurred — review the raw Playwright output". Absent = no auto-run, not success.
 
-**`line_coverage`** (optional, v2.0.0-rc.9+) — measured line-coverage percentage, present only when `verify-run` was invoked with `--coverage-threshold` AND a recognized runner emitted a parseable figure. Stack-agnostic: node built-in `--coverage`, `go test -cover`, `pytest --cov`, `jest`/`vitest --coverage`. Absent when no threshold was requested or the runner's coverage output could not be parsed.
+**`line_coverage`** (optional, v2.0.0-rc.9+) — measured line-coverage percentage, present only when `verify-run` was invoked with `--coverage-threshold` AND a recognized runner emitted a parseable figure. Stack-agnostic: node built-in `--experimental-test-coverage` (bare `--coverage` is not a Node CLI option), `go test -cover`, `pytest --cov`, `jest`/`vitest --coverage`. Absent when no threshold was requested or the runner's coverage output could not be parsed.
 
 **`ac_coverage`** (optional, v2.0.0-rc.48+, [ADR-041](../DECISIONS.md) option A) — per-acceptance-criterion coverage, the finer-grained companion to `fr_coverage`. Present **only** when `01_REQUIREMENTS.json` declares structured acceptance criteria (`user_stories[].acceptance_criteria` as `{ id, given, when, then }` — the legacy `{ id, text }` / `{ id, description }` also work, since the join is purely on `id`); absent otherwise, so string-AC and legacy projects are unaffected. Each entry: `{ ac_id, fr_id, tests_passing, tests_failing, tests_skipped, tests_manual, status }` — the criterion's text is not carried (the entry keys on `ac_id`). `status` adds one value over `fr_coverage`: **`untested`** — no test case references this criterion via `ac_id` at all (the headline signal: "FR-001 is covered, but AC-001-3 has no test"). `verify-run` lists `untested`/`uncovered` criteria in its output, and (v2.0.0-rc.49+) `verify-complete` **blocks** on them: when structured ACs are present, every declared criterion must have a passing test to reach Phase 5 — the finer-grained companion to the uncovered-FR gate. Declaring structured ACs is itself the opt-in; string-AC and legacy projects write no `ac_coverage` and are unaffected.
 

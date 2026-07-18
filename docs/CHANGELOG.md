@@ -6,6 +6,47 @@
 
 ---
 
+## [2.1.0-rc.3] — 2026-07-18 — threshold coverage on the node built-in runner actually works: flag + parser (FB-COVERAGE-GATE-0715) — canary
+
+Canary field-validation catch (sandbox E2E walk of rc.2). Two stacked defects meant a
+threshold coverage gate NEVER measured coverage on a `node --test …` runner, on any Node
+version:
+
+1. **Injected flag was not a Node option.** `injectCoverageFlag` chose the flag by major
+   version — `--experimental-test-coverage` below Node 22, `--coverage` at 22+ — but
+   **`--coverage` is not a Node CLI option on any version** (empirically: Node 24.13.1 →
+   `node: bad option: --coverage`, exit 9). On modern Node the injected flag aborted the
+   WHOLE suite before one test ran: verify-run reported 0 TCs / all-skip, the gate errored
+   "not measured", and the rc.1 remediation text pointed at npm-wrapper/chained runners —
+   a cause that wasn't present. The unit tests were green because they pinned the same
+   false assumption ("node ≥22 uses --coverage"). Fix at the root: the version branch is
+   deleted — node runners always get `--experimental-test-coverage` (the one built-in
+   coverage flag across 18.15+ through 24); `injectCoverageFlag` drops the now-dead
+   `nodeMajor` parameter (internal signature, single call site).
+2. **Parser rejected node's real coverage table.** Even with the correct flag, node:test's
+   reporters prefix every output line — spec prints `ℹ all files | 85.71 | …`, TAP prints
+   `# all files | …` — and `parseCoverageOutput`'s anti-spoof anchor (`^\s*all files`,
+   ADV-0622-10) treated the reporter marker as a mid-line spoof and returned null. The
+   anchor now tolerates exactly the reporter markers (`#`/`ℹ`) and nothing else — a prose
+   line ("Copying All files | 100 done") still cannot spoof the figure.
+
+Adversarial pass on the fix caught the same defect's residue, closed in-rc: (a)
+`docs/integrations/ARTIFACTS.md` (`line_coverage`) still taught "node built-in
+`--coverage`" — the contract doc steered consumers into the invalid flag; corrected. (b) a
+USER-declared bare `--coverage` in a node `test_runner` was silently accepted as "already
+instrumented" and spawned under an "instrumenting via node" banner — reproducing the same
+exit-9 abort with a false diagnosis. The command is still never rewritten, but verify-run
+now prints "NOT instrumented" + a warn naming the invalid flag and the two escape hatches
+(`--experimental-test-coverage`, command-mode gate). A `--coverage-<x>` argument no longer
+suppresses injection (it is not the bare flag).
+
+Regression pins: bare `--coverage` is never injected into a node command; user-declared
+bare `--coverage` yields the diagnosis warn; real spec- and TAP-prefixed tables parse.
+Verified end-to-end in the sandbox: the same project that failed on rc.2 now runs 9/9 TCs,
+parses the real coverage figure (85.71%), and judges the threshold gate on it. No
+artifact/`.aitri` schema change (ARTIFACTS.md edit is a description correction, not a
+shape change).
+
 ## [2.1.0-rc.2] — 2026-07-17 — stable epic IDs + advisory epic progress in status (PLAN-ARTIFACT-0715, ADR-081) — canary
 
 Design session B, panel-validated (`_plan-artifact-design-0717.md`). The Phase-4 plan

@@ -683,6 +683,19 @@ describe('parseCoverageOutput()', () => {
     assert.equal(parseCoverageOutput(output), 95.24);
   });
 
+  // FB-COVERAGE-GATE-0715: node:test's own reporters prefix every line — spec prints
+  // `ℹ all files | …`, TAP prints `# all files | …`. The bare `^\s*` anchor rejected
+  // node's REAL output, so built-in-runner coverage always read "not measured".
+  it('extracts coverage from node:test spec reporter output (ℹ prefix)', () => {
+    const output = `ℹ tests 9\nℹ pass 9\nℹ all files  |  85.71 |    71.43 |   80.00 | \n`;
+    assert.equal(parseCoverageOutput(output), 85.71);
+  });
+
+  it('extracts coverage from node:test TAP reporter output (# prefix)', () => {
+    const output = `# start of coverage report\n# all files | 92.31 |  88.00 |  90.00 |\n# end of coverage report\n`;
+    assert.equal(parseCoverageOutput(output), 92.31);
+  });
+
   it('returns null when no coverage data found', () => {
     assert.equal(parseCoverageOutput('no coverage here'), null);
   });
@@ -756,51 +769,70 @@ describe('parseCoverageOutput()', () => {
 
 describe('injectCoverageFlag() — C1 stack-agnostic coverage instrumentation', () => {
 
-  it('node ≥22 uses --coverage', () => {
-    const { cmd, tool } = injectCoverageFlag('node --test test/', 22);
-    assert.equal(cmd, 'node --coverage --test test/');
-    assert.equal(tool, '--coverage');
-  });
-
-  it('node <22 uses --experimental-test-coverage', () => {
-    const { cmd, tool } = injectCoverageFlag('node --test test/', 20);
+  it('node uses --experimental-test-coverage on every major', () => {
+    const { cmd, tool } = injectCoverageFlag('node --test test/');
     assert.equal(cmd, 'node --experimental-test-coverage --test test/');
     assert.equal(tool, '--experimental-test-coverage');
   });
 
-  it('node: does not double-inject when coverage flag already present', () => {
-    const { cmd } = injectCoverageFlag('node --coverage --test test/', 22);
-    assert.equal(cmd, 'node --coverage --test test/');
+  it('node: never injects bare --coverage — not a Node CLI option on any version (FB-COVERAGE-GATE-0715)', () => {
+    // `node --coverage` aborts with `node: bad option` (exit 9) BEFORE any test runs,
+    // so the injected flag itself killed the suite it was meant to measure.
+    const { cmd } = injectCoverageFlag('node --test test/');
+    assert.doesNotMatch(cmd, /\s--coverage\b/);
+  });
+
+  it('node: --experimental-test-coverage already present → passthrough, no warn', () => {
+    const inj = injectCoverageFlag('node --experimental-test-coverage --test test/');
+    assert.equal(inj.cmd, 'node --experimental-test-coverage --test test/');
+    assert.equal(inj.tool, 'node');
+    assert.equal(inj.warn, undefined);
+  });
+
+  it('node: user-declared bare --coverage → passthrough + diagnosis warn, never rewritten (FB-COVERAGE-GATE-0715)', () => {
+    // Aitri never rewrites a user command, but silently spawning `node --coverage …`
+    // reproduces the exit-9 total abort under an "instrumenting" banner — the warn
+    // attributes the abort to the flag instead.
+    const inj = injectCoverageFlag('node --coverage --test test/');
+    assert.equal(inj.cmd, 'node --coverage --test test/');
+    assert.equal(inj.tool, 'node');
+    assert.match(inj.warn, /not a Node CLI option/);
+  });
+
+  it('node: a --coverage-<x> argument is not the bare flag and does not suppress injection', () => {
+    const inj = injectCoverageFlag('node runner.js --coverage-dir=/tmp');
+    assert.equal(inj.cmd, 'node --experimental-test-coverage runner.js --coverage-dir=/tmp');
+    assert.equal(inj.warn, undefined);
   });
 
   it('go test gets -cover', () => {
-    const { cmd, tool } = injectCoverageFlag('go test ./... -v', 22);
+    const { cmd, tool } = injectCoverageFlag('go test ./... -v');
     assert.equal(cmd, 'go test -cover ./... -v');
     assert.equal(tool, 'go -cover');
   });
 
   it('go test: no double -cover', () => {
-    const { cmd } = injectCoverageFlag('go test -cover ./...', 22);
+    const { cmd } = injectCoverageFlag('go test -cover ./...');
     assert.equal(cmd, 'go test -cover ./...');
   });
 
   it('pytest gets --cov (incl. venv-resolved binary path)', () => {
-    const { cmd, tool } = injectCoverageFlag('/proj/.venv/bin/pytest -v', 22);
+    const { cmd, tool } = injectCoverageFlag('/proj/.venv/bin/pytest -v');
     assert.equal(cmd, '/proj/.venv/bin/pytest -v --cov=. --cov-report=term');
     assert.equal(tool, 'pytest-cov');
   });
 
   it('jest gets --coverage', () => {
-    assert.equal(injectCoverageFlag('jest --verbose', 22).tool, 'jest --coverage');
-    assert.match(injectCoverageFlag('jest --verbose', 22).cmd, /--coverage$/);
+    assert.equal(injectCoverageFlag('jest --verbose').tool, 'jest --coverage');
+    assert.match(injectCoverageFlag('jest --verbose').cmd, /--coverage$/);
   });
 
   it('vitest gets --coverage', () => {
-    assert.equal(injectCoverageFlag('vitest run', 22).tool, 'vitest --coverage');
+    assert.equal(injectCoverageFlag('vitest run').tool, 'vitest --coverage');
   });
 
   it('unrecognized runner returns tool=null and unchanged cmd', () => {
-    const { cmd, tool } = injectCoverageFlag('cargo test', 22);
+    const { cmd, tool } = injectCoverageFlag('cargo test');
     assert.equal(tool, null);
     assert.equal(cmd, 'cargo test');
   });
