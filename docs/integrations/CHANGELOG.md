@@ -18,6 +18,17 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.1.0-rc.2 — 2026-07-17 — `status --json` gains advisory `buildPlan` epic progress (PLAN-ARTIFACT-0715) — additive
+
+New optional top-level field `buildPlan` in `status --json` (see STATUS_JSON.md): epic
+ids/statuses + a one-line summary, read TOLERANTLY from the root `BUILD_PLAN.md` while
+Phase 4 is in flight; `null` otherwise. Display-only — the plan stays in the
+working-files class ("do NOT treat it as a contract"); consumers may render progress,
+never gate on it. The Phase-4 briefing skeleton now mandates stable `EP-NN` epic ids
+(assigned once, never renumbered; per plan generation). Old readers unaffected.
+The BUILD_PLAN.json-as-contract alternative was evaluated and REJECTED (panel,
+`docs/DECISIONS.md` ADR-081) — the plan will not become a schema'd artifact.
+
 ## v2.0.0 — 2026-07-13 — Stable promotion of rc.174; no contract change — additive
 
 The v2 line is promoted to stable (ADR-078). No schema, artifact, event, or command

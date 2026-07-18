@@ -6,6 +6,41 @@
 
 ---
 
+## [2.1.0-rc.2] — 2026-07-17 — stable epic IDs + advisory epic progress in status (PLAN-ARTIFACT-0715, ADR-081) — canary
+
+Design session B, panel-validated (`_plan-artifact-design-0717.md`). The Phase-4 plan
+skeleton now mandates **stable `EP-NN` epic ids** — assigned once, never renumbered, per
+plan generation — so the human, the checkpoints, and `aitri status` share one name for
+each partial delivery. New `lib/build-plan.js` (tolerant advisory reader, degrade-to-null;
+accepts the rc.170 legacy heading) feeds an **epic-progress line in `status`** while the
+build is in flight ("1/3 epic(s) done · in progress: EP-02 — Reports") and an additive
+display-only `buildPlan` field in `status --json` (STATUS_JSON.md + integrations
+CHANGELOG marker — consumers may render progress, never gate on it).
+
+The panel KILLED the implementer's own initial proposal on verified code evidence
+(recorded in ADR-081 so it is not re-proposed): BUILD_PLAN.json-as-contract (an
+agent-authored JSON contract with no validator = a third artifact class; freezes skeleton
+evolution; promotes the most-hand-edited file to trusted) and `verify-run --epic`
+(verify-run refuses before approve-4 — the wrong layer for mid-build checkpoints; no
+stack-agnostic run-time test filtering exists; partial results break the ADR-069
+run-binding trust model). **Deferred with a recorded blueprint:** mechanical mid-build
+epic verification (a checkpoint-family command writing Aitri-owned `epicVerifications`
+to `.aitri`, TC set derived from the hashed Phase-3 artifact) — trigger: the owner wants
+the harness's seal, not the agent's word, after using EP-ids. Mid-build control today
+stays the build protocol's mandate: the agent runs the epic's `Makes pass` TCs and
+presents the output at every boundary.
+
+A pre-ship adversarial pass caught 1 BLOCKER + 2 REAL, fixed in the same rc: (1) the
+"in-flight" condition keyed on 04_BUILD_REPORT.json existence — which the build writes at
+the END — so epic progress was null for the entire mid-build window the feature exists
+for; now keyed on build-authorized-but-unapproved (3 approved, 4 not). (2) The heading
+regex backtracked catastrophically on padded input (47s at 4k spaces — hanging every
+status/resume/validate); rewritten line-by-line, linear, with fenced-code-block skip so a
+plan quoting an example never parses phantom epics. (3) The plan read was unguarded — a
+BUILD_PLAN.md directory (EISDIR) crashed the whole snapshot from any feature dir; now
+degrades to null. +14 tests, 1 pin updated. AGENTS.md updated (EP-id grammar). Suite
+2185 green.
+
 ## [2.1.0-rc.1] — 2026-07-17 — feature increments inherit the parent product's standards (GOVERNANCE-0717) — canary, joins the field-feedback pack below
 
 **Canary — installed locally for owner field-validation; the combined pack (this + the

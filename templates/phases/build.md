@@ -89,13 +89,14 @@ Phase 4 is the longest phase, and "build everything, then show a finished whole"
 1. **Before writing any code, write `{{ARTIFACTS_BASE}}/BUILD_PLAN.md`** — a WORKING file, not a pipeline artifact (nothing validates it; it exists for you and the human). **If BUILD_PLAN.md already exists (a feedback iteration or a resumed session), UPDATE it — do not rewrite it from scratch or reset done epics to pending; adjust only what the feedback/new context changes.**
    Group the **user stories** into **epics** — each epic is one coherent, shippable slice of the product (a feature area), defined by the US it delivers. The FRs and TCs on an epic are DERIVED references (each US's `requirement_id` → its FRs → their TCs), listed by id only — the plan never restates their content (the artifacts hold it). **Cover the whole TC set:** a TC unreachable through any US — a US-less FR's TC, an NFR's TC — still needs a home: assign it to the epic it naturally belongs with (or the final epic). The plan is complete when every TC id in `03_TEST_CASES.json` appears in exactly one epic's `Makes pass`; a TC in no epic is a TC nobody schedules until the end. NFRs are never a grouping axis (they hang off no US), but their TCs are scheduled like any other. Use THIS exact skeleton for every epic, in this order, with these field names — do not rename them run to run:
 
-     ## Epic <N> — <feature-area name>   [status: pending | in-progress | done]
+     ## EP-<NN> — <feature-area name>   [status: pending | in-progress | done]
        Delivers:    US-0xx, US-0yy          (the user stories this epic ships — the deliverable)
        FRs:         FR-0xx, FR-0yy          (derived from each US's requirement_id)
        Makes pass:  TC-0xx, TC-0yy          (those FRs' test cases — the epic's done criterion)
        Build steps: skeleton → persistence/integrations → hardening
        Why here:    <one line — what this epic unblocks / why it is ordered here>
 
+   - **Epic ids are STABLE: `EP-01`, `EP-02`, … assigned once, in dependency order, and NEVER renumbered** — reordering or inserting an epic later keeps every existing id (append `EP-<next>` instead). The id is how the human, the checkpoints, and `aitri status` name the partial delivery; a renumbered id silently breaks that thread. Ids are per plan generation: a FRESH plan after an upstream re-open starts a new plan (state that in the plan header) — never reuse an old id for different content.
    - Order the epics by dependency (what unblocks what); the one-line "Why here" states the rationale.
    - **The epic count comes from the product, not from the protocol.** A small increment (a feature pipeline, a handful of US) is ONE epic — its plan is a six-line note and there are no intermediate boundaries. Do not manufacture granularity to look thorough.
 2. **Present the plan to the user in conversation before implementing** — a short summary: the epics, the order, the US each delivers, why (on a feedback iteration, present only what changed and which epics it re-opens). This is an advisory checkpoint (no Aitri gate); incorporate their corrections into BUILD_PLAN.md before starting.

@@ -694,3 +694,88 @@ describe('cmdStatus --json — rc.161 shape guards (adversarial findings)', () =
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// PLAN-ARTIFACT-0715 S3: advisory epic progress from BUILD_PLAN.md while Phase 4 is in
+// flight — additive `buildPlan` field in --json, epic line in the text grid. Display-only.
+describe('cmdStatus — build-plan epic progress (PLAN-ARTIFACT-0715 S3)', () => {
+  const PLAN = '## EP-01 — Core [status: done]\n  Makes pass: TC-001\n\n## EP-02 — Reports [status: in-progress]\n  Makes pass: TC-002\n';
+
+  // MID-BUILD is the load-bearing state: phases 1–3 approved, NO 04_BUILD_REPORT.json yet
+  // (the manifest is written at the END of the build). The original in-flight condition
+  // keyed on the manifest's existence and was null for this entire window — the
+  // adversarial BLOCKER this seed exists to pin.
+  function seedInFlightBuild(dir, { plan = PLAN, approved4 = false } = {}) {
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '2.1.0' });
+    const cfg = loadConfig(dir);
+    cfg.completedPhases = approved4 ? [1, 2, 3, 4] : [1, 2, 3];
+    cfg.approvedPhases  = approved4 ? [1, 2, 3, 4] : [1, 2, 3];
+    saveConfig(dir, cfg);
+    const artDir = loadConfig(dir).artifactsDir || 'spec';
+    if (plan !== null) fs.writeFileSync(path.join(dir, artDir, 'BUILD_PLAN.md'), plan);
+  }
+
+  it('--json carries buildPlan MID-BUILD (3 approved, no build report on disk yet)', () => {
+    const dir = tmpDir();
+    try {
+      seedInFlightBuild(dir);
+      const artDir = loadConfig(dir).artifactsDir || 'spec';
+      assert.ok(!fs.existsSync(path.join(dir, artDir, '04_BUILD_REPORT.json')),
+        'precondition: mid-build means NO manifest yet');
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.1.0', args: ['--json'] }));
+      assert.ok(result.buildPlan, 'buildPlan must be present during the actual build window');
+      assert.equal(result.buildPlan.epics.length, 2);
+      assert.equal(result.buildPlan.epics[0].id, 'EP-01');
+      assert.match(result.buildPlan.summary, /1\/2 epic\(s\) done/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('an unreadable BUILD_PLAN.md (a directory in its place) degrades to null — snapshot never crashes', () => {
+    const dir = tmpDir();
+    try {
+      seedInFlightBuild(dir, { plan: null });
+      const artDir = loadConfig(dir).artifactsDir || 'spec';
+      fs.mkdirSync(path.join(dir, artDir, 'BUILD_PLAN.md'));  // EISDIR on read
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.1.0', args: ['--json'] }));
+      assert.equal(result.buildPlan, null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('buildPlan is null once phase 4 is approved (the build is no longer in flight)', () => {
+    const dir = tmpDir();
+    try {
+      seedInFlightBuild(dir, { approved4: true });
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.1.0', args: ['--json'] }));
+      assert.equal(result.buildPlan, null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('buildPlan is null on an absent or free-form plan — tolerant silence, never an error', () => {
+    const dir = tmpDir();
+    try {
+      seedInFlightBuild(dir, { plan: null });
+      const r1 = captureJson(() => cmdStatus({ dir, VERSION: '2.1.0', args: ['--json'] }));
+      assert.equal(r1.buildPlan, null);
+      const artDir = loadConfig(dir).artifactsDir || 'spec';
+      fs.writeFileSync(path.join(dir, artDir, 'BUILD_PLAN.md'), 'free-form notes, no epics');
+      const r2 = captureJson(() => cmdStatus({ dir, VERSION: '2.1.0', args: ['--json'] }));
+      assert.equal(r2.buildPlan, null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('text status shows the epic progress line during an in-flight build', () => {
+    const dir = tmpDir();
+    try {
+      seedInFlightBuild(dir);
+      let out = '';
+      const origWrite = process.stdout.write.bind(process.stdout);
+      const origLog = console.log;
+      process.stdout.write = (s) => { out += s; return true; };
+      console.log = (...a) => { out += a.join(' ') + '\n'; };
+      try { cmdStatus({ dir, VERSION: '2.1.0', args: [] }); }
+      finally { process.stdout.write = origWrite; console.log = origLog; }
+      assert.match(out, /epics/, 'epic line present');
+      assert.match(out, /1\/2 epic\(s\) done/);
+      assert.match(out, /in progress: EP-02 — Reports/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

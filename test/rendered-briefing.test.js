@@ -233,7 +233,8 @@ describe('Phase 4 plan-first protocol (C8/ADR-071)', () => {
     // The grouping axis is the US (owner-confirmed 2026-07-10) — never "cluster the FRs".
     assert.match(out, /Group the \*\*user stories\*\* into \*\*epics\*\*/, 'US is the grouping axis');
     // The fixed skeleton, field by field — renaming these run-to-run was the reported defect.
-    assert.match(out, /## Epic <N> — <feature-area name>/, 'skeleton heading missing');
+    assert.match(out, /## EP-<NN> — <feature-area name>/, "skeleton heading missing");
+    assert.match(out, /Epic ids are STABLE/, "the never-renumber id rule must render (PLAN-ARTIFACT-0715 S1)");
     assert.match(out, /Delivers:\s+US-0xx/, 'Delivers (the US — the deliverable) missing from the skeleton');
     assert.match(out, /Makes pass:\s+TC-0xx/, 'Makes pass (the epic done criterion) missing from the skeleton');
     assert.match(out, /Why here:/, 'per-epic ordering rationale missing');
