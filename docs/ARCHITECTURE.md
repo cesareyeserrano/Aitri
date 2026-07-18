@@ -116,6 +116,10 @@ lib/verify-parsers.js     Pure result parsers & derivations (UPLAN-0703 B9) — 
                           density/coverage scanners. No side effects, no path back to verify.js;
                           verify.js imports + re-exports so the `verify.js` API is unchanged
 lib/verify-display.js     formatVerifyCounts() — three-bucket P/F/Deferred
+lib/build-plan.js         parseBuildPlan() / summarizeEpicProgress() — tolerant advisory reader
+                          of BUILD_PLAN.md epics (line-parser, fence-skip, degrade-to-null;
+                          nothing gates on it) — feeds the status epic-progress line +
+                          status --json buildPlan (ADR-081)
 lib/format.js             useColor() / sgr() / divider() — the ONLY place that emits ANSI escape
                           codes (color on an interactive TTY with NO_COLOR unset; '' otherwise, so
                           piped/agent-read output stays escape-free). Pinned by

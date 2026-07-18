@@ -6,6 +6,50 @@
 
 ---
 
+## [2.1.0-rc.6] — 2026-07-18 — whole-canary adversarial pass: fence-blind section extractor + chain-blind coverage detector (FB-EXTRACT-FENCE-0718, FB-COVERAGE-GATE-0715) — canary
+
+Before pushing the canary, an adversarial pass over the ACCUMULATED rc.1..rc.5 diff (not
+the per-change passes already run) hunted cross-pack interactions. Two survived
+verification:
+
+**Fence-blind `extractSections` (BLOCKER-class, FB-EXTRACT-FENCE-0718).** The governance
+pack's section extractor (`lib/phases/context.js`) ran regexes over the whole string,
+blind to fenced code blocks — on BOTH sides. A `# comment` line inside a bash fence
+matched the terminator, silently truncating the injected parent standard AND leaving a
+dangling fence opener that swallowed every briefing instruction after the injection
+point; a `## Heading` quoted inside a fence matched as a real section start. Ordinary
+artifacts trigger it (the phase-2 template specs fenced diagrams; Implementation Approach
+carries code snippets). The cross-pack tell: `lib/build-plan.js`, shipped in the SAME
+canary, had fence-skip from its own adversarial pass — the lesson landed in one parser
+and not its sibling. Fix: extractSections is now a line-walker with fence state
+(mirroring build-plan.js); fenced lines stay IN the extracted body (a standard's code
+examples are part of the standard) but never count as headings or terminators. Pinned
+with three dedicated tests (truncation, phantom start, fenced fake terminator).
+
+**Chain-blind `injectCoverageFlag` (REAL, FB-COVERAGE-GATE-0715).** The detector matched
+per-runner tokens anywhere in the string, so `vitest run && playwright test` +
+threshold gate got a false all-clear from the rc.4 dry-run at `complete 4`, and at
+verify-run the flag was appended to the END of the chain — handing `--coverage` to
+playwright and breaking the run as a fake test failure, exactly the misattribution class
+this thread exists to kill, in exactly the case build.md/AGENTS.md document as
+non-instrumentable. Fix at the single source: a chained command (`&&`, `||`, `;`, `|` —
+the same grammar as `gatesWithShellOperators`, now shared via `hasShellChain`) is
+non-instrumentable (`tool: null`, command untouched) — verify-run reports it honestly
+(and still parses output, in case the chain itself emits a parseable coverage table) and
+the complete-4 dry-run warns before the approve cycle.
+
+Also from the pass: an ENOBUFS-killed quality gate no longer gets the "raise timeout_ms"
+note (raising it cannot fix a buffer overflow — the note now says to reduce gate output),
+relayed as-is by verify-complete; `templates/AGENTS.md` no longer sends the agent into
+the G4 dead-end when promoting a feature-local standard (it now says the root re-run is
+refused for agents by design — hand the amendment to the human). Record hygiene from the
+parallel docs pass, same push: ADR-079 Addendum 1 (W2 un-parked + the 2.0.2→2.1.0
+absorption), `lib/build-plan.js` added to the ARCHITECTURE.md module map, integrations
+CHANGELOG marker for the rc.3 ARTIFACTS.md guidance correction, STATUS_JSON.md `buildPlan`
+condition corrected to AUTHORIZED (3-approved/4-not — the build need not have started),
+and the coverage-deps phrasing hedged for node's built-in runner (AGENTS.md/build.md).
+No artifact/`.aitri` schema change.
+
 ## [2.1.0-rc.5] — 2026-07-18 — FR statements carry trigger → response (RSRCH-ADOPT-0711 W2, FR-TRIGGER-RESPONSE-0711) — canary
 
 Closes W2, the last open item of the RSRCH-ADOPT-0711 research batch (W1 rc.172, W3–W5

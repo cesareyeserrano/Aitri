@@ -1889,6 +1889,10 @@ Two adjacent closures in the same pass: the assumptions filter crashed with a ra
 
 **Trade-off:** none material — prompt text + tests only; no command, gate, or schema touched. The canary constrains future persona authors (deliberate: that is the rule made mechanical).
 
+## ADR-079 — Addendum 1 — 2026-07-18 — W2 un-parked and shipped; the 2.0.2 line was absorbed into the 2.1.0 canary
+
+Two statements above are superseded by later events, recorded here because the log is immutable. (1) "W2 stays owner-deferred / W2 gets no pin — its content is unshipped": the owner un-parked W2 on 2026-07-18 and it shipped in `2.1.0-rc.5` (FR-TRIGGER-RESPONSE-0711 — the trigger→response FR description rule as an adjacent note in `templates/phases/requirements.md`, WITH the W5-pattern pin in `test/rendered-briefing.test.js`; the regex-EARS gate stayed rejected as ceremony). The RSRCH-ADOPT-0711 batch W1–W5 is now fully shipped. (2) "shipped as canary 2.0.2-rc.1; promotes to 2.0.2 on publish" — here and in ADR-073 Addendum 1 below: the owner absorbed the field-feedback pack into the 2.1.0 canary line on 2026-07-17 (`2.1.0-rc.1`); **2.0.2 will never publish** — the whole line promotes as `2.1.0` after field validation.
+
 ## ADR-073 — Addendum 1 — 2026-07-17 — `complete ux` warns on a silently-skipped preview (FB-UXPREVIEW-SKIPPED-0715)
 
 The base decision made `UX_PREVIEW.html` advisory — prompt-only, nothing Aitri-executed notices its absence — and accepted that ceiling. The field falsified the honor system twice: on a 2.0.1 project the preview was silently not delivered and the owner had to request it (second observed skip). Shipped as canary 2.0.2-rc.1 (promotes to 2.0.2 on publish), smallest Aitri-executed nudge that closes the *silent* part without a gate:

@@ -18,6 +18,12 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.1.0-rc.3 — 2026-07-18 — ARTIFACTS.md `line_coverage` guidance correction, no shape change (FB-COVERAGE-GATE-0715) — additive
+
+Description-only correction in ARTIFACTS.md: the node built-in runner's coverage flag is
+`--experimental-test-coverage` — bare `--coverage` is not a Node CLI option on any version
+(it aborted the run). No field added/removed/retyped; consumers parse nothing differently.
+
 ## v2.1.0-rc.2 — 2026-07-17 — `status --json` gains advisory `buildPlan` epic progress (PLAN-ARTIFACT-0715) — additive
 
 New optional top-level field `buildPlan` in `status --json` (see STATUS_JSON.md): epic

@@ -434,6 +434,39 @@ h1 stuff
   });
 });
 
+// Whole-canary adversarial (FB-EXTRACT-FENCE-0718): the regex-over-whole-string version
+// was fence-blind on BOTH sides. A `# comment` inside a bash fence terminated the section
+// (silent truncation of the parent standard + a dangling fence opener that swallowed the
+// rest of the rendered briefing), and a `## Heading` quoted in a fence matched as a real
+// section start. build-plan.js shipped fence-skip in the SAME canary — one discipline.
+describe('extractSections() — fence discipline', () => {
+  it('a # comment inside a fence does not terminate the section; fence content survives', async () => {
+    const { extractSections } = await import('../../lib/phases/context.js');
+    const md = '## System Architecture\nintro\n```bash\n# start the dev server\nnpm run dev\n```\nTHIS LINE MUST SURVIVE\n## Next\nout\n';
+    const out = extractSections(md, ['System Architecture']);
+    assert.match(out, /# start the dev server/, 'fenced content is part of the standard');
+    assert.match(out, /THIS LINE MUST SURVIVE/, 'the section continues past the fence');
+    assert.doesNotMatch(out, /^## Next/m);
+    // No dangling fence: openers and closers balance in the extracted block.
+    const fenceCount = (out.match(/^\s*```/gm) || []).length;
+    assert.equal(fenceCount % 2, 0, 'extracted block must not end inside an open fence');
+  });
+
+  it('a heading quoted inside a fence is not a section start', async () => {
+    const { extractSections } = await import('../../lib/phases/context.js');
+    const md = 'prose\n```md\n## Design Tokens\nphantom\n```\nafter\n';
+    assert.equal(extractSections(md, ['Design Tokens']), '');
+  });
+
+  it('a same-level heading inside a fence does not terminate the section', async () => {
+    const { extractSections } = await import('../../lib/phases/context.js');
+    const md = '## Design Tokens\nreal\n```md\n## Component Inventory\nquoted example\n```\ntail\n## Component Inventory\nactual\n';
+    const out = extractSections(md, ['Design Tokens']);
+    assert.match(out, /tail/, 'section runs past the fenced fake terminator');
+    assert.doesNotMatch(out, /actual/, 'the real terminator still ends it');
+  });
+});
+
 // Adversarial finding on extractSections: a section must terminate at same-level OR
 // SHALLOWER headings (standard markdown semantics) — a same-level-only terminator
 // swallowed everything after a deep section, including Priority-Action text.

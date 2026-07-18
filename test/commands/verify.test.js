@@ -837,6 +837,23 @@ describe('injectCoverageFlag() — C1 stack-agnostic coverage instrumentation', 
     assert.equal(cmd, 'cargo test');
   });
 
+  // Whole-canary adversarial (FB-COVERAGE-GATE-0715): the per-runner branches edit the
+  // STRING, so on a chained command the flag landed on the WRONG program —
+  // 'vitest run && playwright test' handed playwright the --coverage flag, breaking the
+  // run one approve cycle after complete-4's dry-run gave a false all-clear. Chains are
+  // non-instrumentable (as build.md/AGENTS.md already documented): tool=null, cmd untouched.
+  it('a && chain is not instrumentable — cmd untouched, tool null', () => {
+    const inj = injectCoverageFlag('vitest run && playwright test');
+    assert.equal(inj.tool, null);
+    assert.equal(inj.cmd, 'vitest run && playwright test');
+  });
+
+  it('pipe/;/|| chains are equally non-instrumentable (gatesWithShellOperators grammar)', () => {
+    assert.equal(injectCoverageFlag('pytest -v ; mypy .').tool, null);
+    assert.equal(injectCoverageFlag('go test ./... || echo failed').tool, null);
+    assert.equal(injectCoverageFlag('node --test test/ | tee run.log').tool, null);
+  });
+
 });
 
 describe('parsePytestOutput()', () => {

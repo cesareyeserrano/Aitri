@@ -674,6 +674,16 @@ describe('Phase 4 — coverage-gate dry-run at complete 4 (advisory)', () => {
     assert.doesNotMatch(out, /Coverage gate/);
   });
 
+  // Whole-canary adversarial: the chained-runner case the remediation text itself names
+  // ('vitest run && playwright test') got NO warn — injectCoverageFlag matched the vitest
+  // branch and returned a tool. Chains are now non-instrumentable at the single source,
+  // so the dry-run warns here too.
+  it('warns when a threshold gate rides a && chain (the documented non-instrumentable case)', () => {
+    const out = captureStderr(() =>
+      PHASE_DEFS[4].validate(withGates('vitest run && playwright test', [{ name: 'coverage', threshold: 80 }])));
+    assert.match(out, /not auto-instrumentable/);
+  });
+
   it('never throws from the dry-run — advisory only (weird but shape-valid gate entry)', () => {
     assert.doesNotThrow(() =>
       captureStderr(() =>
