@@ -629,3 +629,54 @@ describe('Phase 4 — manual-mode waiver (test_runner/test_files optional when a
     assert.doesNotThrow(() => PHASE_DEFS[4].validate(JSON.stringify(m), { dir }));
   });
 });
+
+// FB-COVERAGE-GATE-0715 part 3: a threshold coverage gate's instrumentability is
+// knowable at complete-4 from the declared test_runner — diagnose it here (advisory),
+// not one approve cycle later at verify-run. Same detection as verify-run
+// (injectCoverageFlag — single source).
+describe('Phase 4 — coverage-gate dry-run at complete 4 (advisory)', () => {
+
+  const captureStderr = (fn) => {
+    const orig = process.stderr.write; let out = '';
+    process.stderr.write = (s) => { out += s; return true; };
+    try { fn(); } finally { process.stderr.write = orig; }
+    return out;
+  };
+  const withGates = (runner, gates) => {
+    const d = JSON.parse(validP4());
+    d.test_runner = runner;
+    d.quality_gates = gates;
+    return JSON.stringify(d);
+  };
+
+  it('warns when a threshold gate rides a non-instrumentable runner (npm wrapper)', () => {
+    const out = captureStderr(() =>
+      PHASE_DEFS[4].validate(withGates('npm test', [{ name: 'coverage', threshold: 80 }])));
+    assert.match(out, /not auto-instrumentable/);
+    assert.match(out, /command mode/);
+  });
+
+  it('stays silent when the runner is instrumentable', () => {
+    const out = captureStderr(() =>
+      PHASE_DEFS[4].validate(withGates('node --test tests/', [{ name: 'coverage', threshold: 80 }])));
+    assert.doesNotMatch(out, /not auto-instrumentable/);
+  });
+
+  it('surfaces the bare node --coverage diagnosis at complete-4', () => {
+    const out = captureStderr(() =>
+      PHASE_DEFS[4].validate(withGates('node --coverage --test tests/', [{ name: 'coverage', threshold: 80 }])));
+    assert.match(out, /not a Node CLI option/);
+  });
+
+  it('no dry-run output when only command-mode gates are declared', () => {
+    const out = captureStderr(() =>
+      PHASE_DEFS[4].validate(withGates('npm test', [{ name: 'lint', command: 'eslint .' }])));
+    assert.doesNotMatch(out, /Coverage gate/);
+  });
+
+  it('never throws from the dry-run — advisory only (weird but shape-valid gate entry)', () => {
+    assert.doesNotThrow(() =>
+      captureStderr(() =>
+        PHASE_DEFS[4].validate(withGates('npm test', [{ threshold: 80, required: false }]))));
+  });
+});

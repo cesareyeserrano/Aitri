@@ -6,6 +6,25 @@
 
 ---
 
+## [2.1.0-rc.4] — 2026-07-18 — coverage-gate dry-run at `complete 4` (FB-COVERAGE-GATE-0715 part 3) — canary
+
+Closes the deferred part 3 of the coverage-gate thread — its evidence arrived with the
+rc.3 sandbox walk: a manifest declaring a threshold coverage gate over an `npm test`
+wrapper passed `complete 4` and `approve 4` silently, and the operator discovered the
+non-instrumentable runner only at `verify-run`, one approve cycle later. The
+instrumentability of a threshold gate is knowable at the artifact gate, from the declared
+`test_runner` alone.
+
+`aitri complete 4` now dry-runs the same detection `verify-run` uses (`injectCoverageFlag`
+— single source, no duplicated logic) when the manifest declares a threshold gate:
+a non-instrumentable runner (npm-script wrapper, `&&` chain, unrecognized binary) warns
+with what WILL happen at verify-run ("not measured" → gate errors/warns per `required`)
+and both remedies (direct instrumentable runner, command-mode gate); a node runner
+carrying the invalid bare `--coverage` surfaces the rc.3 diagnosis here too. Advisory
+only — the dry-run never blocks and never throws; both remedies are edits to the same
+manifest being validated, so this is the cheapest moment to act. +5 tests. No
+artifact/`.aitri` schema change.
+
 ## [2.1.0-rc.3] — 2026-07-18 — threshold coverage on the node built-in runner actually works: flag + parser (FB-COVERAGE-GATE-0715) — canary
 
 Canary field-validation catch (sandbox E2E walk of rc.2). Two stacked defects meant a
