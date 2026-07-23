@@ -18,6 +18,25 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.1.0-rc.7 — 2026-07-22 — security decision gated at Phase 1; Security Design body gated at Phase 2; reserved technical_debt id `SEC-GATE` (SEC-THREADING-0722, ADR-082) — additive
+
+No field added/removed/retyped. Three contract clarifications with new enforcement:
+
+- `01_REQUIREMENTS.json` now REQUIRES ≥1 `category:/security/i` NFR (root pipelines;
+  feature sub-pipelines only when a security-typed FR exists). The **exclusion idiom**
+  (`requirement` opening with `"Not applicable:"` / `"N/A"` / `"Does not apply."` /
+  `"No aplica:"`, terminator-bound) is now documented contract for distinguishing
+  "security promised" vs "security excluded" — readers that surfaced security NFRs
+  should adopt the shared classification (SSoT `lib/requirements.js`). Existing valid
+  artifacts remain valid to READ; the new rule bites only on `complete 1` re-runs.
+- `02_SYSTEM_DESIGN.md`: `## Security Design` must be non-empty when active security
+  NFRs exist (fence-aware; fail-open). Read shape unchanged.
+- `04_BUILD_REPORT.json#technical_debt`: reserved `fr_id` value `"SEC-GATE"` records a
+  deliberate security-gate omission. Readers joining `fr_id` against requirement ids
+  must treat it as a project-level record, not a broken reference (defensive rule: any
+  non-`FR-`/`NFR-` prefixed `fr_id`). `verify-run` gains one advisory stderr nudge
+  (security-gap) — stderr is not a parsed surface; no reader change required.
+
 ## v2.1.0-rc.3 — 2026-07-18 — ARTIFACTS.md `line_coverage` guidance correction, no shape change (FB-COVERAGE-GATE-0715) — additive
 
 Description-only correction in ARTIFACTS.md: the node built-in runner's coverage flag is

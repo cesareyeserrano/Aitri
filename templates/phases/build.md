@@ -232,11 +232,15 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
       is not killed and mis-reported as a failure.
     If the project genuinely has no quality tooling, omit quality_gates — but prefer wiring at least a
     linter, because Aitri's promise is well-built code, not only passing tests.
-    Security gate: if 01_REQUIREMENTS.json declares security NFRs, a security gate is EXPECTED — wire
-    the scanner your stack supports or, when none exists for the stack, a project script of exit-code
-    checks (secrets grep, exposed-docs probe, headers check). Omitting it on a
-    project with declared security NFRs requires a one-line reason in technical_debt — security
-    promises without a mechanical re-check are honor-system only.
+    Security gate: if 01_REQUIREMENTS.json declares active security NFRs, a security gate is EXPECTED —
+    wire the scanner your stack supports or, when none exists for the stack, a project script of
+    exit-code checks (secrets grep, exposed-docs probe, headers check). Omitting it on a project with
+    declared security NFRs requires recording the decision in technical_debt using the reserved id:
+    { "fr_id": "SEC-GATE", "substitution": "no security quality_gate declared", "reason":
+    "<full sentence — e.g. security scanning runs as CodeQL in CI, outside Aitri's gates>",
+    "effort_to_fix": "low" } — write the reason as a real sentence (a bare "n/a" is rejected as
+    generic). verify-run nudges when active security NFRs exist and neither a security gate nor this
+    record is present — security promises without a mechanical re-check are honor-system only.
     Smoke gate (the app actually runs): tests passing green proves the units behave — it does NOT
     prove the assembled product boots and serves. A suite can be fully green while the running app
     returns an error on every entry point on first launch (a bad config, a broken bootstrap, an

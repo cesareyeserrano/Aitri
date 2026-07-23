@@ -6,6 +6,61 @@
 
 ---
 
+## [2.1.0-rc.7] — 2026-07-22 — security threading enforcement: the security decision, design, and re-check leave the honor system (SEC-THREADING-0722, ADR-082) — canary
+
+Security in Aitri is threaded through the phases (the industry-validated shape — no
+security phase), but four links of that thread were prompt-only where their siblings are
+mechanical. A project that FORGOT security entirely was indistinguishable from one that
+decided it away, and that silence switched off the whole downstream chain (phase-2
+expectations, the verify gate expectation, the resume audit nudge). Adversarial design
+panel: GO-WITH-CHANGES; a fifth proposed gate (mechanical unit+integration TC types per
+security FR) was KILLED as theater — `phase3.js` already documents that type-forcing
+gates make agents relabel TC types (see ADR-082; do not re-propose).
+
+- **SSoT** — `lib/requirements.js` now owns the security-NFR predicates (`securityNfrs`,
+  `activeSecurityNfrs`, `isSecurityExclusion`, `hasSecurityFr`) and the exclusion idiom
+  (`"Not applicable: …"` / `"N/A"` / `"Does not apply."` / `"No aplica: …"`), previously
+  inline in `audit.js`. Idiom hardened: the phrase must be terminated (`:` `.` `,` `;`
+  dash, or end-of-text) — a real promise that merely opens with those letters ("NA region
+  access control must…") classifies ACTIVE, never silently excluded. `buildSecurityNfrSummary`
+  refactored onto it; one malformed NFR entry no longer nullifies the whole summary
+  (pre-rc.7 it silently suppressed the resume audit nudge).
+- **Phase 1 gate (blocking)** — `complete 1` requires the security applicability decision:
+  ≥1 `category:"Security"` NFR, either an active promise or the explicit exclusion idiom
+  in its `requirement` field. Feature increments are exempt UNLESS they declare a
+  security-typed FR (new security surface forces the decision at feature scope). Error
+  teaches both shapes + the `--check` probe.
+- **Phase 2 gate (blocking, conditional)** — when active security NFRs exist,
+  `## Security Design` must have a non-empty body (sibling of the Technical Risk Flags
+  body check). Fence-aware (a fenced `## Security Design` example neither satisfies nor
+  terminates the real section — FB-EXTRACT-FENCE-0718 lesson applied at birth). Fails
+  open when requirements are unreadable; error offers both exits (write the design, or
+  rephrase the NFR to the canonical exclusion).
+- **Verify nudge (advisory, fifth of the family)** — active security NFRs + no
+  security-looking quality_gate (`hasSecurityGate`: generic tokens name-only, scanner
+  signatures name-or-command) + no technical_debt record (`hasSecurityDebtEntry`) →
+  stderr nudge. Deliberately fires for manual-only projects too (a scanner needs no test
+  suite). `technical_debt` gains the reserved id `SEC-GATE` for recording the deliberate
+  omission (documented in integrations/ARTIFACTS.md).
+- **Templates** — `requirements.md` teaches the gated decision + exact exclusion shape;
+  `architecture.md` §Security Design now demands the NFR→mitigation mapping + trust
+  boundaries (the architect's analog of fr_coverage; prompt-level by design — regex over
+  prose is the fence-blind failure class) + Human Review line; `build.md` shapes the
+  SEC-GATE debt record. `resume.js` comment corrected (it claimed a "Phase-1 forced
+  decision" that didn't exist — now it does).
+
+Implementation adversarial pass (post-build, pre-commit) caught and fixed in-rc: 2 REAL
+(a comma / unspaced hyphen counted as idiom terminator, silently mis-excluding real
+promises like "Not applicable, except the login form…" — exactly the hole the hardening
+existed to close; the summary behavior-change pin tested an input that never changed —
+repointed at the null-entry case that did) + 2 MINOR (fence-dialect desync: a `~~~` line
+inside a ``` block flipped a boolean toggle — walker now tracks the opening marker; bare
+"audit" as a name token falsely suppressed the nudge for a11y/lighthouse audits — removed,
+dependency audits are caught by command signature).
+
+Suite: 2227 (+24 dedicated: predicates/idiom both directions, both gates incl. fence and
+desync cases, heuristics, summary refactor pins).
+
 ## [2.1.0-rc.6] — 2026-07-18 — whole-canary adversarial pass: fence-blind section extractor + chain-blind coverage detector (FB-EXTRACT-FENCE-0718, FB-COVERAGE-GATE-0715) — canary
 
 Before pushing the canary, an adversarial pass over the ACCUMULATED rc.1..rc.5 diff (not

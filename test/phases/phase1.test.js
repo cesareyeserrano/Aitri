@@ -132,7 +132,10 @@ describe('Phase 1 — validate()', () => {
   it('[feature] passes with 2 FRs and 1 NFR (relaxed floor)', () => {
     const d = JSON.parse(validP1());
     d.functional_requirements     = d.functional_requirements.slice(0, 2);
-    d.non_functional_requirements = d.non_functional_requirements.slice(0, 1);
+    // Keep the Security NFR as the one survivor: the sliced FR set includes the
+    // security-typed FR-001, which forces the security decision even at feature
+    // scope (SEC-THREADING-0722) — this test pins the FLOOR, not that gate.
+    d.non_functional_requirements = d.non_functional_requirements.slice(1, 2);
     assert.doesNotThrow(() => PHASE_DEFS[1].validate(JSON.stringify(d), { featureRoot: '/parent' }));
   });
 
