@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.1.0-rc.8+
+**Aitri version:** v2.1.0-rc.9+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -352,7 +352,8 @@ Written by Phase 5 (DevOps persona). FR coverage proof linking requirements to t
 ```json
 {
   "project": "string",
-  "version": "string",
+  "version": "string — the sealed RELEASE version. Since v2.1.0-rc.9 the deploy template mandates real provenance (the product's own package descriptor, or the team's decision) — never an invented filler",
+  "version_source": "string (optional, v2.1.0-rc.9+, RELEASE-VERSION-0722) — \"manifest\" | \"team\" | \"assumed\". Where `version` came from: read from the product's package descriptor, decided/confirmed by the team, or unconfirmed (agent's best-grounded value — approve 5 surfaces it loudly). Absent on pre-rc.9 artifacts. Vocabulary is validated when present",
   "phases_completed": ["1", "2", "3", "4"],
   "overall_status": "compliant | partial | draft",
   "requirement_compliance": [
@@ -372,6 +373,7 @@ Written by Phase 5 (DevOps persona). FR coverage proof linking requirements to t
 - `overall_status` must be: `compliant` | `partial` | `draft`
 - `level` must be: `placeholder` | `functionally_present` | `partial` | `complete` | `production_ready`
 - `level: "placeholder"` blocks the pipeline — placeholder implementations cannot be shipped
+- `version_source`, when present, must be `manifest` | `team` | `assumed` (v2.1.0-rc.9+; omission is valid — displays as "undeclared"). Consumers: `status`/`status --json` (`release` field, present only while phase 5 is approved) and the `approve 5` checkpoint (warns on `assumed`); each `approve 5` appends `{version, version_source, at}` to `.aitri#releaseHistory` (SCHEMA.md) — the durable cross-cycle release record (the 20-event log evicts too fast to serve that role)
 - Entries use field `id` (not `fr_id`) — a common mistake. The naming hint is only surfaced alongside an invalid-`level` error; an entry keyed `fr_id` with a valid level fails as a generic "MUST requirement(s) not found in requirement_compliance"
 - **Run-binding tamper check (v2.0.0-rc.148+, UPLAN-0703 B3):** when `.aitri#verifyResultsHash` exists and `04_TEST_RESULTS.json` no longer matches it (edited after the last `verify-run`), `complete 5` refuses — the compliance proof cannot be validated over a tampered results file. Re-run `aitri verify-run`, then re-derive Phase 5. A stamp-less pre-rc.129 project is not blocked here (the deploy gate's B1 check owns that path)
 - If `01_REQUIREMENTS.json` is present: every requirement (FR or NFR, v2.0.0-rc.27+) with `priority: "MUST"` — or any NFR with `category: "Regression"` regardless of priority (v2.0.0-rc.104+) — must have an entry in `requirement_compliance`

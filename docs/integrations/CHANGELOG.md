@@ -18,6 +18,26 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.1.0-rc.9 — 2026-07-22 — release identity becomes honest: optional `05_TRACEABILITY.json#version_source`, `status --json` gains `release`, approve-5 event carries the sealed version (RELEASE-VERSION-0722, ADR-083) — additive
+
+`05_TRACEABILITY.json#version` was required since the artifact existed but write-only
+(no provenance instruction, no consumer — agents filled "1.0.0" forever). Now:
+
+- New optional field `version_source`: `"manifest" | "team" | "assumed"` — vocabulary
+  validated when present; absent = pre-rc.9 artifact, still valid (additive).
+- `status --json` gains additive top-level `release: {version, version_source} | null`
+  (see STATUS_JSON.md). `status` text shows a release row; `approve 5` displays the
+  sealed version and warns loudly on `"assumed"`.
+- New `.aitri` shared field `releaseHistory: [{version, version_source, at}]` — appended
+  at each `approve 5`, capped at 50. The DURABLE cross-cycle record of which version
+  sealed from which verified state (first-class for the same reason as `lastVerifyRun`:
+  the 20-entry event log evicts a cycle's events). The phase-5 `approved` event also
+  carries `{version, version_source}` (additive payload keys), but readers wanting
+  history must use `releaseHistory`. `status --json#release` is present only while
+  phase 5 is APPROVED (a cascade reset un-seals → null).
+- Aitri still does NOT version products: the deploy template instructs the agent to
+  read the product's own manifest / ask the team; Aitri records the declared identity.
+
 ## v2.1.0-rc.8 — 2026-07-22 — killed e2e dispatch persists finished unit results; new optional `04_TEST_RESULTS.json#e2e_run` (FB-E2E-KILL-0722, ADR-068 Addendum) — additive
 
 - New optional field `e2e_run: { runner, status: "killed", reason }` in `04_TEST_RESULTS.json`,

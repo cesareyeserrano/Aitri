@@ -1,6 +1,6 @@
 # Aitri — `.aitri` Schema Contract
 
-**Aitri version:** v2.1.0-rc.8+
+**Aitri version:** v2.1.0-rc.9+
 **Maintenance rule:** Update this file in the same commit as any `.aitri` schema change.
 
 ---
@@ -56,6 +56,7 @@ Present after any `aitri init` or `aitri adopt --upgrade`.
 | `verifySummary` | `object` | `null` | Last test run summary — the `04_TEST_RESULTS.json#summary` object persisted verbatim (canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Written by `verify-complete` on success **and** by `tc verify` (which re-syncs it so `aitri resume` shows updated numbers after a per-TC verification); cleared by `verify-run` when `verifyPassed` resets, by `reconcile` entering pending, and by a cascade invalidation touching phase 4/5 (v2.0.0-alpha.13+). **Presence is NOT proof that `verify-complete` passed** — `verifyPassed` is the authoritative deploy-gate flag; consumers must read `verifyPassed`, not the presence of `verifySummary` |
 | `verifyRanAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri verify-run` execution (set on every run, regardless of pass/fail). Drives test-staleness signals (v0.1.79+) |
 | `lastVerifyRun` | `object\|null` | `null` | Last `verify-run`'s counts, written on EVERY run regardless of pass/fail: `{ passed, failed, skipped, manual, at }`. Unlike `verifySummary` (only on verify-complete success), this persists the raw run result so the no-op-loop guard survives event-log eviction. Read this for "what did the last run produce" (v2.0.0-rc.25+) |
+| `releaseHistory` | `array` | absent | Durable cross-cycle release record (v2.1.0-rc.9+, RELEASE-VERSION-0722): one `{ version, version_source, at }` appended at each `approve 5` that finds a version in 05_TRACEABILITY.json. First-class for the same reason as `lastVerifyRun` — the 20-event log evicts a cycle's events, so an event-only record would not survive. Capped at 50 entries (oldest dropped). Additive — old readers ignore it |
 | `verifyResultsHash` | `string\|null` | `null` | Canonical hash of the `04_TEST_RESULTS.json` content written by the last `verify-run` (re-stamped by `tc verify`). Binds the deploy gate to a real execution. **v2.0.0-rc.148+ (BREAKING): `verify-complete` now REQUIRES this stamp** — an absent stamp is rejected ("no verify-run recorded"), not just a mismatched one. Previously (rc.129–rc.147) an absent stamp was allowed (backward-compatible); that window is closed. `tc verify` holds the same line: it refuses a stamp-less file (fabrication guard) and a file whose hash no longer matches the stamp (laundering guard). A pre-rc.129 project with a real results file re-binds by running `verify-run` (or `verify-run --results <file>`) once |
 | `auditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit` invocation. Persisted because `AUDIT_REPORT.md` mtime resets on git clone (v0.1.79+) |
 | `coverageAuditLastAt` | `string` ISO 8601 | `null` | Timestamp of last `aitri audit requirements` invocation (formerly `audit coverage`; the field name is retained for back-compat). The idea→FR completeness audit. Persisted so the `resume` coverage nudge stops once run and re-fires when requirements change (v2.0.0-rc.75+, [ADR-048](../DECISIONS.md)) |
@@ -115,7 +116,7 @@ Valid `event` values: `"started"`, `"completed"`, `"approved"`, `"rejected"`, `"
 
 Optional fields by type:
 - `"rejected"` → includes `"feedback": "text"`
-- `"approved"` → includes `"afterDrift": true` when approved after detected drift (v0.1.60+), or `"ideaArchived": true` when approving Phase 1 archived the project's IDEA.md seed
+- `"approved"` → includes `"afterDrift": true` when approved after detected drift (v0.1.60+), or `"ideaArchived": true` when approving Phase 1 archived the project's IDEA.md seed; for phase 5 also `"version"` + `"version_source"` when 05_TRACEABILITY.json declares them (v2.1.0-rc.9+, RELEASE-VERSION-0722). NOTE: events are capped at 20 — the durable release record is `releaseHistory` (below), not this payload
 - `"upgrade_migration"` → see schema below (v2.0.0+)
 - `"rehash"` → includes `artifact`, `before_hash`, `after_hash` (v2.0.0-alpha.3+). Emitted by `aitri rehash <phase>` when an operator updates the stored hash for a phase whose artifact content has not changed from its committed state. No content drift — bookkeeping only.
 - `"verify-run"` → includes `{ passed, failed, skipped, manual }` counts; `"verify-complete"` → includes `{ passed, failed }` (v2.0.0+)

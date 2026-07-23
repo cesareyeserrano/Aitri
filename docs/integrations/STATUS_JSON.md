@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v2.1.0-rc.8+
+**Aitri version:** v2.1.0-rc.9+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -53,6 +53,13 @@ Exit code: `0` on success (even when the project has drift or blocking bugs — 
   // SCHEMA.md discourages). Remote consumers: the field reflects the machine that
   // ran the command, never a teammate's session.
   "lastSession": { "at": "ISO", "agent": "string | null", "event": "string" } /* | null */,
+  // release (additive, v2.1.0-rc.9+, RELEASE-VERSION-0722): the sealed release identity
+  // from 05_TRACEABILITY.json — first consumer of its previously write-only `version`.
+  // Present ONLY while phase 5 is APPROVED (a cascade reset un-seals it → null even if
+  // the artifact remains on disk); also null when the artifact is absent/malformed.
+  // version_source is "manifest" | "team" | "assumed" (null when undeclared).
+  // Display-informational, never a gate. The cross-cycle record is .aitri#releaseHistory.
+  "release": { "version": "string", "version_source": "string | null" } /* | null */,
   "features": [ /* per-feature summaries — see "features" below */ ],
   // buildPlan (additive, v2.1.0-rc.2+, PLAN-ARTIFACT-0715): advisory epic progress read
   // tolerantly from the ROOT pipeline's BUILD_PLAN.md while Phase 4 is AUTHORIZED (Phase 3

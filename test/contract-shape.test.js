@@ -161,6 +161,9 @@ describe('contract shape: status --json emits every field STATUS_JSON.md documen
       // Snapshot-derived extensions
       snapshotVersion: 'number|null',
       lastSession: 'object|null',
+      // release (rc.9, RELEASE-VERSION-0722): sealed release identity — non-null only
+      // while phase 5 is approved; the non-null pin lives in test/release-version.test.js.
+      release: 'object|null',
       features: 'array',
       bugs: {
         total: 'number', open: 'number', blocking: 'number',

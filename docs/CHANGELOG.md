@@ -6,6 +6,46 @@
 
 ---
 
+## [2.1.0-rc.9] — 2026-07-22 — the sealed release version becomes honest: provenance asked, surfaced, and remembered (RELEASE-VERSION-0722, ADR-083) — canary
+
+Owner observation: no consumer project carries real versioning through Aitri. Root cause
+verified in code: `05_TRACEABILITY.json#version` was REQUIRED since the artifact existed
+but (a) the template gave no provenance instruction ("e.g. 1.0.0" → agents wrote filler
+forever) and (b) NO surface ever read it — a required field with zero consumers, the
+exact "field for completeness" warning sign, already shipped. Aitri's posture is
+unchanged: it does NOT version products (semver semantics are the team's; mechanically
+reading/editing per-stack manifests is out of identity) — it now makes the DECLARED
+release identity honest:
+
+- **Deploy template teaches the interaction**: read the product's own package
+  descriptor → propose to the human ("the manifest says X — is that this release?") →
+  or ask the team ("what version, and how do you version?") → on re-releases propose
+  the bump from what changed, human confirms. Never invent filler; unconfirmed →
+  `version_source: "assumed"`. New `version_source` field ("manifest" | "team" |
+  "assumed"), optional-additive, vocabulary gated when present.
+- **Consumers exist now**: `status` shows a release row (⚠ on assumed; version rendered
+  as-is — team schemes may be dates/tags), present only while phase 5 is APPROVED (a
+  cascade reset un-seals it — no "Sealed version" over a reset pipeline); `status --json`
+  gains additive `release: {version, version_source}`; `approve 5` — the human
+  checkpoint — displays the sealed version and warns loudly when it was never confirmed.
+- **Durable history — new `.aitri#releaseHistory`** `[{version, version_source, at}]`,
+  appended at each `approve 5`, capped at 50. First-class instead of event-only (skeptic
+  finding: the 20-entry event log evicts a full cycle's events, so an event-borne
+  "history" survives barely one cycle — the same eviction lesson that created
+  `lastVerifyRun`). The phase-5 `approved` event still carries the payload for
+  recent-activity readers.
+- Human Review checklist line: the version is real (manifest/team), not invented.
+
+Skeptic implementation pass caught before commit: the event-only history claim
+(EVENT_CAP=20 → falsified; fixed with releaseHistory), stale SCHEMA.md event schema,
+"Sealed version" displayed over cascade-reset pipelines (now approval-gated), v-prefix
+misrendering non-semver schemes, and an enforcement overclaim in AGENTS.md — all fixed
+in-rc.
+
+Suite: 2237 (+8: vocab gate both directions, snapshot surfacing incl. unsealed/legacy/
+absent, approve-5 display + event payload + releaseHistory, assumed warning, status
+--json contract pin).
+
 ## [2.1.0-rc.8] — 2026-07-22 — a killed e2e dispatch no longer discards the finished unit results (FB-E2E-KILL-0722, ADR-068 Addendum) — canary
 
 Field report (T-Ledger): verify-run runs the unit runner first (finished, parsed), then
