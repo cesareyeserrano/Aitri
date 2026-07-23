@@ -6,6 +6,37 @@
 
 ---
 
+## [2.1.0-rc.8] — 2026-07-22 — a killed e2e dispatch no longer discards the finished unit results (FB-E2E-KILL-0722, ADR-068 Addendum) — canary
+
+Field report (T-Ledger): verify-run runs the unit runner first (finished, parsed), then
+auto-runs Playwright with the same `test_runner_timeout_ms`; a Playwright kill err()'d
+before the results write, discarding 211/211 green unit results and deadlocking
+verify → verify-complete → reconcile --resolve on a project whose e2e could not run in
+that environment. The documented escape (mark e2e TCs `automation:"manual"` + `tc verify
+--evidence`) was unreachable — it needs a bound results file, which the kill destroyed.
+
+Adversarial design pass KILLED the first proposal (a TTY-gated `--no-e2e` flag with a
+"provisional seal" refused at verify-complete): the refusal layer would never set
+`verifyPassed`, so `reconcile --resolve` stayed exactly as blocked — and the mechanical
+e2e-debt gate it proposed already exists (the verify-complete e2e coverage gate, which
+hard-blocks until an e2e TC passes via runner or evidence-verified manual). Do not
+re-propose the flag. The shipped fix is the field report's suggestion 1, scoped tight:
+
+- **Killed e2e dispatch → results are still written** (ADR-068 Addendum — boundary
+  refinement, main-runner kill behavior unchanged): the finished unit results persist,
+  every e2e TC records `skip`, NONE of the killed dispatch's partial output is parsed
+  (zero false-pass surface). The kill message teaches both real exits: raise
+  `test_runner_timeout_ms`, or mark-manual + `tc verify --evidence` from an environment
+  where e2e runs.
+- **Additive `04_TEST_RESULTS.json#e2e_run`** `{runner, status:"killed", reason}` —
+  informational record of the kill; `e2e_exit_code` absent in that case.
+- **Z1 predicate extension:** a units-green + e2e-killed run resets a stale
+  `verifyPassed` — reconcile --resolve can no longer ride an earlier full-green seal
+  while the current e2e evidence is a killed dispatch.
+
+Suite: 2229 (+2: kill-tolerance persists units/records e2e_run/resets verifyPassed;
+healthy-dispatch control keeps rc.171 exit-code semantics).
+
 ## [2.1.0-rc.7] — 2026-07-22 — security threading enforcement: the security decision, design, and re-check leave the honor system (SEC-THREADING-0722, ADR-082) — canary
 
 Security in Aitri is threaded through the phases (the industry-validated shape — no

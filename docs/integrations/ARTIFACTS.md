@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.1.0-rc.7+
+**Aitri version:** v2.1.0-rc.8+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -247,7 +247,8 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
   "test_runner": "string — exact command run (e.g. 'pytest tests/ -v')",
   "runner_override": { "used": "string — the --cmd value actually run", "manifest_runner": "string|null — what 04_BUILD_REPORT.json declared" },
   "exit_code": 0,
-  "e2e_exit_code": "number (optional, v2.0.0-rc.171+) — the e2e auto-run's exit code; present only when the auto-run fired",
+  "e2e_exit_code": "number (optional, v2.0.0-rc.171+) — the e2e auto-run's exit code; present only when the auto-run fired AND finished",
+  "e2e_run": "object (optional, v2.1.0-rc.8+) — present only when the e2e auto-run dispatch was KILLED; see below",
   "e2e_runner": "string (optional, v2.0.0-rc.171+) — which e2e runner auto-ran; currently always \"playwright\"",
   "results": [
     {
@@ -308,6 +309,8 @@ Written by `aitri verify-run`. Never written by the agent — always auto-genera
 **`runner_override`** (optional, v2.0.0-rc.117+, ADV-0622-36) — present **only** when `verify-run --cmd "<command>"` substituted the whole runner AND that command differs from `04_BUILD_REPORT.json#test_runner`. Shape `{ used, manifest_runner }`: the command actually run vs the manifest's declared runner. Surfaces that the deploy-gate evidence came from an operator-supplied command, not the committed manifest — informational, never a gate (`--cmd` is a legitimate escape hatch for venv/env-specific runners). Absent on a normal run.
 
 **`e2e_exit_code` / `e2e_runner`** (optional, v2.0.0-rc.171+, FB-VERIFY-BLINDSPOTS-0710) — the auto-run e2e runner's exit code (number) and which runner it was (currently always `"playwright"`), present **only** when the e2e auto-run fired (a `playwright.config.{js,ts}` was detected and the run was not manual-seeded). Previously the exit code appeared only inside the raw-output markdown, so an e2e test failing *outside* the TC-id naming was invisible to every structured reader. Informational, never a gate — Aitri keys pass/fail on parsed TCs (the same symmetry as the main runner's unexplained-exit note). A reader should treat `e2e_exit_code !== 0` with `summary.failed === 0` as "an unnamed e2e failure or setup error occurred — review the raw Playwright output". Absent = no auto-run, not success.
+
+**`e2e_run`** (optional, v2.1.0-rc.8+, FB-E2E-KILL-0722 / ADR-068 Addendum) — `{ "runner": "playwright", "status": "killed", "reason": "timeout" | "<error code or signal>" }`, present **only** when the auto-run e2e dispatch was killed (timeout / signal / buffer overflow). Pre-rc.8 that kill aborted the whole verify-run and discarded the already-finished unit results; since rc.8 the finished unit results ARE written, every e2e TC records as `skip` (none of the killed dispatch's partial output is parsed), and this field records why. When present, `e2e_exit_code`/`e2e_runner` are absent (a killed dispatch has no exit code). Informational, never a gate — the existing verify-complete e2e coverage gate is the enforcement (it hard-blocks until some e2e TC passes via the runner or evidence-verified manual). A units-green run carrying `e2e_run` also RESETS a stale `verifyPassed` (Z1 extension), so readers must not treat the previous seal as current. Cleared by the next verify-run (the results document is rebuilt from scratch).
 
 **`line_coverage`** (optional, v2.0.0-rc.9+) — measured line-coverage percentage, present only when `verify-run` was invoked with `--coverage-threshold` AND a recognized runner emitted a parseable figure. Stack-agnostic: node built-in `--experimental-test-coverage` (bare `--coverage` is not a Node CLI option), `go test -cover`, `pytest --cov`, `jest`/`vitest --coverage`. Absent when no threshold was requested or the runner's coverage output could not be parsed.
 

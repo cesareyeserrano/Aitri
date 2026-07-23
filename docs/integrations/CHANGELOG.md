@@ -18,6 +18,17 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.1.0-rc.8 — 2026-07-22 — killed e2e dispatch persists finished unit results; new optional `04_TEST_RESULTS.json#e2e_run` (FB-E2E-KILL-0722, ADR-068 Addendum) — additive
+
+- New optional field `e2e_run: { runner, status: "killed", reason }` in `04_TEST_RESULTS.json`,
+  present only when the Playwright auto-run dispatch was killed (timeout/signal/buffer).
+  Old readers ignore it. When present, `e2e_exit_code`/`e2e_runner` are absent.
+- Behavior: a killed e2e dispatch no longer aborts verify-run — the finished unit-runner
+  results are written (e2e TCs record `skip`; none of the partial e2e output is parsed)
+  and a stale `verifyPassed` is reset. The MAIN runner's kill behavior is unchanged
+  (still refuses without writing, ADR-068). Readers that assumed "results file written ⇒
+  every declared runner finished" should key on `e2e_run` for the killed-dispatch case.
+
 ## v2.1.0-rc.7 — 2026-07-22 — security decision gated at Phase 1; Security Design body gated at Phase 2; reserved technical_debt id `SEC-GATE` (SEC-THREADING-0722, ADR-082) — additive
 
 No field added/removed/retyped. Three contract clarifications with new enforcement:
