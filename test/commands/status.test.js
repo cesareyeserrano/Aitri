@@ -779,3 +779,99 @@ describe('cmdStatus — build-plan epic progress (PLAN-ARTIFACT-0715 S3)', () =>
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// ── FB-SCOPE-BLIND-0724 — aggregated counts carry provenance + a scoped pointer ──
+// Field (T-Ledger): root backlog fully closed, a feature's backlog held 4 open items.
+// `status` said "backlog: 4 open items — run: aitri backlog" and `aitri backlog` said
+// none — the aggregate read as stale state. The count must say WHERE and point at a
+// command that can see the items.
+
+describe('status text — scope provenance (FB-SCOPE-BLIND-0724)', () => {
+  function captureText(fn) {
+    let out = '';
+    const origWrite = process.stdout.write.bind(process.stdout);
+    const origLog = console.log;
+    process.stdout.write = (s) => { out += s; return true; };
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { fn(); } finally { process.stdout.write = origWrite; console.log = origLog; }
+    return out;
+  }
+
+  function seedFeature(dir, name, { backlogOpen = 0, bugs = [] } = {}) {
+    const featDir = path.join(dir, 'features', name);
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    saveConfig(featDir, { projectName: name, artifactsDir: 'spec' });
+    if (backlogOpen > 0) {
+      const items = Array.from({ length: backlogOpen }, (_, i) => ({
+        id: `BL-00${i + 1}`, title: `item ${i + 1}`, priority: 'P2', status: 'open',
+      }));
+      fs.writeFileSync(path.join(featDir, 'spec', 'BACKLOG.json'),
+        JSON.stringify({ schemaVersion: '1', items }, null, 2));
+    }
+    if (bugs.length > 0) {
+      fs.writeFileSync(path.join(featDir, 'spec', 'BUGS.json'),
+        JSON.stringify({ bugs }, null, 2));
+    }
+  }
+
+  function statusText(dir) {
+    return captureText(() => cmdStatus({ dir, VERSION: '0.1.52', args: [] }));
+  }
+
+  it('backlog open only in a feature → names the scope and points at the scoped command', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    // Root backlog exists and is fully closed — the T-Ledger shape.
+    fs.writeFileSync(path.join(dir, 'spec', 'BACKLOG.json'), JSON.stringify({
+      schemaVersion: '1', items: [{ id: 'BL-001', title: 'done', priority: 'P2', status: 'closed' }],
+    }));
+    seedFeature(dir, 'backend', { backlogOpen: 4 });
+    const out = statusText(dir);
+    assert.match(out, /backlog: 4 open items \[backend\] — run: aitri feature backlog backend/);
+  });
+
+  it('backlog open in root AND features → per-scope counts and both pointers', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    fs.writeFileSync(path.join(dir, 'spec', 'BACKLOG.json'), JSON.stringify({
+      schemaVersion: '1', items: [{ id: 'BL-001', title: 'open one', priority: 'P2', status: 'open' }],
+    }));
+    seedFeature(dir, 'backend', { backlogOpen: 2 });
+    seedFeature(dir, 'grid-ux', { backlogOpen: 1 });
+    const out = statusText(dir);
+    assert.match(out, /backlog: 4 open items \[root 1 · backend 2 · grid-ux 1\]/);
+    assert.match(out, /run: aitri backlog · aitri feature backlog <name>/);
+  });
+
+  it('backlog open only in root → line unchanged (no provenance noise)', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    fs.writeFileSync(path.join(dir, 'spec', 'BACKLOG.json'), JSON.stringify({
+      schemaVersion: '1', items: [{ id: 'BL-001', title: 'open one', priority: 'P2', status: 'open' }],
+    }));
+    const out = statusText(dir);
+    assert.match(out, /backlog: 1 open item — run: aitri backlog\n/);
+    assert.ok(!out.includes('backlog: 1 open item ['), 'no breakdown when all open items are in root');
+  });
+
+  it('active bugs only in a feature → bugs line names the scope with the scoped command', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    seedFeature(dir, 'grid-ux', { bugs: [
+      { id: 'BG-001', title: 'broken', severity: 'medium', status: 'in_progress' },
+      { id: 'BG-002', title: 'done', severity: 'low', status: 'verified' },
+    ] });
+    const out = statusText(dir);
+    assert.match(out, /bugs: {4}⚠️ {2}1 active bug \(open\/in-fix\) \[grid-ux\] — run: aitri feature bug grid-ux list/);
+  });
+
+  it('no active bugs anywhere → bugs line keeps the plain root pointer', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    seedFeature(dir, 'grid-ux', { bugs: [
+      { id: 'BG-001', title: 'done', severity: 'low', status: 'verified' },
+    ] });
+    const out = statusText(dir);
+    assert.match(out, /bugs: {4}no active bugs — run: aitri bug list/);
+  });
+});

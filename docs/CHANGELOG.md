@@ -6,6 +6,53 @@
 
 ---
 
+## [2.1.0-rc.10] — 2026-07-24 — open-work surfaces agree: aggregated counts carry scope provenance, scoped pointers, and one open-predicate (FB-SCOPE-BLIND-0724) — canary
+
+Field feedback (T-Ledger, second field find of the canary): root backlog fully closed,
+yet `aitri status` kept saying "backlog: 4 open items — run: aitri backlog" while
+`aitri backlog` said "No open backlog items" — the operator read it as state not
+updating. Root cause verified: the status counts aggregate ALL pipelines
+(root + features) but never say WHERE, and point at scope-local drill-down commands;
+the 4 open items lived in a feature's BACKLOG.json. Same defect family confirmed in
+three more places and fixed at the root — the surfaces that report open work now agree
+on scope and on what "open" means:
+
+- **`status` provenance** — when open backlog items / active bugs live outside root,
+  the line names the scopes and points at the command that can see them:
+  `backlog: 4 open items [backend] — run: aitri feature backlog backend`
+  (mixed scopes → per-scope counts + both pointers; single scope → name only).
+  All-root lines are unchanged. New `bugs.openByPipeline` in the snapshot (per-scope
+  OPEN counts — `byPipeline` holds totals); internal, `status --json` untouched.
+- **Scope-honest empty states** — `aitri backlog` and `aitri bug list` (default view,
+  root scope) no longer claim project-wide emptiness: when feature scopes hold open
+  items they print `(open in features: backend 4 — run: aitri feature backlog backend)`.
+  Best-effort via new `openWorkByScope()` in snapshot.js (backlog) / local SSoT
+  predicates (bugs — snapshot.js already imports them from bug.js; no import cycle);
+  degrades silently on unreadable state, never breaks the list.
+- **One open-predicate per surface family** — `backlog list` default now shows
+  NOT-closed, case-folded (snapshot parity; `=== 'open'` hid a hand-written 'deferred'
+  that status counted; a hand-written "Closed" no longer counts open), and tags any
+  non-open state (`[deferred]`, `[closed]`) so it can't masquerade as ordinary open.
+  `bug list` default now matches the snapshot's isOpen (open|in_progress|fixed,
+  case-folded): an `in_progress` or hand-capitalized "Open" bug was counted by status
+  and hidden by the very list status points at. `--status`/`--severity` filters
+  case-fold. Dead `openBacklogCount` export removed (third, divergent open-predicate;
+  zero consumers).
+
+Adversarial pass on the diff caught and closed in-rc: (1) the widened `bug list`
+filter let hand-written entries with a missing `severity` reach a raw
+`b.severity.padEnd` → crash; render now goes through the case-folded predicates.
+(2) The sweep was incomplete — `validate`'s open-bug warning and the blocking-bugs
+next-action (status "→ Next:", resume) still pointed at root `aitri bug list`
+regardless of scope; `scopeProvenance` moved to snapshot.js (exported, shared by
+status + validate), the next-action now targets the sole scope holding blockers
+(`aitri feature bug <name> list`) or names the scopes in its reason
+(new `bugs.blockingByPipeline`, internal).
+
+Tests: snapshot per-scope counts + blocking-scope actions + helper null-degradation,
+status provenance render, validate warning provenance, scope-honest backlog list,
+bug list parity + hints + missing-severity crash pin. Suite green.
+
 ## [2.1.0-rc.9] — 2026-07-22 — the sealed release version becomes honest: provenance asked, surfaced, and remembered (RELEASE-VERSION-0722, ADR-083) — canary
 
 Owner observation: no consumer project carries real versioning through Aitri. Root cause

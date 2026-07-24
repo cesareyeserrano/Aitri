@@ -2217,3 +2217,118 @@ describe('buildProjectSnapshot() — git values never reach a shell (R3-15 RCE g
     } finally { cleanup(dir); }
   });
 });
+
+// ── FB-SCOPE-BLIND-0724 — per-scope open counts + cross-scope helper ─────────
+
+describe('scope provenance data (FB-SCOPE-BLIND-0724)', () => {
+  function seedRoot(dir) {
+    saveConfig(dir, { projectName: 'root-p', artifactsDir: 'spec', approvedPhases: [] });
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+  }
+  function seedFeature(dir, name, { backlogItems = null, bugs = null } = {}) {
+    const featDir = path.join(dir, 'features', name);
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    saveConfig(featDir, { projectName: name, artifactsDir: 'spec' });
+    if (backlogItems) {
+      fs.writeFileSync(path.join(featDir, 'spec', 'BACKLOG.json'),
+        JSON.stringify({ schemaVersion: '1', items: backlogItems }));
+    }
+    if (bugs) {
+      fs.writeFileSync(path.join(featDir, 'spec', 'BUGS.json'), JSON.stringify({ bugs }));
+    }
+  }
+
+  it('bugs.openByPipeline counts OPEN (open|in_progress|fixed) per scope, not totals', () => {
+    const dir = tmpDir();
+    try {
+      seedRoot(dir);
+      fs.writeFileSync(path.join(dir, 'spec', 'BUGS.json'), JSON.stringify({
+        bugs: [
+          { id: 'BG-001', status: 'verified', severity: 'low' },
+          { id: 'BG-002', status: 'fixed', severity: 'medium' },
+        ],
+      }));
+      seedFeature(dir, 'grid-ux', { bugs: [
+        { id: 'BG-001', status: 'in_progress', severity: 'medium' },
+        { id: 'BG-002', status: 'closed', severity: 'low' },
+      ] });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.bugs.openByPipeline['root'], 1, 'root: fixed counts as open, verified does not');
+      assert.equal(snap.bugs.openByPipeline['feature:grid-ux'], 1, 'feature: in_progress counts, closed does not');
+      // byPipeline keeps TOTALS — the two must be able to differ.
+      assert.equal(snap.bugs.byPipeline['feature:grid-ux'], 2);
+    } finally { cleanup(dir); }
+  });
+
+  it('openWorkByScope returns backlog + bug open counts keyed by scope', async () => {
+    const dir = tmpDir();
+    try {
+      seedRoot(dir);
+      seedFeature(dir, 'backend', {
+        backlogItems: [
+          { id: 'BL-001', status: 'open' },
+          { id: 'BL-002', status: 'closed' },
+          { id: 'BL-003', status: 'deferred' },   // non-closed → open (snapshot predicate)
+        ],
+        bugs: [{ id: 'BG-001', status: 'open', severity: 'high' }],
+      });
+      const { openWorkByScope } = await import('../lib/snapshot.js');
+      const work = openWorkByScope(dir);
+      assert.equal(work.backlog['feature:backend'], 2);
+      assert.equal(work.bugs['feature:backend'], 1);
+      assert.equal(work.backlog['root'], 0);
+    } finally { cleanup(dir); }
+  });
+
+  it('openWorkByScope returns null on a non-project dir — callers degrade silently', async () => {
+    const dir = tmpDir();
+    try {
+      const { openWorkByScope } = await import('../lib/snapshot.js');
+      assert.equal(openWorkByScope(dir), null);
+    } finally { cleanup(dir); }
+  });
+
+  it('blocking bugs only in a feature → next-action points at the feature bug list', () => {
+    const dir = tmpDir();
+    try {
+      seedRoot2(dir);
+      seedFeature2(dir, 'backend', { bugs: [
+        { id: 'BG-001', status: 'open', severity: 'critical' },
+      ] });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.bugs.blockingByPipeline['feature:backend'], 1);
+      const action = snap.nextActions.find(a => a.priority === 3 && a.severity === 'critical');
+      assert.ok(action, 'blocking-bug action must exist');
+      assert.equal(action.command, 'aitri feature bug backend list',
+        'the pointer must reach the scope that holds the blockers');
+    } finally { cleanup(dir); }
+  });
+
+  it('blocking bugs in root AND a feature → root pointer, reason names the scopes', () => {
+    const dir = tmpDir();
+    try {
+      seedRoot2(dir);
+      fs.writeFileSync(path.join(dir, 'spec', 'BUGS.json'), JSON.stringify({
+        bugs: [{ id: 'BG-001', status: 'open', severity: 'high' }],
+      }));
+      seedFeature2(dir, 'backend', { bugs: [
+        { id: 'BG-001', status: 'in_progress', severity: 'critical' },
+      ] });
+      const snap = buildProjectSnapshot(dir);
+      const action = snap.nextActions.find(a => a.priority === 3 && a.severity === 'critical');
+      assert.equal(action.command, 'aitri bug list');
+      assert.match(action.reason, /\(in: root, backend\)/);
+    } finally { cleanup(dir); }
+  });
+
+  function seedRoot2(dir) {
+    saveConfig(dir, { projectName: 'root-p', artifactsDir: 'spec', approvedPhases: [] });
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+  }
+  function seedFeature2(dir, name, { bugs = null } = {}) {
+    const featDir = path.join(dir, 'features', name);
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    saveConfig(featDir, { projectName: name, artifactsDir: 'spec' });
+    if (bugs) fs.writeFileSync(path.join(featDir, 'spec', 'BUGS.json'), JSON.stringify({ bugs }));
+  }
+});

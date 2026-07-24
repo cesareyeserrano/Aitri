@@ -834,3 +834,33 @@ describe('cmdValidate() — --ci exit code (ADV-0622-27)', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// ── FB-SCOPE-BLIND-0724 — open-bug warning carries scope provenance ──────────
+
+describe('cmdValidate() — open-bug warning provenance (FB-SCOPE-BLIND-0724)', () => {
+  it('bugs open only in a feature → warning names the scope and the scoped command', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      seedFeature(dir, 'backend');
+      writeFile(dir, 'features/backend/spec/BUGS.json', JSON.stringify({
+        bugs: [{ id: 'BG-001', title: 'blocker', status: 'open', severity: 'critical' }],
+      }));
+      const out = captureLog(() => cmdValidate({ dir, args: [] }));
+      assert.match(out, /1 open bug\(s\) \[backend\]/);
+      assert.match(out, /Run: aitri feature bug backend list/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('bugs open only in root → warning unchanged', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      writeFile(dir, 'spec/BUGS.json', JSON.stringify({
+        bugs: [{ id: 'BG-001', title: 'minor', status: 'open', severity: 'low' }],
+      }));
+      const out = captureLog(() => cmdValidate({ dir, args: [] }));
+      assert.match(out, /1 open bug\(s\) — critical\/high severity will block verify-complete\. Run: aitri bug list/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

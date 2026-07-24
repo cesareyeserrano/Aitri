@@ -9,7 +9,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { initFlatProject } from '../fixtures.js';
-import { cmdBacklog, openBacklogCount } from '../../lib/commands/backlog.js';
+import { cmdBacklog } from '../../lib/commands/backlog.js';
+import { saveConfig } from '../../lib/state.js';
 
 const ROOT_DIR = path.resolve(process.cwd());
 
@@ -220,21 +221,82 @@ describe('backlog show', () => {
   });
 });
 
-// ── openBacklogCount ──────────────────────────────────────────────────────────
+// ── FB-SCOPE-BLIND-0724 — scope-honest list ───────────────────────────────────
+// (openBacklogCount was removed: dead export with a third, divergent open-predicate.)
 
-describe('openBacklogCount', () => {
-  it('returns null when no BACKLOG.json exists', () => {
+describe('scope-honest backlog list (FB-SCOPE-BLIND-0724)', () => {
+  function addFeatureBacklog(dir, name, openCount) {
+    const featDir = path.join(dir, 'features', name);
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    saveConfig(featDir, { projectName: name, artifactsDir: 'spec' });
+    const items = Array.from({ length: openCount }, (_, i) => ({
+      id: `BL-00${i + 1}`, title: `item ${i + 1}`, priority: 'P2', status: 'open',
+    }));
+    fs.writeFileSync(path.join(featDir, 'spec', 'BACKLOG.json'),
+      JSON.stringify({ schemaVersion: '1', items }, null, 2));
+  }
+
+  it('empty root list names feature scopes holding open items, with the scoped command', () => {
     const dir = setup();
-    const config = { artifactsDir: 'spec' };
-    assert.equal(openBacklogCount(dir, config), null);
+    addFeatureBacklog(dir, 'backend', 4);
+    const out = capture(() => cmdBacklog(makeCtx(dir, [])));
+    assert.match(out, /No open backlog items\./);
+    assert.match(out, /open in features: backend 4/);
+    assert.match(out, /aitri feature backlog backend/);
   });
 
-  it('returns correct count of open items', () => {
+  it('multiple feature scopes → generic <name> pointer', () => {
     const dir = setup();
-    const config = { artifactsDir: 'spec' };
+    addFeatureBacklog(dir, 'backend', 2);
+    addFeatureBacklog(dir, 'grid-ux', 1);
+    const out = capture(() => cmdBacklog(makeCtx(dir, [])));
+    assert.match(out, /backend 2 · grid-ux 1/);
+    assert.match(out, /aitri feature backlog <name>/);
+  });
+
+  it('no hint when features hold no open items', () => {
+    const dir = setup();
+    addFeatureBacklog(dir, 'backend', 0);
+    const out = capture(() => cmdBacklog(makeCtx(dir, [])));
+    assert.match(out, /No open backlog items\./);
+    assert.ok(!out.includes('open in features'), 'must not hint when nothing is open elsewhere');
+  });
+
+  it('no hint in feature scope — the scope is already explicit', () => {
+    const dir = setup();
+    addFeatureBacklog(dir, 'backend', 0);
+    addFeatureBacklog(dir, 'other', 3);
+    const featDir = path.join(dir, 'features', 'backend');
+    const out = capture(() => cmdBacklog({ ...makeCtx(featDir, []), featureRoot: dir, scopeName: 'backend' }));
+    assert.match(out, /No open backlog items\./);
+    assert.ok(!out.includes('open in features'), 'feature-scoped list must not cross-hint');
+  });
+
+  it('list "open" = not closed — a hand-written status stays visible (snapshot parity)', () => {
+    const dir = setup();
     cmdBacklog(makeCtx(dir, ['add', '--title', 'A', '--priority', 'P1', '--problem', 'P']));
     cmdBacklog(makeCtx(dir, ['add', '--title', 'B', '--priority', 'P2', '--problem', 'P']));
     cmdBacklog(makeCtx(dir, ['done', 'BL-001']));
-    assert.equal(openBacklogCount(dir, config), 1);
+    // Hand-edit a status outside the CLI vocabulary — snapshot counts it open (!== closed);
+    // the list must agree or status/list contradict each other again.
+    const fp = path.join(dir, 'spec', 'BACKLOG.json');
+    const data = JSON.parse(fs.readFileSync(fp, 'utf8'));
+    data.items.find(i => i.id === 'BL-002').status = 'deferred';
+    fs.writeFileSync(fp, JSON.stringify(data, null, 2));
+    const out = capture(() => cmdBacklog(makeCtx(dir, [])));
+    assert.match(out, /BL-002.*\[deferred\]/, 'non-open non-closed status is visible AND tagged');
+    assert.match(out, /1 open · 1 closed/);
+  });
+
+  it('a hand-written "Closed" is case-folded — not counted or listed as open', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, ['add', '--title', 'A', '--priority', 'P1', '--problem', 'P']));
+    const fp = path.join(dir, 'spec', 'BACKLOG.json');
+    const data = JSON.parse(fs.readFileSync(fp, 'utf8'));
+    data.items[0].status = 'Closed';
+    fs.writeFileSync(fp, JSON.stringify(data, null, 2));
+    const out = capture(() => cmdBacklog(makeCtx(dir, [])));
+    assert.match(out, /No open backlog items\./);
+    assert.match(out, /0 open · 1 closed|No open/);
   });
 });
