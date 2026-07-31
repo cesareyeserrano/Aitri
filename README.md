@@ -9,6 +9,10 @@ AI agents write code fast, and that's the problem. The spec lives in a chat that
 It works with **any agent that reads stdout**: Claude Code, Codex, Gemini CLI, Opencode, or a plain shell. Aitri never calls a model or writes code itself. It generates the briefing your agent acts on, then validates and gates what comes back.
 
 ```bash
+# zero install — run it straight from the registry:
+npx aitri init
+
+# for frequent use, install globally:
 npm install -g aitri
 
 # or, to track main directly:
@@ -24,6 +28,8 @@ npm install -g github:cesareyeserrano/Aitri
 - [Optional Phases](#optional-phases)
 - [Resuming a Session](#resuming-a-session)
 - [Drift Detection](#drift-detection)
+- [Artifact Format](#artifact-format)
+- [CI Integration](#ci-integration)
 - [Working with AI Agents](#working-with-ai-agents)
 - [Customizing Best Practices](#customizing-best-practices)
 
@@ -68,7 +74,7 @@ The harness makes drops and drift **visible and catchable, not impossible**. The
 
 ## Quick Start
 
-> **Agent shells and PATH.** If you use a Node version manager (nvm, asdf, volta), the global `aitri` binary lives under its versioned prefix and only lands on `PATH` in shells that load the manager. Non-login shells often won't, and coding agents spawn plenty of those. When that happens, the agent reports it doesn't know the `aitri` command. Check with the shell your agent uses: `command -v aitri`. If it doesn't resolve, invoke it by absolute path (`which aitri` in your own terminal prints it) or make the manager load in non-login shells too.
+> **Agent shells and PATH.** If you use a Node version manager (nvm, asdf, volta), the global `aitri` binary lives under its versioned prefix and only lands on `PATH` in shells that load the manager. Non-login shells often won't, and coding agents spawn plenty of those. When that happens, the agent reports it doesn't know the `aitri` command. Check with the shell your agent uses: `command -v aitri`. If it doesn't resolve, invoke it by absolute path (`which aitri` in your own terminal prints it), make the manager load in non-login shells too, or sidestep PATH entirely with `npx aitri <command>`.
 
 ```bash
 mkdir my-app && cd my-app
@@ -321,6 +327,49 @@ aitri validate  # drift included in artifact audit
 ```
 
 Agents are blocked from re-approving after drift. Re-approval requires a human to run `aitri approve <phase>` interactively in a terminal.
+
+---
+
+## Artifact Format
+
+The pipeline artifacts are an **open, versioned format**, not an internal detail. The normative spec is [docs/integrations/ARTIFACTS.md](docs/integrations/ARTIFACTS.md) — release-synced headers, additive-only evolution policy (fields are never retyped or removed in a minor version). Any tool may read or write the artifacts directly: `aitri complete` validates the file against its schema regardless of who — or what — authored it.
+
+---
+
+## CI Integration
+
+`aitri validate --json` is read-only and TTY-safe, so it runs anywhere — including CI. The workflow below gates pull requests on **drift**: an approved artifact that was modified after approval is exactly what a PR should catch. It deliberately does **not** gate PRs on a fully approved pipeline — a mid-pipeline project would fail every PR. If you also want a deploy gate (`allValid` + `deployable`), opt in by setting the repository variable `AITRI_CI_STRICT` to `1`.
+
+```yaml
+name: Aitri Validate
+on: [pull_request]
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Aitri drift gate
+        run: |
+          npx aitri@2 validate --json > aitri-report.json
+          if jq -e '[.artifacts[] | select(.drift == true)] | length > 0' aitri-report.json > /dev/null; then
+            echo "Aitri: artifact drift detected (approved artifacts were modified)"
+            npx aitri@2 validate --explain
+            exit 1
+          fi
+      - name: Aitri deploy gate (strict, opt-in)
+        if: ${{ vars.AITRI_CI_STRICT == '1' }}
+        run: |
+          if ! jq -e '.allValid and .deployable' aitri-report.json > /dev/null; then
+            npx aitri@2 validate --explain
+            exit 1
+          fi
+      - uses: actions/upload-artifact@v4
+        with: { name: aitri-report, path: aitri-report.json }
+```
+
+Notes: `jq` is preinstalled on `ubuntu-latest`; `npx aitri@2` pins the major so CI never silently jumps a breaking version. The full `validate --json` contract is documented in [docs/integrations/VALIDATE_JSON.md](docs/integrations/VALIDATE_JSON.md).
 
 ---
 

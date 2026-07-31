@@ -20,6 +20,15 @@ e2e dispatch persists finished unit results (FB-E2E-KILL-0722, ADR-068 Addendum,
 · honest release provenance (RELEASE-VERSION-0722, ADR-083, rc.9) · open-work scope
 provenance across status/backlog/bug surfaces (FB-SCOPE-BLIND-0724, rc.10).
 
+Published to npm same day: `aitri@2.1.0` is `latest` (first registry release since 2.0.1).
+Post-publish adoption docs batch (no bump, same day, FB-8WK-0718): README install block
+leads with `npx aitri init` (ADOPT-NPX-0718) · new README "CI Integration" section — a
+copy-paste GitHub Actions workflow gating PRs on drift, strict deploy gate opt-in via
+`AITRI_CI_STRICT`, pointer from `docs/integrations/README.md` (INTEG-GHA-0718) · new
+README "Artifact Format" section promoting `docs/integrations/ARTIFACTS.md` as the open,
+versioned artifact spec (SPEC-PROMOTE-0718). Acceptance: `npx aitri@latest init/status/
+resume` ran warning-free in a scratch dir against the published 2.1.0.
+
 ## [2.1.0-rc.10] — 2026-07-24 — open-work surfaces agree: aggregated counts carry scope provenance, scoped pointers, and one open-predicate (FB-SCOPE-BLIND-0724) — canary
 
 Field feedback (T-Ledger, second field find of the canary): root backlog fully closed,
