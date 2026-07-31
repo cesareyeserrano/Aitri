@@ -6,6 +6,20 @@
 
 ---
 
+## [2.1.0] — 2026-07-30 — stable promotion of the 2.1.0 canary line (rc.1–rc.10)
+
+Owner-called promotion after field validation on real consumer projects (T-Ledger
+produced two field finds, fixed at the root in rc.8 and rc.10). No code change versus
+`2.1.0-rc.10` — version identity only. What the line shipped (details in the rc entries
+below): feature governance inheritance (GOVERNANCE-0717, ADR-080, rc.1) · stable epic
+IDs + advisory epic progress (PLAN-ARTIFACT-0715, ADR-081, rc.2) · working threshold
+coverage on the node built-in runner + `complete 4` dry-run (FB-COVERAGE-GATE-0715,
+rc.3–4) · FR trigger→response statements (W2, rc.5) · whole-canary adversarial fixes
+(rc.6) · security threading enforcement (SEC-THREADING-0722, ADR-082, rc.7) · killed
+e2e dispatch persists finished unit results (FB-E2E-KILL-0722, ADR-068 Addendum, rc.8)
+· honest release provenance (RELEASE-VERSION-0722, ADR-083, rc.9) · open-work scope
+provenance across status/backlog/bug surfaces (FB-SCOPE-BLIND-0724, rc.10).
+
 ## [2.1.0-rc.10] — 2026-07-24 — open-work surfaces agree: aggregated counts carry scope provenance, scoped pointers, and one open-predicate (FB-SCOPE-BLIND-0724) — canary
 
 Field feedback (T-Ledger, second field find of the canary): root backlog fully closed,
