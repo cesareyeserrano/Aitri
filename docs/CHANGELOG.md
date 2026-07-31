@@ -6,6 +6,438 @@
 
 ---
 
+## [2.1.0] — 2026-07-30 — stable promotion of the 2.1.0 canary line (rc.1–rc.10)
+
+Owner-called promotion after field validation on real consumer projects (T-Ledger
+produced two field finds, fixed at the root in rc.8 and rc.10). No code change versus
+`2.1.0-rc.10` — version identity only. What the line shipped (details in the rc entries
+below): feature governance inheritance (GOVERNANCE-0717, ADR-080, rc.1) · stable epic
+IDs + advisory epic progress (PLAN-ARTIFACT-0715, ADR-081, rc.2) · working threshold
+coverage on the node built-in runner + `complete 4` dry-run (FB-COVERAGE-GATE-0715,
+rc.3–4) · FR trigger→response statements (W2, rc.5) · whole-canary adversarial fixes
+(rc.6) · security threading enforcement (SEC-THREADING-0722, ADR-082, rc.7) · killed
+e2e dispatch persists finished unit results (FB-E2E-KILL-0722, ADR-068 Addendum, rc.8)
+· honest release provenance (RELEASE-VERSION-0722, ADR-083, rc.9) · open-work scope
+provenance across status/backlog/bug surfaces (FB-SCOPE-BLIND-0724, rc.10).
+
+## [2.1.0-rc.10] — 2026-07-24 — open-work surfaces agree: aggregated counts carry scope provenance, scoped pointers, and one open-predicate (FB-SCOPE-BLIND-0724) — canary
+
+Field feedback (T-Ledger, second field find of the canary): root backlog fully closed,
+yet `aitri status` kept saying "backlog: 4 open items — run: aitri backlog" while
+`aitri backlog` said "No open backlog items" — the operator read it as state not
+updating. Root cause verified: the status counts aggregate ALL pipelines
+(root + features) but never say WHERE, and point at scope-local drill-down commands;
+the 4 open items lived in a feature's BACKLOG.json. Same defect family confirmed in
+three more places and fixed at the root — the surfaces that report open work now agree
+on scope and on what "open" means:
+
+- **`status` provenance** — when open backlog items / active bugs live outside root,
+  the line names the scopes and points at the command that can see them:
+  `backlog: 4 open items [backend] — run: aitri feature backlog backend`
+  (mixed scopes → per-scope counts + both pointers; single scope → name only).
+  All-root lines are unchanged. New `bugs.openByPipeline` in the snapshot (per-scope
+  OPEN counts — `byPipeline` holds totals); internal, `status --json` untouched.
+- **Scope-honest empty states** — `aitri backlog` and `aitri bug list` (default view,
+  root scope) no longer claim project-wide emptiness: when feature scopes hold open
+  items they print `(open in features: backend 4 — run: aitri feature backlog backend)`.
+  Best-effort via new `openWorkByScope()` in snapshot.js (backlog) / local SSoT
+  predicates (bugs — snapshot.js already imports them from bug.js; no import cycle);
+  degrades silently on unreadable state, never breaks the list.
+- **One open-predicate per surface family** — `backlog list` default now shows
+  NOT-closed, case-folded (snapshot parity; `=== 'open'` hid a hand-written 'deferred'
+  that status counted; a hand-written "Closed" no longer counts open), and tags any
+  non-open state (`[deferred]`, `[closed]`) so it can't masquerade as ordinary open.
+  `bug list` default now matches the snapshot's isOpen (open|in_progress|fixed,
+  case-folded): an `in_progress` or hand-capitalized "Open" bug was counted by status
+  and hidden by the very list status points at. `--status`/`--severity` filters
+  case-fold. Dead `openBacklogCount` export removed (third, divergent open-predicate;
+  zero consumers).
+
+Adversarial pass on the diff caught and closed in-rc: (1) the widened `bug list`
+filter let hand-written entries with a missing `severity` reach a raw
+`b.severity.padEnd` → crash; render now goes through the case-folded predicates.
+(2) The sweep was incomplete — `validate`'s open-bug warning and the blocking-bugs
+next-action (status "→ Next:", resume) still pointed at root `aitri bug list`
+regardless of scope; `scopeProvenance` moved to snapshot.js (exported, shared by
+status + validate), the next-action now targets the sole scope holding blockers
+(`aitri feature bug <name> list`) or names the scopes in its reason
+(new `bugs.blockingByPipeline`, internal).
+
+Tests: snapshot per-scope counts + blocking-scope actions + helper null-degradation,
+status provenance render, validate warning provenance, scope-honest backlog list,
+bug list parity + hints + missing-severity crash pin. Suite green.
+
+## [2.1.0-rc.9] — 2026-07-22 — the sealed release version becomes honest: provenance asked, surfaced, and remembered (RELEASE-VERSION-0722, ADR-083) — canary
+
+Owner observation: no consumer project carries real versioning through Aitri. Root cause
+verified in code: `05_TRACEABILITY.json#version` was REQUIRED since the artifact existed
+but (a) the template gave no provenance instruction ("e.g. 1.0.0" → agents wrote filler
+forever) and (b) NO surface ever read it — a required field with zero consumers, the
+exact "field for completeness" warning sign, already shipped. Aitri's posture is
+unchanged: it does NOT version products (semver semantics are the team's; mechanically
+reading/editing per-stack manifests is out of identity) — it now makes the DECLARED
+release identity honest:
+
+- **Deploy template teaches the interaction**: read the product's own package
+  descriptor → propose to the human ("the manifest says X — is that this release?") →
+  or ask the team ("what version, and how do you version?") → on re-releases propose
+  the bump from what changed, human confirms. Never invent filler; unconfirmed →
+  `version_source: "assumed"`. New `version_source` field ("manifest" | "team" |
+  "assumed"), optional-additive, vocabulary gated when present.
+- **Consumers exist now**: `status` shows a release row (⚠ on assumed; version rendered
+  as-is — team schemes may be dates/tags), present only while phase 5 is APPROVED (a
+  cascade reset un-seals it — no "Sealed version" over a reset pipeline); `status --json`
+  gains additive `release: {version, version_source}`; `approve 5` — the human
+  checkpoint — displays the sealed version and warns loudly when it was never confirmed.
+- **Durable history — new `.aitri#releaseHistory`** `[{version, version_source, at}]`,
+  appended at each `approve 5`, capped at 50. First-class instead of event-only (skeptic
+  finding: the 20-entry event log evicts a full cycle's events, so an event-borne
+  "history" survives barely one cycle — the same eviction lesson that created
+  `lastVerifyRun`). The phase-5 `approved` event still carries the payload for
+  recent-activity readers.
+- Human Review checklist line: the version is real (manifest/team), not invented.
+
+Skeptic implementation pass caught before commit: the event-only history claim
+(EVENT_CAP=20 → falsified; fixed with releaseHistory), stale SCHEMA.md event schema,
+"Sealed version" displayed over cascade-reset pipelines (now approval-gated), v-prefix
+misrendering non-semver schemes, and an enforcement overclaim in AGENTS.md — all fixed
+in-rc.
+
+Suite: 2237 (+8: vocab gate both directions, snapshot surfacing incl. unsealed/legacy/
+absent, approve-5 display + event payload + releaseHistory, assumed warning, status
+--json contract pin).
+
+## [2.1.0-rc.8] — 2026-07-22 — a killed e2e dispatch no longer discards the finished unit results (FB-E2E-KILL-0722, ADR-068 Addendum) — canary
+
+Field report (T-Ledger): verify-run runs the unit runner first (finished, parsed), then
+auto-runs Playwright with the same `test_runner_timeout_ms`; a Playwright kill err()'d
+before the results write, discarding 211/211 green unit results and deadlocking
+verify → verify-complete → reconcile --resolve on a project whose e2e could not run in
+that environment. The documented escape (mark e2e TCs `automation:"manual"` + `tc verify
+--evidence`) was unreachable — it needs a bound results file, which the kill destroyed.
+
+Adversarial design pass KILLED the first proposal (a TTY-gated `--no-e2e` flag with a
+"provisional seal" refused at verify-complete): the refusal layer would never set
+`verifyPassed`, so `reconcile --resolve` stayed exactly as blocked — and the mechanical
+e2e-debt gate it proposed already exists (the verify-complete e2e coverage gate, which
+hard-blocks until an e2e TC passes via runner or evidence-verified manual). Do not
+re-propose the flag. The shipped fix is the field report's suggestion 1, scoped tight:
+
+- **Killed e2e dispatch → results are still written** (ADR-068 Addendum — boundary
+  refinement, main-runner kill behavior unchanged): the finished unit results persist,
+  every e2e TC records `skip`, NONE of the killed dispatch's partial output is parsed
+  (zero false-pass surface). The kill message teaches both real exits: raise
+  `test_runner_timeout_ms`, or mark-manual + `tc verify --evidence` from an environment
+  where e2e runs.
+- **Additive `04_TEST_RESULTS.json#e2e_run`** `{runner, status:"killed", reason}` —
+  informational record of the kill; `e2e_exit_code` absent in that case.
+- **Z1 predicate extension:** a units-green + e2e-killed run resets a stale
+  `verifyPassed` — reconcile --resolve can no longer ride an earlier full-green seal
+  while the current e2e evidence is a killed dispatch.
+
+Suite: 2229 (+2: kill-tolerance persists units/records e2e_run/resets verifyPassed;
+healthy-dispatch control keeps rc.171 exit-code semantics).
+
+## [2.1.0-rc.7] — 2026-07-22 — security threading enforcement: the security decision, design, and re-check leave the honor system (SEC-THREADING-0722, ADR-082) — canary
+
+Security in Aitri is threaded through the phases (the industry-validated shape — no
+security phase), but four links of that thread were prompt-only where their siblings are
+mechanical. A project that FORGOT security entirely was indistinguishable from one that
+decided it away, and that silence switched off the whole downstream chain (phase-2
+expectations, the verify gate expectation, the resume audit nudge). Adversarial design
+panel: GO-WITH-CHANGES; a fifth proposed gate (mechanical unit+integration TC types per
+security FR) was KILLED as theater — `phase3.js` already documents that type-forcing
+gates make agents relabel TC types (see ADR-082; do not re-propose).
+
+- **SSoT** — `lib/requirements.js` now owns the security-NFR predicates (`securityNfrs`,
+  `activeSecurityNfrs`, `isSecurityExclusion`, `hasSecurityFr`) and the exclusion idiom
+  (`"Not applicable: …"` / `"N/A"` / `"Does not apply."` / `"No aplica: …"`), previously
+  inline in `audit.js`. Idiom hardened: the phrase must be terminated (`:` `.` `,` `;`
+  dash, or end-of-text) — a real promise that merely opens with those letters ("NA region
+  access control must…") classifies ACTIVE, never silently excluded. `buildSecurityNfrSummary`
+  refactored onto it; one malformed NFR entry no longer nullifies the whole summary
+  (pre-rc.7 it silently suppressed the resume audit nudge).
+- **Phase 1 gate (blocking)** — `complete 1` requires the security applicability decision:
+  ≥1 `category:"Security"` NFR, either an active promise or the explicit exclusion idiom
+  in its `requirement` field. Feature increments are exempt UNLESS they declare a
+  security-typed FR (new security surface forces the decision at feature scope). Error
+  teaches both shapes + the `--check` probe.
+- **Phase 2 gate (blocking, conditional)** — when active security NFRs exist,
+  `## Security Design` must have a non-empty body (sibling of the Technical Risk Flags
+  body check). Fence-aware (a fenced `## Security Design` example neither satisfies nor
+  terminates the real section — FB-EXTRACT-FENCE-0718 lesson applied at birth). Fails
+  open when requirements are unreadable; error offers both exits (write the design, or
+  rephrase the NFR to the canonical exclusion).
+- **Verify nudge (advisory, fifth of the family)** — active security NFRs + no
+  security-looking quality_gate (`hasSecurityGate`: generic tokens name-only, scanner
+  signatures name-or-command) + no technical_debt record (`hasSecurityDebtEntry`) →
+  stderr nudge. Deliberately fires for manual-only projects too (a scanner needs no test
+  suite). `technical_debt` gains the reserved id `SEC-GATE` for recording the deliberate
+  omission (documented in integrations/ARTIFACTS.md).
+- **Templates** — `requirements.md` teaches the gated decision + exact exclusion shape;
+  `architecture.md` §Security Design now demands the NFR→mitigation mapping + trust
+  boundaries (the architect's analog of fr_coverage; prompt-level by design — regex over
+  prose is the fence-blind failure class) + Human Review line; `build.md` shapes the
+  SEC-GATE debt record. `resume.js` comment corrected (it claimed a "Phase-1 forced
+  decision" that didn't exist — now it does).
+
+Implementation adversarial pass (post-build, pre-commit) caught and fixed in-rc: 2 REAL
+(a comma / unspaced hyphen counted as idiom terminator, silently mis-excluding real
+promises like "Not applicable, except the login form…" — exactly the hole the hardening
+existed to close; the summary behavior-change pin tested an input that never changed —
+repointed at the null-entry case that did) + 2 MINOR (fence-dialect desync: a `~~~` line
+inside a ``` block flipped a boolean toggle — walker now tracks the opening marker; bare
+"audit" as a name token falsely suppressed the nudge for a11y/lighthouse audits — removed,
+dependency audits are caught by command signature).
+
+Suite: 2227 (+24 dedicated: predicates/idiom both directions, both gates incl. fence and
+desync cases, heuristics, summary refactor pins).
+
+## [2.1.0-rc.6] — 2026-07-18 — whole-canary adversarial pass: fence-blind section extractor + chain-blind coverage detector (FB-EXTRACT-FENCE-0718, FB-COVERAGE-GATE-0715) — canary
+
+Before pushing the canary, an adversarial pass over the ACCUMULATED rc.1..rc.5 diff (not
+the per-change passes already run) hunted cross-pack interactions. Two survived
+verification:
+
+**Fence-blind `extractSections` (BLOCKER-class, FB-EXTRACT-FENCE-0718).** The governance
+pack's section extractor (`lib/phases/context.js`) ran regexes over the whole string,
+blind to fenced code blocks — on BOTH sides. A `# comment` line inside a bash fence
+matched the terminator, silently truncating the injected parent standard AND leaving a
+dangling fence opener that swallowed every briefing instruction after the injection
+point; a `## Heading` quoted inside a fence matched as a real section start. Ordinary
+artifacts trigger it (the phase-2 template specs fenced diagrams; Implementation Approach
+carries code snippets). The cross-pack tell: `lib/build-plan.js`, shipped in the SAME
+canary, had fence-skip from its own adversarial pass — the lesson landed in one parser
+and not its sibling. Fix: extractSections is now a line-walker with fence state
+(mirroring build-plan.js); fenced lines stay IN the extracted body (a standard's code
+examples are part of the standard) but never count as headings or terminators. Pinned
+with three dedicated tests (truncation, phantom start, fenced fake terminator).
+
+**Chain-blind `injectCoverageFlag` (REAL, FB-COVERAGE-GATE-0715).** The detector matched
+per-runner tokens anywhere in the string, so `vitest run && playwright test` +
+threshold gate got a false all-clear from the rc.4 dry-run at `complete 4`, and at
+verify-run the flag was appended to the END of the chain — handing `--coverage` to
+playwright and breaking the run as a fake test failure, exactly the misattribution class
+this thread exists to kill, in exactly the case build.md/AGENTS.md document as
+non-instrumentable. Fix at the single source: a chained command (`&&`, `||`, `;`, `|` —
+the same grammar as `gatesWithShellOperators`, now shared via `hasShellChain`) is
+non-instrumentable (`tool: null`, command untouched) — verify-run reports it honestly
+(and still parses output, in case the chain itself emits a parseable coverage table) and
+the complete-4 dry-run warns before the approve cycle.
+
+Also from the pass: an ENOBUFS-killed quality gate no longer gets the "raise timeout_ms"
+note (raising it cannot fix a buffer overflow — the note now says to reduce gate output),
+relayed as-is by verify-complete; `templates/AGENTS.md` no longer sends the agent into
+the G4 dead-end when promoting a feature-local standard (it now says the root re-run is
+refused for agents by design — hand the amendment to the human). Record hygiene from the
+parallel docs pass, same push: ADR-079 Addendum 1 (W2 un-parked + the 2.0.2→2.1.0
+absorption), `lib/build-plan.js` added to the ARCHITECTURE.md module map, integrations
+CHANGELOG marker for the rc.3 ARTIFACTS.md guidance correction, STATUS_JSON.md `buildPlan`
+condition corrected to AUTHORIZED (3-approved/4-not — the build need not have started),
+and the coverage-deps phrasing hedged for node's built-in runner (AGENTS.md/build.md).
+No artifact/`.aitri` schema change.
+
+## [2.1.0-rc.5] — 2026-07-18 — FR statements carry trigger → response (RSRCH-ADOPT-0711 W2, FR-TRIGGER-RESPONSE-0711) — canary
+
+Closes W2, the last open item of the RSRCH-ADOPT-0711 research batch (W1 rc.172, W3–W5
+rc.1) — un-parked by the owner. Specification ambiguity is the top agentic failure mode
+(MAST taxonomy); EARS ("When <trigger>, the system shall <response>") is the industry
+counter, and Aitri's Given/When/Then ACs were already EARS-adjacent — the gap was only the
+FR statement itself, free prose until now.
+
+`templates/phases/requirements.md` gains the FR description rule as an ADJACENT note next
+to the schema literal (never inside the compact schema string): behavioral FRs state
+trigger → response; a description that names no trigger is untestable prose; failure
+behavior stays in the acceptance_criteria (points at the Three-Amigos shaping rule, no
+duplication) and HOW stays in Phase 2. Advisory phrasing rule only — NO validator change
+(a regex-EARS gate was evaluated and rejected as ceremony; the vagueness gate already
+exists). Pinned in `test/rendered-briefing.test.js` per the W5 pattern so a template edit
+cannot silently drop it. No artifact/`.aitri` schema change.
+
+## [2.1.0-rc.4] — 2026-07-18 — coverage-gate dry-run at `complete 4` (FB-COVERAGE-GATE-0715 part 3) — canary
+
+Closes the deferred part 3 of the coverage-gate thread — its evidence arrived with the
+rc.3 sandbox walk: a manifest declaring a threshold coverage gate over an `npm test`
+wrapper passed `complete 4` and `approve 4` silently, and the operator discovered the
+non-instrumentable runner only at `verify-run`, one approve cycle later. The
+instrumentability of a threshold gate is knowable at the artifact gate, from the declared
+`test_runner` alone.
+
+`aitri complete 4` now dry-runs the same detection `verify-run` uses (`injectCoverageFlag`
+— single source, no duplicated logic) when the manifest declares a threshold gate:
+a non-instrumentable runner (npm-script wrapper, `&&` chain, unrecognized binary) warns
+with what WILL happen at verify-run ("not measured" → gate errors/warns per `required`)
+and both remedies (direct instrumentable runner, command-mode gate); a node runner
+carrying the invalid bare `--coverage` surfaces the rc.3 diagnosis here too. Advisory
+only — the dry-run never blocks and never throws; both remedies are edits to the same
+manifest being validated, so this is the cheapest moment to act. +5 tests. No
+artifact/`.aitri` schema change.
+
+## [2.1.0-rc.3] — 2026-07-18 — threshold coverage on the node built-in runner actually works: flag + parser (FB-COVERAGE-GATE-0715) — canary
+
+Canary field-validation catch (sandbox E2E walk of rc.2). Two stacked defects meant a
+threshold coverage gate NEVER measured coverage on a `node --test …` runner, on any Node
+version:
+
+1. **Injected flag was not a Node option.** `injectCoverageFlag` chose the flag by major
+   version — `--experimental-test-coverage` below Node 22, `--coverage` at 22+ — but
+   **`--coverage` is not a Node CLI option on any version** (empirically: Node 24.13.1 →
+   `node: bad option: --coverage`, exit 9). On modern Node the injected flag aborted the
+   WHOLE suite before one test ran: verify-run reported 0 TCs / all-skip, the gate errored
+   "not measured", and the rc.1 remediation text pointed at npm-wrapper/chained runners —
+   a cause that wasn't present. The unit tests were green because they pinned the same
+   false assumption ("node ≥22 uses --coverage"). Fix at the root: the version branch is
+   deleted — node runners always get `--experimental-test-coverage` (the one built-in
+   coverage flag across 18.15+ through 24); `injectCoverageFlag` drops the now-dead
+   `nodeMajor` parameter (internal signature, single call site).
+2. **Parser rejected node's real coverage table.** Even with the correct flag, node:test's
+   reporters prefix every output line — spec prints `ℹ all files | 85.71 | …`, TAP prints
+   `# all files | …` — and `parseCoverageOutput`'s anti-spoof anchor (`^\s*all files`,
+   ADV-0622-10) treated the reporter marker as a mid-line spoof and returned null. The
+   anchor now tolerates exactly the reporter markers (`#`/`ℹ`) and nothing else — a prose
+   line ("Copying All files | 100 done") still cannot spoof the figure.
+
+Adversarial pass on the fix caught the same defect's residue, closed in-rc: (a)
+`docs/integrations/ARTIFACTS.md` (`line_coverage`) still taught "node built-in
+`--coverage`" — the contract doc steered consumers into the invalid flag; corrected. (b) a
+USER-declared bare `--coverage` in a node `test_runner` was silently accepted as "already
+instrumented" and spawned under an "instrumenting via node" banner — reproducing the same
+exit-9 abort with a false diagnosis. The command is still never rewritten, but verify-run
+now prints "NOT instrumented" + a warn naming the invalid flag and the two escape hatches
+(`--experimental-test-coverage`, command-mode gate). A `--coverage-<x>` argument no longer
+suppresses injection (it is not the bare flag).
+
+Regression pins: bare `--coverage` is never injected into a node command; user-declared
+bare `--coverage` yields the diagnosis warn; real spec- and TAP-prefixed tables parse.
+Verified end-to-end in the sandbox: the same project that failed on rc.2 now runs 9/9 TCs,
+parses the real coverage figure (85.71%), and judges the threshold gate on it. No
+artifact/`.aitri` schema change (ARTIFACTS.md edit is a description correction, not a
+shape change).
+
+## [2.1.0-rc.2] — 2026-07-17 — stable epic IDs + advisory epic progress in status (PLAN-ARTIFACT-0715, ADR-081) — canary
+
+Design session B, panel-validated (`_plan-artifact-design-0717.md`). The Phase-4 plan
+skeleton now mandates **stable `EP-NN` epic ids** — assigned once, never renumbered, per
+plan generation — so the human, the checkpoints, and `aitri status` share one name for
+each partial delivery. New `lib/build-plan.js` (tolerant advisory reader, degrade-to-null;
+accepts the rc.170 legacy heading) feeds an **epic-progress line in `status`** while the
+build is in flight ("1/3 epic(s) done · in progress: EP-02 — Reports") and an additive
+display-only `buildPlan` field in `status --json` (STATUS_JSON.md + integrations
+CHANGELOG marker — consumers may render progress, never gate on it).
+
+The panel KILLED the implementer's own initial proposal on verified code evidence
+(recorded in ADR-081 so it is not re-proposed): BUILD_PLAN.json-as-contract (an
+agent-authored JSON contract with no validator = a third artifact class; freezes skeleton
+evolution; promotes the most-hand-edited file to trusted) and `verify-run --epic`
+(verify-run refuses before approve-4 — the wrong layer for mid-build checkpoints; no
+stack-agnostic run-time test filtering exists; partial results break the ADR-069
+run-binding trust model). **Deferred with a recorded blueprint:** mechanical mid-build
+epic verification (a checkpoint-family command writing Aitri-owned `epicVerifications`
+to `.aitri`, TC set derived from the hashed Phase-3 artifact) — trigger: the owner wants
+the harness's seal, not the agent's word, after using EP-ids. Mid-build control today
+stays the build protocol's mandate: the agent runs the epic's `Makes pass` TCs and
+presents the output at every boundary.
+
+A pre-ship adversarial pass caught 1 BLOCKER + 2 REAL, fixed in the same rc: (1) the
+"in-flight" condition keyed on 04_BUILD_REPORT.json existence — which the build writes at
+the END — so epic progress was null for the entire mid-build window the feature exists
+for; now keyed on build-authorized-but-unapproved (3 approved, 4 not). (2) The heading
+regex backtracked catastrophically on padded input (47s at 4k spaces — hanging every
+status/resume/validate); rewritten line-by-line, linear, with fenced-code-block skip so a
+plan quoting an example never parses phantom epics. (3) The plan read was unguarded — a
+BUILD_PLAN.md directory (EISDIR) crashed the whole snapshot from any feature dir; now
+degrades to null. +14 tests, 1 pin updated. AGENTS.md updated (EP-id grammar). Suite
+2185 green.
+
+## [2.1.0-rc.1] — 2026-07-17 — feature increments inherit the parent product's standards (GOVERNANCE-0717) — canary, joins the field-feedback pack below
+
+**Canary — installed locally for owner field-validation; the combined pack (this + the
+2.0.2-rc.1 entry below, which it absorbs — 2.0.2 will never publish) promotes as `2.1.0`
+on publish.** Same discipline as ADR-078: an unvalidated build does not carry the final
+number. Findings during validation ship as rc.2, rc.3…
+
+The big thread from the 2026-07-17 field feedback: product standards did not govern
+feature increments — an adopted dashboard's standardized components were rebuilt
+differently by every feature. Design panel-validated (scope + kill + mechanics;
+`docs/Aitri_Design_Notes/_governance-design-0717.md`), shipped as G1–G4 (ADR-080):
+
+- **G1 — feature spec phases inherit the parent standards.** Feature `ux` briefings
+  inject the root `01_UX_SPEC.md`'s Design Tokens + Component Inventory (anchored
+  section extraction — `lib/phases/context.js#extractSections`; per-block 24KB cap →
+  loud OPEN-this pointer; staleness warning when root ux has drifted), with the mandate:
+  reuse inventory components, check the codebase before inventing one, justify any
+  deviation in writing. Feature phase-2 briefings inject the root `02_SYSTEM_DESIGN.md`'s
+  System Architecture + Implementation Approach ("conform or justify" — section-anchored,
+  never `head()`: the first lines are decisions, not standards). The UX authority ladder
+  gains the slot in BOTH carriers (persona + template): provided design → visual FRs →
+  **parent standard** → archetype → inferred context. New approve-ux checklist line:
+  deviations from the parent standard are justified (n/a at root).
+- **G1 fallback (the motivating adopted case):** no root UX spec → the adoption audit's
+  `#### Conventions Observed` section injects as the standard instead — without it,
+  objective-scoped adoptions that never ran root ux would get zero standards injection.
+- **G2 — `adopt scan` captures conventions.** ADOPTION_AUDIT.md gains `#### Conventions
+  Observed` (UI tokens/components/patterns + code structure/naming, with file refs),
+  explicitly EXCLUDING anything flagged in Priority Actions — conventions are standards
+  to follow, not defects to copy.
+- **G3 — corrections get a named destination (no automated routing).** AGENTS.md: a
+  mid-feature correction lands in the feature's spec; promotion to a product-wide
+  standard is a deliberate human amendment of the root spec (which re-opens downstream
+  phases) — if that cost blocks a wanted standard, the agent says so out loud. The
+  automated amendment mandate was CUT by the panel (cascade economics punish compliance);
+  a standing CONVENTIONS registry is deferred with an observable trigger (recurring
+  reuse-corrections across the next 2–3 features).
+- **G4 — adjacent verified defect (found by the panel):** the completed-pipeline re-run
+  guard covered only phases 1–5, while `CASCADE_DOWNSTREAM['ux']=[2,3,4,5,'review']` — a
+  non-TTY re-run of a drifted approved ux wiped core approvals + verify state with no
+  confirmation. The guard now covers every phase whose cascade hits the approved pipeline
+  (`lib/state.js#cascadeDownstreamOf`).
+
+A pre-ship adversarial pass on the implementation found 5 REAL findings, all fixed in the
+same rc: (1) the promised absent-standards stderr note had been silently dropped — added;
+(2) a nonconforming root spec (no pinned headers) killed BOTH the injection and the audit
+fallback — now falls through; (3) `extractSections` terminated only at same-level headings
+— a deep section swallowed everything after it (including the Priority-Action text G2
+excludes); now terminates at same-or-shallower, standard markdown semantics; (4) the G4
+guard over-blocked a FIRST-EVER retrofit ux run with a false "would clear its approval"
+message — the guard now covers only re-runs of tracked phases (a fresh run destroys
+nothing at run-phase time); (5) the adopted case got zero ARCHITECTURE standards (the
+conventions fallback was ux-only, while the audit section explicitly captures code
+standards) — the fallback now serves feature phase 2 too. Plus: staleness warning
+symmetry for a drifted root design, BOM-tolerant audit read, stale-prefix inside the cap,
+regex-escaped section names, defensive copy from `cascadeDownstreamOf`.
+
+Honest ceiling unchanged (ADR-066 class): injection ≠ compliance — the standards now
+reach the agent loudly and the deviations are checkable at the approve gate; obedience
+stays honor-system. +20 tests (extractSections unit incl. terminator semantics,
+feature-scope injection incl. fallbacks/staleness/cap/root-unaffected/loud-absence,
+phase-2 section-anchoring + adopted-case conventions, G4 guard both directions, ladder +
+adopt-template pins). `templates/AGENTS.md` audited (new standards-inheritance bullet).
+No artifact/`.aitri` schema change (briefing content + one new audit SECTION — the audit
+is a free-form md artifact). Suite 2171 green.
+
+## [2.0.2-rc.1] — 2026-07-17 — field-feedback pack: coverage-gate diagnosis fix, checkpoint legibility, UX-preview warn, W3–W5 prompt hardening
+
+**Superseded label — absorbed into the 2.1.0 canary above (2.0.2 will never publish);
+kept for the record of what this slice contained.** Findings during validation ship as
+rc.2, rc.3…
+
+One release, four work items from field feedback on 2.0.1 plus the RSRCH-ADOPT-0711
+remainder (owner GO 2026-07-17: single version pack). Patch: every item here closes a gap
+in existing behavior (a misleading message, a silently-skipped advisory, unclear wording) —
+none adds a new command, flag, gate, or artifact field.
+
+**FB-COVERAGE-GATE-0715 — `verify-complete` no longer misdiagnoses an errored coverage gate** (field report, T-Ledger). A threshold coverage gate whose runner could not be instrumented went `error` and the blocker claimed the tool was "not found (declared but not installed)" — though it WAS installed — and labeled the gate "(undefined)". The blocker now prints each errored gate's own cause: coverage errors state "coverage not measured" + the command-mode escape hatch (`{name:"coverage", command:"...", required:true}`, exit-code gated); timeout kills surface the timeout note; only a genuine ENOENT keeps the not-installed diagnosis. Root causes documented in `templates/phases/build.md` + help: threshold mode cannot instrument an `npm run` wrapper (no runner token to match) or a `&&` chain (the flag lands on the tail command) — declare command-mode coverage for those. +2 tests.
+
+**FB-APPROVE-UX-0715 / FB-APPROVE-VERIFY-LEGIBILITY-0715 — human checkpoints get a shared grammar** (owner feedback, two projects). Every `approve` prints a `⏸ HUMAN CHECKPOINT` block with labeled sections — WHAT YOU ARE REVIEWING (artifact + summary) and WHAT APPROVING MEANS (a per-gate meaning line). The phase-4 meaning states the field confusion directly: you are approving the BUILD PHASE, not the final product — the report's test results are agent-attested; `verify-run` re-executes the suite independently and `verify-complete` is the deploy gate. The same clarification lands in the post-approve next-action context and in `status`/`resume`'s next-action reasons. +2 tests, 2 pins updated.
+
+**FB-UXPREVIEW-SKIPPED-0715 — `complete ux` warns on a silently-skipped preview** (ADR-073 Addendum 1). `UX_PREVIEW.html` stays advisory, but its absence is no longer invisible: the UX briefing declares it a deliverable with a mechanical skip contract (`Preview: not generated — <reason>` inside `01_UX_SPEC.md`), and `complete ux` warns — never blocks — when the file is absent and no recorded reason exists. Hard gate stays rejected (ADR-073 trade-off: would false-fire on no-GUI products). +3 tests.
+
+**RSRCH-ADOPT-0711 W3+W4+W5 — prompt hardening, evidence-based** (ADR-079). W3: persona ROLE strings drop the "Senior" expertise claim (function-in-pipeline + downstream audience is the payload; expertise personas measurably don't improve accuracy — EMNLP-2024-Findings-888, arXiv 2512.05858); rule codified in `lib/personas/README.md` with a negative canary on exported ROLE strings. W4: the Phase-3 briefing states next to `coverage_goal` that line coverage does not predict fault detection and points at the mutation score. W5: rendered-briefing pins for W1/W3/W4 (W2 stays owner-deferred — no pin for unshipped content). Closes the RSRCH-ADOPT-0711 executable thread.
+
+A pre-ship adversarial pass on the pack found one REAL adjacent defect, fixed in the same release: a quality gate whose spawn fails for a non-kill reason (EACCES on a non-executable script) was diagnosed as a timeout ("did not finish within…") — the same misattribution class the coverage fix closes. `runQualityGates` now distinguishes kill (signal/ETIMEDOUT/ENOBUFS → timeout note) from could-not-start (error code surfaced), and the blocker carries it through. Also folded: non-string `output` guard in the blocker, measured/threshold detail on coverage gate lines, a pin on the new phase-4 approve reason. +2 tests.
+
+`templates/AGENTS.md` audited and updated in the same commit (preview-deliverable contract, approve-4 meaning, coverage-gate command-mode rule). No artifact/`.aitri` schema change. Suite 2151 green.
+
 ## [2.0.1] — 2026-07-14 — npm-registry version bump (2.0.0 was occupied by a legacy publish)
 
 No behavior change. `npm publish` of `2.0.0` was rejected: the registry already carries a

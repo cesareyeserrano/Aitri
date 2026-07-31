@@ -10,6 +10,10 @@ root-scope floor that is wrong in feature scope).
 - **Personas carry:** the role, who consumes the output downstream, and *judgment heuristics
   a gate cannot check* ("could a developer fake this test?", "precision is a decision, not a
   suggestion", "never default to production_ready").
+- **ROLE states function-in-pipeline and downstream audience — never an expertise claim.**
+  "Senior/world-class/expert" measurably does not improve accuracy and can trade clarity for
+  jargon (EMNLP-2024-Findings-888, arXiv 2512.05858); the constraints are the payload.
+  Enforced by a negative canary on exported ROLE strings in `test/rendered-briefing.test.js`.
 - **Templates carry:** all mechanics — field names and shapes, ID formats, floors/counts,
   enumerated mappings, gate conditions. Scope-dependent numbers are render placeholders
   (`{{MIN_FR}}`), never literals.

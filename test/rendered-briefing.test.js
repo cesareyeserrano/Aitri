@@ -233,7 +233,8 @@ describe('Phase 4 plan-first protocol (C8/ADR-071)', () => {
     // The grouping axis is the US (owner-confirmed 2026-07-10) — never "cluster the FRs".
     assert.match(out, /Group the \*\*user stories\*\* into \*\*epics\*\*/, 'US is the grouping axis');
     // The fixed skeleton, field by field — renaming these run-to-run was the reported defect.
-    assert.match(out, /## Epic <N> — <feature-area name>/, 'skeleton heading missing');
+    assert.match(out, /## EP-<NN> — <feature-area name>/, "skeleton heading missing");
+    assert.match(out, /Epic ids are STABLE/, "the never-renumber id rule must render (PLAN-ARTIFACT-0715 S1)");
     assert.match(out, /Delivers:\s+US-0xx/, 'Delivers (the US — the deliverable) missing from the skeleton');
     assert.match(out, /Makes pass:\s+TC-0xx/, 'Makes pass (the epic done criterion) missing from the skeleton');
     assert.match(out, /Why here:/, 'per-epic ordering rationale missing');
@@ -303,6 +304,20 @@ describe('Implementation Approach briefing pin (RSRCH-ADOPT-0711 W1)', () => {
     assert.match(out, /not pseudo-code/i, 'the over-specification stop (spec-as-source anti-pattern)');
     assert.match(out, /self-evident from Data Model/i, 'the explicit-skip escape hatch for pure CRUD');
     assert.match(out, /All 10 required sections/, 'Human Review count updated with the new section');
+  });
+});
+
+// RSRCH-ADOPT-0711 W2 (FR-TRIGGER-RESPONSE-0711): specification ambiguity is the top
+// agentic failure mode (MAST taxonomy); EARS ("When <trigger>, the system shall
+// <response>") is the industry counter. The GWT ACs are already EARS-adjacent — this pins
+// the FR-statement rule so a template edit cannot silently drop it. Advisory phrasing
+// rule only: NO validator change (a regex-EARS gate was rejected as ceremony).
+describe('FR trigger→response description rule pin (RSRCH-ADOPT-0711 W2)', () => {
+  it('Phase 1 briefing carries the trigger→response FR description rule', () => {
+    const out = renderPhase(1);
+    assert.match(out, /FR description rule/, 'the rule heading must be present');
+    assert.match(out, /When <trigger>, the\s+system shall <response>/, 'the EARS shape');
+    assert.match(out, /names no trigger is untestable prose/, 'the tell that makes it actionable');
   });
 });
 
@@ -418,8 +433,13 @@ describe('UX phase advisory visual preview (FB-UX-MOCKUP-0708)', () => {
     // imperative step, and the Delivery Summary line where a skip reason is recorded.
     // (The generic /spec\/UX_PREVIEW\.html/ pin above is satisfied by EITHER — each
     // needs its own pin or one can silently vanish.)
-    assert.match(briefing, /Generate spec\/UX_PREVIEW\.html \(advisory output above\), or record the skip reason/,
+    // FB-UXPREVIEW-SKIPPED-0715: the step is a stated DELIVERABLE with a mechanical
+    // skip-recording contract (`Preview: not generated — <reason>` inside the spec) that
+    // `complete ux` reads to warn on a silent skip.
+    assert.match(briefing, /Generate spec\/UX_PREVIEW\.html \(advisory output above\)\. This is a DELIVERABLE/,
       'the Instructions step for the preview is missing');
+    assert.match(briefing, /Preview: not generated — <reason>` inside 01_UX_SPEC\.md/,
+      'the in-spec skip-recording contract (what complete ux greps) is missing');
     assert.match(briefing, /Preview:\s+\[UX_PREVIEW\.html — open it in a browser to SEE the design \| not generated — reason\]/,
       'the Delivery Summary Preview line (the skip-recording surface) is missing');
   });
@@ -437,5 +457,75 @@ describe('UX phase advisory visual preview (FB-UX-MOCKUP-0708)', () => {
     assert.match(src, /never extends the spec/i, 'the persona must carry the renders-not-extends norm');
     assert.ok(!src.includes('contrast-ratio badges'), 'content mechanics must NOT live in the persona (C3)');
     assert.ok(!src.includes('side by side'), 'layout mechanics must NOT live in the persona (C3)');
+  });
+});
+
+// RSRCH-ADOPT-0711 W3 (persona-role evidence): ROLE states function-in-pipeline and
+// downstream audience — never an expertise claim. Expert personas measurably do not
+// improve accuracy and can degrade clarity (EMNLP-2024-Findings-888, arXiv 2512.05858).
+// The pin's contract is the exported ROLE string ONLY — CONSTRAINTS/REASONING may
+// legitimately mention seniority in other senses (they don't today, but the rule is
+// scoped to ROLE, per lib/personas/README.md).
+describe('persona ROLE carries no expertise claim (RSRCH-ADOPT-0711 W3)', () => {
+  it('no persona ROLE matches senior/world-class/expert', async () => {
+    const personaDir = path.join(ROOT, 'lib', 'personas');
+    const files = fs.readdirSync(personaDir).filter(f => f.endsWith('.js'));
+    assert.ok(files.length >= 12, `persona modules found: ${files.length}`);
+    for (const f of files) {
+      const mod = await import(path.join(personaDir, f));
+      if (typeof mod.ROLE !== 'string') continue;
+      assert.doesNotMatch(mod.ROLE, /\b(senior|world-class|expert)\b/i,
+        `${f} ROLE must state function-in-pipeline, not an expertise claim`);
+    }
+  });
+});
+
+// RSRCH-ADOPT-0711 W4 (coverage signal): line coverage does not predict fault detection
+// (Just ASE 2020; ICSE 2021 — 70% of high-priority bugs sat in covered code). The Phase 3
+// briefing states it next to coverage_goal so the target is authored with the caveat.
+describe('coverage-signal sentence in Phase 3 briefing (RSRCH-ADOPT-0711 W4)', () => {
+  it('Phase 3 briefing carries the line-coverage caveat and the mutation-score pointer', () => {
+    const out = renderPhase(3);
+    assert.match(out, /line coverage does not predict fault detection/i, 'the caveat sentence');
+    assert.match(out, /mutation score is the honest signal/i, 'the mutation pointer');
+    assert.match(out, /coverage_goal/, 'anchored next to the coverage_goal schema literal');
+  });
+});
+
+// GOVERNANCE-0717 G1: the authority ladder now includes the parent product standard
+// (between feature visual FRs and the archetype), amended in BOTH carriers (persona +
+// template) in the same change — a block outside the ladder would reproduce ADR-065's
+// inversion in mirror image (kill-review condition).
+describe('parent-standards authority ladder (GOVERNANCE-0717 G1)', () => {
+  it('the ux briefing ladder places the parent standard after visual FRs, before the archetype', () => {
+    const out = renderPhase('ux');
+    // Template leg (Design Tokens derivation order)
+    assert.match(out, /\(1\) explicit visual FRs, \(2\) the \*\*parent product standard\*\*/,
+      'template ladder must slot the parent standard at (2)');
+    assert.match(out, /\(3\) archetype defaults, \(4\) product context/,
+      'archetype and inferred context must be demoted below the parent standard');
+    // Persona leg (same ladder, same order)
+    assert.match(out, /\(2\) the PARENT PRODUCT STANDARD when the briefing carries one/,
+      'persona ladder must carry the same slot');
+    assert.match(out, /outranks anything/i, 'the standard-outranks-invention rationale is present');
+  });
+
+  it('the approve-ux checklist carries the deviation-justification line', () => {
+    const cl = extractHumanReview('phases/phaseUX');
+    assert.match(cl, /deviation from the parent product standard/i);
+    assert.match(cl, /reused, not re-invented/i);
+  });
+});
+
+// GOVERNANCE-0717 G2: the adoption audit captures conventions-to-follow, explicitly
+// excluding Priority-Action defects (a neutral record would instruct features to match
+// anti-patterns the same audit says to fix — kill-review finding).
+describe('adopt scan captures Conventions Observed (GOVERNANCE-0717 G2)', () => {
+  it('the scan template specs the section with the defect-exclusion rule', () => {
+    const scan = fs.readFileSync(path.join(ROOT, 'templates', 'adopt', 'scan.md'), 'utf8');
+    assert.match(scan, /#### Conventions Observed/, 'section is a #### heading (the fallback extraction anchor)');
+    assert.match(scan, /EXCLUDE anything flagged in Priority Actions/, 'the defect-exclusion rule');
+    assert.match(scan, /standards to follow, NOT defects to copy/i);
+    assert.match(scan, /feature sub-pipeline/i, 'the section states its downstream consumer');
   });
 });

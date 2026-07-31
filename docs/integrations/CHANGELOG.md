@@ -18,6 +18,73 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.1.0-rc.9 — 2026-07-22 — release identity becomes honest: optional `05_TRACEABILITY.json#version_source`, `status --json` gains `release`, approve-5 event carries the sealed version (RELEASE-VERSION-0722, ADR-083) — additive
+
+`05_TRACEABILITY.json#version` was required since the artifact existed but write-only
+(no provenance instruction, no consumer — agents filled "1.0.0" forever). Now:
+
+- New optional field `version_source`: `"manifest" | "team" | "assumed"` — vocabulary
+  validated when present; absent = pre-rc.9 artifact, still valid (additive).
+- `status --json` gains additive top-level `release: {version, version_source} | null`
+  (see STATUS_JSON.md). `status` text shows a release row; `approve 5` displays the
+  sealed version and warns loudly on `"assumed"`.
+- New `.aitri` shared field `releaseHistory: [{version, version_source, at}]` — appended
+  at each `approve 5`, capped at 50. The DURABLE cross-cycle record of which version
+  sealed from which verified state (first-class for the same reason as `lastVerifyRun`:
+  the 20-entry event log evicts a cycle's events). The phase-5 `approved` event also
+  carries `{version, version_source}` (additive payload keys), but readers wanting
+  history must use `releaseHistory`. `status --json#release` is present only while
+  phase 5 is APPROVED (a cascade reset un-seals → null).
+- Aitri still does NOT version products: the deploy template instructs the agent to
+  read the product's own manifest / ask the team; Aitri records the declared identity.
+
+## v2.1.0-rc.8 — 2026-07-22 — killed e2e dispatch persists finished unit results; new optional `04_TEST_RESULTS.json#e2e_run` (FB-E2E-KILL-0722, ADR-068 Addendum) — additive
+
+- New optional field `e2e_run: { runner, status: "killed", reason }` in `04_TEST_RESULTS.json`,
+  present only when the Playwright auto-run dispatch was killed (timeout/signal/buffer).
+  Old readers ignore it. When present, `e2e_exit_code`/`e2e_runner` are absent.
+- Behavior: a killed e2e dispatch no longer aborts verify-run — the finished unit-runner
+  results are written (e2e TCs record `skip`; none of the partial e2e output is parsed)
+  and a stale `verifyPassed` is reset. The MAIN runner's kill behavior is unchanged
+  (still refuses without writing, ADR-068). Readers that assumed "results file written ⇒
+  every declared runner finished" should key on `e2e_run` for the killed-dispatch case.
+
+## v2.1.0-rc.7 — 2026-07-22 — security decision gated at Phase 1; Security Design body gated at Phase 2; reserved technical_debt id `SEC-GATE` (SEC-THREADING-0722, ADR-082) — additive
+
+No field added/removed/retyped. Three contract clarifications with new enforcement:
+
+- `01_REQUIREMENTS.json` now REQUIRES ≥1 `category:/security/i` NFR (root pipelines;
+  feature sub-pipelines only when a security-typed FR exists). The **exclusion idiom**
+  (`requirement` opening with `"Not applicable:"` / `"N/A"` / `"Does not apply."` /
+  `"No aplica:"`, terminator-bound) is now documented contract for distinguishing
+  "security promised" vs "security excluded" — readers that surfaced security NFRs
+  should adopt the shared classification (SSoT `lib/requirements.js`). Existing valid
+  artifacts remain valid to READ; the new rule bites only on `complete 1` re-runs.
+- `02_SYSTEM_DESIGN.md`: `## Security Design` must be non-empty when active security
+  NFRs exist (fence-aware; fail-open). Read shape unchanged.
+- `04_BUILD_REPORT.json#technical_debt`: reserved `fr_id` value `"SEC-GATE"` records a
+  deliberate security-gate omission. Readers joining `fr_id` against requirement ids
+  must treat it as a project-level record, not a broken reference (defensive rule: any
+  non-`FR-`/`NFR-` prefixed `fr_id`). `verify-run` gains one advisory stderr nudge
+  (security-gap) — stderr is not a parsed surface; no reader change required.
+
+## v2.1.0-rc.3 — 2026-07-18 — ARTIFACTS.md `line_coverage` guidance correction, no shape change (FB-COVERAGE-GATE-0715) — additive
+
+Description-only correction in ARTIFACTS.md: the node built-in runner's coverage flag is
+`--experimental-test-coverage` — bare `--coverage` is not a Node CLI option on any version
+(it aborted the run). No field added/removed/retyped; consumers parse nothing differently.
+
+## v2.1.0-rc.2 — 2026-07-17 — `status --json` gains advisory `buildPlan` epic progress (PLAN-ARTIFACT-0715) — additive
+
+New optional top-level field `buildPlan` in `status --json` (see STATUS_JSON.md): epic
+ids/statuses + a one-line summary, read TOLERANTLY from the root `BUILD_PLAN.md` while
+Phase 4 is in flight; `null` otherwise. Display-only — the plan stays in the
+working-files class ("do NOT treat it as a contract"); consumers may render progress,
+never gate on it. The Phase-4 briefing skeleton now mandates stable `EP-NN` epic ids
+(assigned once, never renumbered; per plan generation). Old readers unaffected.
+The BUILD_PLAN.json-as-contract alternative was evaluated and REJECTED (panel,
+`docs/DECISIONS.md` ADR-081) — the plan will not become a schema'd artifact.
+
 ## v2.0.0 — 2026-07-13 — Stable promotion of rc.174; no contract change — additive
 
 The v2 line is promoted to stable (ADR-078). No schema, artifact, event, or command

@@ -25,6 +25,18 @@
 ```json
 {{REQUIREMENTS_JSON}}
 ```
+{{#IF_PARENT_UX_STANDARDS}}
+## Parent product standards — the design system this feature builds WITHIN
+The sections below (as present) are the ROOT project's approved standards — Design Tokens and/or Component Inventory, as approved at root scope. Components added by later features are NOT listed here: before inventing ANY component, check the existing codebase for one that already does the job. REUSE inventory components as-is — a component this product already standardizes (a card, a table row, a panel) is implemented the standard way, not re-designed. A deviation from the parent standard requires a written justification line in this spec — an unjustified deviation is a defect the human rejects at the approve gate.
+
+{{PARENT_UX_STANDARDS}}
+{{/IF_PARENT_UX_STANDARDS}}
+{{#IF_PARENT_CONVENTIONS}}
+## Parent product conventions — the standards this feature must match (from the adoption audit)
+The root project has no approved UX spec; the conventions below were observed in the EXISTING code at adoption and are the product's de-facto standard. Match them; check the codebase for an existing component before inventing one. A deviation requires a written justification line in this spec.
+
+{{PARENT_CONVENTIONS}}
+{{/IF_PARENT_CONVENTIONS}}
 {{CONTEXT_ASSETS}}
 ## Constraint check — confirm BEFORE designing the UX
 If `01_REQUIREMENTS.json` (`constraints` / `technology_preferences`) already states these, **USE them — do NOT re-ask**. For any that are **missing or vague**, confirm with the user **before** designing, and mark anything assumed:
@@ -37,12 +49,12 @@ Required sections (in order):
 1. ## User Flows — per screen, per user persona. For each flow: entry point, steps, exit point, error path
 2. ## Component Inventory — table per screen: component | states (default/loading/error/empty/disabled) | behavior | Nielsen heuristics applied. When a design was provided, this inventory must include EVERY component the mockups/prototype show — do not omit ones the archetype wouldn't have thought of (icons, add-rows, side panels, etc.).
 3. ## Nielsen Compliance — per screen: list each relevant heuristic, how the design satisfies it, and any trade-off made
-4. ## Design Tokens — **always required**. Every product has a visual layer the developer will implement. Define: color roles (background, surface, primary, accent, error, text-primary, text-secondary, border), type scale (font family rationale, size scale, weights), spacing scale. Derive tokens IN PRIORITY ORDER from: (0) the **client-provided design** if present (mockups/prototype/design spec) — read its actual colors, type, spacing and transcribe them (top authority), (1) explicit visual FRs, (2) archetype defaults, (3) product context from `01_REQUIREMENTS.json` otherwise. Every token must state its reason; a token that contradicts a provided design is wrong.
+4. ## Design Tokens — **always required**. Every product has a visual layer the developer will implement. Define: color roles (background, surface, primary, accent, error, text-primary, text-secondary, border), type scale (font family rationale, size scale, weights), spacing scale. Derive tokens IN PRIORITY ORDER from: (0) the **client-provided design** if present (mockups/prototype/design spec) — read its actual colors, type, spacing and transcribe them (top authority), (1) explicit visual FRs, (2) the **parent product standard** when this briefing carries one (a feature sub-pipeline: the root Design Tokens / Component Inventory or the adoption-audit conventions above) — the product's established design system outranks anything Aitri would invent, (3) archetype defaults, (4) product context from `01_REQUIREMENTS.json` otherwise. Every token must state its reason; a token that contradicts a provided design is wrong, and a token that contradicts the parent standard without a written justification is a defect.
 
 ## Advisory output: `{{ARTIFACTS_BASE}}/UX_PREVIEW.html` — the spec, visible
 > A reviewer cannot evaluate `#0F172A` as a color or judge a type scale from numbers. Alongside the spec, generate ONE self-contained `UX_PREVIEW.html` — a **visual manual of the spec** the human opens in a browser at the approve gate. Advisory: `complete ux` does not check it and nothing downstream reads it.
 
-**Generate it ONLY if the product renders in a browser or a GUI toolkit.** For a product with no graphical surface (CLI/TUI, library, service/API) SKIP it and state the reason in the Delivery Summary — an HTML preview of a terminal or an API misrepresents the medium. This is the only skip.
+**Generate it ONLY if the product renders in a browser or a GUI toolkit.** For a product with no graphical surface (CLI/TUI, library, service/API) SKIP it — an HTML preview of a terminal or an API misrepresents the medium. This is the only skip. A skip is recorded in TWO places: the Delivery Summary's `Preview:` line, and a line `Preview: not generated — <reason>` inside 01_UX_SPEC.md itself (so `complete ux` can tell a deliberate skip from a forgotten deliverable — it warns when the file is absent and no recorded reason exists).
 
 **Hard rule — the preview RENDERS the spec, it never extends it:** every value shown must have a source row in the spec's Design Tokens. The developer implements the spec, never this file. HTML here is only the rendering medium for design approval — it does not imply the product is a web app.
 
@@ -75,7 +87,11 @@ Role by case:
 ## Instructions
 1. Generate complete 01_UX_SPEC.md
 2. Save to: {{ARTIFACTS_BASE}}/01_UX_SPEC.md
-3. Generate {{ARTIFACTS_BASE}}/UX_PREVIEW.html (advisory output above), or record the skip reason
+3. Generate {{ARTIFACTS_BASE}}/UX_PREVIEW.html (advisory output above). This is a DELIVERABLE of the
+   phase, not an optional extra — the human approves look & feel from it. The ONLY valid skip is a
+   product with no graphical surface; record a skip in the Delivery Summary's `Preview:` line AND as
+   `Preview: not generated — <reason>` inside 01_UX_SPEC.md. `complete ux` warns when the file is
+   absent and no recorded reason exists.
 4. Present the Delivery Summary below to the user
 5. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} ux
 
@@ -114,3 +130,4 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} ux   →   aitri {{SCOPE_VERB}}a
   [ ] The declared viewport/medium targets match the product's real surface (responsive web vs fixed medium)
   [ ] UX_PREVIEW.html was opened and matches the spec's Design Tokens table — or was skipped with a valid reason (no graphical surface). On a provided-design project, it was compared against the client's own mockups (transcription read-back)
   [ ] View-source of UX_PREVIEW.html shows no external URLs — fully self-contained, zero network requests (n/a if the preview was skipped)
+  [ ] On a feature sub-pipeline: every deviation from the parent product standard (root Design Tokens / Component Inventory, or the adoption-audit conventions) carries a written justification in the spec — components the product already standardizes are reused, not re-invented (n/a at root scope)

@@ -46,6 +46,18 @@ An architecture that omits a data field or endpoint the UX requires is a design 
 
 {{UX_SPEC}}
 {{/IF_UX_SPEC}}
+{{#IF_PARENT_ARCHITECTURE}}
+## Parent architecture — conform or justify
+This feature extends an EXISTING system. The root project's approved architecture sections below (as present) are the standard: where this feature touches an area they cover, follow their module structure, patterns, naming, and conventions — an increment couples into the product's architecture, it does not found a parallel one. A deviation (a new pattern, a different structure) requires an explicit justification in this design document; an unjustified deviation is a defect the human rejects at the approve gate.
+
+{{PARENT_ARCHITECTURE}}
+{{/IF_PARENT_ARCHITECTURE}}
+{{#IF_PARENT_CONVENTIONS}}
+## Parent product conventions — the standards this feature must match (from the adoption audit)
+The root project has no approved system design; the conventions below were observed in the EXISTING code at adoption and are the product's de-facto standard — module structure, naming, recurring patterns. Conform to them where this feature touches them; check the codebase for the established pattern before inventing one. A deviation requires an explicit justification in this design document.
+
+{{PARENT_CONVENTIONS}}
+{{/IF_PARENT_CONVENTIONS}}
 {{CONTEXT_ASSETS}}
 ## Output: `{{ARTIFACTS_BASE}}/02_SYSTEM_DESIGN.md`
 Required sections — use these EXACT names as `##` level-2 headers (aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 2 validates by exact match):
@@ -54,7 +66,7 @@ Required sections — use these EXACT names as `##` level-2 headers (aitri {{SCO
 3. `## Data Model` — schema with field constraints; for frontend-only apps: localStorage/file structure. For a change to an existing system: the **preservation contract** — the existing schema/data that must NOT change — plus only the delta this work introduces.
 4. `## API Design` — for backend apps: all endpoints (method, path, auth, request/response, errors); for frontend-only apps: internal module/package API (exported function and class signatures in the language's idiomatic style). For a change to an existing system: document the **contract being preserved** (the public surface that must stay compatible) and only the endpoints/signatures that change.
 5. `## Implementation Approach` — per-MUST-FR realization: method, I/O contract, failure behavior (see instructions below)
-6. `## Security Design` — auth, input validation, security headers, XSS/injection mitigations
+6. `## Security Design` — auth, input validation, security headers, XSS/injection mitigations. When 01_REQUIREMENTS.json declares active security NFRs, map EACH one to its design mitigation (`NFR-00X → <control>`), and name the trust boundaries (where untrusted input enters, where privileges change) — this mapping is what Phase 3 turns into attack vectors and what `audit security` later verifies against reality. If Phase 1 excluded security ("Not applicable: …"), restate that rationale here in one line. This section must not be empty when active security NFRs exist (`complete 2` enforces it).
 7. `## Performance & Scalability` — caching, query optimization, size bounds
 8. `## Deployment Architecture` — **state the deployment model explicitly** (containerized / binary or native / package or library / serverless / static host); environments; CI/CD. Phase 5 reads this to decide what to package — do NOT default to containers unless the stack and FRs call for them.
 9. `## Risk Analysis` — top 3-5 risks + mitigation; ADRs belong here
@@ -197,6 +209,7 @@ Before you report this design complete, if your environment supports independent
   [ ] Technical Risk Flags: read each [RISK] flag — do you accept the mitigation proposed? If severity is critical or high, have a plan before proceeding
   [ ] Tech stack is compatible with constraints and technology_preferences from requirements
   [ ] Every significant decision has an ADR with ≥2 options evaluated
+  [ ] Security Design: every active security NFR maps to a named mitigation (no NFR left without a control) and trust boundaries are stated — or the Phase-1 exclusion rationale is restated
   [ ] Data model covers all persistence FRs
   [ ] API design covers all integration and logic FRs
   [ ] no_go_zone items from Phase 1 are NOT introduced in the architecture

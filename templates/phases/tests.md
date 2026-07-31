@@ -41,6 +41,7 @@ The interface, data model, and integration seams below are the approved contract
 
 ## Output: `{{ARTIFACTS_BASE}}/03_TEST_CASES.json`
 Schema:
+> Note on `coverage_goal`: line coverage does not predict fault detection — a suite can execute every line and assert nothing. If your stack has a mutation tool, the mutation score is the honest signal: declare it as a quality_gate in Phase 4 (see the verify-time nudge).
 { test_plan: { strategy, coverage_goal: "<the project's own target, e.g. 80% — your call, nothing keys off this value>", test_types: ["unit","integration","e2e"] },
   test_cases: [{
     id: "TC-001h",

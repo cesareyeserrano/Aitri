@@ -116,6 +116,11 @@ Schema: { project_name, project_summary,
   idea_gaps: ["<field>: why it was assumed and what to confirm with the owner"],
   coverage_map: [{need:"<a distinct need from the seed>", disposition:"FR-001 | NFR-001 | out_of_scope"}] }
 
+**FR description rule:** behavioral FRs state trigger → response — "When <trigger>, the
+system shall <response>". A description that names no trigger is untestable prose. State
+WHAT here (trigger + response); the observable failure behavior belongs in the
+acceptance_criteria (see the Three-Amigos shaping rule below), and HOW belongs to Phase 2.
+
 ## Seed-Input Provenance Contract (D2 — enforced on a fresh Phase 1)
 
 `idea_provenance` is **required on a fresh seed** (the first Phase 1, before approval).
@@ -186,7 +191,10 @@ Fold these into project_summary (they inform the FRs; no consumer reads a separa
     **CI/CD** — applies to: any project with a test suite
       NFR minimum: pipeline runs the full declared test suite — including any e2e runner the project uses — on every push to the main branch
     **Security** — applies to: any project that handles user input, authentication/authorization, secrets or credentials, personal/sensitive data, or network-exposed endpoints.
-      Decide explicitly — does security apply? If YES, add ≥1 security NFR covering the relevant surface (authn/authz, input validation, secret handling, transport/data protection). If NO, state why in one line (e.g. "offline single-user tool — no network, no secrets, no PII"). Do NOT leave security unaddressed by omission.
+      Decide explicitly — does security apply? The decision is MECHANICALLY GATED: `complete 1` rejects a requirements set with no `category: "Security"` NFR (in a feature increment, only when the feature declares a security-typed FR). Record exactly ONE of:
+        applies      → ≥1 security NFR covering the relevant surface (authn/authz, input validation, secret handling, transport/data protection), with verifiable acceptance_criteria.
+        does not     → ONE security NFR whose `requirement` field OPENS with the exclusion idiom — `"Not applicable: <reason>"` (or "N/A: …" / "No aplica: …"), e.g. {"id":"NFR-00X","category":"Security","requirement":"Not applicable: offline single-user tool — no network, no secrets, no PII"}. The phrase must open the field and be followed by ":", ".", ";", a space-separated dash ("Not applicable — reason"), or nothing at all. A comma or an unspaced hyphen does NOT terminate — "Not applicable, except the login form…" and "NA-region access control must…" count as ACTIVE promises, not exclusions.
+      An active security NFR commits downstream: Phase 2 requires a non-empty `## Security Design`, and verify nudges when no security quality_gate re-checks the promise. Security left unaddressed by omission is indistinguishable from security forgotten.
       NFR minimum (API / endpoints with path or input parameters that read filesystem, DB, or execute commands): accepted values are restricted to a whitelist of allowed directories or resources — blocking `..` alone is insufficient
     **Healthcheck** — applies to: any project with Docker or server deployment
       NFR minimum: GET /health returns 200 when the process is alive

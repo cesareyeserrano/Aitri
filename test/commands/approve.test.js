@@ -79,9 +79,40 @@ describe('cmdApprove() — B1/B2 human-review gate (rc.12)', () => {
     try {
       seedPhase1(dir);
       const out = captureStdout(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
-      assert.match(out, /You are about to approve/, 'summary must print in agent mode (was silent on !isTTY)');
+      assert.match(out, /HUMAN CHECKPOINT — approve requirements/, 'summary must print in agent mode (was silent on !isTTY)');
       assert.match(out, /Human Review/, 'real Human Review checklist must be extracted from the template');
       assert.match(out, /HUMAN REVIEW CHECKPOINT/, 'agent-relay checkpoint directive must print');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  // FB-APPROVE-UX-0715 + FB-APPROVE-VERIFY-LEGIBILITY-0715: the checkpoint block uses a
+  // shared grammar (WHAT YOU ARE REVIEWING / WHAT APPROVING MEANS) so the human — often via
+  // a relaying agent — sees what the gate covers and what it does NOT. Pins are on sections
+  // and load-bearing wording, not byte-exact layout.
+  it('checkpoint grammar — labeled sections print on every approve', () => {
+    const dir = tmpDir();
+    try {
+      seedPhase1(dir);
+      const out = captureStdout(() => cmdApprove({ dir, args: ['requirements'], err: noopErr }));
+      assert.match(out, /WHAT YOU ARE REVIEWING/, 'reviewing section header');
+      assert.match(out, /Artifact: 01_REQUIREMENTS\.json/);
+      assert.match(out, /WHAT APPROVING MEANS/, 'meaning section header');
+      assert.match(out, /sealed as the input for every later phase/, 'phase-1 meaning line');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('approve 4 states it is build-phase review, not final sign-off — and that Aitri re-verifies', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/04_BUILD_REPORT.json', JSON.stringify({
+        files_created: [{ path: 'a.js' }], test_runner: 'node t.js',
+      }));
+      writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1, 2, 3, 4], approvedPhases: [1, 2, 3] }));
+      const out = captureStdout(() => cmdApprove({ dir, args: ['build'], err: noopErr }));
+      assert.match(out, /approving the BUILD PHASE, not the final product/, 'the approve-4 meaning');
+      assert.match(out, /agent-attested/, 'names why Aitri re-runs the suite');
+      assert.match(out, /verify-run/, 'points at the independent verify');
+      assert.match(out, /Build approved ≠ verified/, 'post-approval context carries the same clarification');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

@@ -541,3 +541,78 @@ describe('cmdComplete() — upstream ordering gate (§3.1)', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// FB-UXPREVIEW-SKIPPED-0715 (ADR-073 addendum): UX_PREVIEW.html is advisory and the field
+// showed agents skip it silently. `complete ux` warns — never blocks — when the preview is
+// absent and 01_UX_SPEC.md records no skip reason (`Preview: not generated — <reason>`).
+describe('cmdComplete() — ux preview-absence warning (FB-UXPREVIEW-SKIPPED-0715)', () => {
+  const VALID_UX_SPEC = `# UX / Design Spec
+
+## User Flows
+
+### Screen: Login
+- Entry: user opens app
+- Steps: enter email, enter password, tap Login
+- Exit: redirected to Dashboard
+- Error path: invalid credentials shows an inline error message with a retry option
+
+## Component Inventory
+
+| Component | Default | Loading | Error | Empty | Disabled |
+|-----------|---------|---------|-------|-------|----------|
+| LoginButton | Active label | Spinner | N/A | N/A | Opacity 0.5, no click |
+
+## Nielsen Compliance
+
+### Login Screen
+- H1 Visibility: submit button shows a loading spinner during authentication
+- H9 Error recovery: the error message states what went wrong and how to fix it
+
+## Design Tokens
+
+Archetype: ENTERPRISE/INTERNAL
+- background: #FFFFFF (reason: light-only per archetype)
+- surface: #F5F6F8 (reason: subtle elevation)
+- primary: #2456A6 (reason: neutral trustworthy blue)
+- error: #C0392B (reason: semantic red, contrast >= 4.5:1)
+- text-primary: #17202A
+- font-family: system sans-serif — reason: internal tool, zero font-loading cost
+- sizes: 12 / 14 / 16 / 20 / 24px
+`;
+
+  function seedUx(dir, specContent) {
+    writeFile(dir, '.aitri', minimalConfig({ completedPhases: [1] }));
+    writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+    writeFile(dir, 'spec/01_UX_SPEC.md', specContent);
+  }
+
+  it('warns when UX_PREVIEW.html is absent and no skip reason is recorded — and does not block', () => {
+    const dir = tmpDir();
+    try {
+      seedUx(dir, VALID_UX_SPEC);
+      const out = captureStdout(() => cmdComplete({ dir, args: ['ux'], err: noopErr }));
+      assert.match(out, /UX_PREVIEW\.html was not generated and 01_UX_SPEC\.md records no skip reason/);
+      assert.match(out, /Not blocking/);
+      assert.match(out, /✅ Phase ux/, 'the complete itself must still succeed');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('stays silent when the preview file exists', () => {
+    const dir = tmpDir();
+    try {
+      seedUx(dir, VALID_UX_SPEC);
+      writeFile(dir, 'spec/UX_PREVIEW.html', '<title>preview</title>');
+      const out = captureStdout(() => cmdComplete({ dir, args: ['ux'], err: noopErr }));
+      assert.doesNotMatch(out, /records no skip reason/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('stays silent when the spec records a skip reason', () => {
+    const dir = tmpDir();
+    try {
+      seedUx(dir, VALID_UX_SPEC + '\nPreview: not generated — CLI product, no graphical surface.\n');
+      const out = captureStdout(() => cmdComplete({ dir, args: ['ux'], err: noopErr }));
+      assert.doesNotMatch(out, /records no skip reason/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});

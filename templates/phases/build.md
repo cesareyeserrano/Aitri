@@ -89,13 +89,14 @@ Phase 4 is the longest phase, and "build everything, then show a finished whole"
 1. **Before writing any code, write `{{ARTIFACTS_BASE}}/BUILD_PLAN.md`** — a WORKING file, not a pipeline artifact (nothing validates it; it exists for you and the human). **If BUILD_PLAN.md already exists (a feedback iteration or a resumed session), UPDATE it — do not rewrite it from scratch or reset done epics to pending; adjust only what the feedback/new context changes.**
    Group the **user stories** into **epics** — each epic is one coherent, shippable slice of the product (a feature area), defined by the US it delivers. The FRs and TCs on an epic are DERIVED references (each US's `requirement_id` → its FRs → their TCs), listed by id only — the plan never restates their content (the artifacts hold it). **Cover the whole TC set:** a TC unreachable through any US — a US-less FR's TC, an NFR's TC — still needs a home: assign it to the epic it naturally belongs with (or the final epic). The plan is complete when every TC id in `03_TEST_CASES.json` appears in exactly one epic's `Makes pass`; a TC in no epic is a TC nobody schedules until the end. NFRs are never a grouping axis (they hang off no US), but their TCs are scheduled like any other. Use THIS exact skeleton for every epic, in this order, with these field names — do not rename them run to run:
 
-     ## Epic <N> — <feature-area name>   [status: pending | in-progress | done]
+     ## EP-<NN> — <feature-area name>   [status: pending | in-progress | done]
        Delivers:    US-0xx, US-0yy          (the user stories this epic ships — the deliverable)
        FRs:         FR-0xx, FR-0yy          (derived from each US's requirement_id)
        Makes pass:  TC-0xx, TC-0yy          (those FRs' test cases — the epic's done criterion)
        Build steps: skeleton → persistence/integrations → hardening
        Why here:    <one line — what this epic unblocks / why it is ordered here>
 
+   - **Epic ids are STABLE: `EP-01`, `EP-02`, … assigned once, in dependency order, and NEVER renumbered** — reordering or inserting an epic later keeps every existing id (append `EP-<next>` instead). The id is how the human, the checkpoints, and `aitri status` name the partial delivery; a renumbered id silently breaks that thread. Ids are per plan generation: a FRESH plan after an upstream re-open starts a new plan (state that in the plan header) — never reuse an old id for different content.
    - Order the epics by dependency (what unblocks what); the one-line "Why here" states the rationale.
    - **The epic count comes from the product, not from the protocol.** A small increment (a feature pipeline, a handful of US) is ONE epic — its plan is a six-line note and there are no intermediate boundaries. Do not manufacture granularity to look thorough.
 2. **Present the plan to the user in conversation before implementing** — a short summary: the epics, the order, the US each delivers, why (on a feedback iteration, present only what changed and which epics it re-opens). This is an advisory checkpoint (no Aitri gate); incorporate their corrections into BUILD_PLAN.md before starting.
@@ -208,7 +209,14 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
     real command, Aitri judges it by exit code.
     Coverage gate: declare {name:"coverage", threshold:80} (a numeric threshold instead of a command).
       verify-run measures line coverage (stack-aware: node/go/pytest/jest/vitest — the coverage tool
-      must be in the project's deps) and the gate passes when measured ≥ threshold. required defaults true.
+      must be in the project's deps; node's built-in runner needs none, its flag ships with Node) and
+      the gate passes when measured ≥ threshold. required defaults true.
+      Threshold mode only works when test_runner IS the runner invocation itself. If test_runner is an
+      npm-script wrapper ("npm run test:full" — Aitri cannot see inside the script) or chains runners
+      ("vitest run && playwright test" — the coverage flag would land on the wrong command), Aitri cannot
+      instrument it: declare the coverage gate in COMMAND mode instead — {name:"coverage",
+      command:"<your coverage command>", required:true} — configure the tool's own threshold so it exits
+      non-zero below it, and Aitri gates by exit code like any other gate.
     Mutation gate (fake-pass protection): a passing test can still be FAKE — mocks or weak assertions
       let code "pass" without exercising real behavior, so a suite can be green while the feature is
       dead. A mutation tool breaks your real code on purpose and re-runs the tests; a surviving mutant
@@ -224,11 +232,15 @@ In 04_BUILD_REPORT.json, you MUST declare every simplification made vs. the MUST
       is not killed and mis-reported as a failure.
     If the project genuinely has no quality tooling, omit quality_gates — but prefer wiring at least a
     linter, because Aitri's promise is well-built code, not only passing tests.
-    Security gate: if 01_REQUIREMENTS.json declares security NFRs, a security gate is EXPECTED — wire
-    the scanner your stack supports or, when none exists for the stack, a project script of exit-code
-    checks (secrets grep, exposed-docs probe, headers check). Omitting it on a
-    project with declared security NFRs requires a one-line reason in technical_debt — security
-    promises without a mechanical re-check are honor-system only.
+    Security gate: if 01_REQUIREMENTS.json declares active security NFRs, a security gate is EXPECTED —
+    wire the scanner your stack supports or, when none exists for the stack, a project script of
+    exit-code checks (secrets grep, exposed-docs probe, headers check). Omitting it on a project with
+    declared security NFRs requires recording the decision in technical_debt using the reserved id:
+    { "fr_id": "SEC-GATE", "substitution": "no security quality_gate declared", "reason":
+    "<full sentence — e.g. security scanning runs as CodeQL in CI, outside Aitri's gates>",
+    "effort_to_fix": "low" } — write the reason as a real sentence (a bare "n/a" is rejected as
+    generic). verify-run nudges when active security NFRs exist and neither a security gate nor this
+    record is present — security promises without a mechanical re-check are honor-system only.
     Smoke gate (the app actually runs): tests passing green proves the units behave — it does NOT
     prove the assembled product boots and serves. A suite can be fully green while the running app
     returns an error on every entry point on first launch (a bad config, a broken bootstrap, an

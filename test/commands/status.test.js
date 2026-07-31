@@ -694,3 +694,184 @@ describe('cmdStatus --json — rc.161 shape guards (adversarial findings)', () =
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });
+
+// PLAN-ARTIFACT-0715 S3: advisory epic progress from BUILD_PLAN.md while Phase 4 is in
+// flight — additive `buildPlan` field in --json, epic line in the text grid. Display-only.
+describe('cmdStatus — build-plan epic progress (PLAN-ARTIFACT-0715 S3)', () => {
+  const PLAN = '## EP-01 — Core [status: done]\n  Makes pass: TC-001\n\n## EP-02 — Reports [status: in-progress]\n  Makes pass: TC-002\n';
+
+  // MID-BUILD is the load-bearing state: phases 1–3 approved, NO 04_BUILD_REPORT.json yet
+  // (the manifest is written at the END of the build). The original in-flight condition
+  // keyed on the manifest's existence and was null for this entire window — the
+  // adversarial BLOCKER this seed exists to pin.
+  function seedInFlightBuild(dir, { plan = PLAN, approved4 = false } = {}) {
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '2.1.0' });
+    const cfg = loadConfig(dir);
+    cfg.completedPhases = approved4 ? [1, 2, 3, 4] : [1, 2, 3];
+    cfg.approvedPhases  = approved4 ? [1, 2, 3, 4] : [1, 2, 3];
+    saveConfig(dir, cfg);
+    const artDir = loadConfig(dir).artifactsDir || 'spec';
+    if (plan !== null) fs.writeFileSync(path.join(dir, artDir, 'BUILD_PLAN.md'), plan);
+  }
+
+  it('--json carries buildPlan MID-BUILD (3 approved, no build report on disk yet)', () => {
+    const dir = tmpDir();
+    try {
+      seedInFlightBuild(dir);
+      const artDir = loadConfig(dir).artifactsDir || 'spec';
+      assert.ok(!fs.existsSync(path.join(dir, artDir, '04_BUILD_REPORT.json')),
+        'precondition: mid-build means NO manifest yet');
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.1.0', args: ['--json'] }));
+      assert.ok(result.buildPlan, 'buildPlan must be present during the actual build window');
+      assert.equal(result.buildPlan.epics.length, 2);
+      assert.equal(result.buildPlan.epics[0].id, 'EP-01');
+      assert.match(result.buildPlan.summary, /1\/2 epic\(s\) done/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('an unreadable BUILD_PLAN.md (a directory in its place) degrades to null — snapshot never crashes', () => {
+    const dir = tmpDir();
+    try {
+      seedInFlightBuild(dir, { plan: null });
+      const artDir = loadConfig(dir).artifactsDir || 'spec';
+      fs.mkdirSync(path.join(dir, artDir, 'BUILD_PLAN.md'));  // EISDIR on read
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.1.0', args: ['--json'] }));
+      assert.equal(result.buildPlan, null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('buildPlan is null once phase 4 is approved (the build is no longer in flight)', () => {
+    const dir = tmpDir();
+    try {
+      seedInFlightBuild(dir, { approved4: true });
+      const result = captureJson(() => cmdStatus({ dir, VERSION: '2.1.0', args: ['--json'] }));
+      assert.equal(result.buildPlan, null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('buildPlan is null on an absent or free-form plan — tolerant silence, never an error', () => {
+    const dir = tmpDir();
+    try {
+      seedInFlightBuild(dir, { plan: null });
+      const r1 = captureJson(() => cmdStatus({ dir, VERSION: '2.1.0', args: ['--json'] }));
+      assert.equal(r1.buildPlan, null);
+      const artDir = loadConfig(dir).artifactsDir || 'spec';
+      fs.writeFileSync(path.join(dir, artDir, 'BUILD_PLAN.md'), 'free-form notes, no epics');
+      const r2 = captureJson(() => cmdStatus({ dir, VERSION: '2.1.0', args: ['--json'] }));
+      assert.equal(r2.buildPlan, null);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('text status shows the epic progress line during an in-flight build', () => {
+    const dir = tmpDir();
+    try {
+      seedInFlightBuild(dir);
+      let out = '';
+      const origWrite = process.stdout.write.bind(process.stdout);
+      const origLog = console.log;
+      process.stdout.write = (s) => { out += s; return true; };
+      console.log = (...a) => { out += a.join(' ') + '\n'; };
+      try { cmdStatus({ dir, VERSION: '2.1.0', args: [] }); }
+      finally { process.stdout.write = origWrite; console.log = origLog; }
+      assert.match(out, /epics/, 'epic line present');
+      assert.match(out, /1\/2 epic\(s\) done/);
+      assert.match(out, /in progress: EP-02 — Reports/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+// ── FB-SCOPE-BLIND-0724 — aggregated counts carry provenance + a scoped pointer ──
+// Field (T-Ledger): root backlog fully closed, a feature's backlog held 4 open items.
+// `status` said "backlog: 4 open items — run: aitri backlog" and `aitri backlog` said
+// none — the aggregate read as stale state. The count must say WHERE and point at a
+// command that can see the items.
+
+describe('status text — scope provenance (FB-SCOPE-BLIND-0724)', () => {
+  function captureText(fn) {
+    let out = '';
+    const origWrite = process.stdout.write.bind(process.stdout);
+    const origLog = console.log;
+    process.stdout.write = (s) => { out += s; return true; };
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { fn(); } finally { process.stdout.write = origWrite; console.log = origLog; }
+    return out;
+  }
+
+  function seedFeature(dir, name, { backlogOpen = 0, bugs = [] } = {}) {
+    const featDir = path.join(dir, 'features', name);
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    saveConfig(featDir, { projectName: name, artifactsDir: 'spec' });
+    if (backlogOpen > 0) {
+      const items = Array.from({ length: backlogOpen }, (_, i) => ({
+        id: `BL-00${i + 1}`, title: `item ${i + 1}`, priority: 'P2', status: 'open',
+      }));
+      fs.writeFileSync(path.join(featDir, 'spec', 'BACKLOG.json'),
+        JSON.stringify({ schemaVersion: '1', items }, null, 2));
+    }
+    if (bugs.length > 0) {
+      fs.writeFileSync(path.join(featDir, 'spec', 'BUGS.json'),
+        JSON.stringify({ bugs }, null, 2));
+    }
+  }
+
+  function statusText(dir) {
+    return captureText(() => cmdStatus({ dir, VERSION: '0.1.52', args: [] }));
+  }
+
+  it('backlog open only in a feature → names the scope and points at the scoped command', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    // Root backlog exists and is fully closed — the T-Ledger shape.
+    fs.writeFileSync(path.join(dir, 'spec', 'BACKLOG.json'), JSON.stringify({
+      schemaVersion: '1', items: [{ id: 'BL-001', title: 'done', priority: 'P2', status: 'closed' }],
+    }));
+    seedFeature(dir, 'backend', { backlogOpen: 4 });
+    const out = statusText(dir);
+    assert.match(out, /backlog: 4 open items \[backend\] — run: aitri feature backlog backend/);
+  });
+
+  it('backlog open in root AND features → per-scope counts and both pointers', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    fs.writeFileSync(path.join(dir, 'spec', 'BACKLOG.json'), JSON.stringify({
+      schemaVersion: '1', items: [{ id: 'BL-001', title: 'open one', priority: 'P2', status: 'open' }],
+    }));
+    seedFeature(dir, 'backend', { backlogOpen: 2 });
+    seedFeature(dir, 'grid-ux', { backlogOpen: 1 });
+    const out = statusText(dir);
+    assert.match(out, /backlog: 4 open items \[root 1 · backend 2 · grid-ux 1\]/);
+    assert.match(out, /run: aitri backlog · aitri feature backlog <name>/);
+  });
+
+  it('backlog open only in root → line unchanged (no provenance noise)', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    fs.writeFileSync(path.join(dir, 'spec', 'BACKLOG.json'), JSON.stringify({
+      schemaVersion: '1', items: [{ id: 'BL-001', title: 'open one', priority: 'P2', status: 'open' }],
+    }));
+    const out = statusText(dir);
+    assert.match(out, /backlog: 1 open item — run: aitri backlog\n/);
+    assert.ok(!out.includes('backlog: 1 open item ['), 'no breakdown when all open items are in root');
+  });
+
+  it('active bugs only in a feature → bugs line names the scope with the scoped command', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    seedFeature(dir, 'grid-ux', { bugs: [
+      { id: 'BG-001', title: 'broken', severity: 'medium', status: 'in_progress' },
+      { id: 'BG-002', title: 'done', severity: 'low', status: 'verified' },
+    ] });
+    const out = statusText(dir);
+    assert.match(out, /bugs: {4}⚠️ {2}1 active bug \(open\/in-fix\) \[grid-ux\] — run: aitri feature bug grid-ux list/);
+  });
+
+  it('no active bugs anywhere → bugs line keeps the plain root pointer', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    seedFeature(dir, 'grid-ux', { bugs: [
+      { id: 'BG-001', title: 'done', severity: 'low', status: 'verified' },
+    ] });
+    const out = statusText(dir);
+    assert.match(out, /bugs: {4}no active bugs — run: aitri bug list/);
+  });
+});

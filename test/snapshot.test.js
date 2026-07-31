@@ -1461,7 +1461,33 @@ describe('nextActions ordering', () => {
         const action = snap.nextActions.find(a => a.priority === 5);
         assert.ok(action);
         assert.equal(action.command, 'aitri verify-run');
-        assert.equal(action.reason, 'Phase 4 approved — run verify next');
+        assert.equal(action.reason, 'Phase 4 approved — Aitri now re-runs the tests independently (the build report is agent-attested)');
+      } finally { cleanup(dir); }
+    });
+
+    // FB-APPROVE-VERIFY-LEGIBILITY-0715: at phase 4 the approve recommendation must state
+    // it is build-phase review (not final sign-off) and that Aitri re-verifies after.
+    it('recommends approve 4 with the build-phase (not product) clarification', () => {
+      const dir = tmpDir();
+      try {
+        saveConfig(dir, {
+          projectName: 'p', artifactsDir: 'spec',
+          approvedPhases:  [1, 2, 3],
+          completedPhases: [1, 2, 3, 4],
+        });
+        writeJsonSpec(dir, '01_REQUIREMENTS.json', {
+          project_name: 'p',
+          functional_requirements:     [{ id: 'FR-001', priority: 'MUST', type: 'logic', title: 't', acceptance_criteria: ['AC1'] }],
+          non_functional_requirements: [], user_stories: [],
+        });
+        writeSpec(dir, '02_SYSTEM_DESIGN.md', '# d\n');
+        writeJsonSpec(dir, '03_TEST_CASES.json', { test_cases: [] });
+        writeJsonSpec(dir, '04_BUILD_REPORT.json', { files_created: ['x'], technical_debt: [] });
+        const snap = buildProjectSnapshot(dir);
+        const action = snap.nextActions.find(a => /approve (4|build)\b/.test(a.command));
+        assert.ok(action, 'approve 4 must be recommended when phase 4 is completed-unapproved');
+        assert.match(action.reason, /approve the BUILD PHASE/);
+        assert.match(action.reason, /re-runs the tests independently after/);
       } finally { cleanup(dir); }
     });
 
@@ -1641,7 +1667,7 @@ describe('detectUncountedChanges()', () => {
   it('excludes non-behavioral files (allowlist) — Ultron canary regression', () => {
     // Regression guard for the cycle reported on Ultron 2026-04-27:
     // a one-line go.mod toolchain bump was counted as off-pipeline drift,
-    // forcing a 70KB Senior Code Reviewer briefing for trivial maintenance.
+    // forcing a 70KB Code Reviewer briefing for trivial maintenance.
     // After the allowlist filter, build/dep manifests + docs do not count.
     const dir = tmpDir();
     try {
@@ -2190,4 +2216,119 @@ describe('buildProjectSnapshot() — git values never reach a shell (R3-15 RCE g
       assert.equal(fs.existsSync(pwned), false, 'artifactsDir must never reach a shell');
     } finally { cleanup(dir); }
   });
+});
+
+// ── FB-SCOPE-BLIND-0724 — per-scope open counts + cross-scope helper ─────────
+
+describe('scope provenance data (FB-SCOPE-BLIND-0724)', () => {
+  function seedRoot(dir) {
+    saveConfig(dir, { projectName: 'root-p', artifactsDir: 'spec', approvedPhases: [] });
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+  }
+  function seedFeature(dir, name, { backlogItems = null, bugs = null } = {}) {
+    const featDir = path.join(dir, 'features', name);
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    saveConfig(featDir, { projectName: name, artifactsDir: 'spec' });
+    if (backlogItems) {
+      fs.writeFileSync(path.join(featDir, 'spec', 'BACKLOG.json'),
+        JSON.stringify({ schemaVersion: '1', items: backlogItems }));
+    }
+    if (bugs) {
+      fs.writeFileSync(path.join(featDir, 'spec', 'BUGS.json'), JSON.stringify({ bugs }));
+    }
+  }
+
+  it('bugs.openByPipeline counts OPEN (open|in_progress|fixed) per scope, not totals', () => {
+    const dir = tmpDir();
+    try {
+      seedRoot(dir);
+      fs.writeFileSync(path.join(dir, 'spec', 'BUGS.json'), JSON.stringify({
+        bugs: [
+          { id: 'BG-001', status: 'verified', severity: 'low' },
+          { id: 'BG-002', status: 'fixed', severity: 'medium' },
+        ],
+      }));
+      seedFeature(dir, 'grid-ux', { bugs: [
+        { id: 'BG-001', status: 'in_progress', severity: 'medium' },
+        { id: 'BG-002', status: 'closed', severity: 'low' },
+      ] });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.bugs.openByPipeline['root'], 1, 'root: fixed counts as open, verified does not');
+      assert.equal(snap.bugs.openByPipeline['feature:grid-ux'], 1, 'feature: in_progress counts, closed does not');
+      // byPipeline keeps TOTALS — the two must be able to differ.
+      assert.equal(snap.bugs.byPipeline['feature:grid-ux'], 2);
+    } finally { cleanup(dir); }
+  });
+
+  it('openWorkByScope returns backlog + bug open counts keyed by scope', async () => {
+    const dir = tmpDir();
+    try {
+      seedRoot(dir);
+      seedFeature(dir, 'backend', {
+        backlogItems: [
+          { id: 'BL-001', status: 'open' },
+          { id: 'BL-002', status: 'closed' },
+          { id: 'BL-003', status: 'deferred' },   // non-closed → open (snapshot predicate)
+        ],
+        bugs: [{ id: 'BG-001', status: 'open', severity: 'high' }],
+      });
+      const { openWorkByScope } = await import('../lib/snapshot.js');
+      const work = openWorkByScope(dir);
+      assert.equal(work.backlog['feature:backend'], 2);
+      assert.equal(work.bugs['feature:backend'], 1);
+      assert.equal(work.backlog['root'], 0);
+    } finally { cleanup(dir); }
+  });
+
+  it('openWorkByScope returns null on a non-project dir — callers degrade silently', async () => {
+    const dir = tmpDir();
+    try {
+      const { openWorkByScope } = await import('../lib/snapshot.js');
+      assert.equal(openWorkByScope(dir), null);
+    } finally { cleanup(dir); }
+  });
+
+  it('blocking bugs only in a feature → next-action points at the feature bug list', () => {
+    const dir = tmpDir();
+    try {
+      seedRoot2(dir);
+      seedFeature2(dir, 'backend', { bugs: [
+        { id: 'BG-001', status: 'open', severity: 'critical' },
+      ] });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.bugs.blockingByPipeline['feature:backend'], 1);
+      const action = snap.nextActions.find(a => a.priority === 3 && a.severity === 'critical');
+      assert.ok(action, 'blocking-bug action must exist');
+      assert.equal(action.command, 'aitri feature bug backend list',
+        'the pointer must reach the scope that holds the blockers');
+    } finally { cleanup(dir); }
+  });
+
+  it('blocking bugs in root AND a feature → root pointer, reason names the scopes', () => {
+    const dir = tmpDir();
+    try {
+      seedRoot2(dir);
+      fs.writeFileSync(path.join(dir, 'spec', 'BUGS.json'), JSON.stringify({
+        bugs: [{ id: 'BG-001', status: 'open', severity: 'high' }],
+      }));
+      seedFeature2(dir, 'backend', { bugs: [
+        { id: 'BG-001', status: 'in_progress', severity: 'critical' },
+      ] });
+      const snap = buildProjectSnapshot(dir);
+      const action = snap.nextActions.find(a => a.priority === 3 && a.severity === 'critical');
+      assert.equal(action.command, 'aitri bug list');
+      assert.match(action.reason, /\(in: root, backend\)/);
+    } finally { cleanup(dir); }
+  });
+
+  function seedRoot2(dir) {
+    saveConfig(dir, { projectName: 'root-p', artifactsDir: 'spec', approvedPhases: [] });
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+  }
+  function seedFeature2(dir, name, { bugs = null } = {}) {
+    const featDir = path.join(dir, 'features', name);
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    saveConfig(featDir, { projectName: name, artifactsDir: 'spec' });
+    if (bugs) fs.writeFileSync(path.join(featDir, 'spec', 'BUGS.json'), JSON.stringify({ bugs }));
+  }
 });

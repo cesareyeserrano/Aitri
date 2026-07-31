@@ -600,6 +600,16 @@ describe('cmdBug lifecycle — non-git project (graceful)', () => {
 
 // ── cmdBug — list ─────────────────────────────────────────────────────────────
 
+function captureList(fn) {
+  let out = '';
+  const origWrite = process.stdout.write.bind(process.stdout);
+  const origLog = console.log;
+  process.stdout.write = (s) => { out += s; return true; };
+  console.log = (...a) => { out += a.join(' ') + '\n'; };
+  try { fn(); } finally { process.stdout.write = origWrite; console.log = origLog; }
+  return out;
+}
+
 describe('cmdBug list', () => {
   it('runs without error when BUGS.json has items', () => {
     const dir = tmpDir();
@@ -607,5 +617,85 @@ describe('cmdBug list', () => {
     fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
     writeBugs(dir, [{ id: 'BG-001', title: 'Test', status: 'open', severity: 'medium', fr: null, tc_reference: null }]);
     assert.doesNotThrow(() => cmdBug({ dir, args: ['list'], err }));
+  });
+
+  // FB-SCOPE-BLIND-0724: the default view must match the snapshot's isOpen predicate
+  // (open|in_progress|fixed, case-folded) — status counted an in_progress bug as active
+  // while the very list it points at hid it.
+  it('hand-written bug with missing severity renders instead of crashing', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    // The widened default filter admits exactly these hand-written shapes —
+    // raw `b.severity.padEnd` crashed on them (adversarial finding, rc.10).
+    writeBugs(dir, [{ id: 'BG-001', title: 'no severity', status: 'Open' }]);
+    const out = captureList(() => cmdBug({ dir, args: ['list'], err }));
+    assert.match(out, /BG-001/);
+    assert.match(out, /\[open\s+\]/, 'status renders normalized');
+  });
+
+  it('default view shows in_progress and case-folded statuses (snapshot parity)', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    writeBugs(dir, [
+      { id: 'BG-001', title: 'working on it', status: 'in_progress', severity: 'medium' },
+      { id: 'BG-002', title: 'hand-written case', status: 'Open', severity: 'High' },
+      { id: 'BG-003', title: 'resolved', status: 'verified', severity: 'low' },
+    ]);
+    const out = captureList(() => cmdBug({ dir, args: ['list'], err }));
+    assert.match(out, /BG-001/, 'in_progress must appear in the default list');
+    assert.match(out, /BG-002/, 'capitalized status must be case-folded, not hidden');
+    assert.ok(!out.includes('BG-003'), 'verified is not active');
+  });
+
+  it('--status and --severity filters are case-folded', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+    writeBugs(dir, [
+      { id: 'BG-001', title: 'a', status: 'Open', severity: 'High' },
+      { id: 'BG-002', title: 'b', status: 'closed', severity: 'low' },
+    ]);
+    const out = captureList(() => cmdBug({ dir, args: ['list', '--status', 'open'], err }));
+    assert.match(out, /BG-001/);
+    assert.ok(!out.includes('BG-002'));
+    const out2 = captureList(() => cmdBug({ dir, args: ['list', '--severity', 'high'], err }));
+    assert.match(out2, /BG-001/);
+  });
+
+  // FB-SCOPE-BLIND-0724: an empty root default view must not imply project-wide
+  // emptiness while a feature scope holds active bugs.
+  it('empty root list hints at feature scopes holding open bugs', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ projectName: 'p', artifactsDir: 'spec' }));
+    writeBugs(dir, [{ id: 'BG-001', title: 'done', status: 'verified', severity: 'low' }]);
+    const featDir = path.join(dir, 'features', 'grid-ux');
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(featDir, '.aitri'), JSON.stringify({ projectName: 'grid-ux', artifactsDir: 'spec' }));
+    fs.writeFileSync(path.join(featDir, 'spec', 'BUGS.json'), JSON.stringify({
+      bugs: [{ id: 'BG-001', title: 'active', status: 'in_progress', severity: 'medium' }],
+    }));
+    const out = captureList(() => cmdBug({ dir, args: ['list'], err }));
+    assert.match(out, /No bugs match the filter\./);
+    assert.match(out, /open in features: grid-ux 1/);
+    assert.match(out, /aitri feature bug grid-ux list/);
+  });
+
+  it('no cross-scope hint when an explicit filter is set', () => {
+    const dir = tmpDir();
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ projectName: 'p', artifactsDir: 'spec' }));
+    writeBugs(dir, []);
+    const featDir = path.join(dir, 'features', 'x');
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(featDir, '.aitri'), JSON.stringify({ projectName: 'x', artifactsDir: 'spec' }));
+    fs.writeFileSync(path.join(featDir, 'spec', 'BUGS.json'), JSON.stringify({
+      bugs: [{ id: 'BG-001', title: 'active', status: 'open', severity: 'low' }],
+    }));
+    const out = captureList(() => cmdBug({ dir, args: ['list', '--status', 'closed'], err }));
+    assert.match(out, /No bugs match the filter\./);
+    assert.ok(!out.includes('open in features'), 'filtered view must not cross-hint');
   });
 });

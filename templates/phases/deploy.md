@@ -46,7 +46,23 @@
 - {{ARTIFACTS_BASE}}/05_TRACEABILITY.json
   REQUIRED fields — validator will reject if any are missing:
     "project":                string  — project name
-    "version":                string  — e.g. "1.0.0"
+    "version":                string  — the RELEASE version being sealed. NEVER invent a filler
+      ("1.0.0" forever is a lie the record keeps). Establish it in this order:
+      1. Read the product's OWN package descriptor (package.json, pyproject.toml, *.csproj,
+         Cargo.toml, …). If it declares a version, propose it to the human: "The manifest
+         says X — is that this release's version?" → version_source: "manifest".
+      2. If there is no manifest version, or the team versions differently (tags, dates),
+         ASK the human what version this release is and how the team versions (that policy
+         is theirs — you never decide semver semantics for them) → version_source: "team".
+      3. On a RE-release (a prior sealed version exists in `.aitri#releaseHistory` or the
+         previous traceability), propose the bump based on what changed and let the human
+         confirm.
+      4. Could not confirm with a human this session → use your best-grounded value and
+         mark version_source: "assumed" — approve 5 will surface it loudly for the team.
+  RECOMMENDED field (the validator accepts omission but rejects off-vocabulary values):
+    "version_source":         string  — "manifest" | "team" | "assumed" (lowercase, exact).
+      Always declare it — prefer "assumed" over omission; an undeclared source displays
+      as such in status and tells the team nothing about where the version came from.
     "phases_completed":       array   — e.g. [1, 2, 3, 4, 5]
     "overall_status":         string  — EXACTLY one of "compliant" | "partial" | "draft" (the validator rejects anything else). This is the TOP-LEVEL roll-up — do NOT use a per-requirement compliance `level` value here (e.g. "complete"/"production_ready" are levels, not statuses).
     "requirement_compliance": array   — one entry per FR/NFR (see below)
@@ -103,4 +119,5 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 5   →   aitri {{SCOPE_VERB}}ap
   [ ] Deployment packaging matches the model declared in 02_SYSTEM_DESIGN.md — if containerized: Dockerfile (multi-stage, non-root, HEALTHCHECK) + docker-compose present; if not: the declared artifact (binary/package/serverless/static) is built and documented, and no stray Dockerfile was invented
   [ ] DEPLOYMENT.md includes rollback procedure and health check endpoints
   [ ] overall_status is honest — "compliant" only when all MUST FRs are complete or production_ready
+  [ ] version is the REAL release version (matches the product's manifest or the team's decision — not an invented "1.0.0") and version_source says where it came from; "assumed" means the agent could not confirm it with you — confirm it now
   [ ] If CI/CD NFR exists: workflow file verified — trigger, dependency install, test command, and any declared e2e runner step all checked

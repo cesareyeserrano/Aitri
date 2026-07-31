@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v2.0.1+
+**Aitri version:** v2.1.0+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -53,7 +53,23 @@ Exit code: `0` on success (even when the project has drift or blocking bugs — 
   // SCHEMA.md discourages). Remote consumers: the field reflects the machine that
   // ran the command, never a teammate's session.
   "lastSession": { "at": "ISO", "agent": "string | null", "event": "string" } /* | null */,
+  // release (additive, v2.1.0-rc.9+, RELEASE-VERSION-0722): the sealed release identity
+  // from 05_TRACEABILITY.json — first consumer of its previously write-only `version`.
+  // Present ONLY while phase 5 is APPROVED (a cascade reset un-seals it → null even if
+  // the artifact remains on disk); also null when the artifact is absent/malformed.
+  // version_source is "manifest" | "team" | "assumed" (null when undeclared).
+  // Display-informational, never a gate. The cross-cycle record is .aitri#releaseHistory.
+  "release": { "version": "string", "version_source": "string | null" } /* | null */,
   "features": [ /* per-feature summaries — see "features" below */ ],
+  // buildPlan (additive, v2.1.0-rc.2+, PLAN-ARTIFACT-0715): advisory epic progress read
+  // tolerantly from the ROOT pipeline's BUILD_PLAN.md while Phase 4 is AUTHORIZED (Phase 3
+  // approved, Phase 4 not yet approved — the build need not have started; with no
+  // BUILD_PLAN.md yet it is null). null otherwise (build not authorized, or the plan is absent /
+  // pre-rc.170 free-form / unparseable — tolerant silence by design). DISPLAY-ONLY:
+  // BUILD_PLAN.md is an agent-maintained working file (ARTIFACTS.md working-files class,
+  // "do NOT treat it as a contract") — a consumer may render this as build progress but
+  // MUST NOT gate, verify, or compute compliance from it.
+  "buildPlan": { "epics": [ { "id": "EP-01", "title": "string", "status": "pending | in-progress | done | <other, tolerated>" } ], "summary": "string" } /* | null */,
   "bugs":    { "total": N, "open": N, "blocking": N, "bySeverity": { "critical": N, "high": N, "medium": N, "low": N }, "openIds": ["BG-001", "..."], "parseErrors": ["root" /* | "feature:<name>" */] },
   // bugs.parseErrors (additive, v2.0.0-rc.158+): scopes whose BUGS.json EXISTS but failed to
   // parse. Their bugs are INVISIBLE to every counter above (the snapshot degrades by design,

@@ -946,3 +946,231 @@ describe('cmdRunPhase() — FR delta on a cascaded re-derivation (TPA-11)', () =
     assert.ok(/added:.*FR-003/.test(stderr), 'the newly-added FR must be surfaced');
   });
 });
+
+// GOVERNANCE-0717 G1: feature spec phases inherit the parent product's standards so an
+// increment builds within the product's design system/architecture instead of re-inventing
+// them. Injection (not a pointer — the bare-path bet is ADR-066's field-falsified one).
+describe('cmdRunPhase() — feature phases inherit parent standards (GOVERNANCE-0717 G1)', () => {
+  const PARENT_UX = `# UX / Design Spec
+
+## User Flows
+root flows here
+
+## Component Inventory
+| IndicatorCard | STANDARD_CARD_MARKER | states |
+
+## Nielsen Compliance
+stuff
+
+## Design Tokens
+- primary: #2456A6 TOKEN_MARKER (reason: brand)
+`;
+  const PARENT_DESIGN = `## Executive Summary
+EXEC_SUMMARY_MARKER decisions
+
+## System Architecture
+ARCH_MARKER modular monolith, feature folders
+
+## Data Model
+tables
+
+## Implementation Approach
+IMPL_MARKER per-FR approach
+
+## API Contracts
+c
+## Security & Auth
+s
+## Deployment
+d
+`;
+
+  function seedFeature(featureDir) {
+    writeFile(featureDir, '.aitri', minimalConfig({ completedPhases: [1], approvedPhases: [1] }));
+    writeFile(featureDir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+  }
+
+  it('feature ux briefing injects the root Design Tokens + Component Inventory sections only', () => {
+    const parent = tmpDir(); const dir = tmpDir();
+    try {
+      writeFile(parent, '.aitri', minimalConfig());
+      writeFile(parent, 'spec/01_UX_SPEC.md', PARENT_UX);
+      seedFeature(dir);
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['ux'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR, featureRoot: parent, scopeName: 'foo' })
+      );
+      assert.match(stdout, /Parent product standards/, 'the standards block renders');
+      assert.ok(stdout.includes('STANDARD_CARD_MARKER'), 'Component Inventory injected');
+      assert.ok(stdout.includes('TOKEN_MARKER'), 'Design Tokens injected');
+      assert.ok(!stdout.includes('root flows here'), 'User Flows (feature-specific at root) NOT injected');
+      assert.match(stdout, /check the existing codebase/i, 'the codebase-check instruction (freshness bound) is present');
+      assert.match(stdout, /written justification/i, 'the deviation-justification mandate is present');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(parent, { recursive: true, force: true }); }
+  });
+
+  it('root ux run does NOT render the parent-standards block (root scope unaffected)', () => {
+    const dir = tmpDir();
+    try {
+      seedFeature(dir);
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['ux'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+      );
+      assert.doesNotMatch(stdout, /Parent product standards/);
+      assert.doesNotMatch(stdout, /\{\{/, 'no leaked template tokens');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('adopted-case fallback: no root UX spec + audit with Conventions Observed → conventions injected', () => {
+    const parent = tmpDir(); const dir = tmpDir();
+    try {
+      writeFile(parent, '.aitri', minimalConfig());
+      writeFile(parent, 'idea_context/ADOPTION_AUDIT.md',
+        '#### Stack\nNode\n\n#### Conventions Observed\nCONVENTIONS_MARKER cards use IndicatorCard\n\n#### Priority Actions\nfix x\n');
+      seedFeature(dir);
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['ux'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR, featureRoot: parent, scopeName: 'foo' })
+      );
+      assert.match(stdout, /Parent product conventions/, 'the conventions fallback block renders');
+      assert.ok(stdout.includes('CONVENTIONS_MARKER'), 'the audit Conventions section is injected');
+      assert.ok(!stdout.includes('fix x'), 'other audit sections are NOT injected');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(parent, { recursive: true, force: true }); }
+  });
+
+  it('neither root spec nor audit → no standards block, briefing renders, ONE loud stderr note', () => {
+    const parent = tmpDir(); const dir = tmpDir();
+    try {
+      writeFile(parent, '.aitri', minimalConfig());
+      seedFeature(dir);
+      const { stdout, stderr } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['ux'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR, featureRoot: parent, scopeName: 'foo' })
+      );
+      assert.doesNotMatch(stdout, /Parent product standards|Parent product conventions/);
+      assert.match(stdout, /01_UX_SPEC\.md/, 'briefing renders normally');
+      assert.match(stderr, /no parent standards found to inject/, 'the absence is loud, never silent (design-doc note)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(parent, { recursive: true, force: true }); }
+  });
+
+  it('nonconforming root spec (no pinned headers) FALLS THROUGH to the audit conventions', () => {
+    const parent = tmpDir(); const dir = tmpDir();
+    try {
+      writeFile(parent, '.aitri', minimalConfig());
+      // hand-authored root spec: bold pseudo-headings, never passed complete ux
+      writeFile(parent, 'spec/01_UX_SPEC.md', '**Design Tokens**\nstuff\n**Component Inventory**\nmore\n');
+      writeFile(parent, 'idea_context/ADOPTION_AUDIT.md',
+        '#### Conventions Observed\nFALLBACK_MARKER conventions here\n\n#### Priority Actions\nfix y\n');
+      seedFeature(dir);
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['ux'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR, featureRoot: parent, scopeName: 'foo' })
+      );
+      assert.ok(stdout.includes('FALLBACK_MARKER'), 'a spec that extracts to nothing must not kill the fallback');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(parent, { recursive: true, force: true }); }
+  });
+
+  it('feature phase 2 in an ADOPTED parent (no system design) injects the audit conventions', () => {
+    const parent = tmpDir(); const dir = tmpDir();
+    try {
+      writeFile(parent, '.aitri', minimalConfig());
+      writeFile(parent, 'idea_context/ADOPTION_AUDIT.md',
+        '#### Conventions Observed\nCODE_CONVENTIONS_MARKER modules per feature folder\n\n#### Priority Actions\nfix z\n');
+      seedFeature(dir);
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['architecture'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR, featureRoot: parent, scopeName: 'foo' })
+      );
+      assert.match(stdout, /Parent product conventions/, 'the phase-2 conventions fallback block renders');
+      assert.ok(stdout.includes('CODE_CONVENTIONS_MARKER'), 'code standards reach the feature architect');
+      assert.ok(!stdout.includes('fix z'), 'Priority Actions stay excluded');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(parent, { recursive: true, force: true }); }
+  });
+
+  it('a FIRST-EVER ux run on a completed pipeline is NOT blocked (nothing to destroy at run-phase time)', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+      writeFile(dir, '.aitri', minimalConfig({
+        approvedPhases: [1, 2, 3, 4, 5],
+        completedPhases: [1, 2, 3, 4, 5],
+      }));
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['ux'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+      );
+      assert.match(stdout, /01_UX_SPEC\.md/, 'the retrofit-ux briefing must print — the guard only covers RE-runs of tracked phases');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('drifted root ux → standards injected WITH a staleness warning', () => {
+    const parent = tmpDir(); const dir = tmpDir();
+    try {
+      writeFile(parent, '.aitri', minimalConfig({ driftPhases: ['ux'] }));
+      writeFile(parent, 'spec/01_UX_SPEC.md', PARENT_UX);
+      seedFeature(dir);
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['ux'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR, featureRoot: parent, scopeName: 'foo' })
+      );
+      assert.match(stdout, /root UX spec has DRIFTED/i, 'staleness warning present');
+      assert.ok(stdout.includes('TOKEN_MARKER'), 'standards still injected');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(parent, { recursive: true, force: true }); }
+  });
+
+  it('feature phase 2 injects section-anchored parent architecture — never the Executive Summary', () => {
+    const parent = tmpDir(); const dir = tmpDir();
+    try {
+      writeFile(parent, '.aitri', minimalConfig());
+      writeFile(parent, 'spec/02_SYSTEM_DESIGN.md', PARENT_DESIGN);
+      seedFeature(dir);
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['architecture'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR, featureRoot: parent, scopeName: 'foo' })
+      );
+      assert.match(stdout, /Parent architecture — conform or justify/);
+      assert.ok(stdout.includes('ARCH_MARKER'), 'System Architecture injected');
+      assert.ok(stdout.includes('IMPL_MARKER'), 'Implementation Approach injected');
+      assert.ok(!stdout.includes('EXEC_SUMMARY_MARKER'), 'Executive Summary NOT injected (kill-review finding)');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(parent, { recursive: true, force: true }); }
+  });
+
+  it('oversized standards demote to a loud OPEN-this pointer, never a silent truncation', () => {
+    const parent = tmpDir(); const dir = tmpDir();
+    try {
+      writeFile(parent, '.aitri', minimalConfig());
+      const bigInventory = `## Design Tokens\nt\n\n## Component Inventory\n${'| row |\n'.repeat(6000)}`;
+      writeFile(parent, 'spec/01_UX_SPEC.md', `## User Flows\nf\n\n${bigInventory}\n\n## Nielsen Compliance\nn\n`);
+      seedFeature(dir);
+      const { stdout } = captureAll(() =>
+        cmdRunPhase({ dir, args: ['ux'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR, featureRoot: parent, scopeName: 'foo' })
+      );
+      assert.match(stdout, /Too large to inline\. OPEN /, 'pointer fallback fires');
+      assert.match(stdout, /01_UX_SPEC\.md/, 'the pointer names the root artifact');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); fs.rmSync(parent, { recursive: true, force: true }); }
+  });
+});
+
+// GOVERNANCE-0717 G4: the completed-pipeline re-run guard covers every phase whose
+// re-open cascades into approved core phases — previously 'ux' slipped through and a
+// non-TTY re-run of a drifted approved ux wiped 2-5 + verify state unconfirmed.
+describe('cmdRunPhase() — completed-pipeline guard covers ux (GOVERNANCE-0717 G4)', () => {
+  it('non-TTY re-run of a drifted approved ux with all core approved is BLOCKED', () => {
+    const dir = tmpDir();
+    try {
+      writeFile(dir, 'spec/01_UX_SPEC.md', '## User Flows\nf\n## Component Inventory\nc\n## Nielsen Compliance\nn\n## Design Tokens\nt\n');
+      writeFile(dir, 'spec/01_REQUIREMENTS.json', VALID_REQUIREMENTS);
+      writeFile(dir, '.aitri', minimalConfig({
+        approvedPhases: [1, 2, 3, 4, 5, 'ux'],
+        completedPhases: [1, 2, 3, 4, 5, 'ux'],
+        // stored hash ≠ on-disk content → drifted → NOT an idempotent re-read
+        artifactHashes: { ux: 'stale-hash' },
+      }));
+      let exitCode = null;
+      const origExit = process.exit;
+      process.exit = (c) => { exitCode = c; throw new Error('__exit__'); };
+      try {
+        captureAll(() =>
+          cmdRunPhase({ dir, args: ['ux'], flagValue: makeFlagValue(), err: noopErr, rootDir: ROOT_DIR })
+        );
+      } catch (e) { if (e.message !== '__exit__') throw e; }
+      finally { process.exit = origExit; }
+      assert.equal(exitCode, 1, 'non-TTY re-run of ux on a completed pipeline must be blocked');
+      const cfg = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+      assert.ok(cfg.approvedPhases.includes(2) && cfg.approvedPhases.includes(5),
+        'core approvals must NOT be cascaded away by the blocked attempt');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+});
