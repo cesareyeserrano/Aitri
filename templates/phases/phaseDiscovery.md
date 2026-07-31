@@ -38,13 +38,34 @@ Scale discovery to what's being built:
 - **Standard / complex** (multi-flow app, integrations, an existing system to extend): full ingestion of the provided context plus real elicitation of the gaps.
 The goal is an *honest* understanding sized to the work, not a fixed word count. A thin-but-correct discovery for a landing page is a success; a padded one is noise.
 
+## Elicitation protocol — reason, ask, iterate
+This protocol is subordinate to the depth-matching above: **for the trivial/MVP tier, skip to a single confirmation pass** — do not add rounds to a landing page. When uncertainty is non-trivial (complex project, vague idea, contradictory sources), discovery is a conversation, not a form:
+
+1. **Synthesize** your current understanding from the idea + context assets: what you believe, what you doubt, what contradicts.
+2. **Logic check — find the contradictions, and MANIFEST them.** Actively test the material: goals that conflict, success criteria impossible under the stated constraints, business rules that are mutually incompatible, users/scope that don't add up, load-bearing unstated assumptions. **A detected contradiction MUST be presented to the user to RESOLVE — never silently harmonized.** For each: state both sides, say why they can't both hold, ask the user which gives. Resolved → record it in `## Resolutions`. Unresolved → it goes to Evidence gaps verbatim and weighs the confidence level honestly.
+3. **Derive the open questions this material itself raises** — the contradictions from the logic check, the unknowns, the risks — ranked by impact. Ask the 3-5 whose answers most change the project. NOT the generic form fields.
+4. **Present a short discussion brief** to the user: your understanding + the contradictions + the ranked questions. Discuss.
+5. **Iterate:** absorb answers → update your understanding → surface the next round only if high-stakes gaps remain → stop when confidence is honestly high or the user calls it.
+6. **Only then** write `00_DISCOVERY.md`.
+
+**No human available to iterate with?** Do NOT simulate the conversation — never fake resolutions or invent answers. Unresolved questions go to Evidence gaps verbatim, confidence is set honestly, and the gate below does its job.
+{{#IF_PRIOR_DISCOVERY_MD}}
+## Prior discovery round — close its gaps, do not restart
+A prior `00_DISCOVERY.md` exists (below). Your objective THIS round is to close its Evidence gaps and resolve its open contradictions — do not restart from zero, and do not re-ask what a `## Resolutions` entry already settled. Preserve prior resolutions verbatim unless the user changes a decision.
+{{PRIOR_REJECTION_NOTE}}
+─── Prior round ──────────────────────────────────────────────
+{{PRIOR_DISCOVERY_MD}}
+─── End prior round ──────────────────────────────────────────
+{{/IF_PRIOR_DISCOVERY_MD}}
+
 ## Output: `{{ARTIFACTS_BASE}}/00_DISCOVERY.md`
 Required sections (in order):
 1. ## Problem — what situation forces users to act? What pain do they experience today?
 2. ## Users — who are the actual people using this? Describe each type with their context and goal.
 3. ## Success Criteria — what does success look like? Use observable, falsifiable metrics (not "it works").
 4. ## Out of Scope — what will this explicitly NOT do? List at least 3 boundaries.
-5. ## Discovery Confidence — required last section. Format exactly:
+5. ## Resolutions — REQUIRED whenever the conversation resolved a contradiction or made a decision (omit only if there were none). The chat dies; what Phase 1 receives is this artifact (injected whole on its first run) — a resolution not recorded here never happened. One line each: `<the tension> → <what the user decided> → <what it rules out>`. Where a decision supersedes the seed, say so explicitly (`supersedes IDEA.md §X: …`) — and NEVER edit IDEA.md itself; it is the archived historical seed, and this discovery is the newer, user-validated layer that wins on conflict.
+6. ## Discovery Confidence — required last section. Format exactly:
 
    ```
    ## Discovery Confidence
@@ -79,6 +100,7 @@ After saving 00_DISCOVERY.md, present this report to the user:
 Problem:        [1-sentence summary]
 Target users:   [who + context]
 Core pain:      [current situation + metric if available]
+Contradictions: [N resolved · N open — "none found" if the logic check surfaced nothing]
 Confidence:     [low | medium | high] — [reason in one sentence]
 
 Key assumptions flagged:
@@ -99,3 +121,4 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} discovery   →   aitri {{SCOPE_
   [ ] Out-of-scope decisions are ones you agree to defer — nothing you need was quietly parked
   [ ] No solutioneering — the document defines the problem; it does not pre-commit architecture or implementation choices
   [ ] Key assumptions flagged by the agent are ones you accept (or correct them and re-run)
+  [ ] Contradictions the agent surfaced were resolved by YOU — the agent did not pick a side; every resolution is recorded in ## Resolutions

@@ -6,6 +6,53 @@
 
 ---
 
+## [2.2.0-rc.1] — 2026-07-30 — discovery becomes a reasoned conversation, and its re-run stops being amnesic (DISCOVERY-DIALOGUE-0724) — canary
+
+Owner field feedback (2026-07-24): "discovery throws a few questions, the user answers,
+and that was it — poor and superficial, no discussion, no iteration." Verified: the
+briefing was one-shot synthesis + honor-system confidence, and the wizard agent mode
+scripted the interview "field by field … CONFIRM each" by design. Prompt-level root fix,
+four touch points:
+
+- **Elicitation protocol in the discovery briefing** — on non-trivial uncertainty:
+  synthesize understanding → **logic check** (contradictions MANIFESTED to the user to
+  resolve — never silently harmonized; unresolved → Evidence gaps verbatim, weighing
+  confidence) → derive the 3-5 open questions THIS material raises (not the form fields)
+  → present a discussion brief → iterate → only then write the artifact. Explicitly
+  subordinated to the existing proportionality tier: a trivial seed "skips to a single
+  confirmation pass". No-human fallback in those words: never simulate the conversation.
+- **Resolutions survive the handoff** — the conversation's resolved contradictions and
+  decisions are recorded in a `## Resolutions` section of `00_DISCOVERY.md` (one line
+  each; `supersedes IDEA.md §X` when a decision overrides the seed — IDEA.md itself is
+  never edited). Phase 1 injects the artifact whole on its FIRST run, so resolutions
+  flow into the initial requirements derivation (once `01_REQUIREMENTS.json` exists it
+  is the SSoT — re-runs do not re-read discovery, by design; whether a post-phase-1
+  discovery iteration should cascade is a separate open question, recorded in the
+  backlog). Optional section, honor-system (no validator change); additive note in
+  `docs/integrations/ARTIFACTS.md` + integrations CHANGELOG. Delivery Summary gains a
+  `Contradictions: N resolved · N open` line; Human Review gains the "resolved by YOU —
+  the agent did not pick a side" checkbox.
+- **Memoryful re-run (the owner's loop, at the mechanical layer)** — the sanctioned
+  iteration path (low confidence → BLOCKED → re-run) regenerated the briefing blind:
+  `00_DISCOVERY.md` was not an input to its own re-run, so a fresh session never saw the
+  Evidence gaps it existed to close, and `rejections.discovery` was write-only state read
+  by nothing. Now discovery declares `optionalInputs: ['00_DISCOVERY.md']` and the re-run
+  briefing injects the prior round under a "close its gaps, do not restart" objective,
+  plus the reject feedback when present (cleared on approve, as before). Same injection
+  pattern as phase 1's `DISCOVERY_MD`.
+- **Wizard agent mode conducts a conversation, not a form** — understanding + the open
+  questions it raises first; the REQUIRED FIELDS become the closing coverage checklist
+  ("they are not the interview script"). The `[ASSUMPTION]` discipline and the D1
+  anti-collapse rules survive verbatim. Both targets (`idea`/`discovery`) inherit —
+  shared builder. `templates/AGENTS.md` updated in the same commit.
+
+Persona: discovery CONSTRAINTS gain "never silently reconcile contradictory inputs";
+REASONING gains the interrogative stance (sections are the coverage floor, never the
+script). Pins in `test/phases/phaseDiscovery.test.js` (protocol, logic check, fallback,
+Resolutions, prior-round injection, orphan-rejection guard) and
+`test/commands/wizard.test.js` (reframe). Generalization to Phase 1/ux intake stays
+evidence-gated (blueprint: `_discovery-dialogue-design-0724.md`).
+
 ## [2.1.0] — 2026-07-30 — stable promotion of the 2.1.0 canary line (rc.1–rc.10)
 
 Owner-called promotion after field validation on real consumer projects (T-Ledger

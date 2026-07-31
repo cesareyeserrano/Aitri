@@ -18,6 +18,24 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.2.0-rc.1 — 2026-07-30 — `00_DISCOVERY.md` may carry an optional `## Resolutions` section (DISCOVERY-DIALOGUE-0724) — additive
+
+The discovery briefing now runs an elicitation protocol (reason → logic check → iterate)
+and instructs the agent to record every conversation-resolved contradiction/decision in a
+`## Resolutions` section of `00_DISCOVERY.md` (one line each, optionally marked
+`supersedes IDEA.md §X`). Contract impact:
+
+- **Optional section, honor-system** — no validator change; readers that don't know the
+  section keep working (it's ordinary markdown between the existing required sections).
+- Semantics for readers: `## Resolutions` is the user-validated decision log of the
+  discovery conversation, newer than `IDEA.md` (which is never edited — archived seed).
+  Pipeline scope: Phase 1 consumes the discovery artifact on its FIRST run only; once
+  `01_REQUIREMENTS.json` exists it is the requirements SSoT (re-runs do not re-read
+  discovery, and re-running discovery cascades nothing downstream).
+- No `.aitri` schema change. Briefing-side only: discovery re-runs now inject the prior
+  `00_DISCOVERY.md` (and any `rejections.discovery` feedback) into the new briefing —
+  internal prompt behavior, no reader impact.
+
 ## v2.1.0-rc.9 — 2026-07-22 — release identity becomes honest: optional `05_TRACEABILITY.json#version_source`, `status --json` gains `release`, approve-5 event carries the sealed version (RELEASE-VERSION-0722, ADR-083) — additive
 
 `05_TRACEABILITY.json#version` was required since the artifact existed but write-only

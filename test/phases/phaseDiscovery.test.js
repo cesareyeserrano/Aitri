@@ -192,3 +192,123 @@ describe('Phase Discovery — buildBriefing()', () => {
     assert.ok(!b.includes('/tmp/test/00_DISCOVERY.md'), 'artifact path must NOT use bare dir');
   });
 });
+
+// DISCOVERY-DIALOGUE-0724 — discovery becomes a reasoned conversation, not a form.
+describe('Phase Discovery — elicitation protocol (DISCOVERY-DIALOGUE-0724)', () => {
+  const idea = 'A tool to help freelancers manage invoices automatically and send payment reminders.';
+  const build = (extra = {}) => PHASE_DEFS['discovery'].buildBriefing({
+    dir: '/tmp/test',
+    inputs: { 'IDEA.md': idea, ...(extra.inputs || {}) },
+    feedback: null,
+    ...extra,
+  });
+
+  it('briefing carries the reason-ask-iterate protocol, subordinated to depth-matching', () => {
+    const b = build();
+    assert.match(b, /## Elicitation protocol — reason, ask, iterate/, 'protocol section present');
+    assert.match(b, /skip to a single confirmation pass/, 'trivial tier skips the protocol, in those words');
+    assert.match(b, /do not add rounds to a landing page/, 'no manufactured ceremony');
+    assert.match(b, /Only then.*write/s, 'artifact is written only after the conversation');
+  });
+
+  it('logic check: contradictions are manifested to the user, never silently harmonized', () => {
+    const b = build();
+    assert.match(b, /never silently harmonized/, 'the mandate, verbatim');
+    assert.match(b, /state both sides.*why they can't both hold.*which gives/s, 'the resolution mechanics');
+    assert.match(b, /Evidence gaps verbatim/, 'unresolved contradictions land in Evidence gaps');
+  });
+
+  it('persona-level constraint: never silently reconcile contradictory inputs', () => {
+    assert.match(build(), /Never silently reconcile contradictory inputs/, 'CONSTRAINT present in briefing');
+  });
+
+  it('questions derive from the material, not the generic form fields', () => {
+    const b = build();
+    assert.match(b, /open questions this material itself raises/i, 'derived, not scripted');
+    assert.match(b, /NOT the generic form fields/, 'anti-form mandate');
+  });
+
+  it('no-human fallback: never simulate the conversation', () => {
+    const b = build();
+    assert.match(b, /Do NOT simulate the conversation/, 'fallback stated in those words');
+    assert.match(b, /never fake resolutions or invent answers/, 'no invented answers');
+  });
+
+  it('Resolutions section: chat dies, artifact survives — with IDEA.md precedence rule', () => {
+    const b = build();
+    assert.match(b, /## Resolutions/, 'Resolutions section instructed');
+    assert.match(b, /a resolution not recorded here never happened/i, 'the handoff rationale');
+    assert.match(b, /supersedes IDEA\.md/, 'precedence marker format');
+    assert.match(b, /NEVER edit IDEA\.md/, 'the seed is archived history');
+  });
+
+  it('Delivery Summary and Human Review surface the contradictions', () => {
+    const b = build();
+    assert.match(b, /Contradictions: \[N resolved · N open/, 'Delivery Summary line');
+    assert.match(b, /resolved by YOU — the agent did not pick a side/, 'Human Review checkbox');
+  });
+});
+
+// DISCOVERY-DIALOGUE-0724 kernel — memoryful re-run: the sanctioned iteration path
+// (low confidence → BLOCKED → re-run) must regenerate the briefing AROUND the prior
+// round's artifact, so a fresh session does not start blind to the gaps it must close.
+describe('Phase Discovery — memoryful re-run (prior round injection)', () => {
+  const idea = 'A tool to help freelancers manage invoices automatically.';
+  const prior = [
+    '# Product Discovery — Problem Statement',
+    '## Problem\nLate invoices.',
+    '## Discovery Confidence',
+    'Confidence: low',
+    'Evidence gaps:\n- pricing model unclear',
+    'Handoff decision: ready — pending gaps',
+  ].join('\n');
+
+  it('declares 00_DISCOVERY.md as optionalInput (run-phase injects it on re-run)', () => {
+    assert.deepEqual(PHASE_DEFS['discovery'].optionalInputs, ['00_DISCOVERY.md']);
+  });
+
+  it('first run: no prior-round block, no leaked template tokens', () => {
+    const b = PHASE_DEFS['discovery'].buildBriefing({
+      dir: '/tmp/test', inputs: { 'IDEA.md': idea }, feedback: null,
+    });
+    assert.ok(!b.includes('Prior discovery round'), 'no prior block on first run');
+    assert.ok(!b.includes('{{'), 'no unrendered template tokens');
+  });
+
+  it('re-run: prior artifact is injected with the close-its-gaps objective', () => {
+    const b = PHASE_DEFS['discovery'].buildBriefing({
+      dir: '/tmp/test', inputs: { 'IDEA.md': idea, '00_DISCOVERY.md': prior }, feedback: null,
+    });
+    assert.match(b, /## Prior discovery round — close its gaps, do not restart/, 'objective header');
+    assert.ok(b.includes('pricing model unclear'), 'prior Evidence gaps visible to the new round');
+    assert.match(b, /do not re-ask what a `## Resolutions` entry already settled/, 'resolutions preserved');
+  });
+
+  it('re-run after reject: the rejection feedback is surfaced, timestamp-qualified', () => {
+    const b = PHASE_DEFS['discovery'].buildBriefing({
+      dir: '/tmp/test', inputs: { 'IDEA.md': idea, '00_DISCOVERY.md': prior }, feedback: null,
+      config: { rejections: { discovery: { at: '2026-07-30T00:00:00Z', feedback: 'users section conflates buyer and payer' } } },
+    });
+    assert.match(b, /REJECTED a prior round \(recorded 2026-07-30T00:00:00Z\)/, 'rejection framing + timestamp');
+    assert.ok(b.includes('users section conflates buyer and payer'), 'rejection feedback verbatim');
+  });
+
+  it('rejection without a prior artifact is not surfaced (no orphan note)', () => {
+    const b = PHASE_DEFS['discovery'].buildBriefing({
+      dir: '/tmp/test', inputs: { 'IDEA.md': idea }, feedback: null,
+      config: { rejections: { discovery: { at: '2026-07-30T00:00:00Z', feedback: 'stale note' } } },
+    });
+    assert.ok(!b.includes('REJECTED a prior round'), 'no rejection note without prior round');
+    assert.ok(!b.includes('stale note'), 'rejection text absent');
+  });
+
+  it('rejection note is suppressed when --feedback already carries the same text (reject\'s suggested command)', () => {
+    const same = 'users section conflates buyer and payer';
+    const b = PHASE_DEFS['discovery'].buildBriefing({
+      dir: '/tmp/test', inputs: { 'IDEA.md': idea, '00_DISCOVERY.md': prior }, feedback: same,
+      config: { rejections: { discovery: { at: '2026-07-30T00:00:00Z', feedback: same } } },
+    });
+    assert.ok(!b.includes('REJECTED a prior round'), 'no duplicate — feedback block already carries it');
+    assert.match(b, /## Feedback to apply/, 'the --feedback block is the single carrier');
+  });
+});

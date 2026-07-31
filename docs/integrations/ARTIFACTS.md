@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.1.0+
+**Aitri version:** v2.2.0-rc.1+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -441,7 +441,7 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
 
 | File | Written by | Condition |
 |---|---|---|
-| `00_DISCOVERY.md` | `aitri run-phase discovery` | Optional phase; present if discovery was run |
+| `00_DISCOVERY.md` | `aitri run-phase discovery` | Optional phase; present if discovery was run. Required sections: `## Problem`, `## Users`, `## Success Criteria`, `## Out of Scope`, `## Discovery Confidence` (last). **Additive v2.2.0-rc.1+:** may carry an optional `## Resolutions` section (one line per resolved contradiction/decision from the discovery conversation, possibly marked `supersedes IDEA.md §X`) — honor-system, not validated. Readers should treat it as the user-validated decision log of the discovery conversation, newer than `IDEA.md`. Pipeline scope note: Phase 1 injects this artifact whole on its FIRST run only — once `01_REQUIREMENTS.json` exists it is the requirements SSoT and re-runs do not re-read discovery (and re-running discovery cascades nothing) |
 | `01_UX_SPEC.md` | `aitri run-phase ux` | Optional phase; present if UX phase was run |
 | `04_CODE_REVIEW.md` | `aitri review` | Present if code review was run |
 | `BUGS.json` | `aitri bug add` / `aitri verify-run` | Present if any bug has been registered |

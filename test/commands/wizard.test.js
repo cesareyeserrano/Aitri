@@ -204,7 +204,10 @@ describe('buildAgentInterviewBriefing() / buildDiscoveryInterviewBriefing()', ()
     assert.ok(!/IDEA\.md FORMAT/.test(text), 'does NOT ask the agent to write IDEA.md');
   });
 
-  it('both targets preserve confirm-per-field + [ASSUMPTION] discipline (shared builder)', () => {
+  // DISCOVERY-DIALOGUE-0724: the interview is a conversation, not a form. The fields
+  // are the CLOSING coverage checklist, never the interview script — and the
+  // [ASSUMPTION] discipline survives the reframe verbatim.
+  it('both targets frame a conversation with fields as coverage checklist + [ASSUMPTION] discipline (shared builder)', () => {
     const FIELDS = [
       { key: 'problem', label: 'Problem',        prompt: 'What problem?', multiLine: false },
       { key: 'rules',   label: 'Business Rules', prompt: 'Rules?',        multiLine: true  },
@@ -212,7 +215,11 @@ describe('buildAgentInterviewBriefing() / buildDiscoveryInterviewBriefing()', ()
     const discovery = buildDiscoveryInterviewBriefing();
     const idea = buildAgentInterviewBriefing({ questions: FIELDS, target: 'idea', dir: '/tmp/x' });
     for (const text of [discovery, idea]) {
-      assert.ok(/CONFIRM each with the user/i.test(text), 'confirm-per-field preserved');
+      assert.ok(/CONVERSATION, not a form/.test(text), 'conversation framing present');
+      assert.ok(/COVERAGE CHECKLIST/.test(text), 'fields framed as closing coverage checklist');
+      assert.ok(/not the interview script/.test(text), 'fields must not be the interview script');
+      assert.ok(!/go field by field/.test(text), 'field-by-field scripting removed');
+      assert.ok(/never silently harmonized/.test(text), 'contradictions surfaced to the user');
       assert.ok(/\[ASSUMPTION\]/.test(text), 'assumption-marking preserved');
     }
     assert.ok(idea.includes('IDEA.md FORMAT:'), 'idea target keeps the IDEA.md template');
@@ -234,13 +241,17 @@ describe('cmdWizard()', () => {
       assert.ok(text.includes('Agent Mode'), 'should mention Agent Mode');
       assert.ok(text.includes('REQUIRED FIELDS'), 'should list questions');
       assert.ok(text.includes('IDEA.md FORMAT:'), 'should include template');
-      // D1: the collapse language must be gone, and confirm-per-field must be present.
+      // D1: the collapse language must be gone; the reframe (DISCOVERY-DIALOGUE-0724)
+      // replaces confirm-per-field with conversation + closing coverage checklist,
+      // keeping the anti-collapse discipline: vague/blank fields asked explicitly.
       assert.ok(!/infer as many of the required fields/i.test(text),
         'must NOT instruct the agent to infer as many fields as possible (collapse)');
       assert.ok(!/only ask follow-up questions for fields that genuinely could NOT be inferred/i.test(text),
         'must NOT grant permission to skip questions when fields can be inferred');
-      assert.ok(/CONFIRM each with the user/i.test(text),
-        'must instruct the agent to confirm each field with the user');
+      assert.ok(/COVERAGE CHECKLIST/.test(text),
+        'must close the conversation with the fields as a coverage checklist');
+      assert.ok(/ask about explicitly now/.test(text),
+        'blank/vague fields must be asked explicitly at the checklist');
       assert.ok(/\[ASSUMPTION\]/.test(text),
         'must instruct marking unconfirmed values as [ASSUMPTION]');
     } finally {
