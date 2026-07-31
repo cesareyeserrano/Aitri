@@ -124,6 +124,8 @@ This alert is for **subproduct developers**, not end users — it signals that H
 | [VALIDATE_JSON.md](./VALIDATE_JSON.md) | Shape of `aitri validate --json` (per-artifact deploy-readiness report) + the `--ci` exit-code gate |
 | [CHANGELOG.md](./CHANGELOG.md) | History of breaking and non-breaking contract changes by Aitri version |
 
+A ready-to-paste GitHub Actions workflow consuming `validate --json` (drift gate on PRs, opt-in strict deploy gate) lives in the root README's [CI Integration](../../README.md#ci-integration) section.
+
 ---
 
 ## Visual identity
