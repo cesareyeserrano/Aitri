@@ -262,6 +262,26 @@ describe('cmdStatus --json', () => {
     assert.ok(scopes.includes('feature:alpha'));
   });
 
+  // FEATURE-ORDER-0729 (additive contract field): featureSummaries carry createdAt so
+  // consumers (Hub) can render a real feature timeline; null on pre-createdAt features.
+  it('--json features[] carries additive createdAt (null when absent) (FEATURE-ORDER-0729)', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '2.2.0' });
+    const mkFeature = (name, cfg) => {
+      const fDir = path.join(dir, 'features', name);
+      fs.mkdirSync(path.join(fDir, 'spec'), { recursive: true });
+      saveConfig(fDir, { projectName: name, artifactsDir: 'spec', ...cfg });
+    };
+    mkFeature('dated',   { createdAt: '2026-07-05T10:00:00Z' });
+    mkFeature('undated', {});
+
+    const result = captureJson(() => cmdStatus({ dir, VERSION: '2.2.0', args: ['--json'] }));
+    const byName = Object.fromEntries(result.features.map(f => [f.name, f]));
+    assert.equal(byName['dated'].createdAt, '2026-07-05T10:00:00Z', 'createdAt surfaced verbatim');
+    assert.equal(byName['undated'].createdAt, null, 'absent createdAt → explicit null, not undefined');
+    assert.ok('createdAt' in byName['undated'], 'field present even when null (stable shape)');
+  });
+
   it('text features section — failing features first, counts shown for both pass and fail (v0.1.83+)', () => {
     const dir = tmpDir();
     initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.83' });
@@ -313,6 +333,71 @@ describe('cmdStatus --json', () => {
     const idxPassed  = out.indexOf('alpha-passed');
     assert.ok(idxFailing >= 0 && idxPassed >= 0);
     assert.ok(idxFailing < idxPassed, 'failing features must be sorted before passing ones');
+  });
+
+  // FEATURE-ORDER-0729: creation order becomes visible — render-derived ordinal #N +
+  // created date, chronological within an attention rank; implementation order via the
+  // verify date. Nothing stored; undated features (pre-createdAt) sort last, no ordinal.
+  it('text features section — creation ordinals + chronological order within rank + dates (FEATURE-ORDER-0729)', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '2.2.0' });
+    const rootCfg = loadConfig(dir);
+    rootCfg.approvedPhases = [1, 2, 3, 4, 5];
+    rootCfg.completedPhases = [1, 2, 3, 4, 5];
+    rootCfg.currentPhase = 5;
+    saveConfig(dir, rootCfg);
+
+    const mkFeature = (name, cfg) => {
+      const fDir = path.join(dir, 'features', name);
+      fs.mkdirSync(path.join(fDir, 'spec'), { recursive: true });
+      saveConfig(fDir, { projectName: name, artifactsDir: 'spec', ...cfg });
+    };
+    // Alphabetical order (aaa, mmm, zzz) deliberately contradicts creation order —
+    // zzz is the OLDEST. All three share the same attention rank (incomplete).
+    mkFeature('zzz-oldest',  { createdAt: '2026-07-01T10:00:00Z', approvedPhases: [1] });
+    mkFeature('aaa-newest',  { createdAt: '2026-07-20T10:00:00Z', approvedPhases: [1] });
+    mkFeature('mmm-undated', { approvedPhases: [1] });
+
+    let out = '';
+    const orig = console.log.bind(console);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { cmdStatus({ dir, VERSION: '2.2.0', args: [] }); } finally { console.log = orig; }
+
+    const idxOld = out.indexOf('zzz-oldest'), idxNew = out.indexOf('aaa-newest'), idxUn = out.indexOf('mmm-undated');
+    assert.ok(idxOld >= 0 && idxNew >= 0 && idxUn >= 0, 'all three features rendered');
+    assert.ok(idxOld < idxNew, 'creation order beats alphabetical within a rank');
+    assert.ok(idxNew < idxUn, 'undated features sort last within their rank');
+    assert.ok(out.includes('#1 zzz-oldest'), 'oldest feature carries ordinal #1');
+    assert.ok(out.includes('#2 aaa-newest'), 'second-created carries ordinal #2');
+    assert.ok(!/#\d+ mmm-undated/.test(out), 'undated feature gets no ordinal');
+    assert.ok(out.includes('created 07-01'), 'creation short-date rendered');
+  });
+
+  it('text features section — verified date surfaces implementation recency (FEATURE-ORDER-0729)', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '2.2.0' });
+    const rootCfg = loadConfig(dir);
+    rootCfg.approvedPhases = [1, 2, 3, 4, 5];
+    rootCfg.completedPhases = [1, 2, 3, 4, 5];
+    rootCfg.currentPhase = 5;
+    saveConfig(dir, rootCfg);
+    const fDir = path.join(dir, 'features', 'sealed-one');
+    fs.mkdirSync(path.join(fDir, 'spec'), { recursive: true });
+    saveConfig(fDir, {
+      projectName: 'sealed-one', artifactsDir: 'spec',
+      createdAt: '2026-07-05T10:00:00Z',
+      approvedPhases: [1, 2, 3, 4, 5], completedPhases: [1, 2, 3, 4, 5], currentPhase: 5,
+      verifyPassed: true, verifySummary: { passed: 3, failed: 0, skipped: 0, total: 3 },
+      verifyRanAt: '2026-07-18T09:00:00Z',
+    });
+
+    let out = '';
+    const orig = console.log.bind(console);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { cmdStatus({ dir, VERSION: '2.2.0', args: [] }); } finally { console.log = orig; }
+
+    assert.ok(out.includes('verified 07-18'), 'verify recency date rendered next to the verify state');
+    assert.ok(out.includes('created 07-05'), 'creation date rendered on the same line');
   });
 
   it('text output unaffected when --json flag absent', () => {

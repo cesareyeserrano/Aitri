@@ -6,6 +6,34 @@
 
 ---
 
+## [2.2.0-rc.2] — 2026-07-30 — feature order becomes visible: creation ordinals + dates in status, additive `createdAt` in `--json` (FEATURE-ORDER-0729) — canary
+
+Owner field feedback (2026-07-29): reviewing a project you can't tell what order features
+were created or implemented in — the Features section listed alphabetically. The data
+existed all along (`feature create` writes `createdAt`; verified on all 8 T-Ledger
+features) but no surface showed it — the FB-SCOPE-BLIND family again. The owner's
+numbered-ID proposal was evaluated and tombstoned in design (ids in names lie about
+implementation order, rename directories, and collide on branches — ADR-074/081 lesson:
+ids never encode order).
+
+- **`status` Features section**: render-derived creation ordinal `#N` + `created MM-DD`
+  per feature, chronological within each attention rank (failures → incomplete → passed
+  stays — that grouping is the section's job; creation order replaces the alphabetical
+  tiebreak). Undated (pre-`createdAt`) features sort last in their rank, no ordinal.
+  Nothing stored, nothing renumbered.
+- **Implementation order**: `verified MM-DD` from `verifyRanAt` (durable, survives event
+  eviction) shown when a verify ran. **Decision (blueprint's open call): NO `sealedAt`
+  field** — `lastVerifyRun` answers "implemented when" for review purposes; a stored
+  approve-5 stamp waits for a consumer that needs approve-time precision (no field
+  without a consumer).
+- **`status --json`**: `features[]` gains additive `createdAt` (ISO | null) — Hub can
+  render a real feature timeline. STATUS_JSON.md + integrations CHANGELOG (additive) in
+  the same commit. No `.aitri` schema change.
+
+Pins: chronological-within-rank + ordinal + undated-last render test, verified-date test,
+`--json` createdAt (verbatim + explicit-null) test. Display-level change accumulated for
+the next batch adversarial pass (sub-threshold on its own; rc.1 got a full skeptic pass).
+
 ## [2.2.0-rc.1] — 2026-07-30 — discovery becomes a reasoned conversation, and its re-run stops being amnesic (DISCOVERY-DIALOGUE-0724) — canary
 
 Owner field feedback (2026-07-24): "discovery throws a few questions, the user answers,

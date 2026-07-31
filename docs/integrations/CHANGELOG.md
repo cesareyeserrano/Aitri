@@ -18,6 +18,17 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.2.0-rc.2 — 2026-07-30 — `status --json` `features[]` gains `createdAt` (FEATURE-ORDER-0729) — additive
+
+`featureSummaries` never exposed creation time although every feature's `.aitri` records
+it (`feature create`, since the field exists). New additive `features[].createdAt`
+(ISO string | null — null on pre-createdAt features). Consumers can render creation
+order / a feature timeline. Text `status` now sorts the Features section chronologically
+within each attention rank, prefixes a render-derived creation ordinal `#N` (nothing
+stored — no ids in names, no renumbering), and shows `created MM-DD` plus
+`verified MM-DD` (from `verifyRanAt`) as the implementation-recency proxy. No `.aitri`
+schema change.
+
 ## v2.2.0-rc.1 — 2026-07-30 — `00_DISCOVERY.md` may carry an optional `## Resolutions` section (DISCOVERY-DIALOGUE-0724) — additive
 
 The discovery briefing now runs an elicitation protocol (reason → logic check → iterate)
