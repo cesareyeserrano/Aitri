@@ -400,6 +400,56 @@ describe('cmdStatus --json', () => {
     assert.ok(out.includes('created 07-05'), 'creation date rendered on the same line');
   });
 
+  // Batch-adversarial find: .aitri is hand-editable committed JSON — a numeric createdAt
+  // crashed the ordinal sort (localeCompare on a number). Same defect class as the rc.10
+  // severity.padEnd crash: garbage state degrades, never crashes the read surface.
+  it('non-string createdAt degrades to undated — no crash, no ordinal, no leak into --json (FEATURE-ORDER-0729)', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '2.2.0' });
+    const mkFeature = (name, cfg) => {
+      const fDir = path.join(dir, 'features', name);
+      fs.mkdirSync(path.join(fDir, 'spec'), { recursive: true });
+      saveConfig(fDir, { projectName: name, artifactsDir: 'spec', ...cfg });
+    };
+    mkFeature('numeric-date', { createdAt: 1753900000000, approvedPhases: [1] });
+    mkFeature('good-a',       { createdAt: '2026-07-02T10:00:00Z', approvedPhases: [1] });
+    mkFeature('good-b',       { createdAt: '2026-07-09T10:00:00Z', approvedPhases: [1] });
+
+    let out = '';
+    const orig = console.log.bind(console);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { cmdStatus({ dir, VERSION: '2.2.0', args: [] }); } finally { console.log = orig; }
+
+    assert.ok(out.includes('#1 good-a') && out.includes('#2 good-b'), 'dated features keep their ordinals');
+    assert.ok(!/#\d+ numeric-date/.test(out), 'numeric createdAt gets no ordinal');
+    assert.ok(!/numeric-date.*· created/.test(out), 'no dangling created label for garbage date');
+
+    const result = captureJson(() => cmdStatus({ dir, VERSION: '2.2.0', args: ['--json'] }));
+    const byName = Object.fromEntries(result.features.map(f => [f.name, f]));
+    assert.equal(byName['numeric-date'].createdAt, null, 'non-string createdAt must not leak into the ISO|null contract');
+  });
+
+  it('createdAt ties break by name — ordinals deterministic across filesystems (FEATURE-ORDER-0729)', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '2.2.0' });
+    const mkFeature = (name, cfg) => {
+      const fDir = path.join(dir, 'features', name);
+      fs.mkdirSync(path.join(fDir, 'spec'), { recursive: true });
+      saveConfig(fDir, { projectName: name, artifactsDir: 'spec', ...cfg });
+    };
+    const sameInstant = '2026-07-10T10:00:00Z';
+    mkFeature('zeta-tie',  { createdAt: sameInstant, approvedPhases: [1] });
+    mkFeature('alpha-tie', { createdAt: sameInstant, approvedPhases: [1] });
+
+    let out = '';
+    const orig = console.log.bind(console);
+    console.log = (...a) => { out += a.join(' ') + '\n'; };
+    try { cmdStatus({ dir, VERSION: '2.2.0', args: [] }); } finally { console.log = orig; }
+
+    assert.ok(out.includes('#1 alpha-tie'), 'tie broken by name — alphabetical first gets #1');
+    assert.ok(out.includes('#2 zeta-tie'), 'tie broken by name — second alphabetical gets #2');
+  });
+
   it('text output unaffected when --json flag absent', () => {
     const dir = tmpDir();
     initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });

@@ -44,6 +44,15 @@ division rule). Pattern family: 3rd instance of reason → manifest → human de
 (discovery logic check, `## Resolutions`) — generalization material for the
 CODE-FIRST-BURST study. Pins in `test/rendered-briefing.test.js`.
 
+> Batch-adversarial addendum (2026-07-31, shipped with the rc.3 line before push): the
+> accumulated pass over rc.2 found a reproducible crash — a non-string `createdAt`
+> (hand-edited/numeric) blew up the ordinal sort with a TypeError on the flagship read
+> surface (same defect class as rc.10's `severity.padEnd`). Fixed with a type guard at
+> all four read sites (sort, rank, label, `--json` projection — garbage degrades to
+> "undated", never crashes, never leaks a non-ISO value into the contract) plus a
+> name tie-break so equal-timestamp ordinals are deterministic across filesystems.
+> Pins: numeric-createdAt degradation + tie-break tests.
+
 ## [2.2.0-rc.2] — 2026-07-30 — feature order becomes visible: creation ordinals + dates in status, additive `createdAt` in `--json` (FEATURE-ORDER-0729) — canary
 
 Owner field feedback (2026-07-29): reviewing a project you can't tell what order features
