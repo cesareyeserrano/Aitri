@@ -106,6 +106,12 @@ Rules:
 
 Work through this matrix before writing test cases — it drives the per-FR levels the gates below enforce. It is a planning aid; you do not need to emit it as a JSON field (nothing consumes it).
 
+## Case derivation — enumerate before you write, argue what you exclude
+The count floors this briefing's gates enforce are FLOORS, not targets — stopping there without having looked at the case space is satisficing, and it is invisible unless you declare it. Before writing TCs:
+1. Per acceptance criterion (per MUST FR when ACs are plain strings), enumerate the CANDIDATE cases across this taxonomy: boundaries (empty/max/off-by-one), state transitions, error/failure paths, concurrency or re-entry, idempotency (same action twice), adversarial input. Not every dimension applies to every AC — but decide that per AC, don't skip the enumeration.
+2. Write TCs for the candidates that matter.
+3. **Declare the rest.** Every candidate you considered and chose NOT to cover goes into the `Coverage decisions` block of the Delivery Summary with a reason ("excluded: double-submit — UI disables the button; covered by TC-CHK-003f" or "excluded: concurrency — single-user CLI, no shared state"). List decisions worth a human's judgment — not every inapplicable dimension; burying two real decisions under trivial padding defeats the review. An exclusion with a reason is a reviewable decision; a case that was never enumerated is a silent gap nobody approved.
+
 ## Test Portability Rule
 Test setup, fixtures, and file paths MUST be relative to the project (`process.cwd()`, `path.join(__dirname, ...)`, env vars) or use generated temp dirs (`os.tmpdir()`).
 Hardcoded absolute paths containing usernames or machine-specific routes (`/Users/name/...`, `C:\Users\name\...`) are invalid — tests must run on any machine without modification.
@@ -223,11 +229,12 @@ These verify the DESIGN the spec describes; structural layout/state/token TCs do
 
 ## Instructions
 1. Build Type Coverage Matrix for all FRs
-2. Write test cases with concrete Given/When/Then (SPEC-SEALED)
-3. Generate complete 03_TEST_CASES.json
-4. Save to: {{ARTIFACTS_BASE}}/03_TEST_CASES.json
-5. Present the Delivery Summary below to the user
-6. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3
+2. Derive candidate cases per AC (Case derivation section above) — keep the considered-but-excluded list; it feeds the Delivery Summary
+3. Write test cases with concrete Given/When/Then (SPEC-SEALED)
+4. Generate complete 03_TEST_CASES.json
+5. Save to: {{ARTIFACTS_BASE}}/03_TEST_CASES.json
+6. Present the Delivery Summary below to the user — including the Coverage decisions block
+7. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3
 
 ## Delivery Summary
 After saving 03_TEST_CASES.json, present this report to the user:
@@ -243,6 +250,11 @@ Coverage by FR:
   (list all MUST FRs)
 
 FRs with gaps (< 3 TCs): [list or "none"]
+
+Coverage decisions — considered and NOT covered:
+  - [surface/case]: excluded — [reason]
+  (one line per excluded candidate from the derivation step; "none — every
+   enumerated candidate is covered" only if that is literally true)
 ──────────────────────────────────────────────────────────────
 Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 3
 ```
@@ -263,3 +275,4 @@ Before you report this test plan complete, if your environment supports independ
   [ ] Security NFRs: each has ≥3 distinct attack vectors covered (not just the obvious one)
   [ ] No fixture or setup uses hardcoded absolute paths — all paths are relative or use os.tmpdir()
   [ ] No test verifies source code values as strings — all tests verify observable behavior
+  [ ] Coverage decisions: the exclusions the agent declared (Coverage decisions block of the phase's Delivery Summary — if you did not see it, ask the agent to re-present it) are ones YOU accept — you are approving coverage DECISIONS, not only TC counts

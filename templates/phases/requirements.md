@@ -141,6 +141,8 @@ FRs as usual (idea_provenance is historical at that point).
 ## Requirement Depth Protocol
 **Depth is the point of this phase, and `complete 1` now gates the minimum of it:** every MUST FR must have ≥1 linked user story, and every story linked to a MUST FR must carry ≥1 acceptance criterion (Given/When/Then with concrete values is the target). This is a floor, not the goal — a MUST behavior almost always implies *more than one* story (one per persona that touches it) and *several* acceptance criteria (happy, edge, negative). The acceptance criteria you write here are exactly what Phase 3 turns into test cases: **thin stories and one-line ACs produce thin tests downstream.** Decompose so the story layer is genuinely rich, not floor-minimal.
 
+**Argue the story layer you did NOT write.** For each MUST FR, consider which personas, system states, and scenarios could carry their own story — then declare the ones you rejected in the `Story decomposition` block of the Delivery Summary, with the reason ("single real user — a second persona would be padding" is a legitimate reason; silence is not). One honest persona beats N padded ones, but that is a decision the human reviews, not a default you apply silently.
+
 Before writing any FR, decompose the work in IDEA.md so every behavior gets an FR and nothing is silently dropped. For a product being **built**, work through the surfaces below. For a **change to an existing system** (migration, refactor, infra, platform upgrade), the same goal is met by decomposing along different axes: what must change → FRs; what must **NOT** change → a **regression NFR** per preserved behavior (`category: "Regression"`, which Aitri enforces as a hard MUST even when you omit `priority`: it needs the full happy/edge/negative test set at Phase 3 and a failing regression test blocks `verify-complete`); plus the boundary / blast-radius of the change and the build / boot / parity gates that prove it — map each to the matching requirement type as below. Either way, an undecomposed area of work is a gap.
 1. **Screens / surfaces** — list every distinct screen, modal, or major UI surface
 2. **User actions** — for each screen: list every action a user can perform (clicks, form submissions, navigation)
@@ -232,13 +234,14 @@ A feature MODIFIES a live system. If the seed has a **Must Not Break** section, 
 1. Confirm the five Tier-A inputs with the user (Seed-Input Elicitation above) and set `idea_provenance` honestly — ask before assuming; record every assumption in `idea_gaps`
 2. Declare no_go_zone (≥{{MIN_NGZ}} items — floor, not target) before writing any FR
 3. Identify North Star KPI + JTBD + guardrail metric
-4. Work through the Requirement Depth Protocol — enumerate screens, actions, states, auth, async, edge cases
+4. Work through the Requirement Depth Protocol — enumerate screens, actions, states, auth, async, edge cases; per MUST FR, note the story candidates you considered and rejected (they feed the Delivery Summary's Story decomposition block)
 5. Generate complete 01_REQUIREMENTS.json
 6. Before saving — run this completeness self-check:
    - Every screen identified has ≥1 FR or is in no_go_zone
    - Every MUST FR has ≥1 linked user story
    - MUST FRs of type security/persistence/logic/reporting each have ≥2 ACs
    - idea_provenance has all five Tier-A keys; every "assumed" is carried in idea_gaps
+   - Rejected story candidates are recorded for the Delivery Summary — not silently dropped
 7. Save to: {{ARTIFACTS_BASE}}/01_REQUIREMENTS.json
 8. Present the Delivery Summary below to the user
 9. Run: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 1
@@ -265,6 +268,11 @@ No-go zone ([N] items):
   (list all)
 
 Assumptions flagged: [N] — review before approving
+
+Story decomposition — considered and NOT split into stories:
+  - [persona/state/scenario]: [reason it does not carry its own story]
+  (from the story-layer consideration per MUST FR; "none — every candidate
+   became a story" only if that is literally true)
 ──────────────────────────────────────────────────────────────
 Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 1   →   aitri {{SCOPE_VERB}}approve{{SCOPE_ARG}} 1
 ```
@@ -280,3 +288,4 @@ Next: aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 1   →   aitri {{SCOPE_VERB}}ap
   [ ] North Star KPI, JTBD, and guardrail metric are identified in project_summary
   [ ] Operational NFRs covered: observability, CI/CD, security, healthcheck — or explicitly declared "not applicable" with reason
   [ ] Security applicability decided explicitly — a security NFR exists, OR a one-line reason states why security does not apply (never left unaddressed by omission)
+  [ ] Story decomposition: the candidates the agent considered and did NOT split into stories (Story decomposition block of the phase's Delivery Summary — if you did not see it, ask the agent to re-present it) are rejections YOU accept — you are approving decomposition DECISIONS, not only story counts

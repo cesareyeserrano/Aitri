@@ -6,6 +6,44 @@
 
 ---
 
+## [2.2.0-rc.3] — 2026-07-30 — the minimum stops being silent: exclusions are enumerated, argued, and reviewed (COVERAGE-CRITIQUE-0724) — canary
+
+Owner field feedback (cross-project, 2026-07-24): TCs, user stories, and acceptance
+criteria land at the gate floor — minimal, never aiming at sufficient. Root cause: a
+floor teaches the target, and nothing anywhere required the agent to ARGUE what it left
+OUT — coverage decisions were invisible, so the minimum passed in silence. The fix
+inverts the burden at the prompt + checkpoint layer (ADR-077 ceiling stands: ratio/count
+gates are theater — none added; no new command, no blocking gate, `ac_coverage` stays
+the mechanical net):
+
+- **Phase 3**: new "Case derivation — enumerate before you write, argue what you
+  exclude" briefing section — per AC (per MUST FR on plain-string ACs), enumerate
+  candidate cases across a taxonomy (boundaries, state transitions, error paths,
+  concurrency/re-entry, idempotency, adversarial input), write the TCs that matter,
+  and declare every considered-but-not-covered candidate in the Delivery Summary's
+  new `Coverage decisions` block with its reason. QA persona: stopping at the floor
+  without declared exclusions is an incomplete deliverable.
+- **Phase 1**: the analog for the story layer — per MUST FR, the personas/states/
+  scenarios considered and NOT split into stories are declared in the Delivery
+  Summary's `Story decomposition` block ("single real user — a second persona would be
+  padding" is legitimate; silence is not). Attacks the observed 1:1 FR→US formula
+  without mandating multi-persona padding. PM persona constraint added.
+- **Human checkpoints**: Phase 1 + Phase 3 Human Review checklists gain the acceptance
+  line — the human approves coverage/decomposition DECISIONS, not counts.
+
+Structured `coverage_decisions` JSON field NOT added (blueprint's open call): the
+Delivery Summary is the surface; a field waits for a consumer (no consumer → no field).
+**Honest ceiling (skeptic find): the declarations live in the ephemeral Delivery
+Summary, not the artifact — in a git-handoff flow the approver may not have seen them.**
+The checklist lines carry a locator clause ("ask the agent to re-present it"); if a
+field case shows a handoff losing the declarations, the approve checkpoint becomes the
+consumer that justifies the JSON field. No artifact schema change. Skeptic pass: 7
+findings folded (derivation became numbered Instruction step 2 — execution-path, not
+aside; anti-padding clause; escape-hatch pin; persona texts genericized per the
+division rule). Pattern family: 3rd instance of reason → manifest → human decides
+(discovery logic check, `## Resolutions`) — generalization material for the
+CODE-FIRST-BURST study. Pins in `test/rendered-briefing.test.js`.
+
 ## [2.2.0-rc.2] — 2026-07-30 — feature order becomes visible: creation ordinals + dates in status, additive `createdAt` in `--json` (FEATURE-ORDER-0729) — canary
 
 Owner field feedback (2026-07-29): reviewing a project you can't tell what order features

@@ -492,6 +492,50 @@ describe('coverage-signal sentence in Phase 3 briefing (RSRCH-ADOPT-0711 W4)', (
   });
 });
 
+// COVERAGE-CRITIQUE-0724: the minimum stops being silent — exclusions are enumerated,
+// argued, and reviewed. No count/ratio gates (ADR-077 ceiling stands); the burden is
+// inverted at the prompt + checkpoint layer.
+describe('declared exclusions — coverage/decomposition decisions (COVERAGE-CRITIQUE-0724)', () => {
+  it('Phase 3 briefing mandates per-AC case derivation across the taxonomy before writing TCs', () => {
+    const out = renderPhase(3);
+    assert.match(out, /## Case derivation — enumerate before you write, argue what you exclude/, 'derivation section present');
+    assert.match(out, /FLOORS, not targets/, 'anti-satisficing framing');
+    assert.match(out, /boundaries.*state transitions.*error\/failure paths.*concurrency.*idempotency.*adversarial input/s, 'the taxonomy');
+    assert.match(out, /a case that was never enumerated is a silent gap nobody approved/, 'the rationale for declaring');
+  });
+
+  it('Phase 3 Delivery Summary carries the Coverage decisions block; Human Review approves decisions not counts', () => {
+    const out = renderPhase(3);
+    assert.match(out, /Coverage decisions — considered and NOT covered:/, 'Delivery Summary block');
+    assert.match(out, /are ones YOU accept/, 'Human Review line');
+    assert.match(out, /coverage DECISIONS, not only TC counts/, 'decisions framing that does not dismiss the count lines above');
+    assert.match(out, /if you did not see it, ask the agent to re-present it/, 'locator clause — the block lives in the ephemeral Delivery Summary');
+    assert.match(out, /2\. Derive candidate cases per AC/, 'derivation is a numbered Instruction, not an optional aside');
+    assert.match(out, /only if that is literally true/, 'the "none" escape hatch stays clamped');
+    assert.match(out, /not every inapplicable dimension/, 'anti-padding guard on the exclusions list');
+  });
+
+  it('QA persona carries the incomplete-deliverable constraint', () => {
+    const out = renderPhase(3);
+    assert.match(out, /Stopping at the gate floor without declaring what you excluded and why is an incomplete deliverable/, 'persona constraint rendered');
+  });
+
+  it('Phase 1 briefing mandates arguing the story layer NOT written; Delivery Summary + Human Review carry it', () => {
+    const out = renderPhase(1);
+    assert.match(out, /Argue the story layer you did NOT write/, 'story-layer mandate present');
+    assert.match(out, /Story decomposition — considered and NOT split into stories:/, 'Delivery Summary block');
+    assert.match(out, /rejections YOU accept/, 'Human Review line');
+    assert.match(out, /One honest persona beats N padded ones/, 'anti-padding guard survives (no mandatory multi-persona)');
+    assert.match(out, /Rejected story candidates are recorded for the Delivery Summary/, 'self-check carries the declaration');
+    assert.match(out, /only if that is literally true/, 'the "none" escape hatch stays clamped');
+  });
+
+  it('PM persona carries the decomposition-decisions constraint', () => {
+    const out = renderPhase(1);
+    assert.match(out, /decomposition DECISIONS, not story counts/, 'persona constraint rendered');
+  });
+});
+
 // GOVERNANCE-0717 G1: the authority ladder now includes the parent product standard
 // (between feature visual FRs and the archetype), amended in BOTH carriers (persona +
 // template) in the same change — a block outside the ladder would reproduce ADR-065's
