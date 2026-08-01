@@ -6,6 +6,30 @@
 
 ---
 
+## [2.2.0-rc.4] — 2026-07-31 — Claude Code projects get an explicit `/aitri` slash command (INTEG-CCMD-0718) — canary
+
+Ambient CLAUDE.md rules decay over a long session — the agent "knows" the pipeline
+protocol but improvises by turn 40. `init` and `adopt` (via `lib/agent-files.js`) now
+also write `.claude/commands/aitri.md`: typing `/aitri` in Claude Code re-injects the
+exact protocol for one action — run `aitri resume`, follow the PIPELINE INSTRUCTION
+verbatim, no alternatives, no skipped phases, no re-opening approved ones. Complements
+the instruction files, does not replace them. Same conventions as the other agent
+files: non-destructive (a user-modified command is never clobbered), own marker for
+the layout-migration regenerate path (user-authored versions kept). `init` output
+mentions the new file. `templates/AGENTS.md` audited — no content change (the command
+is Claude-specific; the shared rules are unchanged).
+
+Adversarial pass corrected the blueprint's own payload before ship: the fixed text
+said "follow the PIPELINE INSTRUCTION at the end" — a block `resume` never prints
+(only approve/verify emit it; resume prints a "Next Action" list of up to 5). Shipped
+text targets the FIRST Next Action entry, carries an escape valve for reject/drift
+flows (which legitimately re-run approved phases), defers to a real PIPELINE
+INSTRUCTION when a command emits one, and the regenerate marker moved from the
+frontmatter description to a body comment so a customizer who keeps the description
+doesn't get their edits regenerated away. Upgrade path pinned (existing projects get
+/aitri via `adopt --upgrade`; dry-run parity). Closes the FB-8WK-0718 batch's last
+implementation item. Pins in init + layout-migration + upgrade tests.
+
 ## [2.2.0-rc.3] — 2026-07-30 — the minimum stops being silent: exclusions are enumerated, argued, and reviewed (COVERAGE-CRITIQUE-0724) — canary
 
 Owner field feedback (cross-project, 2026-07-24): TCs, user stories, and acceptance

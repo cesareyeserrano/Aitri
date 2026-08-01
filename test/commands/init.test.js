@@ -246,6 +246,33 @@ describe('aitri init — agent instruction files', () => {
     fs.rmSync(dir, { recursive: true });
   });
 
+  // INTEG-CCMD-0718: explicit /aitri trigger for Claude Code — ambient rules decay over
+  // a long session; the slash command re-injects the protocol at the moment of use.
+  it('creates .claude/commands/aitri.md with the resume-and-follow protocol (INTEG-CCMD-0718)', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.2.0' });
+    const cmdPath = path.join(dir, '.claude', 'commands', 'aitri.md');
+    assert.ok(fs.existsSync(cmdPath), '.claude/commands/aitri.md must exist');
+    const content = fs.readFileSync(cmdPath, 'utf8');
+    assert.match(content, /^---\ndescription: Advance the Aitri pipeline — one step\n---/, 'slash-command frontmatter');
+    assert.match(content, /Run `aitri resume`/, 'the protocol runs resume first');
+    assert.match(content, /FIRST entry in its "Next Action" section/, 'targets output resume actually prints (adversarial find: no PIPELINE INSTRUCTION block exists in resume)');
+    assert.match(content, /Do not choose a different action, skip phases, or re-open approved\nphases \(unless the printed action itself names the re-run/, 'anti-drift constraints with the reject/drift escape valve');
+    assert.match(content, /PIPELINE INSTRUCTION block, that instruction overrides/, 'defers to the real single-step instruction when a command emits one');
+    assert.match(content, /<!-- aitri-generated command/, 'body marker present so customized files are never regenerated away');
+    fs.rmSync(dir, { recursive: true });
+  });
+
+  it('does not overwrite a user-modified /aitri command on re-init (INTEG-CCMD-0718)', () => {
+    const dir = tmpDir();
+    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.2.0' });
+    const cmdPath = path.join(dir, '.claude', 'commands', 'aitri.md');
+    fs.writeFileSync(cmdPath, '# my own command');
+    cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '2.2.0' });
+    assert.equal(fs.readFileSync(cmdPath, 'utf8'), '# my own command', 'must not clobber user content');
+    fs.rmSync(dir, { recursive: true });
+  });
+
   it('all agent files have identical content', () => {
     const dir = tmpDir();
     cmdInit({ dir, rootDir: ROOT_DIR, VERSION: '0.1.70' });

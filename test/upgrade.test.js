@@ -173,7 +173,7 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
     const dir = tmpDir();
     try {
       initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
-      for (const f of ['CLAUDE.md', 'GEMINI.md', '.codex/instructions.md', '.github/copilot-instructions.md']) {
+      for (const f of ['CLAUDE.md', 'GEMINI.md', '.codex/instructions.md', '.github/copilot-instructions.md', '.claude/commands/aitri.md']) {
         const p = path.join(dir, f);
         if (fs.existsSync(p)) fs.rmSync(p);
       }
@@ -181,6 +181,9 @@ describe('lib/upgrade — runUpgrade (Corte A: absorbed legacy behavior)', () =>
       assert.ok(fs.existsSync(path.join(dir, 'CLAUDE.md')));
       assert.ok(fs.existsSync(path.join(dir, 'GEMINI.md')));
       assert.ok(fs.existsSync(path.join(dir, '.github', 'copilot-instructions.md')), 'copilot file regenerated when missing');
+      // INTEG-CCMD-0718: upgrade is the only channel EXISTING projects get /aitri through —
+      // pin it so a refactor scoping the command to init-only cannot pass green.
+      assert.ok(fs.existsSync(path.join(dir, '.claude', 'commands', 'aitri.md')), '/aitri command regenerated when missing');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -2543,15 +2546,17 @@ describe('lib/upgrade — dry-run preview', () => {
     try {
       initFlatProject({ dir, rootDir: ROOT_DIR, VERSION: '0.1.10' });
       // Remove agent files created by cmdInit so dry-run would otherwise recreate them.
-      for (const f of ['CLAUDE.md', 'GEMINI.md', '.codex/instructions.md', '.github/copilot-instructions.md']) {
+      for (const f of ['CLAUDE.md', 'GEMINI.md', '.codex/instructions.md', '.github/copilot-instructions.md', '.claude/commands/aitri.md']) {
         try { fs.rmSync(path.join(dir, f), { force: true }); } catch {}
       }
       try { fs.rmSync(path.join(dir, '.codex'), { recursive: true, force: true }); } catch {}
+      try { fs.rmSync(path.join(dir, '.claude'), { recursive: true, force: true }); } catch {}
 
       silence(() => runUpgrade({ dir, VERSION: '9.9.9', rootDir: ROOT_DIR, dryRun: true }));
 
       assert.equal(fs.existsSync(path.join(dir, 'CLAUDE.md')), false, 'CLAUDE.md must not be recreated in dry-run');
       assert.equal(fs.existsSync(path.join(dir, '.github', 'copilot-instructions.md')), false, 'copilot file must not be recreated in dry-run');
+      assert.equal(fs.existsSync(path.join(dir, '.claude', 'commands', 'aitri.md')), false, '/aitri command must not be recreated in dry-run');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 

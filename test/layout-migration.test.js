@@ -379,6 +379,32 @@ describe('rc.82 hardening — migration plan', () => {
         'Aitri-generated files DO regenerate with the new layout');
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
+
+  // INTEG-CCMD-0718: the /aitri slash command follows the same regenerate discipline —
+  // its own marker, user-authored versions kept.
+  it('regenerateAgentFiles regenerates the Aitri /aitri command but keeps a user-authored one', async () => {
+    const { regenerateAgentFiles, writeAgentFiles } = await import('../lib/agent-files.js');
+    const cfg = { layoutRoot: 'aitri', artifactsDir: 'aitri/product/spec' };
+    const cmdRel = path.join('.claude', 'commands', 'aitri.md');
+
+    const dirA = flatGitProject();
+    try {
+      writeAgentFiles(dirA, ROOT_DIR, cfg);
+      const before = fs.readFileSync(path.join(dirA, cmdRel), 'utf8');
+      assert.match(before, /Advance the Aitri pipeline/, 'generated command carries its marker');
+      const { regenerated } = regenerateAgentFiles(dirA, ROOT_DIR, cfg);
+      assert.ok(regenerated.includes('.claude/commands/aitri.md'), 'Aitri-generated command regenerates');
+    } finally { fs.rmSync(dirA, { recursive: true, force: true }); }
+
+    const dirB = flatGitProject();
+    try {
+      fs.mkdirSync(path.join(dirB, '.claude', 'commands'), { recursive: true });
+      fs.writeFileSync(path.join(dirB, cmdRel), '# my own /aitri\n');
+      const { kept } = regenerateAgentFiles(dirB, ROOT_DIR, cfg);
+      assert.ok(kept.includes('.claude/commands/aitri.md'), 'user-authored command reported kept');
+      assert.equal(fs.readFileSync(path.join(dirB, cmdRel), 'utf8'), '# my own /aitri\n', 'content untouched');
+    } finally { fs.rmSync(dirB, { recursive: true, force: true }); }
+  });
 });
 
 describe('rc.82 hardening — orphan-seed absorb is layout-aware (CONFIRMED finding)', () => {
