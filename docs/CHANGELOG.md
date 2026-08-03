@@ -6,6 +6,30 @@
 
 ---
 
+## [2.2.0-rc.5] — 2026-08-03 — the next-action proposal becomes deterministic and intentional: work-rung ties resolve oldest-feature-first, never directory order (FEATURE-QUEUE-0722) — canary
+
+With several features mid-pipeline, each emits a phase-work action at equal priority and
+the tie for the TOP proposal — the line `resume` numbers "1." and `/aitri` executes —
+fell to `readdirSync` directory order: arbitrary (alphabetical-ish, not intentional) and
+non-deterministic across filesystems, so two clones of the same committed state could
+propose different next actions. Every per-pipeline rung (P2 drift, P3 upgrade-findings,
+P5/P6 phase work, P7 stale-verify — the last two shipped first; the adversarial pass
+caught the first two as the same defect class one rung up) now iterates one proposal
+order: root first, then features oldest-created-first (`createdAt` ascending, name
+tiebreak), undated features after dated ones by name — the same rule the status Features
+render uses, which also gains the missing name tiebreak so ladder and display agree even
+on same-second creations. Deliberately local to the emission loops: `--json features[]`
+order and resume sections are untouched. `createdAt` is now normalized
+(string-or-null) at the snapshot source, `buildPipelineEntry` — the rc.2 crash class
+(numeric/garbage createdAt in hand-edited `.aitri`) fixed at the root it should have
+had, instead of a third render-site guard. `templates/AGENTS.md` gains the timing rule
+the study showed was missing entirely: create a feature when work on it STARTS; ideas
+and future capabilities go to `aitri backlog add` — a feature exists because someone is
+building it, not to remember it. Dedicated tests (`test/feature-queue-order.test.js`).
+Study record: 3-adversary panel + field census (zero instances ever of ≥2 concurrent
+mid-pipeline features across all consumer projects) tombstoned the park/activate design
+and the backlog link with named re-open triggers — `_feature-queue-design-0802.md`.
+
 ## [2.2.0-rc.4] — 2026-07-31 — Claude Code projects get an explicit `/aitri` slash command (INTEG-CCMD-0718) — canary
 
 Ambient CLAUDE.md rules decay over a long session — the agent "knows" the pipeline

@@ -139,6 +139,7 @@ Three tiers — pick the right one **by size**, not just "is this new behavior?"
 - **Trivial** (typo, colour value, single-line CSS, a config value, a comment, a log message): implement directly. No Aitri command.
 - **Small** (one-field form addition with no new validation logic, layout/CSS change in a single component, label/copy change that does not alter user-facing contract, additive optional config field): implement directly. No Aitri command.
 - **Feature** (new flow, schema migration, cross-component change, new endpoint, new business rule — anything the user could describe in a sentence as "a thing the product does"): `aitri feature init <name>`, then follow the feature pipeline (`run-phase requirements` → … → `approve deploy`).
+  - **Create the feature when work on it STARTS — not to remember it.** Ideas and future capabilities go to `aitri backlog add --title "..." --priority P1|P2|P3` until then. Every created feature is immediately active: it competes for the next-action proposal in `status`/`resume` (ties resolve oldest-created first), so a batch of pre-created features buries the one you actually intend to work on. Backlog items hold intent; a feature exists because someone is building it.
 
 **When in doubt about behavior change**, lean feature.
 **When in doubt about size**, prefer smaller scope first.
