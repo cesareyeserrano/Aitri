@@ -220,6 +220,30 @@ here, defined once.
 
 ---
 
+## Standards channels (who owns which quality bar)
+
+Three channels feed standards into briefings; each owns a distinct layer, and the
+authority ladder is **product-approved artifacts > project best-practices override >
+global best-practices defaults**:
+
+- **Phase templates** (`templates/phases/`) own PROCESS plus any standard a gate
+  enforces mechanically (e.g. measurable-AC rules backed by `complete 1`). Gated
+  standards live with their gate and are NOT overridable.
+- **Best-practices** (`templates/best-practices/{architecture,testing,development,ux}.md`)
+  own judgment-level standards — the quality bar that is not mechanically checkable.
+  This is the ONE overridable channel: resolution is scope-local `best-practices/` →
+  the owning project's `best-practices/` (features inherit the project override —
+  BP-SYSTEM-0722) → global template. Files are injected verbatim into briefings
+  (uncapped) — keep overrides lean.
+- **G1/G2 injection** (ADR-080) carries THIS product's specifics (design tokens,
+  component inventory, system architecture) from hashed approved root artifacts into
+  feature briefings — product truth, freshness-labeled, never overridable by a file.
+
+A CONVENTIONS registry (a fourth, append-without-invalidate channel) is deliberately
+deferred with a recorded trigger — see ADR-080; do not re-design it ad hoc.
+
+---
+
 ## Command surface & dev process — live sources, not duplicated here
 
 Intentionally NOT inventoried in this anchor — they change every release and would rot. Read them at the source:

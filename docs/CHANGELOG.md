@@ -6,6 +6,34 @@
 
 ---
 
+## [2.2.0-rc.6] — 2026-08-04 — feature phases inherit the project's best-practices override, and the security audit stops being blind to repository posture (BP-SYSTEM-0722 + REPO-AUDIT-0722) — canary
+
+Two verified defects, one joint study (3-adversary panel + field evidence,
+`_bp-system-repo-audit-design-0803.md`). (1) The README-documented `best-practices/`
+project override (shipped 2026-03) never reached feature scope: feature dispatch passes
+the feature dir as `dir`, so `readBestPractices` skipped the owning project's override
+and fell silently to the global default — the README promise was false for every
+feature phase, exactly where ADR-080 made standards inheritance the point. Resolution
+chain is now scope-local → owning project (`featureRoot`) → global, with the
+previously-absent precedence tests (`test/best-practices-override.test.js`, both
+scopes + fallback). (2) A real consumer `audit security` run (Ultron, 2026-07-14,
+GitHub-hosted) had zero coverage of repository posture — branch protection, Dependabot,
+secret scanning, CI presence — and its "surfaces NOT reached" section did not even name
+the dimension. Posture is now part of the static surface in the audit template and the
+security-auditor persona (attacker lens: an unprotected default branch IS exposure):
+file-level signals always (`.github/` workflows, `dependabot.yml`, `.gitignore`
+coverage, license); host-side settings ONLY via the project's own host CLI when present
+— read-only calls, permission-ambiguous 404/403 → NOT AUDITED (never a finding), and
+skipped host-side checks must be named in NOT-reached. No new command, persona, or
+artifact — `audit repo` was rejected (one attacker-shaped question, not two
+half-audits). Docs: ARCHITECTURE.md gains the standards-channels section (templates =
+process + mechanically-gated standards, non-overridable; best-practices = judgment
+standards, the one overridable channel; G1/G2 = product-specific injection; CONVENTIONS
+deferred with its ADR-080 trigger) — it previously described the BP channel nowhere;
+AGENTS.md teaches the override (one bullet, keep-it-lean warning). Rejected by the
+panel with grounds recorded: BP header comments (no reader), new BP files for phases
+1/5 (phase-1 gates already enforce more; the deploy residue IS the posture step).
+
 ## [2.2.0-rc.5] — 2026-08-03 — the next-action proposal becomes deterministic and intentional: work-rung ties resolve oldest-feature-first, never directory order (FEATURE-QUEUE-0722) — canary
 
 With several features mid-pipeline, each emits a phase-work action at equal priority and
