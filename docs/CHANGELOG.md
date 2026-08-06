@@ -6,6 +6,39 @@
 
 ---
 
+## [2.2.0-rc.7] — 2026-08-05 — the verify verdict is bound to the code tree it certified; merged-but-unverified code can never read "deployable" (MULTI-TEAM-0722, ADR-085) — canary
+
+The MULTI-TEAM study's reproduce-first answer: the concurrency layer stays unbuilt
+(feature dirs merge clean, git already mediates — tombstone confirmed by a full
+3-adversary panel), but the verification spine was not merge-aware. Reproduced with the
+installed CLI: after merging two feature branches — including a hand-resolved conflict
+in shared code — the sticky shared `verifyPassed` reported **"deployable Ready" on a
+tree no verify run had ever seen**, and fresh clones/worktrees auto-stamped their
+per-machine reconcile baseline at merged HEAD, burying the window. Reachable solo today
+(worktree flows, PR merges, dependabot — evidenced in the consumer repos), plus a
+single-machine hole (post-verify commits surface a count but never block). And a silent
+false-pass cannot fire a field trigger — the victim ships believing the gate passed —
+so this is the one finding that could not wait for evidence-gated deferral.
+
+`verify-run` now stamps `verifyRanRef` (HEAD) + `verifyRanDirty` (uncommitted
+behavioral files, reconcile-allowlist filtered) as SHARED fields that travel with every
+clone. The snapshot derives `verify.refState`: `fresh` (no behavioral diff since the
+stamp — docs-only commits stay fresh) · `stale` (behavioral change since the run —
+blocks deployable with `verify_stale_ref`, `verify-complete` refuses, a P5 ladder rung
+routes `verify-run`) · `unreachable` (certified commit gone — rebase/squash;
+refuse-not-pass) · `dirty` (ran over uncommitted code — machine-local, non-portable
+warning at run time + status marker, not a block) · `unbound` (non-git projects and
+pre-rc.7 stamps — explicit degradation to prior behavior, pinned by test). Status marks
+a stale/unbound/dirty verdict inline on the verify row; `status --json` verify entry
+gains additive `refState`. AGENTS.md teaches the two rules that fall out: commit first,
+then verify (the `--resolve` clean-tree discipline generalized); after any merge that
+touches code, re-run verify — the pre-merge verdict does not cover your conflict
+resolutions. ADR-069's run-binding doctrine extended from the results FILE to the code
+TREE, at the same register: raises the cost of a stale pass, does not prevent a
+deliberate `.aitri` edit. Study corrections recorded (R1 retracted as fixture artifact,
+M3 dropped, R4 reclassified as correct behavior); rejected designs with grounds in
+ADR-085. Dedicated tests (`test/verify-ref-binding.test.js`).
+
 ## [2.2.0-rc.6] — 2026-08-04 — feature phases inherit the project's best-practices override, and the security audit stops being blind to repository posture (BP-SYSTEM-0722 + REPO-AUDIT-0722) — canary
 
 Two verified defects, one joint study (3-adversary panel + field evidence,

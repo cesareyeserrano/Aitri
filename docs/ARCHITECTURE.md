@@ -23,7 +23,7 @@ Each row is an era, not an exhaustive list — the authoritative dated record st
 | Release | What shipped (structural) | ADR / ref |
 |:---|:---|:---|
 | rc.51 | **State split** — `.aitri` (shared, committed) + `.aitri.local` (per-machine) | ADR-045 |
-| (spine) | **Verification spine** — `verify-run`/`verify-complete` gate on MUST-FR coverage + project-declared `quality_gates`, judged by exit code | — |
+| (spine) | **Verification spine** — `verify-run`/`verify-complete` gate on MUST-FR coverage + project-declared `quality_gates`, judged by exit code. The verdict is bound to its evidence twice: to the RESULTS file (`verifyResultsHash`, ADR-069) and — since rc.7 (ADR-085) — to the CODE TREE it certified (`verifyRanRef`/`verifyRanDirty` → snapshot `verify.refState`): behavioral code changed since the run (merge window, post-verify commit) or a vanished certified commit ⇒ `verify-complete` refuses and the deploy gate blocks until a fresh run; non-git projects degrade explicitly. Branching/merging stay the team's git workflow — Aitri's only contribution at a join is that merged-but-unverified code can never read deployable | ADR-069, ADR-085 |
 | (upgrade) | **`adopt --upgrade` reconciliation protocol** (`lib/upgrade/`) | — |
 | rc.58–71 | **Third-party-adopter hardening** of the state machinery — cascade invalidation on re-derivation, phase-ordering gate (`upstreamProducers`), drift/`cascadedPhases`/`frSnapshots` steering, durable `sessionContext`, stack-aware Windows binary resolution | — |
 | rc.72–75 | **Fidelity layer** — idea→FR completeness audit (`coverage-auditor` persona, `coverageAuditLastAt`; the command is now `audit requirements`, alias `audit coverage`), MUST-NFR-skip deploy-gate advisory, FR↔test prompt floor | ADR-048 |

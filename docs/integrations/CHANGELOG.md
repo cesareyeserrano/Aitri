@@ -18,6 +18,21 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.2.0-rc.7 — 2026-08-05 — the verify verdict binds to the code tree it certified: `verifyRanRef`/`verifyRanDirty` in `.aitri`, `verify.refState` in `status --json` (MULTI-TEAM-0722 / ADR-085) — additive
+
+Two additive shared `.aitri` fields, stamped by `verify-run` on git projects:
+`verifyRanRef` (commit SHA the run executed at) and `verifyRanDirty` (uncommitted
+behavioral changes at run time). The snapshot derives `verify.refState`
+(`fresh|stale|dirty|unreachable|unbound`), exposed additively on the `status --json`
+verify entry. Behavioral semantics consumers should know: `stale` (behavioral code
+changed since the run — e.g. a MERGE window or any post-verify commit) and
+`unreachable` (certified commit gone — rebase/squash) now BLOCK `verify-complete` and
+add deploy reasons `verify_stale_ref` / `verify_ref_unreachable`; `dirty` is a
+non-portable warning; `unbound` (non-git, or stamps from pre-rc.7 CLIs) degrades to
+pre-rc.7 behavior — old projects and old readers keep working unchanged. Closes the
+reproduced false-pass where a merged, never-verified tree read "deployable Ready"
+(study: `_multi-team-study-0804.md`, R3).
+
 ## v2.2.0-rc.2 — 2026-07-30 — `status --json` `features[]` gains `createdAt` (FEATURE-ORDER-0729) — additive
 
 `featureSummaries` never exposed creation time although every feature's `.aitri` records

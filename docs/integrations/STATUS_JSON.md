@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v2.2.0-rc.6+
+**Aitri version:** v2.2.0-rc.7+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -103,7 +103,7 @@ Root pipeline phase list. One entry per phase, plus a synthetic `"verify"` entry
 }
 ```
 
-The `"verify"` entry uses `status: "passed" | "not_run"` and may include a `verifySummary` field — the summary persisted in `.aitri#verifySummary` at verify time, NOT re-read from the results file (it matches the file's `#summary` unless the file was edited after the run — exactly the case `resultsBinding: "mismatch"` flags; canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Its `drift` is `true` when the results file on disk no longer matches the run-binding stamp (v2.0.0-rc.148+ — previously hardcoded `false`). It also carries an additive `resultsBinding` field: `"bound" | "mismatch" | "no-stamp" | "missing-file"` — the run-binding state of `04_TEST_RESULTS.json` vs `.aitri#verifyResultsHash`. `status` stays `"passed"` even on a `"mismatch"` (the flag is sticky); read `drift`/`resultsBinding` for the current disk truth (v2.0.0-rc.148+).
+The `"verify"` entry uses `status: "passed" | "not_run"` and may include a `verifySummary` field — the summary persisted in `.aitri#verifySummary` at verify time, NOT re-read from the results file (it matches the file's `#summary` unless the file was edited after the run — exactly the case `resultsBinding: "mismatch"` flags; canonical shape in [ARTIFACTS.md](./ARTIFACTS.md): `total`, `passed`, `failed`, `skipped`, `skipped_e2e`, `skipped_no_marker`, `manual`, `manual_verified`). Its `drift` is `true` when the results file on disk no longer matches the run-binding stamp (v2.0.0-rc.148+ — previously hardcoded `false`). It also carries an additive `resultsBinding` field: `"bound" | "mismatch" | "no-stamp" | "missing-file"` — the run-binding state of `04_TEST_RESULTS.json` vs `.aitri#verifyResultsHash`. **v2.2.0-rc.7+ (additive, ADR-085):** it also carries `refState`: `"fresh" | "stale" | "dirty" | "unreachable" | "unbound"` — the verdict's binding to the code TREE it certified (`stale`/`unreachable` are deploy-blocking: behavioral code changed since the run, or the certified commit is gone from history; `dirty` = ran over uncommitted code, non-portable warn; `unbound` = non-git project or pre-rc.7 stamp, no gate effect). Consumers MUST NOT treat `status: "passed"` alone as deployable — the deploy gate already folds `refState` into `health.deployable`/`deploy reasons` (`verify_stale_ref`, `verify_ref_unreachable`). `status` stays `"passed"` even on a `"mismatch"` (the flag is sticky); read `drift`/`resultsBinding` for the current disk truth (v2.0.0-rc.148+).
 
 ---
 
