@@ -659,6 +659,36 @@ describe('cmdReconcile() --resolve — gates and cycle closure', () => {
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
+  it('blocks resolve on a blocking bug in a FEATURE scope, naming the owning scope (GATE-SCOPE-BLIND-0805 wiring pin)', () => {
+    const dir = tmpDir();
+    try {
+      const pastRef = new Date(Date.now() - 60_000).toISOString();
+      writeFile(dir, '.aitri', JSON.stringify({
+        aitriVersion:   '0.1.83',
+        artifactsDir:   'spec',
+        reconcileState: { baseRef: pastRef, method: 'mtime', status: 'pending' },
+        verifyPassed:   true,
+      }));
+      writeFile(dir, 'src/app.js', 'console.log("changed");');
+      // Root BUGS.json clean; the blocker lives in a feature — the pre-0805 scope-local
+      // read would sail past this. This pins the WIRING (cmdReconcile → aggregate),
+      // not just the helper: reverting to getBlockingBugs(dir) fails here.
+      writeFile(dir, 'features/pay/.aitri', JSON.stringify({ projectName: 'pay', artifactsDir: 'spec' }));
+      writeFile(dir, 'features/pay/spec/BUGS.json', JSON.stringify({
+        bugs: [{ id: 'BG-009', title: 'feature leak', severity: 'high', status: 'in_progress' }],
+      }));
+
+      const stderr = captureStderr(() => {
+        withExit(() => cmdReconcile({ dir, args: ['--resolve'], err: noopErr }));
+      });
+      assert.ok(stderr.includes('critical/high bug'), `expected bug gate, got: ${stderr}`);
+      assert.ok(stderr.includes('(feature:pay)'), `refusal must carry scope provenance, got: ${stderr}`);
+      assert.ok(stderr.includes('aitri feature bug'), 'refusal must point at the scoped fix command');
+      const config = loadConfig(dir);
+      assert.equal(config.reconcileState.status, 'pending');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('blocks resolve in non-TTY mode when changes exist', () => {
     const dir = tmpDir();
     const origIsTTY = process.stdin.isTTY;

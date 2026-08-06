@@ -6,6 +6,31 @@
 
 ---
 
+## [2.2.0-rc.8] — 2026-08-05 — root gates stop being blind to feature bugs: verify-complete and reconcile --resolve block on critical/high bugs in ANY scope (GATE-SCOPE-BLIND-0805, ADR-086) — canary
+
+Panel find from the MULTI-TEAM study, verified: root `verify-complete` and
+`reconcile --resolve` read only root `BUGS.json` while the snapshot deploy gate
+aggregates cross-scope — an in-progress critical FEATURE bug let root verify-complete
+flip `verifyPassed` while status said blocked. The divergence had teeth because
+`health.deployable` is display + optional CI, and the mechanical door to Phase 5 is
+`verifyPassed` alone — the sealing path was open over a fleet-critical bug. The
+adversarial check reversed the implementer's own warn-and-teach recommendation: three
+witnesses (AGENTS.md's teaching, the deploy spec's "global — features can block root
+ship too", rc.110's alignment intent) already declared the global contract; only the
+input set disagreed, and a warn would re-introduce an honor system the repo had
+deliberately eliminated. Now: root gates use `getBlockingBugsAllScopes` (shared
+`isBlockingBug` predicate, B8 refuse per scope on unreadable BUGS.json); refusals name
+the owning scope and its fix command; **feature gates deliberately stay scope-local**
+(root bugs never block a feature's own verification); `--resolve`'s zero-changes
+baseline refresh stays ungated (deliberate, documented). AGENTS.md states the precise
+scope contract. Behavior note: root gates now also REFUSE when any feature's `.aitri`
+is merge-conflicted or malformed (a conflicted scope could hide blockers — G-4
+propagates; status keeps rendering via tolerateConflict). Objection recorded in
+ADR-086: severity-inflation gaming, accepted as residual with the audited-exit
+rationale; `approve 4`'s ungated baseline stamp recorded as a named residual.
+Tests: `test/gate-scope-aggregate.test.js` — helper AND command-level wiring pins
+(root aggregate refusal with provenance, feature scope-locality, B8 per scope).
+
 ## [2.2.0-rc.7] — 2026-08-05 — the verify verdict is bound to the code tree it certified; merged-but-unverified code can never read "deployable" (MULTI-TEAM-0722, ADR-085) — canary
 
 The MULTI-TEAM study's reproduce-first answer: the concurrency layer stays unbuilt
