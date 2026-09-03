@@ -1,6 +1,6 @@
 # `aitri validate --json` — Machine-Readable Deploy-Readiness Report
 
-**Aitri version:** v2.2.0-rc.8+
+**Aitri version:** v2.2.0-rc.9+
 **Stability:** Additive-only. The legacy shape (used by early Hub) is preserved indefinitely.
 **Scope:** Single-machine CLI consumers (CI steps, local dashboards). For remote (GitHub-URL) consumers, read `.aitri` + artifacts directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 

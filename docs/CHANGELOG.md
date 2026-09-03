@@ -6,6 +6,28 @@
 
 ---
 
+## [2.2.0-rc.9] — 2026-09-02 — red CI stops rotting invisibly: plain `validate` and the security audit read the host's workflow run state, advisory-only (CI-VISIBILITY-0906, ADR-087) — canary
+
+Owner-requested with two same-day field cases: one consumer project's govulncheck
+Security Gate had been RED on main since June, another's scheduled npm-audit job was
+failing — real vulnerabilities, correctly caught by the gates those projects declared in
+CI, invisible to the operator's terminal loop the whole time. The mitigation hierarchy,
+in order: (1) the mechanical answer already existed — the same checks declared as
+project `quality_gates` block verify-complete locally (both projects had NOT declared
+them; both now do); (2) rc.6's posture step audits CI configuration; (3) NEW — run-state
+visibility: `lib/host-ci.js` probes the project's own `gh` read-only (latest COMPLETED
+run per workflow on the default branch; in-progress is not a verdict; 8s timeout;
+silent-with-reason degradation, never an error). Plain `validate` renders the advisory
+(workflow, date, and the teaching: fix it or bring the check into the verify spine as a
+quality_gate); `audit security` now reads run results where the host CLI works — a red
+default-branch run is a finding with its age. Deliberately NOT in `status`
+(fast/offline), NOT in `--ci` (circular), NOT in `--json` (Hub polls in cycles — the
+battery-leak class; no consumer for the field yet). Never blocks: a red run does not
+mechanically mean a broken build — the evidenced case was a scheduled audit job.
+Daemon/watcher re-rejected (WATCH-0718 stands, reaffirmed by Hub's own battery
+incident). Tests: `test/host-ci.test.js` (probe semantics + wiring pins including
+--json/--ci never probing).
+
 ## [2.2.0-rc.8] — 2026-08-05 — root gates stop being blind to feature bugs: verify-complete and reconcile --resolve block on critical/high bugs in ANY scope (GATE-SCOPE-BLIND-0805, ADR-086) — canary
 
 Panel find from the MULTI-TEAM study, verified: root `verify-complete` and

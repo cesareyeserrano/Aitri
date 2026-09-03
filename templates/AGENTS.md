@@ -184,6 +184,7 @@ Critical and high severity bugs in `open` or `in_progress` state block: `verify-
 
 - `aitri backlog` — manages `{{SPEC_DIR}}/BACKLOG.json` (CLI-tracked items). The project also gets a hand-written `{{BACKLOG_FILE}}` for narrative items — both surfaces coexist; Aitri does not parse the Markdown version. Note: the backlog/bugs counts in `aitri status` aggregate ROOT **and** every feature scope — when the open items live in a feature, the status line names the scope and the drill-down is that scope's command (`aitri feature backlog <name>` / `aitri feature bug <name> list`), not the root one.
 - `aitri audit` — evaluative pass on the completed pipeline. Produces `AUDIT_REPORT.md`. Deploy gate prefers a fresh audit (<60 days).
+- **Host CI visibility:** plain `aitri validate` (text mode only) shows an advisory readout of the hosting platform's workflow runs when the project's own `gh` is available — a workflow whose latest run on the default branch is failing is named with its date. Advisory, never blocks. If a CI check matters enough to gate, declare it as a `quality_gate` in `04_BUILD_REPORT.json` — then `verify-run` executes it locally and a failure blocks `verify-complete` in your loop instead of rotting red in a browser tab.
 
 ---
 

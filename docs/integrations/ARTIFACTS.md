@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.2.0-rc.8+
+**Aitri version:** v2.2.0-rc.9+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
