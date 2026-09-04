@@ -18,6 +18,32 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.2.0-rc.10 — 2026-09-03 — `04_TEST_RESULTS.json` gains `timings`; `quality_gates[]` gains `duration_ms` (DISPATCH-PIPE-0903 / COST-VISIBILITY-0903, ADR-088) — additive
+
+Three additive read-only fields on `04_TEST_RESULTS.json`. **`e2e_output_incomplete`**
+(`true`, absent otherwise) — the e2e auto-run finished but its output was not fully seen
+(past the read cap, or unreadable), so TCs outside the captured window record as `skip`
+and still block; it preserves provenance that pre-rc.10 arrived as an `e2e_run` kill
+record. Plus **`timings`**
+(`{ runner_ms?, e2e_ms?, gates_ms?, total_ms }`, wall time per dispatch stage in ms —
+`e2e_ms` only when the Playwright auto-run dispatched) and **`quality_gates[].duration_ms`**
+(per-gate wall time). Nothing gates on either; they exist because a verify-run that
+executes the same e2e suite twice — once as the auto-run, once as a declared gate — was
+invisible in a pass/fail summary. Readers that ignore both are unaffected.
+
+Behavioral note for consumers reading verification outcomes (no schema change): every
+child dispatch — test runner, Playwright auto-run, quality gates — is now captured to a
+temp FILE instead of a pipe. This removes two kill causes that were Aitri's own and that
+consumers saw as verification results: (1) a background process the suite leaves running
+held the inherited pipe, so `spawnSync` returned only at the timeout and a FINISHED run was
+recorded as a killed dispatch with its e2e TCs `skipped` (a green run that accredited
+nothing); (2) output volume past the pipe ceiling killed the child mid-run — the gates were
+still on Node's 1 MiB default, so a merely verbose gate was recorded `error` for a check
+that never failed. Expect FEWER `e2e_run.status: "killed"` records and fewer `error` gates,
+with the same exit-code judging as before. Rigor is unchanged in the other direction: a
+real failure still fails, a timeout kill is still a kill, and a log past the read cap still
+refuses (no partial credit).
+
 ## v2.2.0-rc.7 — 2026-08-05 — the verify verdict binds to the code tree it certified: `verifyRanRef`/`verifyRanDirty` in `.aitri`, `verify.refState` in `status --json` (MULTI-TEAM-0722 / ADR-085) — additive
 
 Two additive shared `.aitri` fields, stamped by `verify-run` on git projects:

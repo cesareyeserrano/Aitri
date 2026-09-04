@@ -6,6 +6,62 @@
 
 ---
 
+## [2.2.0-rc.10] — 2026-09-03 — every child dispatch is captured to a file, not a pipe: Aitri stops manufacturing kills of its own, and a verify-run says what it cost (DISPATCH-PIPE-0903 + COST-VISIBILITY-0903, ADR-088) — canary
+
+Field diagnosis from a consumer project whose machine kept dying under verification
+(nine kernel OOM events in seven days, one forcing a restart mid-session). Three causes
+were separated; two are Aitri's, and both live in HOW it captured child output.
+
+**The pipe held the run open.** `spawnSync` with piped stdio does not return when the
+child EXITS — it returns when the LAST holder of the pipe closes it. An e2e suite that
+starts an app server leaves that server holding the inherited pipe, so a run that
+finished in 2 minutes held the CLI until the 15-minute timeout, was then reported as a
+KILLED dispatch, and recorded every e2e TC as `skipped`: a green verify-run that
+accredited nothing, plus 15 minutes of peak memory per occurrence. The project measured
+it themselves (2:07 to a file vs not finishing in 30 min through the pipe) and worked
+around it inside their own test harness. **The pipe also imposed a ceiling.** Past it
+Node kills the child mid-run and truncates — and while the runner's ceiling had been
+raised to 64 MiB for exactly this reason (rc.129), `runQualityGates` was still on Node's
+1 MiB default, so a gate that merely talks a lot died and was recorded `error` for a
+check that never failed.
+
+`spawnCaptured()` now backs all three dispatch sites (test runner, Playwright auto-run,
+quality gates) with temp files: no pipe for a survivor to hold, no ceiling to be killed
+over. Deliberately NOT `detached` — a private process group would let Aitri sweep
+orphans, but it also removes the child from the terminal's foreground group, and a SIGINT
+handler cannot run while `spawnSync` blocks (measured), so Ctrl-C would stop stopping the
+suite. Group-sweeping stays a separate decision.
+
+What Aitri JUDGES is unchanged, and the rigor is pinned in both directions by
+`test/dispatch-capture.test.js`: a real failure still fails, a timeout kill is still a
+kill (never a pass), a gate's real exit code is judged however loud it is, and a log past
+the read cap still REFUSES rather than crediting a partial tail (the ADR-068 doctrine —
+same refusal, minus the murdered process). The change is strictly MORE accreditation:
+results that used to vanish into `skipped` are recorded.
+
+Additive with it (COST-VISIBILITY-0903): `04_TEST_RESULTS.json#timings`
+(`runner_ms`/`e2e_ms`/`gates_ms`/`total_ms`) and `quality_gates[].duration_ms`, plus a
+`## Cost` block in the run summary naming the slowest gates. A verify-run that executes
+the same e2e suite twice — once as the auto-run, once as a declared gate — was invisible
+in a pass/fail summary; it is unmissable in a timing one. Nothing gates on it.
+
+Also shipped: the test-authoring templates now forbid a TC that re-runs the suite it
+lives in (`templates/phases/tests.md`, `templates/AGENTS.md`). The same project lost its
+machine to one such test — a regression TC that shelled out to the whole suite, which
+re-entered itself ~54,000 processes deep in 11 minutes. "The suite still passes" is not a
+test case: it is the runner's exit code, which `verify-run` already reads. Spawning a
+different program (a gate script, a linter, a CLI under test, a probe file that must
+fail) is explicitly unaffected.
+
+Adversarially reviewed before ship; six defects folded in, all in the new code: the capture is unlinked at open time (a `finally`-only cleanup leaked on exactly the signal kill this change is about, and the orphan kept growing the leaked file), an unreadable capture is now refused instead of credited as an empty run, `Buffer.alloc` with an honoured short-read length, no 130 MB tail read for a log about to be refused, additive `e2e_output_incomplete` to keep the provenance an over-cap e2e log used to carry, and a capped raw-Playwright block. Honest residue recorded in ADR-088: the pipe ceiling was a resource bound and it is gone — a runaway child now fills temp disk until the runner timeout, and on Windows a grandchild holding the capture open can still defeat the unlink.
+
+Still open from the same diagnosis, deliberately not in this release: the Playwright
+auto-run cannot be scoped or suppressed even when a declared gate already runs the same
+suite (the auto-run is the only path that credits e2e TC ids, so suppressing it today
+would cost accreditation — the fix is to parse TC ids from gate output first), and no
+dispatch sweeps orphaned grandchildren after a kill. Both are structural and get their
+own decision.
+
 ## [2.2.0-rc.9] — 2026-09-02 — red CI stops rotting invisibly: plain `validate` and the security audit read the host's workflow run state, advisory-only (CI-VISIBILITY-0906, ADR-087) — canary
 
 Owner-requested with two same-day field cases: one consumer project's govulncheck
