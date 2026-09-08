@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v2.2.0-rc.10+
+**Aitri version:** v2.2.0-rc.11+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -226,7 +226,7 @@ Reflects the off-pipeline code-change baseline recorded when build (phase 4) is 
 Semantics of `uncountedFiles`:
 - `null` when no baseline exists, the baseline is `mtime` (skipped to keep snapshot cheap), `state === 'pending'` (already known, no need to re-count), or git failed.
 - `0` when the git baseline matches HEAD, **or** when every changed file matches the non-behavioral allowlist (build manifests, docs, dotfiles, CI configs, generated assets — see [exclusions](#allowlist) below).
-- `N > 0` when N **behavioral** files (excluding `spec/`, `.aitri`, `node_modules/`, plus the allowlist) have changed since the recorded baseline. Surfaces `aitri reconcile` as a priority-4 next-action with reason `"N file(s) changed outside pipeline since last build approval"`.
+- `N > 0` when N **behavioral** files (excluding `spec/`, `.aitri`, `node_modules/`, plus the allowlist) have changed since the recorded baseline. Since v2.2.0-rc.11 the exclusions are applied in the PROJECT's path frame, not git's repo frame — Aitri's own state and artifacts are never counted even when the project root is a repo subdir or the pipeline is a feature under `aitri/features/<name>/` (before, they were, and the count could never reach zero). Surfaces `aitri reconcile` as a priority-4 next-action with reason `"N file(s) changed outside pipeline since last build approval"`.
 
 ### Allowlist
 

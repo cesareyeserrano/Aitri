@@ -18,6 +18,35 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.2.0-rc.11 — 2026-09-08 — off-pipeline drift detection is path-frame correct: Aitri's own files are never counted, whatever the layout (RECONCILE-FRAME-0908, ADR-085 Add.1) — additive
+
+No field, type, or shape changed. What changed is the VALUE two documented surfaces
+carry when the project root is not the git repo root — a monorepo subdir, or a feature
+pipeline under `aitri/features/<name>/`.
+
+- **`status --json` `reconcile.uncountedFiles`** — git answers in repo-relative paths
+  while the exclusion filters (`spec/`, `.aitri`, `node_modules/`, the allowlist) match
+  paths relative to the PROJECT root. Where the two frames diverged, Aitri's own `.aitri`
+  and spec artifacts were counted as project drift, so the count never reached zero and
+  the priority-4 `aitri reconcile` next-action never cleared. It is now normalized against
+  `git rev-parse --show-prefix` before filtering. Projects at the repo root are
+  byte-identical (empty prefix).
+- **`.aitri.local` `reconcileState.pendingFiles`** — entries inside the project subtree
+  are now PROJECT-relative in all layouts (previously repo-relative when the frames
+  diverged); an entry OUTSIDE the project subtree (parent code seen from a feature, a
+  monorepo sibling) is repo-relative anchored with git's `:/` pathspec prefix, e.g.
+  `:/packages/ui/b.js` — treat entries as git pathspecs from the project dir, not as
+  filesystem paths. New additive sibling **`reconcileState.pendingFilesFrame`**
+  (`"pipeline"`) marks a set written in this frame; a set without it predates rc.11 and is
+  used for growth detection only where the frames coincide (project at the repo root).
+  Per-machine and explicitly not read by subproducts; recorded for completeness.
+- All path-yielding git calls now use `-z`: a non-ASCII path (`café/`) previously arrived
+  C-quoted from `git diff --name-only` and defeated the exclusion filters at the repo root
+  too — `uncountedFiles` over-counted Aitri's own files under such a feature.
+
+Readers need no change. A reader that had been treating a stuck non-zero `uncountedFiles`
+as normal will simply see it reach zero.
+
 ## v2.2.0-rc.10 — 2026-09-03 — `04_TEST_RESULTS.json` gains `timings`; `quality_gates[]` gains `duration_ms` (DISPATCH-PIPE-0903 / COST-VISIBILITY-0903, ADR-088) — additive
 
 Three additive read-only fields on `04_TEST_RESULTS.json`. **`e2e_output_incomplete`**

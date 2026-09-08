@@ -6,6 +6,73 @@
 
 ---
 
+## [2.2.0-rc.11] — 2026-09-08 — reconcile stops manufacturing drift out of Aitri's own writes: the git readers judge paths in the pipeline frame (RECONCILE-FRAME-0908, ADR-085 Addendum 1) — canary
+
+Field report from a consumer project: "the action ladder can form a closed loop between
+`verify-complete` and `reconcile --resolve`, and neither names the exit." The reported
+loop does not exist — reproduced against the CLI, the cycle terminates in one extra
+verify pass, and the exit is named in three places (the `verifyPassed cleared` notice,
+the `--resolve` refusal, and Step 5 of the reconcile briefing). The proposed fix — teach
+"re-derive Phase 4" as the escape — was **rejected**: that is the expensive route (it
+cascades and re-stales every feature verified against the old baseline), and the cheap
+one already works.
+
+The adversarial pass on that verdict found a **real** livelock of exactly the reported
+shape, one frame away. `git diff --name-only` and `git status --porcelain` answer in
+REPO-relative paths; `isAitriStatePath()` matches prefixes relative to the PIPELINE root.
+Wherever the two diverge — a project whose root is a repo SUBDIR (monorepo), or a feature
+pipeline under `aitri/features/<name>/` — Aitri's own `.aitri` and spec artifacts were
+classified as project code. Aitri then manufactured its own drift:
+
+    reconcile finds "drift" (it is Aitri's own state) → clears verifyPassed
+    → --resolve refuses: verify has not passed
+    → verify-run/complete → they rewrite .aitri + 04_TEST_RESULTS.json
+    → --resolve refuses: uncommitted behavioral changes: .aitri
+    → commit them, as the gate demands → that commit is fresh drift → repeat, forever.
+
+`aitri run-phase deploy` is unreachable for the whole run. rc.7 (ADR-085 / M1) built the
+normalization for exactly this reason and its header named this livelock — but wired it
+into the verify-ref binding only, leaving the three reconcile-side readers filtering raw
+repo-relative paths. This is the root fix, not a patch on one reader:
+
+- **`lib/git-frame.js` (new)** — the SSoT for the frame, and the owner of every git call
+  that yields paths: `gitDiffNames` / `gitPorcelainPaths` (both `-z`), `gitShowPrefix`,
+  `isBehavioralInFrame` / `isAitriStateInFrame`, `toPipelinePath`, `verifyRefRootCtx`. The
+  raw predicates are reached THROUGH it, so no reader can filter an unframed path again.
+- **`-z`, not a quote parser (adversarial D1, ship-blocker).** `git diff --name-only`
+  C-quotes any non-ASCII path under the default `core.quotePath` — a feature named `café`
+  came back as `"app/aitri/features/caf\303\251/.aitri"`, the quoted string failed every
+  prefix match, and Aitri's own state under that feature counted as project code, at the
+  repo root too. NUL-separated output is the only unquoted form git offers; every path
+  reader now asks for it and nothing parses quoted names.
+- **Migrated:** `reconcile.gitChangedFiles`, `reconcile.uncommittedBehavioralChanges`,
+  `snapshot.detectUncountedChanges`, `snapshot.captureVerifyRef` /
+  `verifyRefFreshness` (the M1 readers, now on the shared `-z` helpers), and — found by
+  the adversarial sweep — `bug.gitDiffFiles`, whose `files_changed` trail listed Aitri's
+  own files for subdir projects.
+- **Emitted paths are now pipeline-relative** — the frame `mtimeChangedFiles` already
+  used, and the only one that is a valid pathspec from the project dir: the briefing's
+  per-file diffs silently rendered EMPTY for subdir projects. Out-of-subtree paths keep
+  their repo-relative form anchored with git's `:/` prefix (honest marker + a pathspec
+  that resolves from any cwd); they stay conservatively behavioral, as M1 has them.
+- **Frame marker, not a permanent alias (adversarial D2):** `pendingFiles` written by
+  rc.11 carry `pendingFilesFrame: "pipeline"` (additive, per-machine). A set WITHOUT the
+  marker came from a pre-rc.11 run; it is trusted for growth detection only where the two
+  frames provably coincide (project at the repo root) and otherwise backfills without
+  clearing — the doctrine a pre-rc.158 set already follows. The first cut was a "known under
+  either frame" alias; the adversarial pass showed it under-fires forever (a subtree dir
+  named like the project basename masks real growth — a false negative in the very
+  stale-proof guard `pendingFiles` exists for) and still misses out-of-subtree entries.
+
+Projects whose root IS the repo root — the common case, and the one the field report came
+from — are unaffected: `--show-prefix` is empty and every path is byte-identical. Pinned
+by `test/reconcile-frame.test.js` (livelock, feature frame, repo-root parity, migration),
+at the command level as well as the helper level. `templates/AGENTS.md` now states that
+Aitri's own files are never drift, whatever the layout — if an agent sees `.aitri` listed
+as an off-pipeline change, that is a bug in Aitri, not work to classify.
+
+Suite: 2358.
+
 ## [2.2.0-rc.10] — 2026-09-03 — every child dispatch is captured to a file, not a pipe: Aitri stops manufacturing kills of its own, and a verify-run says what it cost (DISPATCH-PIPE-0903 + COST-VISIBILITY-0903, ADR-088) — canary
 
 Field diagnosis from a consumer project whose machine kept dying under verification

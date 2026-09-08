@@ -159,6 +159,12 @@ templates/phases/         All prompt content:
                           phaseUX, phaseDiscovery, phaseReview,
                           audit, auditPlan, auditCoverage, auditSecurity, reconcile
 lib/reconcile-patterns.js isBehavioralFile() — SSoT for what `aitri reconcile`/snapshot count
+lib/git-frame.js          gitDiffNames() / gitPorcelainPaths() (both -z: raw names, never C-quoted)
+                          + isBehavioralInFrame() / isAitriStateInFrame() / toPipelinePath() —
+                          SSoT for the git PATH FRAME: git answers repo-relative, the filters
+                          above speak pipeline-relative. Owns every git call that yields paths
+                          (ADR-085 Add.1): reconcile's two readers, snapshot's uncounted counter,
+                          the verify-ref binding, the bug files_changed trail
 templates/IDEA.md         Initial project template for the user
 templates/AGENTS.md       Instruction file template (copied verbatim to 5 per-agent files:
                           CLAUDE.md, GEMINI.md, .codex/instructions.md, .github/copilot-instructions.md, AGENTS.md)
@@ -186,6 +192,7 @@ are the canonical definitions — import them, never re-derive:
 | Does coverage back a high compliance claim? | `lib/requirements.js` `HIGH_COMPLIANCE_LEVELS` / `EVIDENCE_OK_STATUSES` | phase5 (deploy gate), export |
 | Bug active / blocking? | `lib/commands/bug.js` `isActiveBug()` / `isBlockingBug()` (+ `bugStatus` / `bugSeverity`) | `getBlockingBugs` (feature gate), `snapshot.aggregateBugs` (root gate) |
 | Behavioral change for reconcile/snapshot? | `lib/reconcile-patterns.js` `isBehavioralFile()` | reconcile, snapshot |
+| Which paths did git change, and is one behavioral in the right frame? | `lib/git-frame.js` `gitDiffNames()` / `gitPorcelainPaths()` (`-z`) + `isBehavioralInFrame()` / `isAitriStateInFrame()` (+ `toPipelinePath()` for emitted paths) | reconcile `gitChangedFiles` / `uncommittedBehavioralChanges`, snapshot `detectUncountedChanges` / `captureVerifyRef` / `verifyRefFreshness`, bug `gitDiffFiles` (ADR-085 Add.1) |
 | Results file bound to its run? (`bound`/`mismatch`/`no-stamp`/`missing-file`) | `lib/state.js` `verifyResultsBinding()` | snapshot/health, validate, status, phase5 (ADR-069) |
 | What is the operator's next step? | `lib/snapshot.js` `topNextAction()` (over `buildProjectSnapshot().nextActions`) | verify-run gate, verify-complete gate, approve gate (UX-PRO-0707) |
 | Is color on? / how is an ANSI code emitted? | `lib/format.js` `useColor()` / `sgr()` | help.js today; every future emitter (pinned by `test/format-pin.test.js`) |

@@ -103,7 +103,7 @@ If `aitri status` reports `reconcile: pending` and the next-action is `aitri rec
 - **Detecting off-pipeline changes clears `verifyPassed`** — the previous verify verdict predates the drifted code, so `--resolve`'s tests-passing gate genuinely requires a fresh `verify-run` + `verify-complete` over the current code. Run them before resolving.
 - If Aitri reports the reconcile baseline is **unreachable** (git history rewritten, ref gone), it refuses to classify — it will never report "clean" against a baseline it cannot read. Recover with `aitri reconcile --init` (and review pre-re-baseline changes manually).
 
-The behavioral allowlist filters out documentation, build manifests, lockfiles, CI configs, and generated assets — those will not trigger `reconcile: pending` by themselves.
+The behavioral allowlist filters out documentation, build manifests, lockfiles, CI configs, and generated assets — those will not trigger `reconcile: pending` by themselves. Aitri's own files (`.aitri`, the artifacts dir, a feature's own pipeline) are never counted as drift either, whatever the layout and wherever the project sits inside the repo — if you ever see `.aitri` or a spec artifact listed as an off-pipeline change, that is a bug in Aitri, not work for you to classify.
 
 ---
 
