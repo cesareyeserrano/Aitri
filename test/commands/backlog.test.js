@@ -300,3 +300,214 @@ describe('scope-honest backlog list (FB-SCOPE-BLIND-0724)', () => {
     assert.match(out, /0 open · 1 closed|No open/);
   });
 });
+
+// ── FB-BACKLOG-AMEND-0909 — an item stops being immutable after creation ─────
+// Owner field case: with no mutator, agents hand-edited BACKLOG.json (appended to
+// `problem`, replaced `acceptance`, wrote status "done"), and the hand-written status
+// made 5 closed items count as open in status/--json/Hub. `note` (append-only log) +
+// `update` (Entry-Standard fields) close the incentive; B8 parity + the status warning
+// close the drift.
+
+function readItems(dir) {
+  return JSON.parse(fs.readFileSync(backlogFile(dir), 'utf8')).items;
+}
+
+function captureStderr(fn) {
+  let out = '';
+  const orig = process.stderr.write.bind(process.stderr);
+  process.stderr.write = (chunk) => { out += chunk; return true; };
+  try { fn(); } finally { process.stderr.write = orig; }
+  return out;
+}
+
+describe('backlog note (FB-BACKLOG-AMEND-0909)', () => {
+  it('appends dated entries to log[] in order, stamps updatedAt, and show prints them', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, ['add', '--title', 'Grow me', '--priority', 'P2', '--problem', 'seed']));
+    cmdBacklog(makeCtx(dir, ['note', 'BL-001', '--text', 'first finding']));
+    cmdBacklog(makeCtx(dir, ['note', 'BL-001', '--text', 'second finding']));
+    const [item] = readItems(dir);
+    assert.equal(item.log.length, 2);
+    assert.equal(item.log[0].text, 'first finding');
+    assert.equal(item.log[1].text, 'second finding');
+    assert.match(item.log[0].at, /^\d{4}-\d{2}-\d{2}T/);
+    assert.equal(item.updatedAt, item.log[1].at);
+    assert.equal(item.problem, 'seed', 'note must not touch the original fields');
+    const out = capture(() => cmdBacklog(makeCtx(dir, ['show', 'BL-001'])));
+    assert.ok(out.includes('Log (2)'));
+    assert.ok(out.indexOf('first finding') < out.indexOf('second finding'));
+    const listOut = capture(() => cmdBacklog(makeCtx(dir, ['list'])));
+    assert.ok(listOut.includes('2 notes'));
+  });
+
+  it('refuses a missing id, an unknown id, and empty text', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, ['add', '--title', 'x', '--priority', 'P3', '--problem', 'y']));
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['note'])), /Provide an item ID/);
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['note', 'BL-009', '--text', 'z'])), /not found/);
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['note', 'BL-001'])), /--text is required/);
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['note', 'BL-001', '--text', '   '])), /--text is required/);
+    assert.equal(readItems(dir)[0].log, undefined, 'a refused note must not create an empty log');
+  });
+
+  it('is allowed on a closed item (post-mortem notes)', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, ['add', '--title', 'x', '--priority', 'P3', '--problem', 'y']));
+    cmdBacklog(makeCtx(dir, ['done', 'BL-001']));
+    cmdBacklog(makeCtx(dir, ['note', 'BL-001', '--text', 'closed because superseded']));
+    const [item] = readItems(dir);
+    assert.equal(item.status, 'closed');
+    assert.equal(item.log.length, 1);
+  });
+});
+
+describe('backlog update (FB-BACKLOG-AMEND-0909)', () => {
+  it('sets only the given fields, normalizes priority, stamps updatedAt', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, ['add', '--title', 'Old', '--priority', 'P3', '--problem', 'p', '--acceptance', 'old-acc']));
+    const out = capture(() => cmdBacklog(makeCtx(dir, [
+      'update', 'BL-001', '--priority', 'p1', '--files', 'lib/a.js', '--acceptance', 'new-acc',
+    ])));
+    assert.ok(out.includes('updated priority, files, acceptance'));
+    const [item] = readItems(dir);
+    assert.equal(item.priority, 'P1');
+    assert.equal(item.files, 'lib/a.js');
+    assert.equal(item.acceptance, 'new-acc');
+    assert.equal(item.title, 'Old', 'untouched fields stay');
+    assert.equal(item.problem, 'p');
+    assert.ok(item.updatedAt);
+    assert.equal(item.status, 'open');
+  });
+
+  it('covers every Entry-Standard field plus title/problem/fr', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, ['add', '--title', 't', '--priority', 'P2', '--problem', 'p']));
+    cmdBacklog(makeCtx(dir, [
+      'update', 'BL-001', '--title', 'T2', '--problem', 'P2', '--fr', 'FR-007',
+      '--behavior', 'b', '--decisions', 'd',
+    ]));
+    const [item] = readItems(dir);
+    assert.deepEqual(
+      [item.title, item.problem, item.fr_id, item.behavior, item.decisions],
+      ['T2', 'P2', 'FR-007', 'b', 'd'],
+    );
+  });
+
+  it('refuses no flags, an invalid priority, an empty value, and --status', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, ['add', '--title', 't', '--priority', 'P2', '--problem', 'p']));
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['update', 'BL-001'])), /Nothing to update/);
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['update', 'BL-001', '--priority', 'P9'])), /Invalid priority/);
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['update', 'BL-001', '--files'])), /--files needs a value/);
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['update', 'BL-001', '--status', 'closed'])), /--status is not an update field/);
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['update'])), /Provide an item ID/);
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['update', 'BL-404', '--title', 'x'])), /not found/);
+    const [item] = readItems(dir);
+    assert.equal(item.status, 'open');
+    assert.equal(item.updatedAt, undefined, 'refused updates leave no stamp');
+  });
+});
+
+describe('backlog file integrity (B8 parity, FB-BACKLOG-AMEND-0909)', () => {
+  function corrupt(dir) {
+    fs.mkdirSync(path.dirname(backlogFile(dir)), { recursive: true });
+    fs.writeFileSync(backlogFile(dir), '{ "items": [ <<<<<<< HEAD');
+  }
+
+  it('every mutator refuses on a malformed file and leaves it byte-identical', () => {
+    const dir = setup();
+    corrupt(dir);
+    const before = fs.readFileSync(backlogFile(dir), 'utf8');
+    const attempts = [
+      ['add', '--title', 't', '--priority', 'P1', '--problem', 'p'],
+      ['done', 'BL-001'],
+      ['note', 'BL-001', '--text', 'x'],
+      ['update', 'BL-001', '--title', 'x'],
+    ];
+    for (const args of attempts) {
+      assert.throws(() => cmdBacklog(makeCtx(dir, args)), /not valid JSON/, `${args[0]} must refuse`);
+      assert.equal(fs.readFileSync(backlogFile(dir), 'utf8'), before, `${args[0]} must not write`);
+    }
+  });
+
+  it('shape corruption is malformed too — never coerced and written back (adversarial fold)', () => {
+    const shapes = [
+      '{ "items": { "BL-001": { "id": "BL-001", "title": "x" } } }',
+      '{ "items": "not a list" }',
+      '[ { "id": "BL-001", "title": "x", "status": "open" } ]',
+      '42',
+    ];
+    for (const content of shapes) {
+      const dir = setup();
+      fs.mkdirSync(path.dirname(backlogFile(dir)), { recursive: true });
+      fs.writeFileSync(backlogFile(dir), content);
+      assert.throws(() => cmdBacklog(makeCtx(dir, ['add', '--title', 't', '--priority', 'P1', '--problem', 'p'])), /not the expected shape/, content);
+      assert.throws(() => cmdBacklog(makeCtx(dir, ['note', 'BL-001', '--text', 'x'])), /not the expected shape/, content);
+      assert.equal(fs.readFileSync(backlogFile(dir), 'utf8'), content, `must stay byte-identical: ${content}`);
+    }
+    // An absent or null `items` is a legitimate empty list, as it always was.
+    const dir = setup();
+    fs.mkdirSync(path.dirname(backlogFile(dir)), { recursive: true });
+    fs.writeFileSync(backlogFile(dir), '{ "schemaVersion": "1" }');
+    cmdBacklog(makeCtx(dir, ['add', '--title', 't', '--priority', 'P1', '--problem', 'p']));
+    assert.equal(readItems(dir).length, 1);
+  });
+
+  it('note refuses a hand-written non-array log instead of overwriting it', () => {
+    const dir = setup();
+    fs.mkdirSync(path.dirname(backlogFile(dir)), { recursive: true });
+    fs.writeFileSync(backlogFile(dir), JSON.stringify({ schemaVersion: '1', items: [
+      { id: 'BL-001', title: 'a', priority: 'P2', status: 'open', createdAt: 'x', log: 'narrative written by hand' },
+    ] }));
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['note', 'BL-001', '--text', 'new'])), /log is not an array/);
+    assert.equal(readItems(dir)[0].log, 'narrative written by hand');
+  });
+
+  it('list degrades with a warning; show refuses instead of claiming "not found"', () => {
+    const dir = setup();
+    corrupt(dir);
+    const out = capture(() => cmdBacklog(makeCtx(dir, ['list'])));
+    assert.ok(out.includes('not valid JSON'));
+    assert.throws(() => cmdBacklog(makeCtx(dir, ['show', 'BL-001'])), /not valid JSON/);
+  });
+
+  it('warns once on stderr about hand-written statuses (the Ultron "done" case)', () => {
+    const dir = setup();
+    fs.mkdirSync(path.dirname(backlogFile(dir)), { recursive: true });
+    fs.writeFileSync(backlogFile(dir), JSON.stringify({ schemaVersion: '1', items: [
+      { id: 'BL-001', title: 'a', priority: 'P2', status: 'done', createdAt: 'x' },
+      { id: 'BL-002', title: 'b', priority: 'P2', status: 'Closed', createdAt: 'x' },
+      { id: 'BL-003', title: 'c', priority: 'P2', status: 'open', createdAt: 'x' },
+    ] }));
+    let stdout = '';
+    const stderr = captureStderr(() => { stdout = capture(() => cmdBacklog(makeCtx(dir, ['list']))); });
+    assert.match(stderr, /1 backlog item\(s\).*unrecognized status/);
+    assert.ok(stderr.includes('BL-001: status="done"'));
+    assert.ok(!stderr.includes('BL-002'), 'case-folded "Closed" is canonical, not unknown');
+    assert.ok(stdout.includes('2 open · 1 closed'), 'the hand-written "done" still counts as open — the warning says so');
+    const again = captureStderr(() => capture(() => cmdBacklog(makeCtx(dir, ['list']))));
+    assert.equal(again, '', 'warned once per file per process');
+  });
+
+  it('done is case-folded: a hand-written "Closed" is not re-stamped', () => {
+    const dir = setup();
+    fs.mkdirSync(path.dirname(backlogFile(dir)), { recursive: true });
+    fs.writeFileSync(backlogFile(dir), JSON.stringify({ schemaVersion: '1', items: [
+      { id: 'BL-001', title: 'a', priority: 'P2', status: 'Closed', createdAt: 'x' },
+    ] }));
+    const out = capture(() => cmdBacklog(makeCtx(dir, ['done', 'BL-001'])));
+    assert.ok(out.includes('already closed'));
+    const [item] = readItems(dir);
+    assert.equal(item.status, 'Closed');
+    assert.equal(item.closedAt, undefined);
+  });
+
+  it('feature scope: the scoped usage names the scoped command for note/update', () => {
+    const dir = setup();
+    const featDir = path.join(dir, 'features', 'billing');
+    fs.mkdirSync(path.join(featDir, 'spec'), { recursive: true });
+    saveConfig(featDir, { projectName: 'billing', artifactsDir: 'spec' });
+    const ctx = { ...makeCtx(featDir, ['bogus']), featureRoot: dir, scopeName: 'billing' };
+    assert.throws(() => cmdBacklog(ctx), /aitri feature backlog billing note <id> --text/);
+  });
+});

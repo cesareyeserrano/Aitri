@@ -6,6 +6,49 @@
 
 ---
 
+## [2.2.0-rc.13] — 2026-09-09 — a backlog item can grow after it is created: `backlog note` / `backlog update`; hand-edited statuses stop being silent (FB-BACKLOG-AMEND-0909) — canary
+
+Owner field feedback (2026-09-09): "`aitri backlog` has no way to extend an item — only add,
+list, show, done. An analysis that keeps growing has nowhere to accumulate inside the tool."
+Triage turned a usability ask into a **verified defect**: with no mutator, the agent in the
+owner's own project hand-edited `BACKLOG.json` — one item's `problem` grew 883→3743 chars by
+hand-dated append, its `acceptance` was replaced and its priority bumped, and five items were
+closed by writing `status: "done"` + `resolvedAt`, which the case-folded `!== 'closed'`
+predicate counts as OPEN: `aitri status`, `status --json` and Hub reported 9 open where 4
+were. The shipped `templates/BACKLOG.md` Entry Standard itself says items "should be
+expanded before scheduling" — the CLI offered no way to do it.
+
+- **`aitri backlog note <id> --text "..."`** — appends `{ at, text }` to a new optional
+  `log[]` on the item, append-only (earlier entries are never edited, file order is the
+  record, `show` prints it in file order so a merge that reorders stays visible). This is
+  the "accumulate" the owner asked for. Named `log`, not `notes` — `notes` is a string
+  elsewhere in the contract.
+- **`aitri backlog update <id> --title|--priority|--problem|--fr|--files|--behavior|--decisions|--acceptance "..."`**
+  — sets fields in place (the Entry-Standard expansion; the owner's project did exactly this
+  by hand). No history for field edits — the backlog is not a gate or audit record, and
+  `bug fix` overwrites the same way. `--status` is refused: the lifecycle stays in `done`.
+- Both stamp `updatedAt`, both allowed on closed items (a post-mortem note is legitimate),
+  both reach feature scope through the existing dispatch (`aitri feature backlog <name> note|update …`).
+- **B8 parity with bugs** — a malformed `BACKLOG.json` (merge-conflict marker is the usual
+  cause) is marked, not silently emptied: every mutator (`add`, `done`, `note`, `update`)
+  refuses and leaves the file byte-identical — before this, `add` **overwrote** the corrupt
+  file with a one-item list. `list` degrades with a warning; `show` refuses instead of
+  claiming "not found".
+- **Unrecognized-status warning** (once per file per process, stderr, on `aitri backlog`
+  sub-commands — `status`/`--json` stay silent by design, Hub polls them) naming the items
+  and saying they count as open — the Ultron `done` case stops being invisible.
+- **Shape corruption = malformed** (adversarial fold): a top-level array or an `items` that
+  is not an array is refused like bad JSON, mirroring `snapshot.readJsonList` — the first
+  cut coerced it to `[]` and would have rewritten the file with one item. A hand-written
+  non-array `log` on an item is refused by `note`, not overwritten.
+- **`done` is case-folded** like every reader — a hand-written `Closed` was re-stamped.
+- Not built (no evidence): `--file`/stdin for long text (agents pass paragraphs fine), reopen,
+  `done --note`, `feature init --from BL-xxx`. Documented limit: a backlog item reaches **no**
+  phase or audit briefing (nothing reads the file; the audit prompt only suggests `backlog add`); the log retains intent, the agent carries
+  `backlog show <id>` into `FEATURE_IDEA.md` when the item becomes a feature (AGENTS.md).
+- Contract: `docs/integrations/ARTIFACTS.md` + `CHANGELOG.md` (additive). Agents: `templates/AGENTS.md`
+  (feature-creation rule + backlog section). ADR-090.
+
 ## [2.2.0-rc.12] — 2026-09-09 — creation order reaches the file tree: `features/INDEX.md`, a generated, gitignored view (FEATURE-INDEX-0909) — canary
 
 Owner field feedback (2026-09-09, second time): "the order we did the features in is hard to

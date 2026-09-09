@@ -18,6 +18,14 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.2.0-rc.13 — 2026-09-09 — `BACKLOG.json` items gain `log[]` + `updatedAt`; two new verbs `note` / `update` (FB-BACKLOG-AMEND-0909, ADR-090) — additive
+
+`BACKLOG.json` (root and every feature scope), per item, both optional:
+- `log`: array of `{ at: ISO8601, text: string }`, append-only, written by `aitri backlog note <id> --text`. File order is the record — readers should render in file order, not re-sort. Note the name: `log` (array of objects), deliberately not `notes`, which is a **string** on `04_TEST_RESULTS.json` results.
+- `updatedAt`: ISO8601, stamped by `note` and by `aitri backlog update <id> --<field>` (sets `title/priority/problem/fr_id/files/behavior/decisions/acceptance` in place; never `status`).
+
+No existing field changes type or meaning. `status` semantics are unchanged (anything other than case-folded `closed` is open) — the CLI now warns on stderr when a file carries a status it does not write, and every mutator refuses to write over an unparseable file (previously `add` overwrote it). Hub's generic JSON reader needs nothing; a field-level reader may show `log` as a per-item journal.
+
 ## v2.2.0-rc.12 — 2026-09-09 — a generated `features/INDEX.md` appears in the project tree (FEATURE-INDEX-0909, ADR-089) — additive
 
 No schema, artifact, `.aitri` or `status --json` change. Informational for subproducts that

@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.2.0-rc.12+
+**Aitri version:** v2.2.0-rc.13+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -480,13 +480,16 @@ Project-level tech-debt / deferred-work registry. Separate from `BUGS.json` — 
       "acceptance": "string (optional, v2.0.0-rc.50+) — how to verify it works",
       "status": "open | closed",
       "createdAt": "ISO8601",
-      "closedAt": "ISO8601 (present once closed)"
+      "updatedAt": "ISO8601 (optional, v2.2.0-rc.13+) — last `note`/`update`",
+      "closedAt": "ISO8601 (present once closed)",
+      "log": [ { "at": "ISO8601", "text": "string" } ]
     }
   ]
 }
 ```
 
-**Lifecycle:** `open → closed` (via `aitri backlog done <id>`).
+**Lifecycle:** `open → closed` (via `aitri backlog done <id>`). Any status other than `closed` (case-folded) counts as **open** in `aitri backlog list`, `aitri status` and `status --json`; `aitri backlog` sub-commands warn on stderr when the file carries a status the CLI does not write (e.g. a hand-written `done`); `status`/`status --json` count it as open without a warning.
+**Growing an item** (v2.2.0-rc.13+, FB-BACKLOG-AMEND-0909): `aitri backlog note <id> --text "..."` appends `{ at, text }` to the optional `log[]` array — **append-only, file order is the record** (the CLI never re-sorts or edits earlier entries). `aitri backlog update <id> --title|--priority|--problem|--fr|--files|--behavior|--decisions|--acceptance "..."` sets those fields in place (no history; `--status` is refused — the lifecycle stays in `done`). Both stamp `updatedAt` and are allowed on closed items. `log` is an array of objects — distinct from the string `notes` on `04_TEST_RESULTS.json` results. Absent on items never grown (additive — old readers and old items are unaffected). A backlog item is **not injected into any phase or audit briefing** — no prompt reads this file (the audit prompt only suggests `backlog add`); the log retains intent, it does not deliver it to a phase.
 **Priority:** `P1` (most urgent) through `P3` (least). Sort order for `aitri backlog list`.
 **Detail fields** (v2.0.0-rc.50+): `files` / `behavior` / `decisions` / `acceptance` are optional Entry-Standard fields — set via `aitri backlog add --files/--behavior/--decisions/--acceptance` and shown by `aitri backlog show <id>`. They make an item self-contained (implementable later without re-deriving context); absent on items that did not set them (additive — old readers and old items are unaffected).
 **Field-name correction** (v2.0.0-rc.50): this schema previously documented `fr`/`created_at`/`updated_at`; the code has always written `fr_id`/`createdAt`/`closedAt`. The table above now matches the code. No data change — a documentation fix.

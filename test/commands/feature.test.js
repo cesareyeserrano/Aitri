@@ -746,6 +746,23 @@ describe('aitri feature bug / backlog', () => {
     fs.mkdirSync(path.join(dir, 'features', name, 'spec'), { recursive: true });
   }
 
+  it('feature backlog note/update dispatch to the FEATURE BACKLOG.json (FB-BACKLOG-AMEND-0909)', () => {
+    const dir = makeProjectDir();
+    try {
+      seedFeatureDir(dir, 'billing');
+      const { fn: err } = makeErr();
+      const run = (args) => captureStdout(() => cmdFeature({ dir, args: ['backlog', 'billing', ...args], err, rootDir: ROOT_DIR }));
+      run(['add', '--title', 'grow', '--priority', 'P3', '--problem', 'seed']);
+      run(['note', 'BL-001', '--text', 'learned in discovery']);
+      run(['update', 'BL-001', '--priority', 'P1']);
+      const featBacklog = path.join(dir, 'features', 'billing', 'spec', 'BACKLOG.json');
+      const item = JSON.parse(fs.readFileSync(featBacklog, 'utf8')).items[0];
+      assert.equal(item.log[0].text, 'learned in discovery');
+      assert.equal(item.priority, 'P1');
+      assert.ok(!fs.existsSync(path.join(dir, 'spec', 'BACKLOG.json')), 'root BACKLOG.json must NOT be touched');
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
   it('feature bug add writes the FEATURE BUGS.json, not the root', () => {
     const dir = makeProjectDir();
     try {
