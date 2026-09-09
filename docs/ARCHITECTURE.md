@@ -158,6 +158,10 @@ templates/phases/         All prompt content:
                           requirements, architecture, tests, build, deploy,
                           phaseUX, phaseDiscovery, phaseReview,
                           audit, auditPlan, auditCoverage, auditSecurity, reconcile
+lib/features-index.js     renderFeaturesIndex() / writeFeaturesIndex() — `<features>/INDEX.md`, the
+                          creation-order view for the file tree (derived, gitignored, regenerated
+                          by status/resume/feature init; never read back). creationOrdinals()
+                          on top of snapshot.proposalOrder() = the ONE ordinal rule (ADR-089)
 lib/reconcile-patterns.js isBehavioralFile() — SSoT for what `aitri reconcile`/snapshot count
 lib/git-frame.js          gitDiffNames() / gitPorcelainPaths() (both -z: raw names, never C-quoted)
                           + isBehavioralInFrame() / isAitriStateInFrame() / toPipelinePath() —
@@ -195,6 +199,7 @@ are the canonical definitions — import them, never re-derive:
 | Which paths did git change, and is one behavioral in the right frame? | `lib/git-frame.js` `gitDiffNames()` / `gitPorcelainPaths()` (`-z`) + `isBehavioralInFrame()` / `isAitriStateInFrame()` (+ `toPipelinePath()` for emitted paths) | reconcile `gitChangedFiles` / `uncommittedBehavioralChanges`, snapshot `detectUncountedChanges` / `captureVerifyRef` / `verifyRefFreshness`, bug `gitDiffFiles` (ADR-085 Add.1) |
 | Results file bound to its run? (`bound`/`mismatch`/`no-stamp`/`missing-file`) | `lib/state.js` `verifyResultsBinding()` | snapshot/health, validate, status, phase5 (ADR-069) |
 | What is the operator's next step? | `lib/snapshot.js` `topNextAction()` (over `buildProjectSnapshot().nextActions`) | verify-run gate, verify-complete gate, approve gate (UX-PRO-0707) |
+| In what order were features created (the `#N`)? | `lib/snapshot.js` `proposalOrder()` via `lib/features-index.js` `creationOrdinals()` | status Features render, `features/INDEX.md`, the ladder's work-rung order (ADR-089) |
 | Is color on? / how is an ANSI code emitted? | `lib/format.js` `useColor()` / `sgr()` | help.js today; every future emitter (pinned by `test/format-pin.test.js`) |
 
 A *general* mechanical detector of semantic re-implementation is not buildable; the real catch is the

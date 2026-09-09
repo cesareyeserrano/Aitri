@@ -6,6 +6,55 @@
 
 ---
 
+## [2.2.0-rc.12] — 2026-09-09 — creation order reaches the file tree: `features/INDEX.md`, a generated, gitignored view (FEATURE-INDEX-0909) — canary
+
+Owner field feedback (2026-09-09, second time): "the order we did the features in is hard to
+see in the project." rc.2 (FEATURE-ORDER-0729) put `#N · created · verified` in `aitri
+status` — and the owner was looking at the **folder tree**, where an IDE sorts `features/`
+alphabetically and no Aitri surface lived. The literal request (a number in the directory
+name, `001.grid-ux`) stays tombstoned for the rc.2 reasons: a frozen ordinal collides on
+parallel branches, lies about implementation order (creation ≠ verified — `backend` is #5
+by creation and verified after #20), breaks the `aitri feature <verb> <name>` grammar, and
+renames every consumer's directories. Ids never encode order; order is presentation.
+
+- **`<features>/INDEX.md`** (`lib/features-index.js`) — a markdown table, one row per
+  feature in creation order: `# · feature · created · phases · verify · last verified`.
+  Derived from `createdAt`; nothing stored, nothing renumbered, never read back by Aitri.
+  Undated (pre-`createdAt`) features sort last without an ordinal. Same numbers as the
+  terminal by construction: `creationOrdinals()` sits on `proposalOrder()` (the ladder's
+  rule) and the status render now consumes it instead of its own copy.
+- **Regenerated, not maintained:** `status` (text mode — `--json` is Hub's read-only polling
+  surface and never writes), `resume`, and `feature init` refresh it; idempotent (no write
+  when unchanged), never manufactures `features/` for a feature-less project, removed when
+  the last feature goes.
+- **Gitignored, decided:** a committed derived file conflicts on every parallel feature
+  creation (the mild form of the branch-collision cost above) and carries no state. The
+  IDE tree is the reported need, and every session opens with `status`/`resume`, which
+  regenerates it in any clone. The ignore entry is layout-aware
+  (`aitri/features/INDEX.md` / `features/INDEX.md`): added by `init` and `adopt --upgrade`
+  via `ensureAitriGitignore({ extra })` — which now extends an existing Aitri block in
+  place instead of appending a second header — and, for a project that never re-ran
+  either, once on the index's first creation (the one bounded moment a read-ish command
+  touches the user's `.gitignore`; it says so on stderr).
+- `templates/AGENTS.md` names the file in the layout line: read it, never edit it.
+- **Adversarial pass on the first cut folded four corrections pre-commit.** (D1/D2) the
+  writer deleted or overwrote a `features/INDEX.md` it had not created — a Cucumber-style
+  `features/` in a flat project, or a hand-written index — so every index now opens with an
+  ownership marker and a file without it is left untouched and said so once; (D3) the
+  `.gitignore` entry was ensured only on first creation and AFTER the write, so an ignore
+  failure (or a pre-existing file) left an un-ignored derived file forever — the entry is
+  now ensured whenever it is missing, BEFORE the write, and if the ignore file cannot be
+  updated nothing is written; a hand-edited `layoutRoot` (`..`, absolute) resolved the
+  features dir outside the project — refused; the write is atomic (`state.atomicWrite`);
+  the in-place `.gitignore` insertion lands after the last known Aitri entry (not after
+  the user's contiguous lines) and a slash-anchored equivalent counts as present.
+
+Pins (`test/features-index.test.js`): ordinal parity with `proposalOrder`, undated-last,
+idempotent/updated/removed lifecycle, no manufactured dir, discovery never sees the file as
+a feature, gitignore in-place extension, and the wiring — `status` text and `resume` write,
+`status --json` does not, `feature init` shows the new feature at once. Rendered against a
+copy of the owner's 21-feature project. Suite: 2375.
+
 ## [2.2.0-rc.11] — 2026-09-08 — reconcile stops manufacturing drift out of Aitri's own writes: the git readers judge paths in the pipeline frame (RECONCILE-FRAME-0908, ADR-085 Addendum 1) — canary
 
 Field report from a consumer project: "the action ladder can form a closed loop between

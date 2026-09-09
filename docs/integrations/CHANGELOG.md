@@ -18,6 +18,17 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.2.0-rc.12 — 2026-09-09 — a generated `features/INDEX.md` appears in the project tree (FEATURE-INDEX-0909, ADR-089) — additive
+
+No schema, artifact, `.aitri` or `status --json` change. Informational for subproducts that
+walk the project tree: `<layoutRoot>/features/INDEX.md` (contained layout) or
+`features/INDEX.md` (flat) is a **generated, gitignored markdown view** of feature creation
+order, written by `aitri status` (text mode only — `--json` never writes), `aitri resume` and
+`aitri feature init`. It is not a feature and not an artifact: feature discovery is by
+directory + `.aitri`, and a reader that enumerates `features/` must skip non-directories
+(Aitri's own discovery already does). Do not parse it — `status --json features[].createdAt`
+(v2.2.0-rc.2+) is the contract for the same information.
+
 ## v2.2.0-rc.11 — 2026-09-08 — off-pipeline drift detection is path-frame correct: Aitri's own files are never counted, whatever the layout (RECONCILE-FRAME-0908, ADR-085 Add.1) — additive
 
 No field, type, or shape changed. What changed is the VALUE two documented surfaces
