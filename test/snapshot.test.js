@@ -2332,3 +2332,25 @@ describe('scope provenance data (FB-SCOPE-BLIND-0724)', () => {
     if (bugs) fs.writeFileSync(path.join(featDir, 'spec', 'BUGS.json'), JSON.stringify({ bugs }));
   }
 });
+
+// ── BUG-STATE-VISIBLE-0909: bugs.active + bugs.fixed split bugs.open (additive) ─────────
+describe('aggregateBugs — active/fixed split (BUG-STATE-VISIBLE-0909)', () => {
+  it('open = active + fixed across scopes; case-folded; verified/closed count in neither', () => {
+    const dir = tmpDir();
+    try {
+      saveConfig(dir, { projectName: 'x', artifactsDir: 'spec' });
+      writeJsonSpec(dir, 'BUGS.json', { bugs: [
+        { id: 'BG-001', severity: 'high',   status: 'Open' },
+        { id: 'BG-002', severity: 'low',    status: 'in_progress' },
+        { id: 'BG-003', severity: 'high',   status: 'Fixed' },
+        { id: 'BG-004', severity: 'low',    status: 'verified' },
+        { id: 'BG-005', severity: 'low',    status: 'closed' },
+      ] });
+      const snap = buildProjectSnapshot(dir);
+      assert.equal(snap.bugs.open,   3, 'historical meaning kept: open|in_progress|fixed');
+      assert.equal(snap.bugs.active, 2);
+      assert.equal(snap.bugs.fixed,  1);
+      assert.equal(snap.bugs.blocking, 1, 'a fixed high bug does not block');
+    } finally { cleanup(dir); }
+  });
+});

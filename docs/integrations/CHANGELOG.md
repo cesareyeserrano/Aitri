@@ -18,6 +18,37 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.2.0-rc.14 — 2026-09-09 — `status --json` gains `bugs.active` / `bugs.fixed`; `BUGS.json` items gain `log[]`; `.aitri.local#sessionContext.stateAtSave` (BUG-STATE-VISIBLE-0909, ADR-091) — additive
+
+`status --json` → `bugs` (all optional for old readers):
+- `active`: number — bugs whose status is `open` or `in_progress` (case-folded). This is what
+  the deploy gate can block on and what `openIds` already listed.
+- `fixed`: number — bugs whose status is `fixed` (developer's claim, awaiting verification).
+- `open` is **unchanged**: still `open|in_progress|fixed` (i.e. `active + fixed`), kept for
+  compatibility. Documented explicitly now; a reader that wants "still broken" should read
+  `active`, a reader that wants "awaiting verification" should read `fixed`. Hub note: Hub's
+  direct `BUGS.json` reader counts `open` as status==='open' only — a third definition; none
+  of the three changed here.
+
+`BUGS.json` (root and every feature scope), per bug, optional:
+- `log`: array of `{ at: ISO8601, text: string }`, append-only, written by `aitri bug note
+  <id> --text` and by `aitri bug update --severity` (which journals `"severity <old> → <new>[:
+  reason]"`). File order is the record. Same name and shape as the backlog `log[]` (rc.13).
+- `updated_at` is now also stamped by `note`/`update` (was: fix/verify/close only).
+- `bug fix` on a bug already in status `fixed` **refuses** (previously re-stamped
+  `fix_commit_sha`/`fix_at`); `bug update --tc` sets `tc_reference` without touching them.
+
+`.aitri.local` → `sessionContext` (per-machine, gitignored), optional:
+- `stateAtSave`: `{ activeBugs: N, fixedBugs: N, openBacklog: N }` — the snapshot counts at the
+  moment `aitri checkpoint --context` wrote the narrative. `resume` diffs them against the live
+  snapshot to flag the narrative as stale by content. Display-only; absent on older narratives.
+
+Observable text changes (not contract): `status` bugs line, `validate` bug warning, `resume`
+sections ("Open Bugs" now active-only; new "Fixed Bugs — awaiting verification"; "Session
+Context" moved to just before "Next Action"; `(stale)`/`(unreachable)`/`(dirty)` on verify
+lines), `feature verify-complete` seal advisory. Consumers parsing text output (none known —
+Hub reads `--json`) should re-check.
+
 ## v2.2.0-rc.13 — 2026-09-09 — `BACKLOG.json` items gain `log[]` + `updatedAt`; two new verbs `note` / `update` (FB-BACKLOG-AMEND-0909, ADR-090) — additive
 
 `BACKLOG.json` (root and every feature scope), per item, both optional:

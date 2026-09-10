@@ -997,7 +997,7 @@ describe('status text — scope provenance (FB-SCOPE-BLIND-0724)', () => {
       { id: 'BG-002', title: 'done', severity: 'low', status: 'verified' },
     ] });
     const out = statusText(dir);
-    assert.match(out, /bugs: {4}⚠️ {2}1 active bug \(open\/in-fix\) \[grid-ux\] — run: aitri feature bug grid-ux list/);
+    assert.match(out, /bugs: {4}⚠️ {2}1 unresolved bug \(1 open\/in-progress\) \[grid-ux\] — run: aitri feature bug grid-ux list/);
   });
 
   it('no active bugs anywhere → bugs line keeps the plain root pointer', () => {
@@ -1007,6 +1007,50 @@ describe('status text — scope provenance (FB-SCOPE-BLIND-0724)', () => {
       { id: 'BG-001', title: 'done', severity: 'low', status: 'verified' },
     ] });
     const out = statusText(dir);
-    assert.match(out, /bugs: {4}no active bugs — run: aitri bug list/);
+    assert.match(out, /bugs: {4}no unresolved bugs — run: aitri bug list/);
+  });
+});
+
+// ── BUG-STATE-VISIBLE-0909: the bugs line says what its count is made of ─────────
+// Field case (T-Ledger, 2026-09-09): 2 open + 9 fixed rendered "11 active bugs (open/in-fix)"
+// and the nine already-fixed bugs were re-triaged as live defects session after session.
+describe('status — active vs fixed bugs are told apart (BUG-STATE-VISIBLE-0909)', () => {
+  const captureText = (fn) => {
+    let out = '';
+    const orig = process.stdout.write.bind(process.stdout);
+    process.stdout.write = (chunk) => { out += chunk; return true; };
+    try { fn(); } finally { process.stdout.write = orig; }
+    return out;
+  };
+  const statusText = (dir) => captureText(() => cmdStatus({ dir, VERSION: '0.1.52', args: [] }));
+  const statusJson = (dir) => captureJson(() => cmdStatus({ dir, VERSION: '0.1.52', args: ['--json'] }));
+
+  it('text: names the open/in-progress and fixed-awaiting-verify parts of the count', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    fs.writeFileSync(path.join(dir, 'spec', 'BUGS.json'), JSON.stringify({ bugs: [
+      { id: 'BG-001', title: 'live',     severity: 'high',   status: 'open' },
+      { id: 'BG-002', title: 'claimed',  severity: 'high',   status: 'fixed' },
+      { id: 'BG-003', title: 'claimed2', severity: 'medium', status: 'fixed' },
+      { id: 'BG-004', title: 'done',     severity: 'low',    status: 'verified' },
+    ] }));
+    const out = statusText(dir);
+    assert.match(out, /bugs: {4}⚠️ {2}3 unresolved bugs \(1 open\/in-progress · 2 fixed awaiting verify\)/);
+  });
+
+  it('--json: additive bugs.active + bugs.fixed; bugs.open keeps its historical meaning (active + fixed)', () => {
+    const dir = tmpDir();
+    initFlatProject({ dir, rootDir: ROOT_DIR, err: (m) => { throw new Error(m); }, VERSION: '0.1.52' });
+    fs.writeFileSync(path.join(dir, 'spec', 'BUGS.json'), JSON.stringify({ bugs: [
+      { id: 'BG-001', title: 'live',    severity: 'high',   status: 'open' },
+      { id: 'BG-002', title: 'live2',   severity: 'low',    status: 'in_progress' },
+      { id: 'BG-003', title: 'claimed', severity: 'medium', status: 'fixed' },
+      { id: 'BG-004', title: 'done',    severity: 'low',    status: 'closed' },
+    ] }));
+    const j = statusJson(dir);
+    assert.equal(j.bugs.open,   3, 'open = open|in_progress|fixed — unchanged contract');
+    assert.equal(j.bugs.active, 2, 'active = open|in_progress');
+    assert.equal(j.bugs.fixed,  1, 'fixed = fixed awaiting verification');
+    assert.equal(j.bugs.active + j.bugs.fixed, j.bugs.open);
   });
 });

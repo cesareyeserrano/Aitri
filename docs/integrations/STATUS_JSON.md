@@ -1,6 +1,6 @@
 # `aitri status --json` — Machine-Readable Project Snapshot
 
-**Aitri version:** v2.2.0-rc.13+
+**Aitri version:** v2.2.0-rc.14+
 **Stability:** Additive-only. Legacy fields (used by Hub pre-v0.1.77) preserved indefinitely.
 **Scope:** Single-machine CLI consumers. For remote (GitHub-URL) consumers, use `.aitri` + `spec/` directly per [SCHEMA.md](./SCHEMA.md) / [ARTIFACTS.md](./ARTIFACTS.md).
 
@@ -70,7 +70,12 @@ Exit code: `0` on success (even when the project has drift or blocking bugs — 
   // "do NOT treat it as a contract") — a consumer may render this as build progress but
   // MUST NOT gate, verify, or compute compliance from it.
   "buildPlan": { "epics": [ { "id": "EP-01", "title": "string", "status": "pending | in-progress | done | <other, tolerated>" } ], "summary": "string" } /* | null */,
-  "bugs":    { "total": N, "open": N, "blocking": N, "bySeverity": { "critical": N, "high": N, "medium": N, "low": N }, "openIds": ["BG-001", "..."], "parseErrors": ["root" /* | "feature:<name>" */] },
+  "bugs":    { "total": N, "open": N, "active": N, "fixed": N, "blocking": N, "bySeverity": { "critical": N, "high": N, "medium": N, "low": N }, "openIds": ["BG-001", "..."], "parseErrors": ["root" /* | "feature:<name>" */] },
+  // bugs.open = status open|in_progress|fixed (case-folded) — the historical meaning, kept.
+  // bugs.active (additive, v2.2.0-rc.14+) = open|in_progress: what is still broken and what the
+  // deploy gate can block on; bugs.fixed (additive, rc.14+) = fixed, awaiting verification (the
+  // developer's claim — `bug verify` or a passing linked TC promotes it). active + fixed === open.
+  // bySeverity and openIds are computed over ACTIVE bugs only (fixed excluded) — always were.
   // bugs.parseErrors (additive, v2.0.0-rc.158+): scopes whose BUGS.json EXISTS but failed to
   // parse. Their bugs are INVISIBLE to every counter above (the snapshot degrades by design,
   // rc.149 — the verify/reconcile/validate --ci GATES refuse instead). Non-empty parseErrors

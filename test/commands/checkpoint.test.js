@@ -292,3 +292,54 @@ describe('cmdCheckpoint() — label sanitization', () => {
     assert.ok(!fname.includes('&'), 'ampersand must be replaced');
   });
 });
+
+// ── BUG-STATE-VISIBLE-0909: the narrative is stamped with the counts it was written against ──
+describe('cmdCheckpoint() — --context stamps stateAtSave and teaches what does not belong in the narrative', () => {
+  let dir;
+  let output;
+
+  before(() => {
+    dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1, 2, 3, 4] }));
+    writeFile(dir, 'BUGS.json', JSON.stringify({ bugs: [
+      { id: 'BG-001', title: 'live',    severity: 'low', status: 'open' },
+      { id: 'BG-002', title: 'claimed', severity: 'low', status: 'fixed' },
+      { id: 'BG-003', title: 'claimed', severity: 'low', status: 'fixed' },
+    ] }));
+    writeFile(dir, 'BACKLOG.json', JSON.stringify({ items: [
+      { id: 'BL-001', title: 'a', priority: 'P2', status: 'open' },
+      { id: 'BL-002', title: 'b', priority: 'P2', status: 'closed' },
+    ] }));
+    output = captureStdout(() =>
+      cmdCheckpoint({
+        dir, args: ['--context', 'two fixed, one open, BL-001 pending'],
+        flagValue: makeFlagValue({ '--context': 'two fixed, one open, BL-001 pending' }),
+        err: noopErr,
+      })
+    );
+  });
+
+  after(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('sessionContext.stateAtSave carries active/fixed bugs and open backlog (per-machine)', () => {
+    const config = loadConfig(dir);
+    assert.deepEqual(config.sessionContext.stateAtSave, { activeBugs: 1, fixedBugs: 2, openBacklog: 1 });
+    const local = JSON.parse(fs.readFileSync(path.join(dir, '.aitri.local'), 'utf8'));
+    assert.ok(local.sessionContext.stateAtSave, 'lives in .aitri.local');
+    assert.ok(!JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8')).sessionContext, 'never in the shared .aitri');
+  });
+
+  it('prints the state it snapshotted and where open items belong instead', () => {
+    assert.match(output, /State at save: 1 open bug\(s\) · 2 fixed awaiting verify · 1 open backlog item\(s\)/);
+    assert.match(output, /Open items, hypotheses and pending decisions go to `aitri bug add` \/ `aitri backlog add`/);
+    assert.match(output, /re-read as open forever/);
+  });
+
+  it('a bare checkpoint (no --context) stamps nothing', () => {
+    const d2 = tmpDir();
+    writeFile(d2, '.aitri', minimalConfig());
+    captureStdout(() => cmdCheckpoint({ dir: d2, args: [], flagValue: makeFlagValue(), err: noopErr }));
+    assert.equal(loadConfig(d2).sessionContext ?? null, null);
+    fs.rmSync(d2, { recursive: true, force: true });
+  });
+});

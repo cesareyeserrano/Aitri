@@ -847,8 +847,24 @@ describe('cmdValidate() — open-bug warning provenance (FB-SCOPE-BLIND-0724)', 
         bugs: [{ id: 'BG-001', title: 'blocker', status: 'open', severity: 'critical' }],
       }));
       const out = captureLog(() => cmdValidate({ dir, args: [] }));
-      assert.match(out, /1 open bug\(s\) \[backend\]/);
+      assert.match(out, /1 unresolved bug\(s\) \[backend\]/);
       assert.match(out, /Run: aitri feature bug backend list/);
+    } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('fixed bugs are named as awaiting verify, not folded into "open" (BUG-STATE-VISIBLE-0909)', () => {
+    const dir = tmpDir();
+    try {
+      seedDeployableRoot(dir);
+      writeFile(dir, 'spec/BUGS.json', JSON.stringify({
+        bugs: [
+          { id: 'BG-001', title: 'live',    status: 'open',  severity: 'low' },
+          { id: 'BG-002', title: 'claimed', status: 'fixed', severity: 'high' },
+          { id: 'BG-003', title: 'claimed', status: 'fixed', severity: 'low' },
+        ],
+      }));
+      const out = captureLog(() => cmdValidate({ dir, args: [] }));
+      assert.match(out, /3 unresolved bug\(s\) \(1 open\/in-progress \+ 2 fixed awaiting `bug verify`\)/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 
@@ -860,7 +876,7 @@ describe('cmdValidate() — open-bug warning provenance (FB-SCOPE-BLIND-0724)', 
         bugs: [{ id: 'BG-001', title: 'minor', status: 'open', severity: 'low' }],
       }));
       const out = captureLog(() => cmdValidate({ dir, args: [] }));
-      assert.match(out, /1 open bug\(s\) — critical\/high severity will block verify-complete\. Run: aitri bug list/);
+      assert.match(out, /1 unresolved bug\(s\) — critical\/high severity in open\/in-progress will block verify-complete\. Run: aitri bug list/);
     } finally { fs.rmSync(dir, { recursive: true, force: true }); }
   });
 });

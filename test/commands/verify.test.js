@@ -3591,3 +3591,77 @@ describe('e2e blind spots (FB-VERIFY-BLINDSPOTS-0710)', () => {
     });
   });
 });
+
+// ── BUG-STATE-VISIBLE-0909: feature seal advisory — the moment a delivered root backlog item
+// should close. Field case: a P1 item delivered by two sealed features stayed open for a week.
+// Advisory only (no auto-close: delivery is N:M), printed only when the root has open items.
+describe('feature verify-complete — root backlog advisory (BUG-STATE-VISIBLE-0909)', () => {
+  function seedFeaturePass(parent) {
+    const featureDir = path.join(parent, 'features', 'foo');
+    fs.mkdirSync(path.join(featureDir, 'spec'), { recursive: true });
+    fs.mkdirSync(path.join(parent, 'spec'), { recursive: true });
+    fs.writeFileSync(path.join(parent, '.aitri'), JSON.stringify({
+      projectName: 'root', artifactsDir: 'spec', approvedPhases: [1, 2, 3, 4, 5], completedPhases: [1, 2, 3, 4, 5],
+    }));
+    fs.writeFileSync(path.join(featureDir, '.aitri'), JSON.stringify({
+      projectName: 'foo', artifactsDir: 'spec',
+      approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4],
+      verifyPassed: true, verifySummary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+    }));
+    fs.writeFileSync(path.join(featureDir, 'spec/01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'must-have' }],
+    }));
+    fs.writeFileSync(path.join(featureDir, 'spec/03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-001', title: 't', requirement_id: 'FR-001', expected_result: 'r' }],
+    }));
+    fs.writeFileSync(path.join(featureDir, 'spec/04_BUILD_REPORT.json'), JSON.stringify({
+      files_created: [{ path: 'runner.js' }], test_runner: 'node runner.js',
+    }));
+    fs.writeFileSync(path.join(featureDir, 'runner.js'), `console.log('✔ TC-001 — ran');\n`);
+    return featureDir;
+  }
+  const captureLog = (fn) => {
+    let out = '';
+    const ol = console.log, oe = process.stderr.write;
+    console.log = (...a) => { out += a.join(' ') + '\n'; }; process.stderr.write = () => true;
+    try { fn(); } finally { console.log = ol; process.stderr.write = oe; }
+    return out;
+  };
+  const ctx = (featureDir, parent) => ({
+    dir: featureDir, args: [], flagValue: () => null, err: (m) => { throw new Error(m); },
+    featureRoot: parent, scopeName: 'foo',
+  });
+
+  it('prints the count of OPEN root backlog items and the close command when the root has any', () => {
+    const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-seal-bl-'));
+    try {
+      const featureDir = seedFeaturePass(parent);
+      fs.writeFileSync(path.join(parent, 'spec/BACKLOG.json'), JSON.stringify({ schemaVersion: '1', items: [
+        { id: 'BL-001', title: 'delivered by this feature', priority: 'P1', status: 'open' },
+        { id: 'BL-002', title: 'closed already',            priority: 'P2', status: 'closed' },
+        { id: 'BL-003', title: 'still pending',             priority: 'P3', status: 'Open' },
+      ] }));
+      captureLog(() => cmdVerifyRun(ctx(featureDir, parent)));
+      const out = captureLog(() => cmdVerifyComplete(ctx(featureDir, parent)));
+      assert.match(out, /✅ Verify passed/);
+      assert.match(out, /📋 2 open backlog item\(s\) in the root project — if this feature delivered any, close them now/);
+      assert.match(out, /aitri backlog done <BL-NNN>/);
+      // advisory, never a gate: the seal itself succeeded
+      assert.equal(JSON.parse(fs.readFileSync(path.join(featureDir, '.aitri'), 'utf8')).verifyPassed, true);
+    } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+  });
+
+  it('stays silent when the root backlog is empty, absent, or malformed', () => {
+    for (const backlog of [null, JSON.stringify({ items: [{ id: 'BL-001', title: 'x', priority: 'P1', status: 'closed' }] }), '{ not json']) {
+      const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-seal-nobl-'));
+      try {
+        const featureDir = seedFeaturePass(parent);
+        if (backlog !== null) fs.writeFileSync(path.join(parent, 'spec/BACKLOG.json'), backlog);
+        captureLog(() => cmdVerifyRun(ctx(featureDir, parent)));
+        const out = captureLog(() => cmdVerifyComplete(ctx(featureDir, parent)));
+        assert.match(out, /✅ Verify passed/);
+        assert.ok(!/open backlog item/.test(out), `no advisory expected, got:\n${out}`);
+      } finally { fs.rmSync(parent, { recursive: true, force: true }); }
+    }
+  });
+});

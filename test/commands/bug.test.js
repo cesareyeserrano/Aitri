@@ -699,3 +699,200 @@ describe('cmdBug list', () => {
     assert.ok(!out.includes('open in features'), 'filtered view must not cross-hint');
   });
 });
+
+// ── BUG-STATE-VISIBLE-0909 — the record is correctable, the fix trail is not re-stampable ──
+// Field case (T-Ledger, 2026-09-09): a bug's title carried a wrong root cause, the CLI had
+// no way to correct it, and the correction lived in the session narrative as "do not trust
+// the title". `note` (append-only log[]) + `update` (fields in place) give post-add findings
+// a home in the record; `fix` on an already-fixed bug refuses instead of re-stamping the SHA.
+
+function seedBug(dir, overrides = {}) {
+  fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.aitri'), JSON.stringify({ artifactsDir: 'spec' }));
+  writeBugs(dir, [{ id: 'BG-001', title: 'wrong cause', severity: 'medium', status: 'open', ...overrides }]);
+}
+function captureOut(fn) {
+  let out = '';
+  const orig = process.stdout.write.bind(process.stdout);
+  process.stdout.write = (chunk) => { out += chunk; return true; };
+  try { fn(); } finally { process.stdout.write = orig; }
+  return out;
+}
+
+describe('cmdBug note (BUG-STATE-VISIBLE-0909)', () => {
+  it('appends dated entries to log[] in order, stamps updated_at, list shows the count', () => {
+    const dir = tmpDir();
+    seedBug(dir);
+    cmdBug({ dir, args: ['note', 'BG-001', '--text', 'reproduced against real data'], err });
+    cmdBug({ dir, args: ['note', 'BG-001', '--text', 'root cause is elsewhere'], err });
+    const [b] = readBugs(dir).bugs;
+    assert.equal(b.log.length, 2);
+    assert.equal(b.log[0].text, 'reproduced against real data');
+    assert.equal(b.log[1].text, 'root cause is elsewhere');
+    assert.match(b.log[0].at, /^\d{4}-\d{2}-\d{2}T/);
+    assert.equal(b.updated_at, b.log[1].at);
+    assert.equal(b.title, 'wrong cause', 'note never touches the fields');
+    const out = captureOut(() => cmdBug({ dir, args: ['list'], err }));
+    assert.ok(out.includes('(2 notes)'));
+  });
+
+  it('refuses a missing id, an unknown id, empty text, and a hand-written non-array log', () => {
+    const dir = tmpDir();
+    seedBug(dir);
+    assert.throws(() => cmdBug({ dir, args: ['note'], err }), /Usage/);
+    assert.throws(() => cmdBug({ dir, args: ['note', 'BG-009', '--text', 'x'], err }), /not found/);
+    assert.throws(() => cmdBug({ dir, args: ['note', 'BG-001', '--text', '  '], err }), /--text is required/);
+    seedBug(dir, { log: 'hand-written string' });
+    assert.throws(() => cmdBug({ dir, args: ['note', 'BG-001', '--text', 'x'], err }), /not an array/);
+    assert.equal(readBugs(dir).bugs[0].log, 'hand-written string', 'refused, not overwritten');
+  });
+
+  it('stamps lastSession so resume can flag a narrative written before the note (per-machine)', () => {
+    const dir = tmpDir();
+    seedBug(dir);
+    cmdBug({ dir, args: ['note', 'BG-001', '--text', 'x'], err });
+    const local = JSON.parse(fs.readFileSync(path.join(dir, '.aitri.local'), 'utf8'));
+    assert.equal(local.lastSession.event, 'bug note BG-001');
+    const shared = JSON.parse(fs.readFileSync(path.join(dir, '.aitri'), 'utf8'));
+    assert.ok(!shared.lastSession, 'lastSession is per-machine — never in the shared .aitri');
+  });
+});
+
+describe('cmdBug update (BUG-STATE-VISIBLE-0909)', () => {
+  it('corrects fields in place and stamps updated_at; --steps replaces the list', () => {
+    const dir = tmpDir();
+    seedBug(dir);
+    cmdBug({ dir, args: ['update', 'BG-001', '--title', 'right cause', '--fr', 'FR-007', '--steps', 'a', '--steps', 'b', '--phase', '4'], err });
+    const [b] = readBugs(dir).bugs;
+    assert.equal(b.title, 'right cause');
+    assert.equal(b.fr, 'FR-007');
+    assert.deepEqual(b.steps_to_reproduce, ['a', 'b']);
+    assert.equal(b.phase_detected, 4);
+    assert.equal(b.status, 'open', 'lifecycle untouched');
+    assert.ok(b.updated_at);
+  });
+
+  it('refuses --status and --resolution (they belong to fix/verify/close) and an empty update', () => {
+    const dir = tmpDir();
+    seedBug(dir);
+    assert.throws(() => cmdBug({ dir, args: ['update', 'BG-001', '--status', 'closed'], err }), /--status is not an update field/);
+    assert.throws(() => cmdBug({ dir, args: ['update', 'BG-001', '--resolution', 'x'], err }), /--resolution is set by/);
+    assert.throws(() => cmdBug({ dir, args: ['update', 'BG-001'], err }), /Nothing to update/);
+    assert.equal(readBugs(dir).bugs[0].status, 'open');
+  });
+
+  it('--tc links the proving test WITHOUT re-stamping the fix trail, and points at verify-run', () => {
+    const dir = tmpDir();
+    seedBug(dir, { status: 'fixed', fix_commit_sha: 'abc123', fix_at: '2026-01-01T00:00:00.000Z' });
+    const out = captureOut(() => cmdBug({ dir, args: ['update', 'BG-001', '--tc', 'TC-042'], err }));
+    const [b] = readBugs(dir).bugs;
+    assert.equal(b.tc_reference, 'TC-042');
+    assert.equal(b.fix_commit_sha, 'abc123', 'fix SHA untouched');
+    assert.equal(b.fix_at, '2026-01-01T00:00:00.000Z');
+    assert.match(out, /verify-run/);
+    // and the linked TC now drives the mechanical fixed → verified transition
+    autoVerifyBugs(dir, baseConfig(), [{ tc_id: 'TC-042', status: 'pass' }]);
+    assert.equal(readBugs(dir).bugs[0].status, 'verified');
+  });
+
+  it('lowering a BLOCKING bug out of critical/high requires --reason; the change is journaled', () => {
+    const dir = tmpDir();
+    seedBug(dir, { severity: 'high', status: 'open' });
+    assert.throws(() => cmdBug({ dir, args: ['update', 'BG-001', '--severity', 'medium'], err }), /BLOCKING bug [\s\S]*must carry its reason/);
+    assert.equal(readBugs(dir).bugs[0].severity, 'high', 'refused, not mutated');
+    cmdBug({ dir, args: ['update', 'BG-001', '--severity', 'medium', '--reason', 'only affects the seed data'], err });
+    const [b] = readBugs(dir).bugs;
+    assert.equal(b.severity, 'medium');
+    assert.equal(b.log.length, 1);
+    assert.match(b.log[0].text, /^severity high → medium: only affects the seed data$/);
+    assert.equal(isBlockingBug(b), false);
+  });
+
+  it('raising severity, or lowering a non-blocking one, needs no reason but is still journaled; a no-op change is not', () => {
+    const dir = tmpDir();
+    seedBug(dir, { severity: 'low', status: 'open' });
+    cmdBug({ dir, args: ['update', 'BG-001', '--severity', 'critical'], err });
+    let [b] = readBugs(dir).bugs;
+    assert.equal(b.severity, 'critical');
+    assert.equal(b.log.length, 1);
+    assert.match(b.log[0].text, /^severity low → critical$/);
+    // fixed (inactive) high → low: not blocking either way, no reason needed
+    seedBug(dir, { severity: 'high', status: 'fixed' });
+    cmdBug({ dir, args: ['update', 'BG-001', '--severity', 'low'], err });
+    [b] = readBugs(dir).bugs;
+    assert.equal(b.severity, 'low');
+    assert.equal(b.log.length, 1);
+    // same severity → nothing journaled
+    const out = captureOut(() => cmdBug({ dir, args: ['update', 'BG-001', '--severity', 'low'], err }));
+    assert.equal(readBugs(dir).bugs[0].log.length, 1);
+    assert.match(out, /already low/);
+    assert.throws(() => cmdBug({ dir, args: ['update', 'BG-001', '--severity', 'P0'], err }), /--severity must be one of/);
+  });
+});
+
+describe('cmdBug fix on an already-fixed bug (BUG-STATE-VISIBLE-0909)', () => {
+  it('refuses instead of re-stamping fix_commit_sha, and names update/note/verify as the exits', () => {
+    const dir = tmpDir();
+    seedBug(dir, { status: 'fixed', fix_commit_sha: 'abc123', fix_at: '2026-01-01T00:00:00.000Z' });
+    assert.throws(() => cmdBug({ dir, args: ['fix', 'BG-001', '--tc', 'TC-001'], err }), /already fixed[\s\S]*update BG-001 --tc[\s\S]*note BG-001[\s\S]*verify BG-001/);
+    const [b] = readBugs(dir).bugs;
+    assert.equal(b.fix_commit_sha, 'abc123');
+    assert.equal(b.tc_reference ?? null, null, 'nothing written by the refused fix');
+  });
+
+  it('fix/verify/close stamp lastSession (the commands that invalidate a narrative now trip its stale flag)', () => {
+    const dir = tmpDir();
+    seedBug(dir, { severity: 'low' });
+    cmdBug({ dir, args: ['fix', 'BG-001'], err });
+    let local = JSON.parse(fs.readFileSync(path.join(dir, '.aitri.local'), 'utf8'));
+    assert.equal(local.lastSession.event, 'bug fix BG-001');
+    cmdBug({ dir, args: ['verify', 'BG-001'], err });
+    local = JSON.parse(fs.readFileSync(path.join(dir, '.aitri.local'), 'utf8'));
+    assert.equal(local.lastSession.event, 'bug verify BG-001');
+    cmdBug({ dir, args: ['close', 'BG-001'], err });
+    local = JSON.parse(fs.readFileSync(path.join(dir, '.aitri.local'), 'utf8'));
+    assert.equal(local.lastSession.event, 'bug close BG-001');
+  });
+});
+
+describe('cmdBug — adversarial folds (rc.14)', () => {
+  it('a bug command in a directory WITHOUT .aitri never creates one (session stamp is state-safe)', () => {
+    const dir = tmpDir();
+    // no .aitri → loadConfig defaults (artifactsDir '') → BUGS.json sits at the dir root
+    fs.writeFileSync(path.join(dir, 'BUGS.json'), JSON.stringify({ bugs: [{ id: 'BG-001', title: 'x', severity: 'low', status: 'open' }] }));
+    cmdBug({ dir, args: ['fix', 'BG-001'], err });
+    cmdBug({ dir, args: ['note', 'BG-001', '--text', 'n'], err });
+    const bugs = JSON.parse(fs.readFileSync(path.join(dir, 'BUGS.json'), 'utf8')).bugs;
+    assert.equal(bugs[0].status, 'fixed', 'the bug write itself still happens');
+    assert.ok(!fs.existsSync(path.join(dir, '.aitri')), 'no .aitri manufactured');
+    assert.ok(!fs.existsSync(path.join(dir, '.aitri.local')), 'no .aitri.local manufactured');
+  });
+
+  it('fix refuses on verified and closed bugs too (no lifecycle regression, no SHA re-stamp)', () => {
+    const dir = tmpDir();
+    for (const status of ['verified', 'closed']) {
+      seedBug(dir, { status, fix_commit_sha: 'abc123' });
+      assert.throws(() => cmdBug({ dir, args: ['fix', 'BG-001'], err }), new RegExp(`already ${status}`));
+      assert.equal(readBugs(dir).bugs[0].status, status);
+      assert.equal(readBugs(dir).bugs[0].fix_commit_sha, 'abc123');
+    }
+  });
+
+  it('verify accepts a hand-written "Fixed" (case-folded like every other reader)', () => {
+    const dir = tmpDir();
+    seedBug(dir, { status: 'Fixed' });
+    cmdBug({ dir, args: ['verify', 'BG-001'], err });
+    assert.equal(readBugs(dir).bugs[0].status, 'verified');
+  });
+
+  it('update --steps trims and refuses empty; --reason of whitespace does not satisfy the de-blocking gate', () => {
+    const dir = tmpDir();
+    seedBug(dir, { severity: 'high', status: 'open', steps_to_reproduce: ['keep'] });
+    assert.throws(() => cmdBug({ dir, args: ['update', 'BG-001', '--steps', '  '], err }), /at least one non-empty step/);
+    assert.deepEqual(readBugs(dir).bugs[0].steps_to_reproduce, ['keep']);
+    cmdBug({ dir, args: ['update', 'BG-001', '--steps', ' a ', '--steps', '', '--steps', 'b'], err });
+    assert.deepEqual(readBugs(dir).bugs[0].steps_to_reproduce, ['a', 'b']);
+    assert.throws(() => cmdBug({ dir, args: ['update', 'BG-001', '--severity', 'low', '--reason', '   '], err }), /must carry its reason/);
+    assert.equal(readBugs(dir).bugs[0].severity, 'high');
+  });
+});

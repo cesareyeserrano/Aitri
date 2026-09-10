@@ -6,6 +6,94 @@
 
 ---
 
+## [2.2.0-rc.14] — 2026-09-09 — already-fixed bugs stop reading as open; the record is correctable; the narrative stops posing as state (BUG-STATE-VISIBLE-0909) — canary
+
+Owner field feedback (2026-09-09, T-Ledger): "things already fixed keep being treated as
+open — it's always something different." Triage found four mechanisms, three of them Aitri's,
+all verified against the project's files:
+
+1. **`resume` listed `fixed` bugs under "Open Bugs" with no per-line status** — 9 of the
+   project's 11 "active" bugs were fixed-awaiting-verification, indistinguishable from open;
+   `status` said "11 active (open/in-fix)", `validate` said "11 open". And they stay `fixed`
+   indefinitely: the fixed→verified transition is mechanical only through `tc_reference`,
+   which 0 of the project's 55 bugs carry, so the manual `bug verify` is the only exit and
+   nobody runs it.
+2. **The `checkpoint --context` narrative was printed verbatim above bugs and Next Action**,
+   framed only by a clock-based stale flag that `bug fix|verify|close` / `backlog done` never
+   tripped (they did not write `lastSession`). The 4 KB narrative carried dated bug counts and an
+   unverified hypothesis parked deliberately outside bug/backlog ("pending, not recorded yet")
+   — every next session re-read it as an open fact.
+3. **`bug` had no `update`/`note`** (backlog got both in rc.13, ADR-090): a title written on a
+   wrong root cause could not be corrected, so the correction lived in the narrative as "do not
+   trust the title".
+4. **A delivered P1 backlog item stayed open** — nothing links a backlog item to the feature(s)
+   that deliver it; closing is manual and happens weeks after the item was read.
+
+Shipped:
+
+- **Bug state visible everywhere.** `resume`: active bugs (open|in_progress) under "Open Bugs"
+  with `[status]` per line; `fixed` bugs under a separate "Fixed Bugs — awaiting verification"
+  section that names the exits (`bug verify`, or `bug update --tc` so `verify-run` verifies it
+  mechanically) and says "not open defects — do not re-triage". `status`: "11 unresolved bugs
+  (2 open/in-progress · 9 fixed awaiting verify)" — "unresolved", not "active": the text count
+  includes fixed-awaiting-verify while `status --json` `bugs.active` and the gates' `isActiveBug`
+  mean open|in_progress only (adversarial finding: the first draft used "active" for both).
+  `validate`: same breakdown. `status --json`: additive `bugs.active` + `bugs.fixed`
+  (`bugs.open` keeps its meaning — see integrations CHANGELOG). `resume` also prints the verify ref state on the root and every feature line
+  (`verify ✅ (stale)`) — a passed verify bound to an earlier tree used to render as
+  `verify ✅ → verify-run X`, literally "verified; now verify".
+- **`aitri bug note <id> --text` / `aitri bug update <id> --<field>`** — parity with rc.13's
+  backlog verbs (ADR-091). `note` appends to an append-only `log[]`. `update` corrects
+  `title/description/severity/fr/tc/steps/expected/actual/environment/evidence/phase` in place;
+  `--status` and `--resolution` are refused (they stay with fix/verify/close). Unlike backlog
+  update, **every severity change is journaled in `log[]`** and **lowering a BLOCKING bug out of
+  critical/high requires `--reason`** — BUGS.json is the deploy gate's input (ADR-086's
+  "severity gaming" residual, closed). `update --tc` links the proving test without touching
+  the fix stamps. **`bug fix` on an already-fixed bug now refuses** — it re-stamped
+  `fix_commit_sha`/`fix_at` to the current HEAD, falsifying the fix trail, and was the only way
+  to attach a TC after the fact.
+- **The narrative is narrative, not state.** `resume` renders Session Context LAST among the
+  state sections (directly before Next Action), framed "agent-written, not verified by Aitri —
+  where it disagrees with the sections above, the sections above are current", with a standing
+  line on where open items belong. `checkpoint --context` stamps `sessionContext.stateAtSave`
+  (`{ activeBugs, fixedBugs, openBacklog }`, per-machine) and `resume` diffs it against the live
+  snapshot: "State moved since this was written: open bugs 2 → 1 · fixed bugs 9 → 0" — stale by
+  CONTENT, mechanical, no text parsing. `bug fix|verify|close|note|update` and
+  `backlog done|note|update` now write `lastSession`, so the clock-based flag fires too.
+  `checkpoint` prints the counts it stamped and the reminder (root scope only — nothing renders
+  a feature's narrative back, so a feature checkpoint does not stamp). No length cap (a proxy,
+  not the defect). Side effect worth knowing: `bug`/`backlog` mutators go through `saveConfig`,
+  so on a project last written by an older CLI a `bug note` can now normalize the committed
+  `.aitri` (the designed canonicalization pipeline commands already perform) — never on a
+  directory without one (`configExists` guard: a `bug add` from a non-project dir must not
+  create `.aitri`).
+- **`bug fix` on a `fixed`/`verified`/`closed` bug refuses** (all three re-stamped the fix SHA
+  and regressed the lifecycle); `bug verify` compares the status case-folded (a hand-written
+  `"Fixed"` was refused by both verbs, leaving no CLI exit); `--steps`/`--reason` are trimmed
+  and empty ones refused.
+- **Feature seal advisory.** `aitri feature verify-complete <name>` on success prints, when the
+  root backlog has open items, one line: "N open backlog item(s) in the root project — if this
+  feature delivered any, close them now". No auto-close: the field case (BL-040) was delivered
+  by TWO features (`meses-y-saldo-inicial` + `multi-anio`), so a mechanical close at the first
+  seal would be a false close — worse than a stale open. `feature init --from BL-NNN` stays
+  evidence-gated as ADR-090 left it.
+- **`templates/AGENTS.md`**: what does NOT go in the narrative (open items, hypotheses, pending
+  decisions, state counts — and why: no id, no status, no close); a `fixed` bug still counts as
+  active until verified; the new bug verbs; file a bug with `--steps` once reproduced.
+
+Adversarial pass before commit folded: the plan's own `bug fix --tc` hint on a fixed bug (would
+have pointed at the SHA-re-stamping path — replaced by `update --tc` + the fix guard); Hub reads
+`bugs.open` as open|in_progress|fixed from `status --json` while its direct BUGS.json reader
+counts `open` only — so `bugs.open` is left untouched and the split is additive; the N:M
+delivery of BL-040 that killed auto-close. Not built, recorded for their own items: `package.json`
+is not a behavioral file though gate commands resolve through its scripts (a script rewire
+changed what `verify-run` executes without marking drift); the security-audit nudge is
+mtime-based.
+
+Deliberately NOT done: auto-verifying `fixed` bugs without a TC when a later verify-run passes
+(FR tests predate the bug and never encoded it — a mechanical false-pass on the deploy gate's
+input). `fixed` stays visible-and-counted until a human or a linked TC verifies it.
+
 ## [2.2.0-rc.13] — 2026-09-09 — a backlog item can grow after it is created: `backlog note` / `backlog update`; hand-edited statuses stop being silent (FB-BACKLOG-AMEND-0909) — canary
 
 Owner field feedback (2026-09-09): "`aitri backlog` has no way to extend an item — only add,

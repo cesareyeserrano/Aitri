@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { initFlatProject } from '../fixtures.js';
-import { cmdBacklog } from '../../lib/commands/backlog.js';
+import { cmdBacklog, countOpenBacklog } from '../../lib/commands/backlog.js';
 import { saveConfig } from '../../lib/state.js';
 
 const ROOT_DIR = path.resolve(process.cwd());
@@ -509,5 +509,47 @@ describe('backlog file integrity (B8 parity, FB-BACKLOG-AMEND-0909)', () => {
     saveConfig(featDir, { projectName: 'billing', artifactsDir: 'spec' });
     const ctx = { ...makeCtx(featDir, ['bogus']), featureRoot: dir, scopeName: 'billing' };
     assert.throws(() => cmdBacklog(ctx), /aitri feature backlog billing note <id> --text/);
+  });
+});
+
+// ── BUG-STATE-VISIBLE-0909: mutators stamp lastSession; countOpenBacklog is tolerant ──
+describe('backlog mutators stamp lastSession + countOpenBacklog (BUG-STATE-VISIBLE-0909)', () => {
+  it('done/note/update write lastSession to .aitri.local so resume can flag an older narrative', () => {
+    const dir = setup();
+    cmdBacklog(makeCtx(dir, ['add', '--title', 'x', '--priority', 'P3', '--problem', 'y']));
+    cmdBacklog(makeCtx(dir, ['note', 'BL-001', '--text', 'n']));
+    let local = JSON.parse(fs.readFileSync(path.join(dir, '.aitri.local'), 'utf8'));
+    assert.equal(local.lastSession.event, 'backlog note BL-001');
+    cmdBacklog(makeCtx(dir, ['update', 'BL-001', '--priority', 'P1']));
+    local = JSON.parse(fs.readFileSync(path.join(dir, '.aitri.local'), 'utf8'));
+    assert.equal(local.lastSession.event, 'backlog update BL-001');
+    cmdBacklog(makeCtx(dir, ['done', 'BL-001']));
+    local = JSON.parse(fs.readFileSync(path.join(dir, '.aitri.local'), 'utf8'));
+    assert.equal(local.lastSession.event, 'backlog done BL-001');
+  });
+
+  it('countOpenBacklog counts case-folded non-closed items; 0 on absent, malformed, or non-project dirs', () => {
+    const dir = setup();
+    assert.equal(countOpenBacklog(dir), 0, 'no file yet');
+    cmdBacklog(makeCtx(dir, ['add', '--title', 'a', '--priority', 'P3', '--problem', 'p']));
+    cmdBacklog(makeCtx(dir, ['add', '--title', 'b', '--priority', 'P3', '--problem', 'p']));
+    cmdBacklog(makeCtx(dir, ['done', 'BL-002']));
+    assert.equal(countOpenBacklog(dir), 1);
+    fs.writeFileSync(backlogFile(dir), '{ not json');
+    assert.equal(countOpenBacklog(dir), 0, 'malformed → 0, never throws');
+    assert.equal(countOpenBacklog(path.join(os.tmpdir(), 'no-such-aitri-project-' + Date.now())), 0);
+  });
+});
+
+describe('backlog mutators never create .aitri (rc.14 adversarial fold)', () => {
+  it('done in a directory without .aitri writes the backlog but manufactures no state files', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-bl-nostate-'));
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.writeFileSync(backlogFile(dir), JSON.stringify({ schemaVersion: '1', items: [{ id: 'BL-001', title: 't', priority: 'P3', status: 'open' }] }));
+    // loadConfig on a dir without .aitri returns defaults; cmdBacklog needs a projectName to proceed
+    const ctx = makeCtx(dir, ['done', 'BL-001']);
+    try { cmdBacklog(ctx); } catch { /* the "No Aitri project" refusal is acceptable too */ }
+    assert.ok(!fs.existsSync(path.join(dir, '.aitri')), 'no .aitri manufactured');
+    assert.ok(!fs.existsSync(path.join(dir, '.aitri.local')), 'no .aitri.local manufactured');
   });
 });

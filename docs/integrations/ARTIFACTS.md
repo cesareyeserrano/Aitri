@@ -1,6 +1,6 @@
 # Aitri — Artifact Schema Reference
 
-**Aitri version:** v2.2.0-rc.13+
+**Aitri version:** v2.2.0-rc.14+
 **Maintenance rule:** Update this file in the same commit as any artifact schema change.
 **Schema source of truth:** `lib/phases/phase1.js` – `phase5.js` `validate()` functions. This document must match what those functions enforce.
 
@@ -419,11 +419,14 @@ First-class QA artifact. Follows standard bug report format: reproduction steps,
       "fix_at":           "ISO8601 (optional, v0.1.90+) — timestamp paired with fix_commit_sha",
       "close_commit_sha": "string (optional, v0.1.90+) — HEAD at the moment of `aitri bug close`",
       "close_at":         "ISO8601 (optional, v0.1.90+) — timestamp paired with close_commit_sha",
-      "files_changed":    "string[] (optional, v0.1.90+) — paths modified between fix_commit_sha..close_commit_sha, excluding Aitri-owned state (artifacts dir, the contained-layout container, .aitri*, node_modules, and feature sub-pipeline artifacts — the shared isAitriStatePath filter; widened in rc.82, was spec/+.aitri only)"
+      "files_changed":    "string[] (optional, v0.1.90+) — paths modified between fix_commit_sha..close_commit_sha, excluding Aitri-owned state (artifacts dir, the contained-layout container, .aitri*, node_modules, and feature sub-pipeline artifacts — the shared isAitriStatePath filter; widened in rc.82, was spec/+.aitri only)",
+      "log":              "[{ at: ISO8601, text: string }] (optional, v2.2.0-rc.14+) — append-only journal: `aitri bug note <id> --text` entries and every severity change made through `aitri bug update` (\"severity high → medium: <reason>\"). File order is the record; readers render it in order, never re-sort. Same shape as BACKLOG.json's log[]"
     }
   ]
 }
 ```
+
+**Correcting the record (v2.2.0-rc.14+, ADR-091):** `aitri bug note <id> --text "..."` appends to `log[]`; `aitri bug update <id> --title|--description|--severity|--fr|--tc|--steps|--expected|--actual|--environment|--evidence|--phase` sets fields in place and stamps `updated_at`. `--status` (the lifecycle is fix/verify/close) and `--resolution` (fix/close) are refused. Because `severity` is the deploy gate's input, every severity change is journaled and lowering a BLOCKING bug (critical/high, active) out of critical/high requires `--reason`. `bug fix` on a bug already `fixed` refuses (it would re-stamp `fix_commit_sha`); link a TC after the fact with `update --tc`. `fixed` bugs are reported separately from active ones by `resume`/`status`/`validate` (they still count toward `bugs.open`).
 
 **Lifecycle:** `open → fixed → verified → closed`
 - `fixed`: developer marks resolved (`aitri bug fix`) — optionally links a TC. If the project is a git repo, `fix_commit_sha` + `fix_at` are captured automatically. **On a BLOCKING bug (critical/high, active), `bug fix` requires `--resolution "<text>"` or `--tc TC-NNN`** — de-blocking the deploy gate must carry evidence (v2.0.0-rc.149+, UPLAN-0703 B8).

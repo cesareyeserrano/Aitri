@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { cmdResume } from '../../lib/commands/resume.js';
+import { cmdResume, refStateWord } from '../../lib/commands/resume.js';
+import { execFileSync } from 'child_process';
 import { hashArtifact } from '../../lib/state.js';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -627,5 +628,125 @@ describe('cmdResume() — Security Audit nudge (ADR-051)', () => {
     const out = captureStdout(() => cmdResume({ dir }));
     assert.match(out, /Requirements changed since the last security audit/);
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+});
+
+// ── BUG-STATE-VISIBLE-0909 — resume tells "still broken" from "fixed, awaiting verify",
+// names a non-fresh verify ref on the feature line, and renders the narrative LAST, framed
+// as unverified, flagged when the counts it was written against have moved.
+describe('cmdResume() — bug state visible (BUG-STATE-VISIBLE-0909)', () => {
+  it('lists active bugs under Open Bugs and fixed ones under their own section, each with its status', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1, 2, 3, 4] }));
+    writeFile(dir, 'BUGS.json', JSON.stringify({ bugs: [
+      { id: 'BG-001', title: 'still broken',   severity: 'high',   status: 'open' },
+      { id: 'BG-002', title: 'being fixed',    severity: 'low',    status: 'in_progress' },
+      { id: 'BG-003', title: 'claimed fixed',  severity: 'high',   status: 'fixed' },
+      { id: 'BG-004', title: 'done',           severity: 'low',    status: 'verified' },
+    ] }));
+    const out = captureStdout(() => cmdResume({ dir }));
+    const openAt  = out.indexOf('## Open Bugs');
+    const fixedAt = out.indexOf('## Fixed Bugs — awaiting verification');
+    assert.ok(openAt > -1 && fixedAt > openAt, 'both sections, fixed after open');
+    const openSection  = out.slice(openAt, fixedAt);
+    const fixedSection = out.slice(fixedAt);
+    assert.match(openSection, /\*\*BG-001\*\* \[high\] \[open\] still broken/);
+    assert.match(openSection, /\*\*BG-002\*\* \[low\] \[in_progress\] being fixed/);
+    assert.ok(!openSection.includes('BG-003'), 'a fixed bug is not an open bug');
+    assert.match(fixedSection, /\*\*BG-003\*\* \[high\] \[fixed\] claimed fixed/);
+    assert.match(fixedSection, /aitri bug verify <id>/);
+    assert.match(fixedSection, /bug update <id> --tc TC-NNN/);
+    assert.match(fixedSection, /do not re-triage/);
+    assert.ok(!out.includes('BG-004'), 'verified bugs are not listed');
+  });
+
+  it('only fixed bugs → no Open Bugs section, just the awaiting-verification one', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1, 2, 3, 4] }));
+    writeFile(dir, 'BUGS.json', JSON.stringify({ bugs: [{ id: 'BG-001', title: 'claimed', severity: 'medium', status: 'fixed' }] }));
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.ok(!out.includes('## Open Bugs'));
+    assert.ok(out.includes('## Fixed Bugs — awaiting verification'));
+  });
+
+  it('the narrative renders after the state sections, directly before Next Action, framed as unverified', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1, 2, 3, 4],
+      lastSession:    { at: '2026-06-06T10:00:00.000Z', agent: 'claude', event: 'checkpoint' },
+      sessionContext: { text: 'BG-001 still open, decide X next', at: '2026-06-06T10:00:00.000Z' },
+    }));
+    writeFile(dir, 'BUGS.json', JSON.stringify({ bugs: [{ id: 'BG-001', title: 'x', severity: 'low', status: 'open' }] }));
+    const out = captureStdout(() => cmdResume({ dir }));
+    const bugsAt = out.indexOf('## Open Bugs');
+    const scAt   = out.indexOf('## Session Context');
+    const nextAt = out.indexOf('## Next Action');
+    assert.ok(bugsAt > -1 && scAt > bugsAt && nextAt > scAt, 'order: bugs → session context → next action');
+    assert.match(out, /Agent-written narrative, saved .*Not verified by Aitri/);
+    assert.match(out, /sections above are current/);
+    assert.match(out, /belong in `aitri bug add` \/ `aitri backlog add`/);
+    assert.ok(out.includes('BG-001 still open, decide X next'), 'the text itself is still shown');
+  });
+
+  it('flags the narrative by CONTENT when the stamped bug/backlog counts have moved', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1, 2, 3, 4],
+      lastSession:    { at: '2026-06-06T10:00:00.000Z', agent: 'claude', event: 'checkpoint' },
+      sessionContext: { text: 'nine fixed, two open', at: '2026-06-06T10:00:00.000Z',
+                        stateAtSave: { activeBugs: 2, fixedBugs: 9, openBacklog: 17 } },
+    }));
+    // live state: 1 active, 0 fixed, 17 backlog → two of three counts moved
+    writeFile(dir, 'BUGS.json', JSON.stringify({ bugs: [{ id: 'BG-001', title: 'x', severity: 'low', status: 'open' }] }));
+    writeFile(dir, 'BACKLOG.json', JSON.stringify({ items: Array.from({ length: 17 }, (_, i) => ({ id: `BL-${String(i + 1).padStart(3, '0')}`, title: 't', priority: 'P3', status: 'open' })) }));
+    const out = captureStdout(() => cmdResume({ dir }));
+    assert.match(out, /State moved since this was written:\*\* open bugs 2 → 1 · fixed bugs 9 → 0 — its counts and "pending" items are dated/);
+    assert.ok(!/open backlog 17 → /.test(out), 'an unchanged count is not reported');
+  });
+
+  it('a narrative with no stamp (pre-rc.14) or matching counts is not flagged by content', () => {
+    const dir = tmpDir();
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1, 2, 3, 4],
+      lastSession:    { at: '2026-06-06T10:00:00.000Z', agent: 'claude', event: 'checkpoint' },
+      sessionContext: { text: 'old style', at: '2026-06-06T10:00:00.000Z' },
+    }));
+    let out = captureStdout(() => cmdResume({ dir }));
+    assert.ok(!/State moved since/.test(out));
+    writeFile(dir, '.aitri', minimalConfig({
+      approvedPhases: [1, 2, 3, 4],
+      lastSession:    { at: '2026-06-06T10:00:00.000Z', agent: 'claude', event: 'checkpoint' },
+      sessionContext: { text: 'matching', at: '2026-06-06T10:00:00.000Z', stateAtSave: { activeBugs: 0, fixedBugs: 0, openBacklog: 0 } },
+    }));
+    out = captureStdout(() => cmdResume({ dir }));
+    assert.ok(!/State moved since/.test(out));
+  });
+
+  it('refStateWord names every non-fresh binding and stays silent for fresh/unbound/absent', () => {
+    assert.equal(refStateWord('stale'),       ' (stale)');
+    assert.equal(refStateWord('unreachable'), ' (unreachable)');
+    assert.equal(refStateWord('dirty'),       ' (dirty)');
+    assert.equal(refStateWord('fresh'),       '');
+    assert.equal(refStateWord('unbound'),     '', 'pinned degradation (no git / pre-rc.7) is not a warning');
+    assert.equal(refStateWord(undefined),     '');
+    assert.equal(refStateWord(null),          '');
+  });
+
+  it('a feature whose passed verify is bound to a commit not in history says (unreachable) on its own line', () => {
+    const dir = tmpDir();
+    const git = (args) => execFileSync('git', args, { cwd: dir, stdio: 'ignore' });
+    git(['init', '-q']);
+    git(['-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '--allow-empty', '-q', '-m', 'init']);
+    writeFile(dir, '.aitri', minimalConfig({ approvedPhases: [1, 2, 3, 4, 5], completedPhases: [1, 2, 3, 4, 5] }));
+    writeFile(dir, 'features/f1/.aitri', JSON.stringify({
+      projectName: 'f1', artifactsDir: '', approvedPhases: [1, 2, 3, 4, 5], completedPhases: [1, 2, 3, 4, 5],
+      verifyPassed: true, verifySummary: { total: 3, passed: 3, failed: 0, skipped: 0 },
+      verifyRanRef: '0000000000000000000000000000000000000000', // never a commit here (ADR-085 → unreachable)
+    }));
+    writeFile(dir, 'features/f1/FEATURE_IDEA.md', '# f1');
+    const out = captureStdout(() => cmdResume({ dir }));
+    const line = out.split('\n').find(l => l.includes('**f1**'));
+    assert.ok(line, 'feature line present');
+    assert.match(line, /verify ✅ \(3 ✓ 0 ✗ 0 ⊘\) \(unreachable\)/);
   });
 });
