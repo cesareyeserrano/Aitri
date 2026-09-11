@@ -6,6 +6,43 @@
 
 ---
 
+## [2.2.0-rc.15] — 2026-09-11 — a commit made while verify-run is running is no longer stamped as verified (VERIFY-REF-PRERUN-0911, ADR-085 Addendum 2) — canary
+
+Found while analyzing field feedback FB-VERIFY-ONCE-0911 (T-Ledger: a feature `verify-run`
+takes ~9 minutes — runner, Playwright auto-run, quality gates, strictly in series).
+`verify-run` read the commit it binds the verdict to (`verifyRanRef`, ADR-085) only AFTER all
+of that. Anything committed in those minutes — by the operator, another agent session, a merge
+into the same checkout — became the certified commit although no test had run against it, and
+`status` read the verdict `fresh`. The dirty flag had the mirror gap: code uncommitted when the
+run started and committed or reverted before it ended stamped clean.
+
+- **The ref is read before any dispatch.** The verdict binds to the commit the run started on.
+  A behavioral commit made mid-run now reads `stale` (deploy-blocked, `verify-complete`
+  refuses) until a new `verify-run`; a docs-only one stays `fresh`, as before.
+- **`verifyRanDirty` covers both ends of the run** — dirty at start OR at end. If git cannot be
+  read at one end, the verdict still binds (to the commit that was read) as dirty, with its own
+  message instead of the "uncommitted changes" one.
+- **Git path readers no longer overflow on large working trees.** Past 1 MiB of `git status`
+  output (a few thousand untracked, non-ignored files) the read failed: every `verify-run`
+  silently dropped the binding, and the `reconcile --resolve` uncommitted-files guard silently
+  let the resolve through. Past 1 MiB of diff, `status` read the verdict `unreachable` instead of
+  `stale`. `lib/git-frame.js` now reads with a 256 MiB ceiling. **Visible consequence:** a
+  leftover, non-ignored report or coverage tree now blocks `reconcile --resolve` like any other
+  uncommitted behavioral file (commit it, ignore it, or delete it); the refusal lists at most 50 paths.
+- **`verify-run` says when HEAD moved during the run** and names the commit the verdict is bound to.
+- `templates/AGENTS.md`: the verify-binding rule now says "the commit it **started** on — do
+  not commit mid-run". Consumer projects pick it up on `adopt --upgrade`.
+- Contract: no shape change; `docs/integrations/SCHEMA.md` states the precise meaning of both
+  fields (additive entry in `docs/integrations/CHANGELOG.md`).
+- Residual (ADR-085 Addendum 2): a tree edited and restored entirely within one run, with no
+  commit, is invisible to both reads.
+
+Tests (`test/verify-ref-binding.test.js`): 5 command-level pins drive the real `verify-run`
+with a runner that mutates git mid-dispatch (commit → stale; start-dirty then revert → dirty;
+git unreadable at the end / at the start → still bound, dirty, own message; clean control),
+plus a ~1.3 MiB porcelain-output pin on `captureVerifyRef`. All five defect pins fail on the
+pre-fix code.
+
 ## [2.2.0-rc.14] — 2026-09-09 — already-fixed bugs stop reading as open; the record is correctable; the narrative stops posing as state (BUG-STATE-VISIBLE-0909) — canary
 
 Owner field feedback (2026-09-09, T-Ledger): "things already fixed keep being treated as

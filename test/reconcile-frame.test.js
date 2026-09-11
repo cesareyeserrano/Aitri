@@ -33,6 +33,7 @@ import { fileURLToPath } from 'node:url';
 import { saveConfig, loadConfig } from '../lib/state.js';
 import { buildProjectSnapshot }   from '../lib/snapshot.js';
 import { gitShowPrefix, isBehavioralInFrame, toPipelinePath } from '../lib/git-frame.js';
+import { formatPathList } from '../lib/commands/reconcile.js';
 
 const CLI = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'aitri.js');
 
@@ -45,6 +46,7 @@ function initGit(dir) {
   git(dir, 'init', '-q', '-b', 'main');
   git(dir, 'config', 'user.email', 't@t.co');
   git(dir, 'config', 'user.name', 'T');
+  git(dir, 'config', 'commit.gpgsign', 'false');   // global signing must not break fixture commits
 }
 function commitAll(repo, msg) {
   git(repo, 'add', '-A');
@@ -367,5 +369,20 @@ describe('bug close — files_changed trail is frame-aware', () => {
         'docs are kept (trail, not gate); Aitri state is dropped; paths are pipeline-relative');
       assert.ok(head && head2);
     } finally { cleanup(repo); }
+  });
+});
+
+// VERIFY-REF-PRERUN-0911: the git readers stopped overflowing at 1 MiB, so a large untracked
+// tree now reaches the --resolve refusal instead of being silently dropped. Its file list is
+// capped so the refusal's instruction is not buried under thousands of lines.
+describe('formatPathList() — capped refusal list', () => {
+  it('lists every path up to the cap, then summarizes the rest', () => {
+    assert.equal(formatPathList(['a.js', 'b.js']), '  ✗ a.js\n  ✗ b.js');
+    const many = Array.from({ length: 1234 }, (_, i) => `r/f${i}.js`);
+    const lines = formatPathList(many).split('\n');
+    assert.equal(lines.length, 51, '50 paths + one summary line');
+    assert.equal(lines[49], '  ✗ r/f49.js');
+    assert.equal(lines[50], '  … and 1184 more');
+    assert.equal(formatPathList(many.slice(0, 50)).split('\n').length, 50, 'exactly at the cap: no summary line');
   });
 });

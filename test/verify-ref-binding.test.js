@@ -22,6 +22,7 @@ import { execFileSync } from 'node:child_process';
 
 import { saveConfig, loadConfig } from '../lib/state.js';
 import { buildProjectSnapshot, captureVerifyRef, verifyRefFreshness, verifyRefRootCtx } from '../lib/snapshot.js';
+import { cmdVerifyRun } from '../lib/commands/verify.js';
 
 function tmpDir() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'aitri-verify-ref-test-'));
@@ -36,6 +37,10 @@ function initGit(dir) {
   git(dir, 'init', '-q', '-b', 'main');
   git(dir, 'config', 'user.email', 't@t.co');
   git(dir, 'config', 'user.name', 'T');
+  // A globally enabled commit signing would break every fixture commit (including the ones a
+  // spawned runner makes mid-verify) with a misleading assertion — the same guard the
+  // snapshot and reconcile suites use.
+  git(dir, 'config', 'commit.gpgsign', 'false');
 }
 function commitAll(dir, msg) {
   git(dir, 'add', '-A');
@@ -93,6 +98,24 @@ describe('captureVerifyRef()', () => {
       assert.equal(captureVerifyRef(dir, {}).dirty, false);
       fs.writeFileSync(path.join(dir, 'a.js'), '// changed\n');        // behavioral
       assert.equal(captureVerifyRef(dir, {}).dirty, true);
+    } finally { cleanup(dir); }
+  });
+
+  it('a working tree whose porcelain output exceeds 1 MiB still stamps (no silent ENOBUFS → lost binding)', () => {
+    const dir = tmpDir();
+    try {
+      initGit(dir);
+      fs.writeFileSync(path.join(dir, 'a.js'), '// a\n');
+      const head = commitAll(dir, 'base');
+      // ~8000 untracked, non-ignored files under a long dir name ≈ 1.3 MiB of `status -z`
+      // output — past Node's execFileSync default buffer (a leftover report/coverage tree).
+      const big = path.join(dir, 'r'.repeat(150));
+      fs.mkdirSync(big);
+      for (let i = 0; i < 8000; i++) fs.writeFileSync(path.join(big, `f${i}.js`), '');
+      const stamp = captureVerifyRef(dir, {});
+      assert.ok(stamp, 'a large untracked tree must not make the stamp read fail');
+      assert.equal(stamp.ref, head);
+      assert.equal(stamp.dirty, true);
     } finally { cleanup(dir); }
   });
 
@@ -308,5 +331,123 @@ describe('path-frame normalization (rc.7 adversarial BLOCKER — contained layou
       commitAll(repo, 'code commit');
       assert.equal(verifyRefFreshness(proj, { verifyRanRef: ref }), 'stale');
     } finally { cleanup(repo); }
+  });
+});
+
+// VERIFY-REF-PRERUN-0911 (ADR-085 Addendum 2): the stamp used to be read AFTER the runner,
+// the e2e auto-run and the gates — minutes later on a real suite. A commit landing in that
+// window became `verifyRanRef` although nothing ran against it, and freshness read `fresh`.
+// These pins run the real command with a runner that mutates git WHILE verify-run is running.
+describe('verify-run binds the verdict to the commit the run STARTED on (VERIFY-REF-PRERUN-0911)', () => {
+  function seedRunProject(dir, runnerBody) {
+    initGit(dir);
+    fs.mkdirSync(path.join(dir, 'spec'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'lib'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.gitignore'), '.aitri.local\n');
+    fs.writeFileSync(path.join(dir, 'lib', 'a.js'), '// a\n');
+    fs.writeFileSync(path.join(dir, 'spec', '01_REQUIREMENTS.json'), JSON.stringify({
+      functional_requirements: [{ id: 'FR-001', title: 'r', priority: 'MUST' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec', '03_TEST_CASES.json'), JSON.stringify({
+      test_cases: [{ id: 'TC-001h', title: 'unit', requirement_id: 'FR-001', type: 'unit', expected_result: 'r', automation: 'automated' }],
+    }));
+    fs.writeFileSync(path.join(dir, 'spec', '04_BUILD_REPORT.json'), JSON.stringify({
+      files_created: ['lib/a.js'], technical_debt: [], test_runner: 'node runner.cjs', test_files: ['runner.cjs'],
+    }));
+    // The runner does its git mutation mid-dispatch, then prints a parseable pass.
+    fs.writeFileSync(path.join(dir, 'runner.cjs'),
+      `const { execFileSync } = require('child_process');\nconst fs = require('fs');\n${runnerBody}\nconsole.log('\\u2714 TC-001h unit');\n`);
+    saveConfig(dir, { projectName: 'p', artifactsDir: 'spec', approvedPhases: [1, 2, 3, 4], completedPhases: [1, 2, 3, 4] });
+    return commitAll(dir, 'base');
+  }
+
+  function runVerify(dir) {
+    let errMsg = null, stderr = '';
+    const origLog = console.log, origErr = process.stderr.write;
+    console.log = () => {};
+    process.stderr.write = (s) => { stderr += String(s); return true; };
+    try {
+      cmdVerifyRun({ dir, args: [], flagValue: () => null, err: (m) => { errMsg = m; throw new Error(m); } });
+    } catch (e) {
+      if (errMsg === null) throw e;
+    } finally {
+      console.log = origLog; process.stderr.write = origErr;
+    }
+    assert.equal(errMsg, null, `verify-run must complete — got: ${errMsg}`);
+    return stderr;
+  }
+
+  it('a behavioral commit made WHILE verify-run runs → the stamp is the start commit, the verdict reads stale, the move is announced', () => {
+    const dir = tmpDir();
+    try {
+      const start = seedRunProject(dir,
+        `fs.writeFileSync('lib/late.js', '// committed while verify-run was running');\n` +
+        `execFileSync('git', ['add', '-A']);\nexecFileSync('git', ['commit', '-qm', 'mid-run']);`);
+      const stderr = runVerify(dir);
+      assert.notEqual(git(dir, 'rev-parse', 'HEAD'), start, 'fixture: the runner must have moved HEAD');
+      const cfg = loadConfig(dir);
+      assert.equal(cfg.verifyRanRef, start,
+        'the verdict must bind to the commit the dispatches started from, never to a commit made mid-run');
+      assert.equal(verifyRefFreshness(dir, cfg), 'stale',
+        'code committed mid-run was never tested — the verdict must not read fresh');
+      assert.match(stderr, /HEAD moved while verify-run was running/);
+    } finally { cleanup(dir); }
+  });
+
+  it('code uncommitted at START and reverted mid-run → dirty (the tests may have seen it), bound to the start commit', () => {
+    const dir = tmpDir();
+    try {
+      const start = seedRunProject(dir, `execFileSync('git', ['checkout', '--', 'lib/a.js']);`);
+      fs.writeFileSync(path.join(dir, 'lib', 'a.js'), '// uncommitted when the run starts\n');
+      const stderr = runVerify(dir);
+      assert.equal(git(dir, 'status', '--porcelain', '--', 'lib'), '', 'fixture: the runner must have reverted the change');
+      const cfg = loadConfig(dir);
+      assert.equal(cfg.verifyRanRef, start);
+      assert.equal(cfg.verifyRanDirty, true,
+        'a tree dirty when the run started must stamp dirty even if it is clean when the run ends');
+      assert.equal(verifyRefFreshness(dir, cfg), 'dirty');
+      assert.doesNotMatch(stderr, /HEAD moved/);
+    } finally { cleanup(dir); }
+  });
+
+  it('git unreadable at the END of the run → bound to the start commit, dirty, with its own message (not "uncommitted")', () => {
+    const dir = tmpDir();
+    try {
+      const start = seedRunProject(dir, `fs.renameSync('.git', '.git-away');`);
+      const stderr = runVerify(dir);
+      fs.renameSync(path.join(dir, '.git-away'), path.join(dir, '.git'));
+      const cfg = loadConfig(dir);
+      assert.equal(cfg.verifyRanRef, start);
+      assert.equal(cfg.verifyRanDirty, true, 'an unreadable end state is unknown, and unknown is not clean');
+      assert.match(stderr, /Could not read the git state at the end of this run/);
+      assert.doesNotMatch(stderr, /UNCOMMITTED/, 'an unreadable tree must not be reported as uncommitted changes');
+    } finally { cleanup(dir); }
+  });
+
+  it('git unreadable at the START of the run → still bound (to the end commit) as dirty, never silently unbound', () => {
+    const dir = tmpDir();
+    try {
+      const start = seedRunProject(dir, `fs.renameSync('.git-away', '.git');`);
+      fs.renameSync(path.join(dir, '.git'), path.join(dir, '.git-away'));
+      const stderr = runVerify(dir);
+      const cfg = loadConfig(dir);
+      assert.equal(cfg.verifyRanRef, start);
+      assert.equal(cfg.verifyRanDirty, true);
+      assert.equal(verifyRefFreshness(dir, cfg), 'dirty');
+      assert.match(stderr, /Could not read the git state at the start of this run/);
+    } finally { cleanup(dir); }
+  });
+
+  it('control: nothing changes during the run → ref = HEAD, clean, fresh, no move warning', () => {
+    const dir = tmpDir();
+    try {
+      const start = seedRunProject(dir, '');
+      const stderr = runVerify(dir);
+      const cfg = loadConfig(dir);
+      assert.equal(cfg.verifyRanRef, start);
+      assert.equal(cfg.verifyRanDirty, false);
+      assert.equal(verifyRefFreshness(dir, cfg), 'fresh');
+      assert.doesNotMatch(stderr, /HEAD moved/);
+    } finally { cleanup(dir); }
   });
 });

@@ -18,6 +18,18 @@ A mixed upgrade (some additive, some breaking) is always `— breaking` — the 
 
 ---
 
+## v2.2.0-rc.15 — 2026-09-11 — `.aitri#verifyRanRef` is the commit `verify-run` STARTED on; `verifyRanDirty` covers both ends of the run (VERIFY-REF-PRERUN-0911, ADR-085 Addendum 2) — additive
+
+No shape change, no new field. `verifyRanRef` used to be read after the runner, the e2e
+auto-run and the quality gates, so a commit made while `verify-run` was running was stamped
+as the certified commit although nothing ran against it. From rc.15 it is the HEAD read
+before any dispatch — the value now matches its documented meaning ("the code tree it
+certified"). `verifyRanDirty` is `true` when uncommitted behavioral changes existed at the
+start OR the end of the run, or when git could not be read at one of them (was: end only).
+Readers need no change. A reader deriving
+freshness from these fields may see `stale`/`dirty` where an older CLI's stamp read `fresh`
+— the older reading was the defect.
+
 ## v2.2.0-rc.14 — 2026-09-09 — `status --json` gains `bugs.active` / `bugs.fixed`; `BUGS.json` items gain `log[]`; `.aitri.local#sessionContext.stateAtSave` (BUG-STATE-VISIBLE-0909, ADR-091) — additive
 
 `status --json` → `bugs` (all optional for old readers):
