@@ -37,6 +37,7 @@ The interface, data model, and integration seams below are the approved contract
   - ✅ `TC-FE-001h`, `TC-API-USER-010f`, `TC-E2E-007e`
   - ❌ `TC-FE001h` (digits glued to namespace letter — verify-run cannot parse)
   - ❌ `TC-E01` (no separator between namespace and digits, no suffix — silently dropped to skipped_no_marker)
+- **Unique across the whole project.** A TC id may be planned by ONE pipeline only — the root or a single feature, compared case-insensitively. `aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3` refuses an id another pipeline already plans: verify-run credits results by TC id, and a shared test runner prints every pipeline's ids, so a duplicate would credit another pipeline's test to this TC. A feature gives its ids their own namespace (`TC-<FEATURE>-001h`).
 - **Gate**: `aitri {{SCOPE_VERB}}complete{{SCOPE_ARG}} 3` requires every FR to have ≥1 TC id ending in `h` and ≥1 ending in `f`
 
 ## Output: `{{ARTIFACTS_BASE}}/03_TEST_CASES.json`

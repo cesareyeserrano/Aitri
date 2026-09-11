@@ -6,6 +6,38 @@
 
 ---
 
+## [2.2.0-rc.16] — 2026-09-11 — TC ids are unique across the project: Phase 3 refuses an id another pipeline already plans, verify-run warns on older plans (TC-ID-COLLISION-0911, ADR-092) — canary
+
+Found while analyzing field feedback FB-VERIFY-ONCE-0911. `verify-run` credits a plan TC by its
+id alone, and a feature's runner often executes the whole repo (T-Ledger: 13 features share one
+`unit.sh`), so its output carries every pipeline's ids. Phase 3 only rejected duplicates inside
+one file. A feature planning `TC-001h` while the root also plans `TC-001h` got the root's test
+result: a pass while the feature's own test was missing, or a failure it never owned — silently.
+A read-only scan of four real projects found it live: in one, a feature records three TCs as
+`pass` ("…removed from chat.js", "lang-toggle references removed", "translation keys removed")
+credited by a sibling feature's same-id tests that assert unrelated things, while no test anywhere
+checks what those TCs describe. Another project carries 270 colliding ids across 14 of 16
+pipelines; two projects (T-Ledger among them) have none.
+
+- **`complete 3` refuses a TC id another pipeline of the project already plans** (root or any
+  feature; case-insensitive, matching verify-run's case fallback). The refusal names the other
+  pipeline and, in a feature, suggests a namespace from the feature name (`ciclos` →
+  `TC-CICLOS-001h`). `complete 3 --check` reports it too.
+- **`verify-run` warns (advisory)** when automated plan ids still collide — plans approved before
+  this gate are not walled; renaming routes through Phase 3.
+- `adopt --upgrade`'s validator pass (report-only) surfaces existing root-side collisions with
+  the rest of its validator findings.
+- One source: `lib/tc-collisions.js` enumerates the pipelines through the layout and reads each
+  plan tolerantly (a conflicted or malformed sibling is skipped — its own gates refuse it).
+- Briefing `templates/phases/tests.md` and `templates/AGENTS.md` state the rule. No schema change.
+
+Tests: `test/tc-collisions.test.js` — the finder (root/feature/sibling, case-insensitive ids,
+both layouts, tolerant reads, a feature dir typed in another case is still itself), the refusal
+through the real `complete 3` in feature and root scope and with `--check`, and the verify-run
+warning through the real command. Two adversarial findings folded before commit: a feature could
+collide with its own plan when its name was typed in a different case (self-identity is now
+device + inode), and the refusal was pinned only through `validate()`.
+
 ## [2.2.0-rc.15] — 2026-09-11 — a commit made while verify-run is running is no longer stamped as verified (VERIFY-REF-PRERUN-0911, ADR-085 Addendum 2) — canary
 
 Found while analyzing field feedback FB-VERIFY-ONCE-0911 (T-Ledger: a feature `verify-run`

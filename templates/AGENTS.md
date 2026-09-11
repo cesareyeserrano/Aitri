@@ -158,6 +158,7 @@ The bias toward "treat as feature" is intentional only for **behavioral** ambigu
 Features are independent sub-pipelines under `{{FEATURES_DIR}}/<name>/`. Each has its own `01_REQUIREMENTS.json`, tests, manifest, etc.
 
 - All feature commands prefix as `aitri feature <verb> <name> [<phase>]`. Examples: `aitri feature run-phase auth requirements`, `aitri feature approve auth 1`, `aitri feature verify-run auth`, `aitri feature audit auth requirements`.
+- **TC ids are unique across the project — the root and every feature.** A feature namespaces its TC ids (`TC-<FEATURE>-001h`). `complete 3` refuses an id another pipeline already plans, and `verify-run` warns about older plans that still share one: results are credited by TC id, and a shared test runner prints every pipeline's ids, so a shared id credits another pipeline's test.
 - **Commands that act on a feature's own data are feature-scoped — the name comes BEFORE the sub-verb:**
   - Manual TCs: `aitri feature tc <name> verify [<TC-ID> --result pass|fail --notes "..."]` (bare = guided checklist) and `aitri feature tc <name> mark-manual <TC-ID> [--reason "..."]`. An all-manual feature seeds + verifies exactly like the root (it will not pass `verify-complete` with zero verification).
   - Bugs: `aitri feature bug <name> <add|fix|verify|close|list> ...` — triages the feature's own `BUGS.json` (the same file `feature verify-complete` gates on).
